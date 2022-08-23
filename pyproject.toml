@@ -1,0 +1,20 @@
+[build-system]
+requires = [
+    "meson-python",
+    "setuptools>=45",
+    "setuptools_scm[toml]>=6.2",
+    "wheel",
+    "numpy",
+]
+build-backend =  "mesonpy"
+
+[project]
+name = "quaddtype"
+description = "Quad (128-bit) float dtype for numpy"
+version = "0.0.1"
+readme = 'README.md'
+author = "Peyton Murray"
+requires-python = ">=3.10.6"
+dependencies = [
+    "numpy"
+]
