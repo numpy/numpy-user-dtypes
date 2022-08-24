@@ -9,7 +9,35 @@
 
 #include "casts.h"
 #include "dtype.h"
-#include "scalar.h"
+
+
+
+/*
+ * Helper function also used elsewhere to make sure the unit is a unit.
+ *
+ * NOTE: Supports if `obj` is NULL (meaning nothing is passed on)
+ */
+int
+UnitConverter(PyObject *obj, PyObject **unit)
+{
+    static PyObject *get_unit = NULL;
+    if (NPY_UNLIKELY(get_unit == NULL)) {
+        PyObject *mod = PyImport_ImportModule("unitdtype._helpers");
+        if (mod == NULL) {
+            return 0;
+        }
+        get_unit = PyObject_GetAttrString(mod, "get_unit");
+        Py_DECREF(mod);
+        if (get_unit == NULL) {
+            return 0;
+        }
+    }
+    *unit = PyObject_CallFunctionObjArgs(get_unit, obj, NULL);
+    if (*unit == NULL) {
+        return 0;
+    }
+    return 1;
+}
 
 
 /*
@@ -20,13 +48,8 @@
  * -----
  * The current implementation here used `unyt.Unit.get_conversion_factor()`.
  * But wraps it into our little Python helper to have a fast LRU cache.
- * Internally, the units actually have a `base_offset` each, so I wonder if
- * conversion may not be better to be done using the formula:
  *
- *      converted = factor * (old - base_offset_old) + base_offset
- *
- * (or ratio as a word instead of factor).  Rather than finding a single offset
- * here.  (I assume speed is irrelevant, because offsets are rare.)
+ * This is functional, as a non-unit specialist, I am not sure this is ideal.
  */
 int
 get_conversion_factor(
@@ -102,6 +125,15 @@ get_conversion_factor(
 }
 
 
+/*
+ * And now the actual cast code!  Starting with the "resolver" which tells
+ * us about cast safety.
+ * Note also the `view_offset`!  It is a way for you to tell NumPy, that this
+ * cast does not require anything at all, but the cast can simply be done as
+ * a view.
+ * For `arr.astype()` it might mean returning a view (eventually, not yet).
+ * For ufuncs, it already means that they don't have to do a cast at all!
+ */
 static NPY_CASTING
 unit_to_unit_resolve_descriptors(
         PyObject *NPY_UNUSED(self),
@@ -121,8 +153,6 @@ unit_to_unit_resolve_descriptors(
         //       later.  Alternatively, we could allow auxdata=NULL disallowing
         //       passing of auxdata.  With the promise that it is never NULL
         //       if we follow up with using the loops.
-        //       (That would also avoid forcing the use of get_loop or similar
-        //       in the future, hmmmmm)
         if (get_conversion_factor(
                 ((UnitDTypeObject *)given_descrs[0])->unit,
                 ((UnitDTypeObject *)given_descrs[1])->unit,
@@ -145,91 +175,6 @@ unit_to_unit_resolve_descriptors(
 }
 
 
-/* Similar to the above, but used for double -> unit and unit -> double */
-static NPY_CASTING
-unit_to_double_resolve_descriptors(
-        PyObject *NPY_UNUSED(self),
-        PyArray_DTypeMeta *dtypes[2],
-        PyArray_Descr *given_descrs[2],
-        PyArray_Descr *loop_descrs[2],
-        npy_intp *view_offset)
-{
-    double factor = 1., offset = 0.;
-
-    if (get_conversion_factor(
-            ((UnitDTypeObject *)given_descrs[0])->unit, NULL,
-            &factor, &offset) < 0) {
-        return -1;
-    }
-
-    /*
-     * We use the knowledge that doubles have a singleton, note that we ignore
-     * the input here because byte-swapping may be necessary.
-     */
-    // TODO: Using `ensure_canonical` mechanism should be a bit better
-    //       (and may make a slight difference e.g. with metadata handling)
-    loop_descrs[1] = PyArray_GetDefaultDescr(dtypes[1]);
-    if (loop_descrs[1] == NULL) {
-        /* can't actually fail for double, but... */
-        return -1;
-    }
-    Py_INCREF(given_descrs[1]);
-    loop_descrs[1] = given_descrs[1];
-
-    if (factor == 1. && offset == 0) {
-        *view_offset = 0;
-        return NPY_SAFE_CASTING;
-    }
-    return NPY_SAME_KIND_CASTING;
-}
-
-
-static NPY_CASTING
-double_to_unit_resolve_descriptors(
-        PyObject *NPY_UNUSED(self),
-        PyArray_DTypeMeta *dtypes[2],
-        PyArray_Descr *given_descrs[2],
-        PyArray_Descr *loop_descrs[2],
-        npy_intp *view_offset)
-{
-    double factor = 1., offset = 0.;
-
-    /*
-     * We use the knowledge that doubles have a singleton, note that we ignore
-     * the input here because byte-swapping may be necessary.
-     */
-    // TODO: Using `ensure_canonical` mechanism should be a bit better
-    //       (and may make a slight difference e.g. with metadata handling)
-    loop_descrs[0] = PyArray_GetDefaultDescr(dtypes[0]);
-    if (loop_descrs[0] == NULL) {
-        /* can't actually fail for double, but... */
-        return -1;
-    }
-    if (given_descrs[1] == NULL) {
-        Py_INCREF(dtypes[1]->singleton);
-        loop_descrs[1] = dtypes[1]->singleton;
-        *view_offset = 0;
-        return NPY_SAFE_CASTING;
-    }
-
-    Py_INCREF(given_descrs[1]);
-    loop_descrs[1] = given_descrs[1];
-
-    if (get_conversion_factor(
-            NULL, ((UnitDTypeObject *)given_descrs[1])->unit,
-            &factor, &offset) < 0) {
-        Py_SETREF(loop_descrs[0], NULL);
-        Py_SETREF(loop_descrs[1], NULL);
-        return -1;
-    }
-    if (factor == 1. && offset == 0) {
-        *view_offset = 0;
-        return NPY_SAFE_CASTING;
-    }
-    return NPY_SAME_KIND_CASTING;
-}
-
-
 typedef struct {
     NpyAuxData base;
     double factor;
@@ -237,52 +182,32 @@ typedef struct {
 } conv_auxdata;
 
 
-#define CONV_AUXDATA_FREELIST_SIZE 5
-static int conv_auxdata_freenum = 0;
-static conv_auxdata *conv_auxdata_freelist[CONV_AUXDATA_FREELIST_SIZE] = {NULL};
-
-
 static void
 conv_auxdata_free(conv_auxdata *conv_auxdata)
 {
-    if (conv_auxdata_freenum < CONV_AUXDATA_FREELIST_SIZE) {
-        conv_auxdata_freelist[conv_auxdata_freenum] = conv_auxdata;
-    }
-    else {
-        PyMem_Free(conv_auxdata);
-    }
+    PyMem_Free(conv_auxdata);
 }
 
 
 /*
- * Get the conversion factor.  We reuse the function also for double->unit
- * and unit->double casts.
- *
- * This function checks whether the input is a unit dtype.  If not, it assumes
- * a dimensionless, unscaled input for that dtype.
+ * Get the conversion factor and offset for conversion between units and
+ * store it into "auxdata" for the strided-loop!
  */
 static conv_auxdata *
 get_conv_factor_auxdata(PyArray_Descr *from_dt, PyArray_Descr *to_dt)
 {
-    conv_auxdata *res;
-    if (conv_auxdata_freenum > 0) {
-        conv_auxdata_freenum--;
-        res = conv_auxdata_freelist[conv_auxdata_freenum];
+    conv_auxdata * res = PyMem_Calloc(1, sizeof(conv_auxdata));
+    if (res < 0) {
+        PyErr_NoMemory();
+        return NULL;
     }
-    else {
-        res = PyMem_Calloc(1, sizeof(conv_auxdata));
-        if (res < 0) {
-            PyErr_NoMemory();
-            return NULL;
-        }
-        res->base.free = (void *)conv_auxdata_free;
-    }
+    res->base.free = (void *)conv_auxdata_free;
 
     PyObject *from_unit = NULL, *to_unit = NULL;
-    if (Py_TYPE(from_dt) == (PyTypeObject *)&UnitDType_Type) {
+    if (Py_TYPE(from_dt) == (PyTypeObject *)&UnitDType) {
         from_unit = ((UnitDTypeObject *)from_dt)->unit;
     }
-    if (Py_TYPE(to_dt) == (PyTypeObject *)&UnitDType_Type) {
+    if (Py_TYPE(to_dt) == (PyTypeObject *)&UnitDType) {
         to_unit = ((UnitDTypeObject *)to_dt)->unit;
     }
 
@@ -295,7 +220,15 @@ get_conv_factor_auxdata(PyArray_Descr *from_dt, PyArray_Descr *to_dt)
 }
 
 
-static __attribute__((optimize("O3"))) __attribute__((optimize("unroll-loops"))) int
+/*
+ * This is the strided loop.  We could just have one and keep it simple, but
+ * having multiple can optimize things!
+ * We could also add:
+ * __attribute__((optimize("O3"))) __attribute__((optimize("unroll-loops")))
+ *
+ * But not doing it here for easier compatibility between compilers.
+ */
+static int
 unit_to_unit_contiguous_no_offset(PyArrayMethod_Context *NPY_UNUSED(context),
         char *const data[], npy_intp const dimensions[],
         npy_intp const NPY_UNUSED(strides[]), conv_auxdata *auxdata)
@@ -314,7 +247,7 @@ unit_to_unit_contiguous_no_offset(PyArrayMethod_Context *NPY_UNUSED(context),
 }
 
 
-static __attribute__((optimize("O3"))) int
+static int
 unit_to_unit_strided_no_offset(PyArrayMethod_Context *NPY_UNUSED(context),
         char *const data[], npy_intp const dimensions[],
         npy_intp const strides[], conv_auxdata *auxdata)
@@ -335,7 +268,7 @@ unit_to_unit_strided_no_offset(PyArrayMethod_Context *NPY_UNUSED(context),
 }
 
 
-static __attribute__((optimize("O3"))) __attribute__((optimize("unroll-loops"))) int
+static int
 unit_to_unit_contiguous_offset(PyArrayMethod_Context *NPY_UNUSED(context),
         char *const data[], npy_intp const dimensions[],
         npy_intp const NPY_UNUSED(strides[]), conv_auxdata *auxdata)
@@ -355,7 +288,7 @@ unit_to_unit_contiguous_offset(PyArrayMethod_Context *NPY_UNUSED(context),
 }
 
 
-static __attribute__((optimize("O3"))) int
+static int
 unit_to_unit_strided_offset(PyArrayMethod_Context *NPY_UNUSED(context),
         char *const data[], npy_intp const dimensions[],
         npy_intp const strides[], conv_auxdata *auxdata)
@@ -377,7 +310,7 @@ unit_to_unit_strided_offset(PyArrayMethod_Context *NPY_UNUSED(context),
 }
 
 
-static __attribute__((optimize("O3"))) int
+static int
 unit_to_unit_unaligned(PyArrayMethod_Context *NPY_UNUSED(context),
         char *const data[], npy_intp const dimensions[],
         npy_intp const strides[], conv_auxdata *auxdata)
@@ -405,9 +338,6 @@ unit_to_unit_unaligned(PyArrayMethod_Context *NPY_UNUSED(context),
 // TODO: This still needs to make public officially.  I don't like the API
 //       but OTOH, wrapping things into that API is probably OKish...
 //       (i.e. we can still introduce better API, nothing stopping us :))
-// TODO: I use this also for double -> unit and unit -> double casts, but
-//       normally, the factor will be 1 there, so we should special case that
-//       one (it is just a memcpy in the contiguous case).
 static int
 unit_to_unit_get_loop(
         PyArrayMethod_Context *context,
@@ -447,6 +377,10 @@ unit_to_unit_get_loop(
 }
 
 
+/*
+ * NumPy currently allows NULL for the own DType/"cls".  For other DTypes
+ * we would have to fill it in here:
+ */
 static PyArray_DTypeMeta *u2u_dtypes[2] = {NULL, NULL};
 
 static PyType_Slot u2u_slots[] = {
@@ -457,7 +391,7 @@ static PyType_Slot u2u_slots[] = {
 
 
 PyArrayMethod_Spec UnitToUnitCastSpec = {
-    .name = "cast_Float64Unit_to_Float64Unit",
+    .name = "cast_UnitDType_to_UnitDType",
     .nin = 1,
     .nout = 1,
     .flags = NPY_METH_SUPPORTS_UNALIGNED,
@@ -466,109 +400,3 @@ PyArrayMethod_Spec UnitToUnitCastSpec = {
     .slots = u2u_slots,
 };
 
-
-/*
- * dtypes has to be filled in after initialization unfortunately.
- *
- * TODO: The Python C-API tries to pass such fields always as a function
- *       argument rather than as part of the spec.  We could try to adopt that
- *       style (at least to some degree).
- */
-static PyArray_DTypeMeta *d2u_dtypes[2] = {NULL, NULL};
-
-static PyType_Slot d2u_slots[] = {
-        {NPY_METH_resolve_descriptors, &double_to_unit_resolve_descriptors},
-        /* The unit_to_unit_get_loop is written to be compatible: */
-        {_NPY_METH_get_loop, &unit_to_unit_get_loop},
-        {0, NULL}
-};
-
-PyArrayMethod_Spec DoubleToUnitCastSpec = {
-        .name = "cast_Double_to_Float64Unit",
-        .nin = 1,
-        .nout = 1,
-        .flags = NPY_METH_SUPPORTS_UNALIGNED,
-        .casting = NPY_SAME_KIND_CASTING,
-        .dtypes = d2u_dtypes,
-        .slots = d2u_slots,
-};
-
-
-static PyArray_DTypeMeta *u2d_dtypes[2] = {NULL, NULL};
-
-static PyType_Slot u2d_slots[] = {
-        {NPY_METH_resolve_descriptors, &unit_to_double_resolve_descriptors},
-        /* The unit_to_unit_get_loop is written to be compatible: */
-        {_NPY_METH_get_loop, &unit_to_unit_get_loop},
-        {0, NULL}
-};
-
-PyArrayMethod_Spec UnitToDoubleCastSpec = {
-        .name = "cast_Float64Unit_to_Double",
-        .nin = 1,
-        .nout = 1,
-        .flags = NPY_METH_SUPPORTS_UNALIGNED,
-        .casting = NPY_SAME_KIND_CASTING,
-        .dtypes = u2d_dtypes,
-        .slots = u2d_slots,
-};
-
-
-/*
- * Simple boolean casts.  Note this ignores the unit, so 0 Celsius is False
- * and 0 Fahrenheit is also False but both are True if converted.
- */
-static __attribute__((optimize("O3"))) __attribute__((optimize("unroll-loops"))) int
-unit_to_bool_contiguous(PyArrayMethod_Context *NPY_UNUSED(context),
-        char *const data[], npy_intp const dimensions[],
-        npy_intp const NPY_UNUSED(strides[]), NpyAuxData *NPY_UNUSED(auxdata))
-{
-    npy_intp N = dimensions[0];
-    double *in = (double *)data[0];
-    npy_bool *out = (npy_bool *)data[1];
-
-    while (N--) {
-        *out = *in != 0.;
-        out++;
-        in++;
-    }
-    return 0;
-}
-
-static __attribute__((optimize("O3"))) int
-unit_to_bool_strided(PyArrayMethod_Context *NPY_UNUSED(context),
-        char *const data[], npy_intp const dimensions[],
-        npy_intp const strides[], NpyAuxData *NPY_UNUSED(auxdata))
-{
-    npy_intp N = dimensions[0];
-    char *in = data[0];
-    char *out = data[1];
-    npy_intp in_stride = strides[0];
-    npy_intp out_stride = strides[1];
-
-    while (N--) {
-        *(npy_bool *)out = *(double *)in != 0.;
-        out += in_stride;
-        in += out_stride;
-    }
-    return 0;
-}
-
-
-static PyArray_DTypeMeta *u2b_dtypes[2] = {NULL, NULL};
-
-static PyType_Slot u2b_slots[] = {
-        {NPY_METH_contiguous_loop, &unit_to_bool_contiguous},
-        /* The unit_to_unit_get_loop is written to be compatible: */
-        {NPY_METH_strided_loop, &unit_to_bool_strided},
-        {0, NULL}
-};
-
-PyArrayMethod_Spec UnitToBoolCastSpec = {
-        .name = "cast_Float64Unit_to_Bool",
-        .nin = 1,
-        .nout = 1,
-        .casting = NPY_UNSAFE_CASTING,
-        .dtypes = u2b_dtypes,
-        .slots = u2b_slots,
-};

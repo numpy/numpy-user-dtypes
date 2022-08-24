@@ -7,7 +7,11 @@ typedef struct {
     PyObject *unit;
 } UnitDTypeObject;
 
-extern PyArray_DTypeMeta UnitDType_Type;
+int
+UnitConverter(PyObject *obj, PyObject **unit);
+
+extern PyArray_DTypeMeta UnitDType;
+extern PyObject *QuantityScalar_Type;
 
 UnitDTypeObject *
 new_unitdtype_instance(PyObject *unit);

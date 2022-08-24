@@ -14,8 +14,17 @@ incdir_numpy = run_command(py,
   check: true
 ).stdout().strip()
 
+incdir_python = run_command(py,
+  [
+    '-c',
+    'import sysconfig; sysconfig.get_path("include")'
+  ],
+  check: true
+).stdout().strip()
+
 includes = include_directories(
   [
+    incdir_python,
     incdir_numpy,
     'quaddtype/src'
   ]
@@ -24,9 +33,8 @@ includes = include_directories(
 srcs = [
   'quaddtype/src/casts.c',
   'quaddtype/src/dtype.c',
-  'quaddtype/src/scalar.c',
   'quaddtype/src/umath.c',
-  'quaddtype/src/unitdtype_main.c',
+  'quaddtype/src/quaddtype_main.c',
 ]
 
 py.extension_module(

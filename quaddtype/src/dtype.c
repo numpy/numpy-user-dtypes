@@ -7,9 +7,43 @@
 #include "numpy/ndarraytypes.h"
 #include "numpy/experimental_dtype_api.h"
 
-#include "scalar.h"
 #include "casts.h"
 #include "dtype.h"
+
+
+PyObject *QuantityScalar_Type = NULL;
+
+/*
+ * `get_value` and `get_unit` are small helpers to deal with the scalar.
+ */
+static double
+get_value(PyObject *scalar) {
+    if (Py_TYPE(scalar) != QuantityScalar_Type) {
+        PyErr_SetString(PyExc_TypeError,
+                "Can only store QuantityScalar in a UnitDType array.");
+        return -1;
+    }
+
+    PyObject *value = PyObject_GetAttrString(scalar, "value");
+    if (value == NULL) {
+        return -1;
+    }
+    double res = PyFloat_AsDouble(value);
+    Py_DECREF(value);
+    return res;
+}
+
+
+static PyObject *
+get_unit(PyObject *scalar) {
+    if (Py_TYPE(scalar) != QuantityScalar_Type) {
+        PyErr_SetString(PyExc_TypeError,
+                "Can only store QuantityScalar in a UnitDType array.");
+        return NULL;
+    }
+
+    return PyObject_GetAttrString(scalar, "unit");
+}
 
 
 /*
@@ -20,7 +54,7 @@ new_unitdtype_instance(PyObject *unit)
 {
     UnitDTypeObject *new = (UnitDTypeObject *)PyArrayDescr_Type.tp_new(
             /* TODO: Using NULL for args here works, but seems not clean? */
-            (PyTypeObject *)&UnitDType_Type, NULL, NULL);
+            (PyTypeObject *)&UnitDType, NULL, NULL);
     if (new == NULL) {
         return NULL;
     }
@@ -89,12 +123,16 @@ static PyArray_Descr *
 unit_discover_descriptor_from_pyobject(
         PyArray_DTypeMeta *NPY_UNUSED(cls), PyObject *obj)
 {
-    if (Py_TYPE(obj) != &QuantityScalar_Type) {
+    if (Py_TYPE(obj) != QuantityScalar_Type) {
         PyErr_SetString(PyExc_TypeError,
-                "Can only store QuantityScalar in a Float64Unit array.");
+                "Can only store QuantityScalar in a UnitDType array.");
         return NULL;
     }
-    return (PyArray_Descr *)new_unitdtype_instance(((QuantityScalarObject *)obj)->unit);
+    PyObject *unit = get_unit(obj);
+    if (unit == NULL) {
+        return NULL;
+    }
+    return (PyArray_Descr *)new_unitdtype_instance(unit);
 }
 
 
@@ -113,13 +151,14 @@ unit_discover_descriptor_from_pyobject(
 static int
 unit_setitem(UnitDTypeObject *descr, PyObject *obj, char *dataptr)
 {
-    if (Py_TYPE(obj) != &QuantityScalar_Type) {
-        PyErr_SetString(PyExc_TypeError,
-                "Can only store QuantityScalar in a Float64Unit array.");
+    double value = get_value(obj);
+    if (value == -1 && PyErr_Occurred()) {
         return -1;
     }
-    double value = ((QuantityScalarObject *)obj)->value;
-    PyObject *unit = ((QuantityScalarObject *)obj)->unit;
+    PyObject *unit = get_unit(obj);
+    if (unit == NULL) {
+        return -1;
+    }
 
     double factor, offset;
     if (get_conversion_factor(unit, descr->unit, &factor, &offset) < 0) {
@@ -142,16 +181,19 @@ unit_setitem(UnitDTypeObject *descr, PyObject *obj, char *dataptr)
 static PyObject *
 unit_getitem(UnitDTypeObject *descr, char *dataptr)
 {
-    // TODO: should create and use a helper for this.
-    QuantityScalarObject *new = PyObject_New(
-            QuantityScalarObject, &QuantityScalar_Type);
-    if (new == NULL) {
+    double val;
+    /* get the value */
+    memcpy(&val, dataptr, sizeof(double));
+
+    PyObject *val_obj = PyFloat_FromDouble(val);
+    if (val_obj == NULL) {
         return NULL;
     }
-    memcpy(&new->value, dataptr, sizeof(double));
-    Py_INCREF(descr->unit);
-    new->unit = descr->unit;
-    return (PyObject *)new;
+
+    PyObject *res = PyObject_CallFunctionObjArgs(
+            QuantityScalar_Type, val_obj, descr->unit, NULL);
+    Py_DECREF(val_obj);
+    return res;
 }
 
 
@@ -159,6 +201,7 @@ static PyType_Slot UnitDType_Slots[] = {
     {NPY_DT_common_instance, &common_instance},
     {NPY_DT_common_dtype, &common_dtype},
     {NPY_DT_discover_descr_from_pyobject, &unit_discover_descriptor_from_pyobject},
+    /* The header is wrong on main :(, so we add 1 */
     {NPY_DT_setitem, &unit_setitem},
     {NPY_DT_getitem, &unit_getitem},
     {0, NULL}
@@ -181,7 +224,7 @@ unitdtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwds)
     PyObject *unit = NULL;
 
     if (!PyArg_ParseTupleAndKeywords(
-            args, kwds, "|O&:Float64Unit", kwargs_strs,
+            args, kwds, "|O&:UntDType", kwargs_strs,
             &UnitConverter, &unit)) {
         return NULL;
     }
@@ -209,14 +252,20 @@ static PyObject *
 unitdtype_repr(UnitDTypeObject *self)
 {
     PyObject *res = PyUnicode_FromFormat(
-            "Float64Unit(%R)", self->unit);
+            "UnitDType(%R)", self->unit);
     return res;
 }
 
 
-PyArray_DTypeMeta UnitDType_Type = {{{
+/*
+ * This is the basic things that you need to create a Python Type/Class in C.
+ * However, there is a slight difference here because we create a
+ * PyArray_DTypeMeta, which is a larger struct than a typical type.
+ * (This should get a bit nicer eventually with Python >3.11.)
+ */
+PyArray_DTypeMeta UnitDType = {{{
         PyVarObject_HEAD_INIT(NULL, 0)
-        .tp_name = "unitdtype.Float64Unit",
+        .tp_name = "unitdtype.UnitDType",
         .tp_basicsize = sizeof(UnitDTypeObject),
         .tp_new = unitdtype_new,
         .tp_dealloc = (destructor)unitdtype_dealloc,
@@ -230,76 +279,32 @@ PyArray_DTypeMeta UnitDType_Type = {{{
 int
 init_unit_dtype(void)
 {
+    /*
+     * To create our DType, we have to use a "Spec" that tells NumPy how to
+     * do it.  You first have to create a static type, but see the note there!
+     */
     PyArrayMethod_Spec *casts[] = {
             &UnitToUnitCastSpec,
-            &UnitToBoolCastSpec, &BoolToUnitCastSpec,
-            /* units */
-            &UnitToUByteCastSpec, &UByteToUnitCastSpec,
-            &UnitToUShortCastSpec, &UShortToUnitCastSpec,
-            &UnitToUIntCastSpec, &UIntToUnitCastSpec,
-            &UnitToULongCastSpec, &ULongToUnitCastSpec,
-            &UnitToULongLongCastSpec, &ULongLongToUnitCastSpec,
-            /* ints */
-            &UnitToByteCastSpec, &ByteToUnitCastSpec,
-            &UnitToShortCastSpec, &ShortToUnitCastSpec,
-            &UnitToIntCastSpec, &IntToUnitCastSpec,
-            &UnitToLongCastSpec, &LongToUnitCastSpec,
-            &UnitToLongLongCastSpec, &LongLongToUnitCastSpec,
-            /* floats */
-            &UnitToFloatCastSpec, &FloatToUnitCastSpec,
-            &UnitToDoubleCastSpec, &DoubleToUnitCastSpec,
             NULL};
-    /*
-     * The registration machinery is OK with NULL being the new DType, but
-     * the other DType is dynamic information we cannot hardcode unfortunately:
-     */
-    UnitToBoolCastSpec.dtypes[1] = &PyArray_BoolDType;
-    BoolToUnitCastSpec.dtypes[0] = &PyArray_BoolDType;
-
-    UnitToUByteCastSpec.dtypes[1] = &PyArray_UByteDType;
-    UByteToUnitCastSpec.dtypes[0] = &PyArray_UByteDType;
-    UnitToUShortCastSpec.dtypes[1] = &PyArray_UShortDType;
-    UShortToUnitCastSpec.dtypes[0] = &PyArray_UShortDType;
-    UnitToUIntCastSpec.dtypes[1] = &PyArray_UIntDType;
-    UIntToUnitCastSpec.dtypes[0] = &PyArray_UIntDType;
-    UnitToULongCastSpec.dtypes[1] = &PyArray_ULongDType;
-    ULongToUnitCastSpec.dtypes[0] = &PyArray_ULongDType;
-    UnitToULongLongCastSpec.dtypes[1] = &PyArray_ULongLongDType;
-    ULongLongToUnitCastSpec.dtypes[0] = &PyArray_ULongLongDType;
-
-    UnitToByteCastSpec.dtypes[1] = &PyArray_ByteDType;
-    ByteToUnitCastSpec.dtypes[0] = &PyArray_ByteDType;
-    UnitToShortCastSpec.dtypes[1] = &PyArray_ShortDType;
-    ShortToUnitCastSpec.dtypes[0] = &PyArray_ShortDType;
-    UnitToIntCastSpec.dtypes[1] = &PyArray_IntDType;
-    IntToUnitCastSpec.dtypes[0] = &PyArray_IntDType;
-    UnitToLongCastSpec.dtypes[1] = &PyArray_LongDType;
-    LongToUnitCastSpec.dtypes[0] = &PyArray_LongDType;
-    UnitToLongLongCastSpec.dtypes[1] = &PyArray_LongLongDType;
-    LongLongToUnitCastSpec.dtypes[0] = &PyArray_LongLongDType;
-
-    UnitToFloatCastSpec.dtypes[1] = &PyArray_FloatDType;
-    FloatToUnitCastSpec.dtypes[0] = &PyArray_FloatDType;
-    UnitToDoubleCastSpec.dtypes[1] = &PyArray_DoubleDType;
-    DoubleToUnitCastSpec.dtypes[0] = &PyArray_DoubleDType;
 
     PyArrayDTypeMeta_Spec UnitDType_DTypeSpec = {
             .flags = NPY_DT_PARAMETRIC,
             .casts = casts,
-            .typeobj = &QuantityScalar_Type,
+            .typeobj = QuantityScalar_Type,
             .slots = UnitDType_Slots,
     };
-
-    ((PyObject *)&UnitDType_Type)->ob_type = &PyArrayDTypeMeta_Type;
-    ((PyTypeObject *)&UnitDType_Type)->tp_base = &PyArrayDescr_Type;
-    if (PyType_Ready((PyTypeObject *)&UnitDType_Type) < 0) {
+    /* Loaded dynamically, so may need to be set here: */
+    ((PyObject *)&UnitDType)->ob_type = &PyArrayDTypeMeta_Type;
+    ((PyTypeObject *)&UnitDType)->tp_base = &PyArrayDescr_Type;
+    if (PyType_Ready((PyTypeObject *)&UnitDType) < 0) {
         return -1;
     }
 
     if (PyArrayInitDTypeMeta_FromSpec(
-            &UnitDType_Type, &UnitDType_DTypeSpec) < 0) {
+            &UnitDType, &UnitDType_DTypeSpec) < 0) {
         return -1;
     }
+
     /*
      * Ensure that `singleton` is filled in (we rely on that).  It is possible
      * to provide a custom `default_descr`, but it is filled in automatically
@@ -310,7 +315,7 @@ init_unit_dtype(void)
      * TODO: Consider flipping this around, so that if you need a new one
      *       each time, you have to provide a custom `default_descr`.
      */
-    UnitDType_Type.singleton = PyArray_GetDefaultDescr(&UnitDType_Type);
+    UnitDType.singleton = PyArray_GetDefaultDescr(&UnitDType);
 
     return 0;
 }

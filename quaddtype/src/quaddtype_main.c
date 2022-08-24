@@ -1,23 +1,23 @@
 #include <Python.h>
 
-#define PY_ARRAY_UNIQUE_SYMBOL unitdtype_ARRAY_API
+#define PY_ARRAY_UNIQUE_SYMBOL quaddtype_ARRAY_API
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include "numpy/arrayobject.h"
 #include "numpy/experimental_dtype_api.h"
 
-#include "scalar.h"
 #include "dtype.h"
 #include "umath.h"
 
 
 static struct PyModuleDef moduledef = {
     PyModuleDef_HEAD_INIT,
-    .m_name = "unitdtype_main",
+    .m_name = "quaddtype_main",
     .m_size = -1,
 };
 
+
 /* Module initialization function */
-PyMODINIT_FUNC PyInit__unitdtype_main(void)
+PyMODINIT_FUNC PyInit__quaddtype_main(void)
 {
     if (_import_array() < 0) {
         return NULL;
@@ -31,12 +31,14 @@ PyMODINIT_FUNC PyInit__unitdtype_main(void)
         return NULL;
     }
 
-    if (PyType_Ready((PyTypeObject *)&QuantityScalar_Type) < 0) {
+
+    PyObject *mod = PyImport_ImportModule("quaddtype");
+    if (mod == NULL) {
         goto error;
     }
-
-    if (PyModule_AddObject(m,
-            "QuantityScalar", (PyObject *)&QuantityScalar_Type) < 0) {
+    QuantityScalar_Type = PyObject_GetAttrString(mod, "QuantityScalar");
+    Py_DECREF(mod);
+    if (QuantityScalar_Type == NULL) {
         goto error;
     }
 
@@ -45,11 +47,11 @@ PyMODINIT_FUNC PyInit__unitdtype_main(void)
     }
 
     if (PyModule_AddObject(m,
-            "Float64Unit", (PyObject *)&UnitDType_Type) < 0) {
+            "quaddtype", (PyObject *)&quaddtype) < 0) {
         goto error;
     }
 
-    if (init_wrapped_ufuncs() < 0) {
+    if (init_multiply_ufunc() < 0) {
         goto error;
     }
 
