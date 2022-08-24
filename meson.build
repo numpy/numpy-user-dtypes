@@ -6,8 +6,6 @@ project(
 py_mod = import('python')
 py = py_mod.find_installation()
 
-cc = meson.get_compiler('c')
-
 incdir_numpy = run_command(py,
   [
     '-c',
@@ -16,7 +14,12 @@ incdir_numpy = run_command(py,
   check: true
 ).stdout().strip()
 
-inc_np = include_directories(incdir_numpy)
+includes = include_directories(
+  [
+    incdir_numpy,
+    'quaddtype/src'
+  ]
+)
 
 srcs = [
   'quaddtype/src/casts.c',
@@ -30,5 +33,5 @@ py.extension_module(
   'quaddtype',
   srcs,
   install: true,
-  include_directories: inc_np
+  include_directories: includes
 )
