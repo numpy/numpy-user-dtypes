@@ -6,7 +6,6 @@
 #include "numpy/experimental_dtype_api.h"
 
 #include "dtype.h"
-#include "umath.h"
 
 
 static struct PyModuleDef moduledef = {
@@ -36,22 +35,15 @@ PyMODINIT_FUNC PyInit__quaddtype_main(void)
     if (mod == NULL) {
         goto error;
     }
-    QuantityScalar_Type = PyObject_GetAttrString(mod, "QuantityScalar");
-    Py_DECREF(mod);
-    if (QuantityScalar_Type == NULL) {
-        goto error;
-    }
 
-    if (init_unit_dtype() < 0) {
-        goto error;
-    }
+    Py_DECREF(mod);
+
+    // if (init_unit_dtype() < 0) {
+    //     goto error;
+    // }
 
     if (PyModule_AddObject(m,
-            "quaddtype", (PyObject *)&quaddtype) < 0) {
-        goto error;
-    }
-
-    if (init_multiply_ufunc() < 0) {
+            "quaddtype", (PyObject *)&QuadDType) < 0) {
         goto error;
     }
 
