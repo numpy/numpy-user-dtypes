@@ -66,6 +66,17 @@
 //     return new;
 // }
 
+QuadDTypeObject * new_quaddtype_instance() {
+    QuadDTypeObject *new = (QuadDTypeObject *)PyArrayDescr_Type.tp_new(
+        (PyTypeObject *)&QuadDType, NULL, NULL
+    );
+    if (new == NULL) return NULL;
+
+    new->base.elsize = sizeof(double);
+    new->base.alignment = _Alignof(double);
+    return new;
+}
+
 
 /*
  * For now, give the more precise unit as the "common" one, but just bail and
@@ -188,16 +199,11 @@
 //     return res;
 // }
 
-// Take an item and put a copy into the array
+// Take an python double and put a copy into the array
 static int quad_setitem(QuadDTypeObject *descr, PyObject *obj, char *dataptr) {
-
-    double *value = PyObject_GetAttrString(obj, "value");
-
-    if (value == NULL) return -1;
-
-    double res = PyFloat_AsDouble(value);
-    Py_DECREF(value);
-    return res;
+    double val = PyFloat_AsDouble(obj);
+    memcpy(dataptr, &val, sizeof(double));
+    return 0;
 }
 
 static PyObject * quad_getitem(QuadDTypeObject *descr, char *dataptr) {
@@ -209,11 +215,8 @@ static PyObject * quad_getitem(QuadDTypeObject *descr, char *dataptr) {
         return NULL;
     }
 
-    PyObject *res = PyObject_CallFunctionObjArgs(
-
-    )
-    Py_DECREF(value);
-    return res;
+    Py_DECREF(val_obj); // Why decrement this pointer? Shouldn't this be Py_INCREF?
+    return val_obj;
 }
 
 static PyType_Slot QuadDType_Slots[] = {
@@ -257,6 +260,18 @@ static PyObject * unitdtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, P
     return res;
 }
 
+static PyObject *quaddtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwargs) {
+
+    static char *kwargs_strs[] = {};
+
+    QuadDTypeObject *new = (QuadDTypeObject *)PyArrayDescr_Type.tp_new(
+        (PyTypeObject *)&QuadDType, NULL, NULL
+    );
+
+    if (new == NULL) return NULL;
+
+}
+
 
 static void unitdtype_dealloc(QuadDTypeObject *self)
 {
@@ -283,7 +298,7 @@ PyArray_DTypeMeta QuadDType = {
     {
         {
             PyVarObject_HEAD_INIT(NULL, 0)
-            .tp_name = "unitdtype.QuadDType",
+            .tp_name = "quaddtype.QuadDType",
             .tp_basicsize = sizeof(QuadDTypeObject),
             .tp_new = unitdtype_new,
             .tp_dealloc = (destructor)unitdtype_dealloc,

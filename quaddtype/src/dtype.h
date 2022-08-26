@@ -8,13 +8,10 @@
 
 typedef struct {
     PyArray_Descr base;
-    PyObject *unit;
 } QuadDTypeObject;
 
 extern PyArray_DTypeMeta QuadDType;
 
-QuadDTypeObject * new_quaddtype_instance(PyObject *unit);
-
-// int init_unit_dtype(void);
+QuadDTypeObject * new_quaddtype_instance();
 
 #endif  /*_NPY_DTYPE_H*/
