@@ -41,9 +41,35 @@ static PyObject *quad_getitem(QuadDTypeObject *descr, char *dataptr) {
     return val_obj;
 }
 
+static QuadDTypeObject *common_instance(QuadDTypeObject *obj1, QuadDTypeObject obj2) {
+    return obj1;
+}
+
+// I guess this should return a 256-bit float dtype? Since this isn't natively supported by any
+// platform, just return another 128-bit float dtype.
+static PyArray_DTypeMeta *common_dtype(PyArray_DTypeMeta *obj1, PyArray_DTypeMeta *obj2) {
+    /*
+     * Typenum is useful for NumPy, but there it can still be convenient.
+     * (New-style user dtypes will probably get -1 as type number...)
+     */
+    if (obj2->type_num >= 0
+            && PyTypeNum_ISNUMBER(obj2->type_num)
+            && !PyTypeNum_ISCOMPLEX(obj2->type_num)
+            && obj2 != &PyArray_LongDoubleDType) {
+        /*
+         * A (simple) builtin numeric type that is not a complex or longdouble
+         * will always promote to the Double Unit (cls).
+         */
+        Py_INCREF(obj1);
+        return obj1;
+    }
+    Py_INCREF(Py_NotImplemented);
+    return (PyArray_DTypeMeta *)Py_NotImplemented;
+}
+
 static PyType_Slot QuadDType_Slots[] = {
-    // {NPY_DT_common_instance, &common_instance},
-    // {NPY_DT_common_dtype, &common_dtype},
+    {NPY_DT_common_instance, &common_instance},
+    {NPY_DT_common_dtype, &common_dtype},
     // {NPY_DT_discover_descr_from_pyobject, &unit_discover_descriptor_from_pyobject},
     /* The header is wrong on main :(, so we add 1 */
     {NPY_DT_setitem, &quad_setitem},
