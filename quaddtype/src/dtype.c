@@ -16,23 +16,23 @@ QuadDTypeObject * new_quaddtype_instance(void) {
     );
     if (new == NULL) return NULL;
 
-    new->base.elsize = sizeof(double);
-    new->base.alignment = _Alignof(double);
+    new->base.elsize = sizeof(__float128);
+    new->base.alignment = _Alignof(__float128);
     return new;
 }
 
 // Take an python double and put a copy into the array
 static int quad_setitem(QuadDTypeObject *descr, PyObject *obj, char *dataptr) {
-    double val = PyFloat_AsDouble(obj);
-    memcpy(dataptr, &val, sizeof(double));
+    __float128 val = (__float128)PyFloat_AsDouble(obj);
+    memcpy(dataptr, &val, sizeof(__float128));
     return 0;
 }
 
 static PyObject *quad_getitem(QuadDTypeObject *descr, char *dataptr) {
-    double val;
-    memcpy(&val, dataptr, sizeof(double));
+    __float128 val;
+    memcpy(&val, dataptr, sizeof(__float128));
 
-    PyObject *val_obj = PyFloat_FromDouble(val);
+    PyObject *val_obj = PyFloat_FromDouble((double)val);
     if (val_obj == NULL) {
         return NULL;
     }
