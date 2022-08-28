@@ -35,9 +35,17 @@ srcs = [
   'quaddtype/src/quaddtype_main.c',
 ]
 
+py.install_sources(
+  [
+    'quaddtype/__init__.py'
+  ],
+  subdir: 'quaddtype'
+)
+
 py.extension_module(
-  'quaddtype',
+  '_quaddtype_main',
   srcs,
   install: true,
+  subdir: 'quaddtype',
   include_directories: includes
 )

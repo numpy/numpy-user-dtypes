@@ -11,6 +11,7 @@
 static struct PyModuleDef moduledef = {
     PyModuleDef_HEAD_INIT,
     .m_name = "quaddtype_main",
+    .m_doc = "Quad (128-bit) floating point experimental numpy dtype",
     .m_size = -1,
 };
 
@@ -21,7 +22,8 @@ PyMODINIT_FUNC PyInit__quaddtype_main(void)
     if (_import_array() < 0) {
         return NULL;
     }
-    if (import_experimental_dtype_api(5) < 0) {
+    if (import_experimental_dtype_api(4) < 0) {
+    // if (import_experimental_dtype_api(5) < 0) {
         return NULL;
     }
 
@@ -38,12 +40,11 @@ PyMODINIT_FUNC PyInit__quaddtype_main(void)
 
     Py_DECREF(mod);
 
-    // if (init_unit_dtype() < 0) {
-    //     goto error;
-    // }
+    if (init_quad_dtype() < 0) {
+        goto error;
+    }
 
-    if (PyModule_AddObject(m,
-            "quaddtype", (PyObject *)&QuadDType) < 0) {
+    if (PyModule_AddObject(m, "quaddtype", (PyObject *)&QuadDType) < 0) {
         goto error;
     }
 

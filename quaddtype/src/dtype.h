@@ -12,6 +12,7 @@ typedef struct {
 
 extern PyArray_DTypeMeta QuadDType;
 
-QuadDTypeObject * new_quaddtype_instance();
+QuadDTypeObject * new_quaddtype_instance(void);
+int init_quad_dtype(void);
 
 #endif  /*_NPY_DTYPE_H*/

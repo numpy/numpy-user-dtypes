@@ -1,6 +1,6 @@
 #include <Python.h>
 
-#define PY_ARRAY_UNIQUE_SYMBOL unitdtype_ARRAY_API
+#define PY_ARRAY_UNIQUE_SYMBOL quaddtype_ARRAY_API
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #define NO_IMPORT_ARRAY
 #include "numpy/arrayobject.h"
@@ -92,48 +92,28 @@ PyArray_DTypeMeta QuadDType = {
     /* rest, filled in during DTypeMeta initialization */
 };
 
-int init_quad_dtype(void);
+int init_quad_dtype(void) {
+    PyArrayMethod_Spec *casts[] = {
+        NULL
+    };
 
+    PyArrayDTypeMeta_Spec QuadDType_DTypeSpec = {
+        .flags = NPY_DT_PARAMETRIC,
+        .casts = casts,
+        .typeobj = NULL,
+        .slots = QuadDType_Slots,
+    };
 
-// int init_unit_dtype(void)
-// {
-//     /*
-//      * To create our DType, we have to use a "Spec" that tells NumPy how to
-//      * do it.  You first have to create a static type, but see the note there!
-//      */
-//     PyArrayMethod_Spec *casts[] = {
-//             &UnitToUnitCastSpec,
-//             NULL};
+    ((PyObject *)&QuadDType)->ob_type = &PyArrayDTypeMeta_Type;
+    ((PyTypeObject *)&QuadDType)->tp_base = &PyArrayDescr_Type;
+    if (PyType_Ready((PyTypeObject *)&QuadDType) < 0) {
+        return -1;
+    }
 
-//     PyArrayDTypeMeta_Spec QuadDType_DTypeSpec = {
-//             .flags = NPY_DT_PARAMETRIC,
-//             .casts = casts,
-//             .typeobj = QuantityScalar_Type,
-//             .slots = QuadDType_Slots,
-//     };
-//     /* Loaded dynamically, so may need to be set here: */
-//     ((PyObject *)&QuadDType)->ob_type = &PyArrayDTypeMeta_Type;
-//     ((PyTypeObject *)&QuadDType)->tp_base = &PyArrayDescr_Type;
-//     if (PyType_Ready((PyTypeObject *)&QuadDType) < 0) {
-//         return -1;
-//     }
+    if (PyArrayInitDTypeMeta_FromSpec(&QuadDType, &QuadDType_DTypeSpec) < 0) {
+        return -1;
+    }
 
-//     if (PyArrayInitDTypeMeta_FromSpec(
-//             &QuadDType, &QuadDType_DTypeSpec) < 0) {
-//         return -1;
-//     }
-
-//     /*
-//      * Ensure that `singleton` is filled in (we rely on that).  It is possible
-//      * to provide a custom `default_descr`, but it is filled in automatically
-//      * to just call `DType()` -- however, it does not cache the result
-//      * automatically (right now).  This is because it can make sense for a
-//      * DType to requiring a new one each time (e.g. a Categorical that needs
-//      * to be able to add new Categories).
-//      * TODO: Consider flipping this around, so that if you need a new one
-//      *       each time, you have to provide a custom `default_descr`.
-//      */
-//     QuadDType.singleton = PyArray_GetDefaultDescr(&QuadDType);
-
-//     return 0;
-// }
+    QuadDType.singleton = PyArray_GetDefaultDescr(&QuadDType);
+    return 0;
+}
