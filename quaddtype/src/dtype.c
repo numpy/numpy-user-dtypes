@@ -41,28 +41,33 @@ static PyObject *quad_getitem(QuadDTypeObject *descr, char *dataptr) {
     return val_obj;
 }
 
-static QuadDTypeObject *common_instance(QuadDTypeObject *obj1, QuadDTypeObject obj2) {
-    return obj1;
+// For two instances of the same dtype, both have the same precision. Return self.
+static QuadDTypeObject *common_instance(QuadDTypeObject *self, QuadDTypeObject *other) {
+    return self;
 }
 
+// When dtypes are mixed, find a "common" dtype for the two which can hold content of both
+// without loss of information.
 // I guess this should return a 256-bit float dtype? Since this isn't natively supported by any
 // platform, just return another 128-bit float dtype.
-static PyArray_DTypeMeta *common_dtype(PyArray_DTypeMeta *obj1, PyArray_DTypeMeta *obj2) {
+static PyArray_DTypeMeta *common_dtype(PyArray_DTypeMeta *self, PyArray_DTypeMeta *other) {
+
     /*
      * Typenum is useful for NumPy, but there it can still be convenient.
      * (New-style user dtypes will probably get -1 as type number...)
      */
-    if (obj2->type_num >= 0
-            && PyTypeNum_ISNUMBER(obj2->type_num)
-            && !PyTypeNum_ISCOMPLEX(obj2->type_num)
-            && obj2 != &PyArray_LongDoubleDType) {
-        /*
-         * A (simple) builtin numeric type that is not a complex or longdouble
-         * will always promote to the Double Unit (cls).
-         */
-        Py_INCREF(obj1);
-        return obj1;
+    if (
+        other->type_num >= 0
+        && PyTypeNum_ISNUMBER(other->type_num)
+        && !PyTypeNum_ISCOMPLEX(other->type_num)
+    ) {
+        // float128 is the biggest natively supported float. Return it in all cases where
+        // other is a number (and not complex).
+        Py_INCREF(self);
+        return self;
     }
+
+    // Revert to object dtype in all other cases.
     Py_INCREF(Py_NotImplemented);
     return (PyArray_DTypeMeta *)Py_NotImplemented;
 }
