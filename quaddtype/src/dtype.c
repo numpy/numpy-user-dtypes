@@ -131,7 +131,7 @@ int init_quad_dtype(void) {
     PyArrayDTypeMeta_Spec QuadDType_DTypeSpec = {
         .flags = NPY_DT_PARAMETRIC,
         .casts = casts,
-        .typeobj = NULL,
+        .typeobj = &PyFloat_Type,
         .slots = QuadDType_Slots,
     };
 
