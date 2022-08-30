@@ -399,4 +399,3 @@ PyArrayMethod_Spec UnitToUnitCastSpec = {
     .dtypes = u2u_dtypes,
     .slots = u2u_slots,
 };
-

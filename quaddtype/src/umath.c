@@ -99,7 +99,7 @@ init_multiply_ufunc(void)
     PyObject *multiply = PyObject_GetAttrString(numpy, "multiply");
     Py_DECREF(numpy);
     if (multiply == NULL) {
-        return -1;   
+        return -1;
     }
 
     /*
@@ -134,4 +134,3 @@ init_multiply_ufunc(void)
     Py_DECREF(multiply);
     return 0;
 }
-

@@ -14,8 +14,19 @@ incdir_numpy = run_command(py,
   check: true
 ).stdout().strip()
 
+incdir_python = run_command(py,
+  [
+    '-c',
+    'import sysconfig; print(sysconfig.get_path("include"))'
+  ],
+  check: true
+).stdout().strip()
+
+message(incdir_python)
+
 includes = include_directories(
   [
+    incdir_python,
     incdir_numpy,
     'quaddtype/src'
   ]
