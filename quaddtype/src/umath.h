@@ -4,4 +4,4 @@
 int
 init_multiply_ufunc(void);
 
-#endif  /*_NPY_UFUNC_H */
+#endif /*_NPY_UFUNC_H */
