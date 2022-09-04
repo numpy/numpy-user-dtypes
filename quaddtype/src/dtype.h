@@ -7,7 +7,7 @@
 #include "numpy/experimental_dtype_api.h"
 
 typedef struct {
-  PyArray_Descr base;
+    PyArray_Descr base;
 } QuadDTypeObject;
 
 extern PyArray_DTypeMeta QuadDType;

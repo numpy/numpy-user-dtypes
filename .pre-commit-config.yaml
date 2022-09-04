@@ -14,7 +14,7 @@ repos:
       - id: clang-tidy
         args: [-p=build]
       - id: clang-format
-        args: [--style=Google, -i]
+        args: ['--style={BasedOnStyle: Google, ColumnLimit: "100", IndentWidth: "4"}', -i, ]
       # - id: uncrustify
       #   args: [--replace, --no-backup]
       # - id: oclint

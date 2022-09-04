@@ -15,37 +15,37 @@ static struct PyModuleDef moduledef = {
 
 /* Module initialization function */
 PyMODINIT_FUNC PyInit__quaddtype_main(void) {
-  if (_import_array() < 0) {
-    return NULL;
-  }
-  if (import_experimental_dtype_api(4) < 0) {
-    // if (import_experimental_dtype_api(5) < 0) {
-    return NULL;
-  }
+    if (_import_array() < 0) {
+        return NULL;
+    }
+    if (import_experimental_dtype_api(4) < 0) {
+        // if (import_experimental_dtype_api(5) < 0) {
+        return NULL;
+    }
 
-  PyObject* m = PyModule_Create(&moduledef);
-  if (m == NULL) {
-    return NULL;
-  }
+    PyObject* m = PyModule_Create(&moduledef);
+    if (m == NULL) {
+        return NULL;
+    }
 
-  PyObject* mod = PyImport_ImportModule("quaddtype");
-  if (mod == NULL) {
-    goto error;
-  }
+    PyObject* mod = PyImport_ImportModule("quaddtype");
+    if (mod == NULL) {
+        goto error;
+    }
 
-  Py_DECREF(mod);
+    Py_DECREF(mod);
 
-  if (init_quad_dtype() < 0) {
-    goto error;
-  }
+    if (init_quad_dtype() < 0) {
+        goto error;
+    }
 
-  if (PyModule_AddObject(m, "quaddtype", (PyObject*)&QuadDType) < 0) {
-    goto error;
-  }
+    if (PyModule_AddObject(m, "quaddtype", (PyObject*)&QuadDType) < 0) {
+        goto error;
+    }
 
-  return m;
+    return m;
 
 error:
-  Py_DECREF(m);
-  return NULL;
+    Py_DECREF(m);
+    return NULL;
 }
