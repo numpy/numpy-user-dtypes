@@ -6,7 +6,8 @@ repos:
         name: Generate compilation database
         files: (^meson\.build$|\.(c|h)$)
         language: system
-        entry: bash -c 'python -m build --wheel --no-isolation -Cbuilddir=build'
+        entry: |
+          bash -c 'mkdir -p build; pip install build meson-python patchelf; python -m build --wheel --no-isolation -Cbuilddir=build';
         fail_fast: true
   - repo: https://github.com/pocc/pre-commit-hooks
     rev: v1.3.5

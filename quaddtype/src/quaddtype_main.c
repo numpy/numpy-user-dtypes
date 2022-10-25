@@ -13,13 +13,14 @@ static struct PyModuleDef moduledef = {
     .m_size = -1,
 };
 
-/* Module initialization function */
+// Initialize the python module
 PyMODINIT_FUNC PyInit__quaddtype_main(void) {
     if (_import_array() < 0) {
         return NULL;
     }
-    if (import_experimental_dtype_api(4) < 0) {
-        // if (import_experimental_dtype_api(5) < 0) {
+
+    // Fail to init if the experimental DType API version 5 isn't supported
+    if (import_experimental_dtype_api(5) < 0) {
         return NULL;
     }
 
