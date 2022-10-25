@@ -97,12 +97,10 @@ static PyObject* quaddtype_repr(QuadDTypeObject* self) {
     return PyUnicode_FromString("This is a quad (128-bit float) dtype.");
 }
 
-/*
- * This is the basic things that you need to create a Python Type/Class in C.
- * However, there is a slight difference here because we create a
- * PyArray_DTypeMeta, which is a larger struct than a typical type.
- * (This should get a bit nicer eventually with Python >3.11.)
- */
+// These are the basic things that you need to create a Python Type/Class in C.
+// However, there is a slight difference here because we create a
+// PyArray_DTypeMeta, which is a larger struct than a typical type.
+// (This should get a bit nicer eventually with Python >3.11.)
 PyArray_DTypeMeta QuadDType = {
     {{
         PyVarObject_HEAD_INIT(NULL, 0).tp_name = "quaddtype.QuadDType",
@@ -119,7 +117,6 @@ int init_quad_dtype(void) {
     PyArrayMethod_Spec* casts[] = {NULL};
 
     PyArrayDTypeMeta_Spec QuadDType_DTypeSpec = {
-        .flags = NPY_DT_PARAMETRIC,
         .casts = casts,
         .typeobj = &PyFloat_Type,
         .slots = QuadDType_Slots,
