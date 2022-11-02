@@ -11,13 +11,13 @@
 
 static struct PyModuleDef moduledef = {
     PyModuleDef_HEAD_INIT,
-    .m_name = "unitdtype_main",
+    .m_name = "metadatadtype_main",
     .m_size = -1,
 };
 
 
 /* Module initialization function */
-PyMODINIT_FUNC PyInit__unitdtype_main(void)
+PyMODINIT_FUNC PyInit__metadatadtype_main(void)
 {
     if (_import_array() < 0) {
         return NULL;
@@ -32,7 +32,7 @@ PyMODINIT_FUNC PyInit__unitdtype_main(void)
     }
 
 
-    PyObject *mod = PyImport_ImportModule("unitdtype");
+    PyObject *mod = PyImport_ImportModule("metadatadtype");
     if (mod == NULL) {
         goto error;
     }

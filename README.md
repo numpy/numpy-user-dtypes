@@ -11,7 +11,7 @@ itself.
 Ensure Meson and NumPy are installed in the python environment you would like to use:
 
 ```
-$ python3 -m pip install meson numpy build
+$ python3 -m pip install meson meson-python numpy build patchelf
 ```
 
 Build with meson, create a wheel, and install it
@@ -19,8 +19,8 @@ Build with meson, create a wheel, and install it
 ```
 $ rm -r dist/
 $ meson build
-$ python -m build --wheel -Cbuilddir=build
-$ pip install dist/metadatadtype*.whl
+$ python -m build --wheel --no-isolation -Cbuilddir=build
+$ python -m pip install --force-reinstall dist/metadatadtype*.whl
 ```
 
 The `mesonpy` build backend for pip [does not currently support editable

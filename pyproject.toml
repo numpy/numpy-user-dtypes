@@ -4,7 +4,6 @@ requires = [
     "meson-python",
     "patchelf",
     "wheel",
-    "numpy",
 ]
 build-backend = "mesonpy"
 
@@ -15,6 +14,3 @@ version = "0.0.1"
 readme = 'README.md'
 author = "Nathan Goldbaum"
 requires-python = ">=3.9.0"
-dependencies = [
-    "numpy"
-]
