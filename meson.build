@@ -1,5 +1,5 @@
 project(
-  'quaddtype',
+  'metadatadtype',
   'c',
 )
 
@@ -17,26 +17,30 @@ incdir_numpy = run_command(py,
 includes = include_directories(
   [
     incdir_numpy,
-    'quaddtype/src'
+    'metadatadtype/src'
   ]
 )
 
 srcs = [
-  'quaddtype/src/dtype.c',
-  'quaddtype/src/quaddtype_main.c',
+  'metadatadtype/src/dtype.c',
+  'metadatadtype/src/casts.c',
+  'metadatadtype/src/umath.c',
+  'metadatadtype/src/metadatadtype_main.c',
 ]
 
 py.install_sources(
   [
-    'quaddtype/__init__.py'
+    'metadatadtype/__init__.py',
+    'metadatadtype/_helpers.py',
+    'metadatadtype/scalar.py',
   ],
-  subdir: 'quaddtype'
+  subdir: 'metadatadtype'
 )
 
 py.extension_module(
-  '_quaddtype_main',
+  '_metadatadtype_main',
   srcs,
   install: true,
-  subdir: 'quaddtype',
+  subdir: 'metadatadtype',
   include_directories: includes
 )

@@ -1,4 +1,3 @@
-exclude: (casts\.(c|h)|umath\.(c|h))
 repos:
   - repo: local
     hooks:
@@ -16,10 +15,6 @@ repos:
         args: [-p=build]
       - id: clang-format
         args: ['--style={BasedOnStyle: Google, ColumnLimit: "100", IndentWidth: "4"}', -i, ]
-      # - id: uncrustify
-      #   args: [--replace, --no-backup]
-      # - id: oclint
-      # - id: cppcheck
   - repo: local
     hooks:
       - id: include-what-you-use
