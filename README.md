@@ -19,7 +19,7 @@ Build with meson, create a wheel, and install it
 ```
 $ rm -r dist/
 $ meson build
-$ python -m build --wheel --no-isolation -Cbuilddir=build
+$ python -m build --wheel -Cbuilddir=build
 $ python -m pip install --force-reinstall dist/metadatadtype*.whl
 ```
 
