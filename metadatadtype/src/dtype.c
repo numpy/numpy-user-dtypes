@@ -1,65 +1,28 @@
 #include <Python.h>
 
-#define PY_ARRAY_UNIQUE_SYMBOL unitdtype_ARRAY_API
+#define PY_ARRAY_UNIQUE_SYMBOL metadatadtype_ARRAY_API
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #define NO_IMPORT_ARRAY
 #include "numpy/arrayobject.h"
 #include "numpy/ndarraytypes.h"
 #include "numpy/experimental_dtype_api.h"
 
-#include "casts.h"
 #include "dtype.h"
 
 
-PyObject *QuantityScalar_Type = NULL;
-
 /*
- * `get_value` and `get_unit` are small helpers to deal with the scalar.
+ * Internal helper to create new instances
  */
-static double
-get_value(PyObject *scalar) {
-    if (Py_TYPE(scalar) != QuantityScalar_Type) {
-        PyErr_SetString(PyExc_TypeError,
-                "Can only store QuantityScalar in a UnitDType array.");
-        return -1;
-    }
-
-    PyObject *value = PyObject_GetAttrString(scalar, "value");
-    if (value == NULL) {
-        return -1;
-    }
-    double res = PyFloat_AsDouble(value);
-    Py_DECREF(value);
-    return res;
-}
-
-
-static PyObject *
-get_unit(PyObject *scalar) {
-    if (Py_TYPE(scalar) != QuantityScalar_Type) {
-        PyErr_SetString(PyExc_TypeError,
-                "Can only store QuantityScalar in a UnitDType array.");
-        return NULL;
-    }
-
-    return PyObject_GetAttrString(scalar, "unit");
-}
-
-
-/*
- * Internal helper to create new instances, does not check unit for validity.
- */
-UnitDTypeObject *
-new_unitdtype_instance(PyObject *unit)
+MetadataDTypeObject *
+new_metadatadtype_instance(PyObject *metadata)
 {
-    UnitDTypeObject *new = (UnitDTypeObject *)PyArrayDescr_Type.tp_new(
+    MetadataDTypeObject *new = (MetadataDTypeObject *)PyArrayDescr_Type.tp_new(
             /* TODO: Using NULL for args here works, but seems not clean? */
-            (PyTypeObject *)&UnitDType, NULL, NULL);
+            (PyTypeObject *)&MetadataDType, NULL, NULL);
     if (new == NULL) {
         return NULL;
     }
-    Py_INCREF(unit);
-    new->unit = unit;
+    Py_INCREF(metadata);
     new->base.elsize = sizeof(double);
     new->base.alignment = _Alignof(double);  /* is there a better spelling? */
     /* do not support byte-order for now */
@@ -69,26 +32,13 @@ new_unitdtype_instance(PyObject *unit)
 
 
 /*
- * For now, give the more precise unit as the "common" one, but just bail and
- * give the first one if there is an offset (e.g. Celsius and Fahrenheit?).
- * It might also make sense to give the more "standard" one, but that depends?
+ * This is used to determine the correct dtype to return when operations mix
+ * dtypes (I think?). For now just return the first one.
  */
-static UnitDTypeObject *
-common_instance(UnitDTypeObject *dtype1, UnitDTypeObject *dtype2)
+static MetadataDTypeObject *
+common_instance(MetadataDTypeObject *dtype1, MetadataDTypeObject *dtype2)
 {
-    double factor, offset;
-    if (get_conversion_factor(
-            dtype1->unit, dtype2->unit, &factor, &offset) < 0) {
-        return NULL;
-    }
-    if (offset != 0 || fabs(factor) > 1.) {
-        Py_INCREF(dtype1);
-        return dtype1;
-    }
-    else {
-        Py_INCREF(dtype2);
-        return dtype2;
-    }
+  return dtype1;
 }
 
 
@@ -105,7 +55,7 @@ common_dtype(PyArray_DTypeMeta *cls, PyArray_DTypeMeta *other)
             && other != &PyArray_LongDoubleDType) {
         /*
          * A (simple) builtin numeric type that is not a complex or longdouble
-         * will always promote to the Double Unit (cls).
+         * will always promote to double (cls).
          */
         Py_INCREF(cls);
         return cls;
@@ -114,72 +64,18 @@ common_dtype(PyArray_DTypeMeta *cls, PyArray_DTypeMeta *other)
     return (PyArray_DTypeMeta *)Py_NotImplemented;
 }
 
+static PyArray_Descr * metadata_discover_descriptor_from_pyobject
 
-/*
- * Functions dealing with scalar logic
- */
-
-static PyArray_Descr *
-unit_discover_descriptor_from_pyobject(
-        PyArray_DTypeMeta *NPY_UNUSED(cls), PyObject *obj)
-{
-    if (Py_TYPE(obj) != QuantityScalar_Type) {
-        PyErr_SetString(PyExc_TypeError,
-                "Can only store QuantityScalar in a UnitDType array.");
-        return NULL;
-    }
-    PyObject *unit = get_unit(obj);
-    if (unit == NULL) {
-        return NULL;
-    }
-    return (PyArray_Descr *)new_unitdtype_instance(unit);
-}
-
-
-/*
- * Note, for correct support in HPy, this function will probably need to get
- * an `owner` object.  This object would be opaque and possibly ephemeral
- * (you are not allowed to hold on to it) but "owns" the data where things get
- * stored.
- *
- * NumPy allows you to set an "is known scalar" function that normally lets
- * the simple Python types pass (int, float, complex, bytes, strings) as well
- * as the scalar type itself.
- * This can be customized, but `setitem` may still be called with arbitrary
- * objects on a "best effort" basis.
- */
 static int
-unit_setitem(UnitDTypeObject *descr, PyObject *obj, char *dataptr)
+metadatadtype_setitem(MetadataDTypeObject *descr, PyObject *obj, char *dataptr)
 {
-    double value = get_value(obj);
-    if (value == -1 && PyErr_Occurred()) {
-        return -1;
-    }
-    PyObject *unit = get_unit(obj);
-    if (unit == NULL) {
-        return -1;
-    }
-
-    double factor, offset;
-    if (get_conversion_factor(unit, descr->unit, &factor, &offset) < 0) {
-        return -1;
-    }
-    value = factor * (value + offset);
-    memcpy(dataptr, &value, sizeof(double));
-    return 0;
+  double value = PyFloat_AsDouble(obj);
+  memcpy(dataptr, &value, sizeof(double));
+  return 0;
 }
 
-/*
- * Note, same as above (but more).  For correct support in HPy we likely need
- * to pass an `owner` here.  But, we probably also need to pass a "base",
- * because that is how structured scalars work (they return a view...).
- * Those two might have subtly different logic, though?
- * (Realistically, maybe we can special case void to not pass the base, I do
- * not think that a scalar should ever be a view, such a scalar should not
- * exist.  E.g. in that case, better not have a scalar at all to begin with.)
- */
 static PyObject *
-unit_getitem(UnitDTypeObject *descr, char *dataptr)
+metadatadtype_getitem(MetadataDTypeObject *descr, char *dataptr)
 {
     double val;
     /* get the value */
@@ -190,69 +86,51 @@ unit_getitem(UnitDTypeObject *descr, char *dataptr)
         return NULL;
     }
     
-    PyObject *res = PyObject_CallFunctionObjArgs(
-            QuantityScalar_Type, val_obj, descr->unit, NULL);
-    Py_DECREF(val_obj);
-    return res;
+    return val_obj;
 }
 
 
-static PyType_Slot UnitDType_Slots[] = {
+static PyType_Slot MetadataDType_Slots[] = {
     {NPY_DT_common_instance, &common_instance},
     {NPY_DT_common_dtype, &common_dtype},
-    {NPY_DT_discover_descr_from_pyobject, &unit_discover_descriptor_from_pyobject},
     /* The header is wrong on main :(, so we add 1 */
-    {NPY_DT_setitem, &unit_setitem},
-    {NPY_DT_getitem, &unit_getitem},
+    {NPY_DT_setitem, &metadatadtype_setitem},
+    {NPY_DT_getitem, &metadatadtype_getitem},
     {0, NULL}
 };
 
 
-/*
- * The following defines everything type object related (i.e. not NumPy
- * specific).
- *
- * Note that this function is by default called without any arguments to fetch
- * a default version of the descriptor (in principle at least).  During init
- * we fill in `cls->singleton` though for the dimensionless unit.
- */
 static PyObject *
-unitdtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwds)
+metadatadtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwds)
 {
-    static char *kwargs_strs[] = {"unit", NULL};
+  static char *kwargs_strs[] = {"metadata", NULL};
 
-    PyObject *unit = NULL;
+  PyObject *metadata = NULL;
 
-    if (!PyArg_ParseTupleAndKeywords(
-            args, kwds, "|O&:UntDType", kwargs_strs,
-            &UnitConverter, &unit)) {
-        return NULL;
-    }
-    if (unit == NULL) {
-        if (!UnitConverter(NULL, &unit)) {
-            return NULL;
-        }
-    }
-
-    PyObject *res = (PyObject *)new_unitdtype_instance(unit);
-    Py_DECREF(unit);
-    return res;
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|O:MetadataDType", kwargs_strs,
+                                   &metadata)) {
+    return NULL;
+  }
+  if (metadata == NULL) {
+    return NULL;
+  }
+  return (PyObject *)new_metadatadtype_instance(metadata);
 }
 
 
 static void
-unitdtype_dealloc(UnitDTypeObject *self)
+metadatadtype_dealloc(MetadataDTypeObject *self)
 {
-    Py_CLEAR(self->unit);
-    PyArrayDescr_Type.tp_dealloc((PyObject *)self);
+  Py_CLEAR(self->metadata);
+  PyArrayDescr_Type.tp_dealloc((PyObject *)self);
 }
 
 
 static PyObject *
-unitdtype_repr(UnitDTypeObject *self)
+metadatadtype_repr(MetadataDTypeObject *self)
 {
     PyObject *res = PyUnicode_FromFormat(
-            "UnitDType(%R)", self->unit);
+            "MetadataDType(%R)", self->metadata);
     return res;
 }
 
@@ -263,59 +141,47 @@ unitdtype_repr(UnitDTypeObject *self)
  * PyArray_DTypeMeta, which is a larger struct than a typical type.
  * (This should get a bit nicer eventually with Python >3.11.)
  */
-PyArray_DTypeMeta UnitDType = {{{
+PyArray_DTypeMeta MetadataDType = {{{
         PyVarObject_HEAD_INIT(NULL, 0)
-        .tp_name = "unitdtype.UnitDType",
-        .tp_basicsize = sizeof(UnitDTypeObject),
-        .tp_new = unitdtype_new,
-        .tp_dealloc = (destructor)unitdtype_dealloc,
-        .tp_repr = (reprfunc)unitdtype_repr,
-        .tp_str = (reprfunc)unitdtype_repr,
+        .tp_name = "metadatadtype.MetadataDType",
+        .tp_basicsize = sizeof(MetadataDTypeObject),
+        .tp_new = metadatadtype_new,
+        .tp_dealloc = (destructor)metadatadtype_dealloc,
+        .tp_repr = (reprfunc)metadatadtype_repr,
+        .tp_str = (reprfunc)metadatadtype_repr,
     }},
     /* rest, filled in during DTypeMeta initialization */
 };
 
 
 int
-init_unit_dtype(void)
+init_metadata_dtype(void)
 {
     /*
      * To create our DType, we have to use a "Spec" that tells NumPy how to
      * do it.  You first have to create a static type, but see the note there!
      */
-    PyArrayMethod_Spec *casts[] = {
-            &UnitToUnitCastSpec,
-            NULL};
+    PyArrayMethod_Spec *casts[] = {NULL};
 
-    PyArrayDTypeMeta_Spec UnitDType_DTypeSpec = {
+    PyArrayDTypeMeta_Spec MetadataDType_DTypeSpec = {
             .flags = NPY_DT_PARAMETRIC,
             .casts = casts,
-            .typeobj = QuantityScalar_Type,
-            .slots = UnitDType_Slots,
+            .typeobj = &PyFloat_Type,
+            .slots = MetadataDType_Slots,
     };
     /* Loaded dynamically, so may need to be set here: */
-    ((PyObject *)&UnitDType)->ob_type = &PyArrayDTypeMeta_Type;
-    ((PyTypeObject *)&UnitDType)->tp_base = &PyArrayDescr_Type;
-    if (PyType_Ready((PyTypeObject *)&UnitDType) < 0) {
+    ((PyObject *)&MetadataDType)->ob_type = &PyArrayDTypeMeta_Type;
+    ((PyTypeObject *)&MetadataDType)->tp_base = &PyArrayDescr_Type;
+    if (PyType_Ready((PyTypeObject *)&MetadataDType) < 0) {
         return -1;
     }
 
     if (PyArrayInitDTypeMeta_FromSpec(
-            &UnitDType, &UnitDType_DTypeSpec) < 0) {
+            &MetadataDType, &MetadataDType_DTypeSpec) < 0) {
         return -1;
     }
 
-    /*
-     * Ensure that `singleton` is filled in (we rely on that).  It is possible
-     * to provide a custom `default_descr`, but it is filled in automatically
-     * to just call `DType()` -- however, it does not cache the result
-     * automatically (right now).  This is because it can make sense for a
-     * DType to requiring a new one each time (e.g. a Categorical that needs
-     * to be able to add new Categories).
-     * TODO: Consider flipping this around, so that if you need a new one
-     *       each time, you have to provide a custom `default_descr`.
-     */
-    UnitDType.singleton = PyArray_GetDefaultDescr(&UnitDType);
+    MetadataDType.singleton = PyArray_GetDefaultDescr(&MetadataDType);
 
     return 0;
 }

@@ -4,19 +4,14 @@
 
 typedef struct {
     PyArray_Descr base;
-    PyObject *unit;
-} UnitDTypeObject;
+    PyObject *metadata;
+} MetadataDTypeObject;
 
-int
-UnitConverter(PyObject *obj, PyObject **unit);
+extern PyArray_DTypeMeta MetadataDType;
 
-extern PyArray_DTypeMeta UnitDType;
-extern PyObject *QuantityScalar_Type;
+MetadataDTypeObject *
+new_metadatadtype_instance(PyObject *metadata);
 
-UnitDTypeObject *
-new_unitdtype_instance(PyObject *unit);
-
-int
-init_unit_dtype(void);
+int init_metadata_dtype(void);
 
 #endif  /*_NPY_DTYPE_H*/
