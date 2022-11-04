@@ -114,6 +114,8 @@ PyArray_DTypeMeta QuadDType = {
 };
 
 int init_quad_dtype(void) {
+    // To create our DType, we have to use a "Spec" that tells NumPy how to
+    // do it.  You first have to create a static type, but see the note there!
     PyArrayMethod_Spec* casts[] = {NULL};
 
     PyArrayDTypeMeta_Spec QuadDType_DTypeSpec = {
