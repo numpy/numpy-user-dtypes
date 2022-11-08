@@ -3,12 +3,13 @@
 #define PY_ARRAY_UNIQUE_SYMBOL quaddtype_ARRAY_API
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #define NO_IMPORT_ARRAY
+#include "casts.h"
+#include "dtype.h"
 #include "numpy/arrayobject.h"
 #include "numpy/experimental_dtype_api.h"
 #include "numpy/ndarraytypes.h"
 
-// #include "casts.h"
-#include "dtype.h"
+PyTypeObject* QuadScalar_Type = NULL;
 
 QuadDTypeObject* new_quaddtype_instance(void) {
     QuadDTypeObject* new =
@@ -116,11 +117,14 @@ PyArray_DTypeMeta QuadDType = {
 int init_quad_dtype(void) {
     // To create our DType, we have to use a "Spec" that tells NumPy how to
     // do it.  You first have to create a static type, but see the note there!
-    PyArrayMethod_Spec* casts[] = {NULL};
+    PyArrayMethod_Spec* casts[] = {
+        &QuadToQuadCastSpec,
+        NULL,
+    };
 
     PyArrayDTypeMeta_Spec QuadDType_DTypeSpec = {
         .casts = casts,
-        .typeobj = &PyFloat_Type,
+        .typeobj = QuadScalar_Type,
         .slots = QuadDType_Slots,
     };
 

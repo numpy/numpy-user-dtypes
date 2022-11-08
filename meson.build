@@ -28,7 +28,8 @@ srcs = [
 
 py.install_sources(
   [
-    'quaddtype/__init__.py'
+    'quaddtype/__init__.py',
+    'quaddtype/quadscalar.py'
   ],
   subdir: 'quaddtype'
 )
