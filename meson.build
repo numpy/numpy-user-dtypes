@@ -22,6 +22,8 @@ includes = include_directories(
 )
 
 srcs = [
+  'metadatadtype/src/casts.c',
+  'metadatadtype/src/casts.h',
   'metadatadtype/src/dtype.c',
   'metadatadtype/src/metadatadtype_main.c',
 ]
@@ -29,6 +31,7 @@ srcs = [
 py.install_sources(
   [
     'metadatadtype/__init__.py',
+    'metadatadtype/scalar.py'
   ],
   subdir: 'metadatadtype'
 )

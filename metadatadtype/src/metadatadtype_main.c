@@ -30,6 +30,16 @@ PyMODINIT_FUNC PyInit__metadatadtype_main(void)
         return NULL;
     }
 
+	PyObject *mod = PyImport_ImportModule("metadatadtype");
+	if (mod == NULL) {
+		goto error;
+	}
+	MetadataScalar_Type = PyObject_GetAttrString(mod, "MetadataScalar");
+	Py_DECREF(mod);
+
+	if (MetadataScalar_Type == NULL) {
+		goto error;
+	}
 
     if (init_metadata_dtype() < 0) {
         goto error;

@@ -8,6 +8,7 @@ typedef struct {
 } MetadataDTypeObject;
 
 extern PyArray_DTypeMeta MetadataDType;
+extern PyTypeObject *MetadataScalar_Type;
 
 MetadataDTypeObject *
 new_metadatadtype_instance(PyObject *metadata);

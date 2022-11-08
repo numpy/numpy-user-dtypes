@@ -7,8 +7,40 @@
 #include "numpy/ndarraytypes.h"
 #include "numpy/experimental_dtype_api.h"
 
+#include "casts.h"
 #include "dtype.h"
 
+
+PyTypeObject *MetadataScalar_Type = NULL;
+
+/*
+ * `get_value` and `get_unit` are small helpers to deal with the scalar.
+ */
+
+// NJG hack: get_value assumes scalar is a float64 - possible to generalize?
+static double get_value(PyObject* scalar) {
+    if (Py_TYPE(scalar) != MetadataScalar_Type) {
+        PyErr_SetString(PyExc_TypeError, "Can only store MetadataScalar in a MetadataDType array.");
+        return -1;
+    }
+
+    return PyFloat_AsDouble(scalar);
+}
+
+
+static PyObject * get_metadata(PyObject *scalar) {
+    if (Py_TYPE(scalar) != MetadataScalar_Type) {
+        PyErr_SetString(PyExc_TypeError, "Can only store MetadataScalar in a MetadataDType array.");
+        return -1;
+    }
+
+    PyObject *metadata = PyObject_GetAttrString(scalar, "metadata");
+    if (metadata == NULL) {
+        return -1;
+    }
+
+    return metadata;
+}
 
 /*
  * Internal helper to create new instances
@@ -17,14 +49,15 @@ MetadataDTypeObject *
 new_metadatadtype_instance(PyObject *metadata)
 {
     MetadataDTypeObject *new = (MetadataDTypeObject *)PyArrayDescr_Type.tp_new(
-            /* TODO: Using NULL for args here works, but seems not clean? */
-            (PyTypeObject *)&MetadataDType, NULL, NULL);
+        /* TODO: Using NULL for args here works, but seems not clean? */
+        (PyTypeObject *)&MetadataDType, NULL, NULL);
     if (new == NULL) {
         return NULL;
     }
     Py_INCREF(metadata);
     new->base.elsize = sizeof(double);
     new->base.alignment = _Alignof(double);  /* is there a better spelling? */
+    new->metadata = metadata;
     /* do not support byte-order for now */
 
     return new;
@@ -38,7 +71,7 @@ new_metadatadtype_instance(PyObject *metadata)
 static MetadataDTypeObject *
 common_instance(MetadataDTypeObject *dtype1, MetadataDTypeObject *dtype2)
 {
-  return dtype1;
+    return dtype1;
 }
 
 
@@ -64,14 +97,36 @@ common_dtype(PyArray_DTypeMeta *cls, PyArray_DTypeMeta *other)
     return (PyArray_DTypeMeta *)Py_NotImplemented;
 }
 
-static PyArray_Descr * metadata_discover_descriptor_from_pyobject
+static PyArray_Descr * metadata_discover_descriptor_from_pyobject(
+        PyArray_DTypeMeta *NPY_UNUSED(cls), PyObject *obj)
+{
+    if (Py_TYPE(obj) != MetadataScalar_Type) {
+        PyErr_SetString(PyExc_TypeError, "Can only store MetadataScalar in a MetadataDType array.");
+        return NULL;
+    }
+
+    PyObject *metadata = get_metadata(obj);
+    if (metadata == NULL) {
+        return NULL;
+    }
+    return (PyArray_Descr *)new_metadatadtype_instance(metadata);
+}
 
 static int
 metadatadtype_setitem(MetadataDTypeObject *descr, PyObject *obj, char *dataptr)
 {
-  double value = PyFloat_AsDouble(obj);
-  memcpy(dataptr, &value, sizeof(double));
-  return 0;
+    PyObject *metadata = get_metadata(obj);
+    if (metadata == NULL) {
+        return -1;
+    }
+
+    // NJG hack: assume obj is a float64 scalar - how to more generically handle
+    // dtype that is parametric over the underlying data dtype?
+    double value = get_value(obj);
+
+    memcpy(dataptr, &value, sizeof(double));
+
+    return 0;
 }
 
 static PyObject *
@@ -85,14 +140,19 @@ metadatadtype_getitem(MetadataDTypeObject *descr, char *dataptr)
     if (val_obj == NULL) {
         return NULL;
     }
-    
-    return val_obj;
+
+    PyObject* res = PyObject_CallFunctionObjArgs(
+        MetadataScalar_Type, val_obj, descr->metadata, NULL);
+    Py_DECREF(val_obj);
+
+    return res;
 }
 
 
 static PyType_Slot MetadataDType_Slots[] = {
     {NPY_DT_common_instance, &common_instance},
     {NPY_DT_common_dtype, &common_dtype},
+    {NPY_DT_discover_descr_from_pyobject, &metadata_discover_descriptor_from_pyobject},
     /* The header is wrong on main :(, so we add 1 */
     {NPY_DT_setitem, &metadatadtype_setitem},
     {NPY_DT_getitem, &metadatadtype_getitem},
@@ -103,26 +163,27 @@ static PyType_Slot MetadataDType_Slots[] = {
 static PyObject *
 metadatadtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwds)
 {
-  static char *kwargs_strs[] = {"metadata", NULL};
+    static char *kwargs_strs[] = {"metadata", NULL};
 
-  PyObject *metadata = NULL;
+    PyObject *metadata = NULL;
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "|O:MetadataDType", kwargs_strs,
-                                   &metadata)) {
-    return NULL;
-  }
-  if (metadata == NULL) {
-    return NULL;
-  }
-  return (PyObject *)new_metadatadtype_instance(metadata);
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|O:MetadataDType", kwargs_strs,
+                                     &metadata)) {
+        return NULL;
+    }
+    if (metadata == NULL) {
+        metadata = Py_None;
+    }
+
+    return (PyObject *)new_metadatadtype_instance(metadata);
 }
 
 
 static void
 metadatadtype_dealloc(MetadataDTypeObject *self)
 {
-  Py_CLEAR(self->metadata);
-  PyArrayDescr_Type.tp_dealloc((PyObject *)self);
+    Py_CLEAR(self->metadata);
+    PyArrayDescr_Type.tp_dealloc((PyObject *)self);
 }
 
 
@@ -161,12 +222,15 @@ init_metadata_dtype(void)
      * To create our DType, we have to use a "Spec" that tells NumPy how to
      * do it.  You first have to create a static type, but see the note there!
      */
-    PyArrayMethod_Spec *casts[] = {NULL};
+    PyArrayMethod_Spec *casts[] = {
+        &MetadataToMetadataCastSpec,
+        NULL
+    };
 
     PyArrayDTypeMeta_Spec MetadataDType_DTypeSpec = {
             .flags = NPY_DT_PARAMETRIC,
             .casts = casts,
-            .typeobj = &PyFloat_Type,
+            .typeobj = MetadataScalar_Type,
             .slots = MetadataDType_Slots,
     };
     /* Loaded dynamically, so may need to be set here: */
