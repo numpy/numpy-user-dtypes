@@ -24,21 +24,32 @@ static double get_value(PyObject* scalar) {
         return -1;
     }
 
-    return PyFloat_AsDouble(scalar);
+    PyObject *value = PyObject_GetAttrString(scalar, "value");
+    if (value == NULL) {
+        return -1;
+    }
+    double res = PyFloat_AsDouble(value);
+    Py_DECREF(value);
+    return res;
 }
 
 
 static PyObject * get_metadata(PyObject *scalar) {
     if (Py_TYPE(scalar) != MetadataScalar_Type) {
         PyErr_SetString(PyExc_TypeError, "Can only store MetadataScalar in a MetadataDType array.");
-        return -1;
+        return NULL;
     }
 
-    PyObject *metadata = PyObject_GetAttrString(scalar, "metadata");
+    MetadataDTypeObject* dtype = PyObject_GetAttrString(scalar, "dtype");
+    if (dtype == NULL) {
+        return NULL;
+    }
+    Py_DECREF(dtype);
+    PyObject *metadata = dtype->metadata;
     if (metadata == NULL) {
-        return -1;
+        return NULL;
     }
-
+    Py_INCREF(metadata);
     return metadata;
 }
 
@@ -55,9 +66,9 @@ new_metadatadtype_instance(PyObject *metadata)
         return NULL;
     }
     Py_INCREF(metadata);
+    new->metadata = metadata;
     new->base.elsize = sizeof(double);
     new->base.alignment = _Alignof(double);  /* is there a better spelling? */
-    new->metadata = metadata;
     /* do not support byte-order for now */
 
     return new;
@@ -109,7 +120,11 @@ static PyArray_Descr * metadata_discover_descriptor_from_pyobject(
     if (metadata == NULL) {
         return NULL;
     }
-    return (PyArray_Descr *)new_metadatadtype_instance(metadata);
+    PyArray_Descr* ret = PyObject_GetAttrString(obj, "dtype");
+    if (ret == NULL) {
+        return NULL;
+    }
+    return ret;
 }
 
 static int
@@ -123,6 +138,9 @@ metadatadtype_setitem(MetadataDTypeObject *descr, PyObject *obj, char *dataptr)
     // NJG hack: assume obj is a float64 scalar - how to more generically handle
     // dtype that is parametric over the underlying data dtype?
     double value = get_value(obj);
+    if (value == -1 && PyErr_Occurred()) {
+        return -1;
+    }
 
     memcpy(dataptr, &value, sizeof(double));
 
@@ -142,7 +160,10 @@ metadatadtype_getitem(MetadataDTypeObject *descr, char *dataptr)
     }
 
     PyObject* res = PyObject_CallFunctionObjArgs(
-        MetadataScalar_Type, val_obj, descr->metadata, NULL);
+        MetadataScalar_Type, val_obj, descr, NULL);
+    if (res == NULL) {
+        return NULL;
+    }
     Py_DECREF(val_obj);
 
     return res;

@@ -39,6 +39,7 @@ py.install_sources(
 py.extension_module(
   '_metadatadtype_main',
   srcs,
+  c_args: ['-g', '-O0'],
   install: true,
   subdir: 'metadatadtype',
   include_directories: includes
