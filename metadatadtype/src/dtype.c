@@ -44,7 +44,7 @@ static PyObject * get_metadata(PyObject *scalar) {
     if (dtype == NULL) {
         return NULL;
     }
-    Py_DECREF(dtype);
+
     PyObject *metadata = dtype->metadata;
     if (metadata == NULL) {
         return NULL;
