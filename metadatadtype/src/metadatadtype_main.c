@@ -50,6 +50,10 @@ PyMODINIT_FUNC PyInit__metadatadtype_main(void)
         goto error;
     }
 
+    if (init_multiply_ufunc() < 0) {
+        goto error;
+    }
+
     return m;
 
   error:
