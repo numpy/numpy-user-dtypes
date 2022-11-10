@@ -6,7 +6,7 @@
 #include "numpy/experimental_dtype_api.h"
 
 #include "dtype.h"
-
+#include "umath.h"
 
 static struct PyModuleDef moduledef = {
     PyModuleDef_HEAD_INIT,
@@ -34,7 +34,7 @@ PyMODINIT_FUNC PyInit__metadatadtype_main(void)
 	if (mod == NULL) {
 		goto error;
 	}
-	MetadataScalar_Type = PyObject_GetAttrString(mod, "MetadataScalar");
+	MetadataScalar_Type = (PyTypeObject*) PyObject_GetAttrString(mod, "MetadataScalar");
 	Py_DECREF(mod);
 
 	if (MetadataScalar_Type == NULL) {

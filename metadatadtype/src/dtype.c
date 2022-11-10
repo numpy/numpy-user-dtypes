@@ -40,7 +40,7 @@ static PyObject * get_metadata(PyObject *scalar) {
         return NULL;
     }
 
-    MetadataDTypeObject* dtype = PyObject_GetAttrString(scalar, "dtype");
+    MetadataDTypeObject* dtype = (MetadataDTypeObject*) PyObject_GetAttrString(scalar, "dtype");
     if (dtype == NULL) {
         return NULL;
     }
@@ -120,7 +120,7 @@ static PyArray_Descr * metadata_discover_descriptor_from_pyobject(
     if (metadata == NULL) {
         return NULL;
     }
-    PyArray_Descr* ret = PyObject_GetAttrString(obj, "dtype");
+    PyArray_Descr* ret = (PyArray_Descr*) PyObject_GetAttrString(obj, "dtype");
     if (ret == NULL) {
         return NULL;
     }
@@ -160,7 +160,7 @@ metadatadtype_getitem(MetadataDTypeObject *descr, char *dataptr)
     }
 
     PyObject* res = PyObject_CallFunctionObjArgs(
-        MetadataScalar_Type, val_obj, descr, NULL);
+        (PyObject*) MetadataScalar_Type, val_obj, descr, NULL);
     if (res == NULL) {
         return NULL;
     }
