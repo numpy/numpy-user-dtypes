@@ -22,6 +22,7 @@ includes = include_directories(
 )
 
 srcs = [
+  'quaddtype/src/casts.c',
   'quaddtype/src/dtype.c',
   'quaddtype/src/quaddtype_main.c',
 ]
@@ -37,6 +38,7 @@ py.install_sources(
 py.extension_module(
   '_quaddtype_main',
   srcs,
+  c_args: ['-g', '-O0'],
   install: true,
   subdir: 'quaddtype',
   include_directories: includes
