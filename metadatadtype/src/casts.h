@@ -3,4 +3,4 @@
 
 extern PyArrayMethod_Spec MetadataToMetadataCastSpec;
 
-#endif  /* _NPY_CASTS_H */
+#endif /* _NPY_CASTS_H */

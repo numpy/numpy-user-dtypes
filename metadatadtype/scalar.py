@@ -1,3 +1,6 @@
+"""A scalar type needed by the dtype machinery."""
+
+
 class MetadataScalar:
     def __init__(self, value, dtype):
         self.value = value

@@ -4,12 +4,11 @@
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #define NO_IMPORT_ARRAY
 #include "numpy/arrayobject.h"
-#include "numpy/ndarraytypes.h"
 #include "numpy/experimental_dtype_api.h"
+#include "numpy/ndarraytypes.h"
 
 #include "casts.h"
 #include "dtype.h"
-
 
 PyTypeObject *MetadataScalar_Type = NULL;
 
@@ -18,9 +17,13 @@ PyTypeObject *MetadataScalar_Type = NULL;
  */
 
 // NJG hack: get_value assumes scalar is a float64 - possible to generalize?
-static double get_value(PyObject* scalar) {
+static double
+get_value(PyObject *scalar)
+{
     if (Py_TYPE(scalar) != MetadataScalar_Type) {
-        PyErr_SetString(PyExc_TypeError, "Can only store MetadataScalar in a MetadataDType array.");
+        PyErr_SetString(
+                PyExc_TypeError,
+                "Can only store MetadataScalar in a MetadataDType array.");
         return -1;
     }
 
@@ -33,14 +36,18 @@ static double get_value(PyObject* scalar) {
     return res;
 }
 
-
-static PyObject * get_metadata(PyObject *scalar) {
+static PyObject *
+get_metadata(PyObject *scalar)
+{
     if (Py_TYPE(scalar) != MetadataScalar_Type) {
-        PyErr_SetString(PyExc_TypeError, "Can only store MetadataScalar in a MetadataDType array.");
+        PyErr_SetString(
+                PyExc_TypeError,
+                "Can only store MetadataScalar in a MetadataDType array.");
         return NULL;
     }
 
-    MetadataDTypeObject* dtype = (MetadataDTypeObject*) PyObject_GetAttrString(scalar, "dtype");
+    MetadataDTypeObject *dtype =
+            (MetadataDTypeObject *)PyObject_GetAttrString(scalar, "dtype");
     if (dtype == NULL) {
         return NULL;
     }
@@ -60,20 +67,19 @@ MetadataDTypeObject *
 new_metadatadtype_instance(PyObject *metadata)
 {
     MetadataDTypeObject *new = (MetadataDTypeObject *)PyArrayDescr_Type.tp_new(
-        /* TODO: Using NULL for args here works, but seems not clean? */
-        (PyTypeObject *)&MetadataDType, NULL, NULL);
+            /* TODO: Using NULL for args here works, but seems not clean? */
+            (PyTypeObject *)&MetadataDType, NULL, NULL);
     if (new == NULL) {
         return NULL;
     }
     Py_INCREF(metadata);
     new->metadata = metadata;
     new->base.elsize = sizeof(double);
-    new->base.alignment = _Alignof(double);  /* is there a better spelling? */
+    new->base.alignment = _Alignof(double); /* is there a better spelling? */
     /* do not support byte-order for now */
 
     return new;
 }
-
 
 /*
  * This is used to determine the correct dtype to return when operations mix
@@ -85,7 +91,6 @@ common_instance(MetadataDTypeObject *dtype1, MetadataDTypeObject *dtype2)
     return dtype1;
 }
 
-
 static PyArray_DTypeMeta *
 common_dtype(PyArray_DTypeMeta *cls, PyArray_DTypeMeta *other)
 {
@@ -93,10 +98,9 @@ common_dtype(PyArray_DTypeMeta *cls, PyArray_DTypeMeta *other)
      * Typenum is useful for NumPy, but there it can still be convenient.
      * (New-style user dtypes will probably get -1 as type number...)
      */
-    if (other->type_num >= 0
-            && PyTypeNum_ISNUMBER(other->type_num)
-            && !PyTypeNum_ISCOMPLEX(other->type_num)
-            && other != &PyArray_LongDoubleDType) {
+    if (other->type_num >= 0 && PyTypeNum_ISNUMBER(other->type_num) &&
+        !PyTypeNum_ISCOMPLEX(other->type_num) &&
+        other != &PyArray_LongDoubleDType) {
         /*
          * A (simple) builtin numeric type that is not a complex or longdouble
          * will always promote to double (cls).
@@ -108,11 +112,14 @@ common_dtype(PyArray_DTypeMeta *cls, PyArray_DTypeMeta *other)
     return (PyArray_DTypeMeta *)Py_NotImplemented;
 }
 
-static PyArray_Descr * metadata_discover_descriptor_from_pyobject(
-        PyArray_DTypeMeta *NPY_UNUSED(cls), PyObject *obj)
+static PyArray_Descr *
+metadata_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls),
+                                           PyObject *obj)
 {
     if (Py_TYPE(obj) != MetadataScalar_Type) {
-        PyErr_SetString(PyExc_TypeError, "Can only store MetadataScalar in a MetadataDType array.");
+        PyErr_SetString(
+                PyExc_TypeError,
+                "Can only store MetadataScalar in a MetadataDType array.");
         return NULL;
     }
 
@@ -120,7 +127,7 @@ static PyArray_Descr * metadata_discover_descriptor_from_pyobject(
     if (metadata == NULL) {
         return NULL;
     }
-    PyArray_Descr* ret = (PyArray_Descr*) PyObject_GetAttrString(obj, "dtype");
+    PyArray_Descr *ret = (PyArray_Descr *)PyObject_GetAttrString(obj, "dtype");
     if (ret == NULL) {
         return NULL;
     }
@@ -135,14 +142,14 @@ metadatadtype_setitem(MetadataDTypeObject *descr, PyObject *obj, char *dataptr)
         return -1;
     }
 
-    // NJG hack: assume obj is a float64 scalar - how to more generically handle
-    // dtype that is parametric over the underlying data dtype?
+    // NJG hack: assume obj is a float64 scalar - how to more generically
+    // handle dtype that is parametric over the underlying data dtype?
     double value = get_value(obj);
     if (value == -1 && PyErr_Occurred()) {
         return -1;
     }
 
-    memcpy(dataptr, &value, sizeof(double));
+    memcpy(dataptr, &value, sizeof(double));  // NOLINT
 
     return 0;
 }
@@ -152,15 +159,15 @@ metadatadtype_getitem(MetadataDTypeObject *descr, char *dataptr)
 {
     double val;
     /* get the value */
-    memcpy(&val, dataptr, sizeof(double));
+    memcpy(&val, dataptr, sizeof(double));  // NOLINT
 
     PyObject *val_obj = PyFloat_FromDouble(val);
     if (val_obj == NULL) {
         return NULL;
     }
 
-    PyObject* res = PyObject_CallFunctionObjArgs(
-        (PyObject*) MetadataScalar_Type, val_obj, descr, NULL);
+    PyObject *res = PyObject_CallFunctionObjArgs(
+            (PyObject *)MetadataScalar_Type, val_obj, descr, NULL);
     if (res == NULL) {
         return NULL;
     }
@@ -169,27 +176,26 @@ metadatadtype_getitem(MetadataDTypeObject *descr, char *dataptr)
     return res;
 }
 
-
 static PyType_Slot MetadataDType_Slots[] = {
-    {NPY_DT_common_instance, &common_instance},
-    {NPY_DT_common_dtype, &common_dtype},
-    {NPY_DT_discover_descr_from_pyobject, &metadata_discover_descriptor_from_pyobject},
-    /* The header is wrong on main :(, so we add 1 */
-    {NPY_DT_setitem, &metadatadtype_setitem},
-    {NPY_DT_getitem, &metadatadtype_getitem},
-    {0, NULL}
-};
-
+        {NPY_DT_common_instance, &common_instance},
+        {NPY_DT_common_dtype, &common_dtype},
+        {NPY_DT_discover_descr_from_pyobject,
+         &metadata_discover_descriptor_from_pyobject},
+        /* The header is wrong on main :(, so we add 1 */
+        {NPY_DT_setitem, &metadatadtype_setitem},
+        {NPY_DT_getitem, &metadatadtype_getitem},
+        {0, NULL}};
 
 static PyObject *
-metadatadtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwds)
+metadatadtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args,
+                  PyObject *kwds)
 {
     static char *kwargs_strs[] = {"metadata", NULL};
 
     PyObject *metadata = NULL;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|O:MetadataDType", kwargs_strs,
-                                     &metadata)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|O:MetadataDType",
+                                     kwargs_strs, &metadata)) {
         return NULL;
     }
     if (metadata == NULL) {
@@ -199,7 +205,6 @@ metadatadtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwds)
     return (PyObject *)new_metadatadtype_instance(metadata);
 }
 
-
 static void
 metadatadtype_dealloc(MetadataDTypeObject *self)
 {
@@ -207,15 +212,12 @@ metadatadtype_dealloc(MetadataDTypeObject *self)
     PyArrayDescr_Type.tp_dealloc((PyObject *)self);
 }
 
-
 static PyObject *
 metadatadtype_repr(MetadataDTypeObject *self)
 {
-    PyObject *res = PyUnicode_FromFormat(
-            "MetadataDType(%R)", self->metadata);
+    PyObject *res = PyUnicode_FromFormat("MetadataDType(%R)", self->metadata);
     return res;
 }
-
 
 /*
  * This is the basic things that you need to create a Python Type/Class in C.
@@ -223,18 +225,18 @@ metadatadtype_repr(MetadataDTypeObject *self)
  * PyArray_DTypeMeta, which is a larger struct than a typical type.
  * (This should get a bit nicer eventually with Python >3.11.)
  */
-PyArray_DTypeMeta MetadataDType = {{{
-        PyVarObject_HEAD_INIT(NULL, 0)
-        .tp_name = "metadatadtype.MetadataDType",
-        .tp_basicsize = sizeof(MetadataDTypeObject),
-        .tp_new = metadatadtype_new,
-        .tp_dealloc = (destructor)metadatadtype_dealloc,
-        .tp_repr = (reprfunc)metadatadtype_repr,
-        .tp_str = (reprfunc)metadatadtype_repr,
-    }},
-    /* rest, filled in during DTypeMeta initialization */
+PyArray_DTypeMeta MetadataDType = {
+        {{
+                PyVarObject_HEAD_INIT(NULL, 0).tp_name =
+                        "metadatadtype.MetadataDType",
+                .tp_basicsize = sizeof(MetadataDTypeObject),
+                .tp_new = metadatadtype_new,
+                .tp_dealloc = (destructor)metadatadtype_dealloc,
+                .tp_repr = (reprfunc)metadatadtype_repr,
+                .tp_str = (reprfunc)metadatadtype_repr,
+        }},
+        /* rest, filled in during DTypeMeta initialization */
 };
-
 
 int
 init_metadata_dtype(void)
@@ -243,10 +245,7 @@ init_metadata_dtype(void)
      * To create our DType, we have to use a "Spec" that tells NumPy how to
      * do it.  You first have to create a static type, but see the note there!
      */
-    PyArrayMethod_Spec *casts[] = {
-        &MetadataToMetadataCastSpec,
-        NULL
-    };
+    PyArrayMethod_Spec *casts[] = {&MetadataToMetadataCastSpec, NULL};
 
     PyArrayDTypeMeta_Spec MetadataDType_DTypeSpec = {
             .flags = NPY_DT_PARAMETRIC,
@@ -261,8 +260,8 @@ init_metadata_dtype(void)
         return -1;
     }
 
-    if (PyArrayInitDTypeMeta_FromSpec(
-            &MetadataDType, &MetadataDType_DTypeSpec) < 0) {
+    if (PyArrayInitDTypeMeta_FromSpec(&MetadataDType,
+                                      &MetadataDType_DTypeSpec) < 0) {
         return -1;
     }
 

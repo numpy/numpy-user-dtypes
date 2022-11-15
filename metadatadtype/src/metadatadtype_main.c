@@ -9,14 +9,14 @@
 #include "umath.h"
 
 static struct PyModuleDef moduledef = {
-    PyModuleDef_HEAD_INIT,
-    .m_name = "metadatadtype_main",
-    .m_size = -1,
+        PyModuleDef_HEAD_INIT,
+        .m_name = "metadatadtype_main",
+        .m_size = -1,
 };
 
-
 /* Module initialization function */
-PyMODINIT_FUNC PyInit__metadatadtype_main(void)
+PyMODINIT_FUNC
+PyInit__metadatadtype_main(void)
 {
     if (_import_array() < 0) {
         return NULL;
@@ -30,23 +30,24 @@ PyMODINIT_FUNC PyInit__metadatadtype_main(void)
         return NULL;
     }
 
-	PyObject *mod = PyImport_ImportModule("metadatadtype");
-	if (mod == NULL) {
-		goto error;
-	}
-	MetadataScalar_Type = (PyTypeObject*) PyObject_GetAttrString(mod, "MetadataScalar");
-	Py_DECREF(mod);
+    PyObject *mod = PyImport_ImportModule("metadatadtype");
+    if (mod == NULL) {
+        goto error;
+    }
+    MetadataScalar_Type =
+            (PyTypeObject *)PyObject_GetAttrString(mod, "MetadataScalar");
+    Py_DECREF(mod);
 
-	if (MetadataScalar_Type == NULL) {
-		goto error;
-	}
+    if (MetadataScalar_Type == NULL) {
+        goto error;
+    }
 
     if (init_metadata_dtype() < 0) {
         goto error;
     }
 
-    if (PyModule_AddObject(m,
-            "MetadataDType", (PyObject *)&MetadataDType) < 0) {
+    if (PyModule_AddObject(m, "MetadataDType", (PyObject *)&MetadataDType) <
+        0) {
         goto error;
     }
 
@@ -56,7 +57,7 @@ PyMODINIT_FUNC PyInit__metadatadtype_main(void)
 
     return m;
 
-  error:
+error:
     Py_DECREF(m);
     return NULL;
 }
