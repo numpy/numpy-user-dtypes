@@ -8,9 +8,12 @@ class UnytScalar:
         if isinstance(unit, str):
             self.unit = Unit(unit)
         elif isinstance(unit, Unit):
-            self.units = unit
+            self.unit = unit
         else:
             raise RuntimeError
 
     def __repr__(self):
         return f"{self.value} {self.unit}"
+
+    def __rmul__(self, other):
+        return UnytScalar(self.value * other, self.unit)

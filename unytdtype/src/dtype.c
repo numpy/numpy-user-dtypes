@@ -46,17 +46,11 @@ get_unit(PyObject *scalar)
         return NULL;
     }
 
-    UnytDTypeObject *dtype =
-            (UnytDTypeObject *)PyObject_GetAttrString(scalar, "dtype");
-    if (dtype == NULL) {
-        return NULL;
-    }
-
-    PyObject *unit = dtype->unit;
+    PyObject *unit = PyObject_GetAttrString(scalar, "unit");
     if (unit == NULL) {
         return NULL;
     }
-    Py_INCREF(unit);
+
     return unit;
 }
 
@@ -180,7 +174,7 @@ unytdtype_getitem(UnytDTypeObject *descr, char *dataptr)
 
   PyObject *res =
     PyObject_CallFunctionObjArgs((PyObject *)UnytScalar_Type, val_obj,
-                                 descr, NULL);
+                                 descr->unit, NULL);
   if (res == NULL) {
     return NULL;
   }
