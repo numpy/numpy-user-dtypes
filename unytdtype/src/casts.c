@@ -41,6 +41,12 @@ int UnitConverter(PyObject *obj, PyObject **unit) {
 
 int get_conversion_factor(PyObject *from_unit, PyObject *to_unit,
                           double *factor, double *offset) {
+  if (from_unit == to_unit) {
+    *factor = 1;
+    *offset = 0;
+    return 0;
+  }
+
   PyObject *tmp = PyUnicode_FromString("");
   static PyObject *dimensionless = NULL;
   int res = UnitConverter(tmp, &dimensionless);
@@ -49,11 +55,6 @@ int get_conversion_factor(PyObject *from_unit, PyObject *to_unit,
     return -1;
   }
 
-  if (from_unit == to_unit) {
-    *factor = 1;
-    *offset = 0;
-    return 0;
-  }
   if (from_unit == NULL) {
     from_unit = dimensionless;
   }
