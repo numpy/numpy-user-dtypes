@@ -213,9 +213,14 @@ unytdtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args,
     }
 
     if (unit == NULL) {
-      if (!UnitConverter(NULL, &unit)) {
+      PyObject* tmp = PyUnicode_FromString("dimensionless");
+      if (tmp == NULL) {
         return NULL;
       }
+      if (!UnitConverter(tmp, &unit)) {
+        return NULL;
+      }
+      Py_DECREF(tmp);
     }
 
     PyObject *res = (PyObject *)new_unytdtype_instance(unit);

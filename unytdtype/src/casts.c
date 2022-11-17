@@ -23,7 +23,7 @@ int UnitConverter(PyObject *obj, PyObject **unit) {
     unyt_mod = PyImport_ImportModule("unyt");
     if (unyt_mod == NULL) {
       Py_DECREF(unyt_mod);
-      return 0;
+      return -1;
     }
   }
   *unit = PyObject_GetAttr(unyt_mod, obj);
