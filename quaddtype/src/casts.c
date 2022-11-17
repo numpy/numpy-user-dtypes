@@ -30,14 +30,6 @@ static NPY_CASTING quad_to_quad_resolve_descriptors(
     return NPY_SAME_KIND_CASTING;
 }
 
-// typedef struct
-// {
-//   NpyAuxData base;
-//   double factor;
-//   double offset;
-// } conv_auxdata;
-
-
 static int quad_to_quad_contiguous(
     PyArrayMethod_Context *NPY_UNUSED(context),
     char* const data[],

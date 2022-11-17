@@ -25,7 +25,7 @@ PyMODINIT_FUNC PyInit__quaddtype_main(void) {
 
     PyObject* mod = PyImport_ImportModule("quaddtype");
     if (mod == NULL) goto error;
-    QuadScalar_Type = PyObject_GetAttrString(mod, "QuadScalar");
+    QuadScalar_Type = (PyTypeObject*)PyObject_GetAttrString(mod, "QuadScalar");
     Py_DECREF(mod);
     if (QuadScalar_Type == NULL) goto error;
     if (init_quad_dtype() < 0) goto error;
