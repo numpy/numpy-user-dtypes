@@ -1,0 +1,20 @@
+[build-system]
+requires = [
+    "meson>=0.63.0",
+    "meson-python",
+    "patchelf",
+    "wheel",
+    "numpy @ file:///home/nathan/Documents/numpy/dist/numpy-1.24.0.dev0+1034.gc3a64134c-cp310-cp310-linux_x86_64.whl",
+]
+build-backend = "mesonpy"
+
+[project]
+name = "unytdtype"
+description = "A unit dtype backed by unyt"
+version = "0.0.1"
+readme = 'README.md'
+author = "Nathan Goldbaum"
+requires-python = ">=3.9.0"
+depends = [
+    "numpy @ file:///home/nathan/Documents/numpy/dist/numpy-1.24.0.dev0+1034.gc3a64134c-cp310-cp310-linux_x86_64.whl",
+]
