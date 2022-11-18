@@ -216,7 +216,7 @@ static void unytdtype_dealloc(UnytDTypeObject *self) {
 }
 
 static PyObject *unytdtype_repr(UnytDTypeObject *self) {
-  PyObject *res = PyUnicode_FromFormat("UnytDType(%R)", self->unit);
+  PyObject *res = PyUnicode_FromFormat("UnytDType('%R')", self->unit);
   return res;
 }
 
