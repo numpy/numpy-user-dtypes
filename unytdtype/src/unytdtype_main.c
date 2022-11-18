@@ -46,8 +46,7 @@ PyInit__unytdtype_main(void)
         goto error;
     }
 
-    if (PyModule_AddObject(m, "UnytDType", (PyObject *)&UnytDType) <
-        0) {
+    if (PyModule_AddObject(m, "UnytDType", (PyObject *)&UnytDType) < 0) {
         goto error;
     }
 

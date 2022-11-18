@@ -12,9 +12,9 @@
 #include "umath.h"
 
 static int
-unit_multiply_strided_loop(PyArrayMethod_Context *context,
-                               char *const data[], npy_intp const dimensions[],
-                               npy_intp const strides[], NpyAuxData *auxdata)
+unit_multiply_strided_loop(PyArrayMethod_Context *context, char *const data[],
+                           npy_intp const dimensions[],
+                           npy_intp const strides[], NpyAuxData *auxdata)
 {
     npy_intp N = dimensions[0];
     char *in1 = data[0], *in2 = data[1];
@@ -33,13 +33,12 @@ unit_multiply_strided_loop(PyArrayMethod_Context *context,
 }
 
 static NPY_CASTING
-unit_multiply_resolve_descriptors(PyObject *self,
-                                  PyArray_DTypeMeta *dtypes[],
+unit_multiply_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *dtypes[],
                                   PyArray_Descr *given_descrs[],
                                   PyArray_Descr *loop_descrs[],
                                   npy_intp *unused)
 {
-  /* Fetch the unyt based units: */
+    /* Fetch the unyt based units: */
     PyObject *unit1 = ((UnytDTypeObject *)given_descrs[0])->unit;
     PyObject *unit2 = ((UnytDTypeObject *)given_descrs[1])->unit;
     /* Find the correct result unit: */
@@ -84,12 +83,10 @@ init_multiply_ufunc(void)
     /*
      * The initializing "wrap up" code from the slides (plus one error check)
      */
-    static PyArray_DTypeMeta *dtypes[3] = {&UnytDType, &UnytDType,
-                                           &UnytDType};
+    static PyArray_DTypeMeta *dtypes[3] = {&UnytDType, &UnytDType, &UnytDType};
 
     static PyType_Slot slots[] = {
-            {NPY_METH_resolve_descriptors,
-             &unit_multiply_resolve_descriptors},
+            {NPY_METH_resolve_descriptors, &unit_multiply_resolve_descriptors},
             {NPY_METH_strided_loop, &unit_multiply_strided_loop},
             {0, NULL}};
 
