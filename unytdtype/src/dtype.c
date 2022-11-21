@@ -265,7 +265,7 @@ init_unyt_dtype(void)
      * To create our DType, we have to use a "Spec" that tells NumPy how to
      * do it.  You first have to create a static type, but see the note there!
      */
-    PyArrayMethod_Spec *casts[] = {&UnitToUnitCastSpec, NULL};
+    PyArrayMethod_Spec **casts = get_casts();
 
     PyArrayDTypeMeta_Spec UnytDType_DTypeSpec = {
             .flags = NPY_DT_PARAMETRIC,

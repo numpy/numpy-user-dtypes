@@ -6,7 +6,7 @@ int
 get_conversion_factor(PyObject *from_unit, PyObject *to_unit, double *factor,
                       double *offset);
 
-extern PyArrayMethod_Spec UnitToUnitCastSpec;
+PyArrayMethod_Spec** get_casts(void);
 
 int
 UnitConverter(PyObject *obj, PyObject **unit);

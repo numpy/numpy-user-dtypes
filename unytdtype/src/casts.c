@@ -334,23 +334,83 @@ unit_to_unit_get_loop(PyArrayMethod_Context *context, int aligned,
     return 0;
 }
 
-/*
- * NumPy currently allows NULL for the own DType/"cls".  For other DTypes
- * we would have to fill it in here:
- */
-static PyArray_DTypeMeta *m2m_dtypes[2] = {NULL, NULL};
 
-static PyType_Slot m2m_slots[] = {
+static NPY_CASTING unit_to_float64_resolve_descriptors(PyObject *NPY_UNUSED(self),
+													   PyArray_DTypeMeta *NPY_UNUSED(dtypes[2]),
+													   PyArray_Descr *NPY_UNUSED(given_descrs[2]),
+													   PyArray_Descr *NPY_UNUSED(loop_descrs[2]),
+													   npy_intp *NPY_UNUSED(view_offset))
+{
+	return NPY_SAME_KIND_CASTING;
+}
+
+static int
+unit_to_float64(PyArrayMethod_Context *NPY_UNUSED(context),
+				char *const *NPY_UNUSED(data[]),
+				npy_intp const *NPY_UNUSED(dimensions[]),
+				npy_intp const *NPY_UNUSED(strides[]),
+				conv_auxdata *NPY_UNUSED(auxdata))
+{
+    return 0;
+}
+
+static int
+unit_to_float64_get_loop(PyArrayMethod_Context *context, int aligned,
+						 int NPY_UNUSED(move_references), const npy_intp *strides,
+						 PyArrayMethod_StridedLoop **out_loop,
+						 NpyAuxData **out_transferdata,
+						 NPY_ARRAYMETHOD_FLAGS *flags)
+{
+	*out_loop = (PyArrayMethod_StridedLoop *)&unit_to_float64;
+
+    *flags = 0;
+    return 0;
+}
+
+PyArrayMethod_Spec** get_casts(void) {
+
+    /*
+	 * NumPy currently allows NULL for the own DType/"cls".
+	 */
+	PyArray_DTypeMeta *u2u_dtypes[2] = {NULL, NULL};
+
+	PyType_Slot u2u_slots[] = {
         {NPY_METH_resolve_descriptors, &unit_to_unit_resolve_descriptors},
         {_NPY_METH_get_loop, &unit_to_unit_get_loop},
-        {0, NULL}};
+        {0, NULL}
+	};
 
-PyArrayMethod_Spec UnitToUnitCastSpec = {
+	PyArrayMethod_Spec UnitToUnitCastSpec = {
         .name = "cast_UnytDType_to_UnytDType",
         .nin = 1,
         .nout = 1,
         .flags = NPY_METH_SUPPORTS_UNALIGNED,
         .casting = NPY_SAME_KIND_CASTING,
-        .dtypes = m2m_dtypes,
-        .slots = m2m_slots,
-};
+        .dtypes = u2u_dtypes,
+        .slots = u2u_slots,
+	};
+
+	PyArray_DTypeMeta *u2f_dtypes[2] = {NULL, &PyArray_CDoubleDType};
+
+	PyType_Slot u2f_slots[] = {
+		{NPY_METH_resolve_descriptors, &unit_to_float64_resolve_descriptors},
+		{_NPY_METH_get_loop, &unit_to_float64_get_loop},
+		{0, NULL}
+	};
+
+	PyArrayMethod_Spec UnitToFloat64CastSpec = {
+		.name = "cast_UnytDType_to_Float64",
+		.nin = 1,
+		.nout = 1,
+		.flags = NPY_METH_SUPPORTS_UNALIGNED,
+		.casting = NPY_SAME_KIND_CASTING,
+		.dtypes = u2f_dtypes,
+		.slots = u2f_slots,
+	};
+
+	PyArrayMethod_Spec** casts = malloc(3*sizeof(PyArrayMethod_Spec*));
+	memcpy(casts, (PyArrayMethod_Spec*[]){
+			&UnitToUnitCastSpec, &UnitToFloat64CastSpec, NULL
+		}, 3*sizeof(PyArrayMethod_Spec*));
+	return casts;
+}
