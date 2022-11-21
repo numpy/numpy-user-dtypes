@@ -48,3 +48,9 @@ def test_insert_with_different_unit():
     arr = np.array([meter, meter, meter])
     arr[0] = cm
     assert str(arr) == "[0.01 m 1.0 m 1.0 m]"
+
+def test_cast_to_float64():
+    meter = UnytScalar(1, unyt.m)
+    arr = np.array([meter, meter, meter])
+    conv = arr.astype('float64')
+    assert str(arr) == "[1. 1. 1.]"
