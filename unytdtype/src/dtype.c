@@ -188,6 +188,12 @@ unytdtype_getitem(UnytDTypeObject *descr, char *dataptr)
     return res;
 }
 
+static UnytDTypeObject*
+unytdtype_ensure_canonical(UnytDTypeObject* self) {
+    Py_INCREF(self);
+    return self;
+}
+
 static PyType_Slot UnytDType_Slots[] = {
         {NPY_DT_common_instance, &common_instance},
         {NPY_DT_common_dtype, &common_dtype},
@@ -196,6 +202,7 @@ static PyType_Slot UnytDType_Slots[] = {
         /* The header is wrong on main :(, so we add 1 */
         {NPY_DT_setitem, &unytdtype_setitem},
         {NPY_DT_getitem, &unytdtype_getitem},
+        {NPY_DT_ensure_canonical, &unytdtype_ensure_canonical},
         {0, NULL}};
 
 static PyObject *

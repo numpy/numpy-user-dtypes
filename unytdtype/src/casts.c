@@ -335,25 +335,6 @@ unit_to_unit_get_loop(PyArrayMethod_Context *context, int aligned,
 }
 
 
-static NPY_CASTING unit_to_float64_resolve_descriptors(PyObject *NPY_UNUSED(self),
-                                                       PyArray_DTypeMeta *NPY_UNUSED(dtypes[2]),
-                                                       PyArray_Descr *given_descrs[2],
-                                                       PyArray_Descr *loop_descrs[2],
-                                                       npy_intp *NPY_UNUSED(view_offset))
-{
-    if (given_descrs[1] == NULL) {
-        Py_INCREF(given_descrs[0]);
-        loop_descrs[1] = given_descrs[0];
-    }
-    else {
-        Py_INCREF(given_descrs[1]);
-        loop_descrs[1] = given_descrs[1];
-    }
-    Py_INCREF(given_descrs[0]);
-    loop_descrs[0] = given_descrs[0];
-    return NPY_SAFE_CASTING;
-}
-
 static int
 unit_to_float64_contiguous(PyArrayMethod_Context *NPY_UNUSED(context),
                            char *const data[],
@@ -468,7 +449,6 @@ static PyArrayMethod_Spec UnitToUnitCastSpec = {
 };
 
 static PyType_Slot u2f_slots[] = {
-    {NPY_METH_resolve_descriptors, &unit_to_float64_resolve_descriptors},
     {_NPY_METH_get_loop, &unit_to_float64_get_loop},
     {0, NULL}
 };
