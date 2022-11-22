@@ -143,7 +143,7 @@ unit_to_unit_resolve_descriptors(PyObject *NPY_UNUSED(self),
     }
 
     /* Should this use safe casting? */
-    return NPY_SAME_KIND_CASTING;
+    return NPY_SAFE_CASTING;
 }
 
 typedef struct {
@@ -351,7 +351,7 @@ static NPY_CASTING unit_to_float64_resolve_descriptors(PyObject *NPY_UNUSED(self
     }
     Py_INCREF(given_descrs[0]);
     loop_descrs[0] = given_descrs[0];
-    return NPY_SAME_KIND_CASTING;
+    return NPY_SAFE_CASTING;
 }
 
 static int
@@ -462,7 +462,7 @@ static PyArrayMethod_Spec UnitToUnitCastSpec = {
     .nin = 1,
     .nout = 1,
     .flags = NPY_METH_SUPPORTS_UNALIGNED,
-    .casting = NPY_SAME_KIND_CASTING,
+    .casting = NPY_SAFE_CASTING,
     .dtypes = u2u_dtypes,
     .slots = u2u_slots,
 };
@@ -486,7 +486,7 @@ PyArrayMethod_Spec** get_casts(void) {
     UnitToFloat64CastSpec->nin = 1;
     UnitToFloat64CastSpec->nout = 1;
     UnitToFloat64CastSpec->flags = NPY_METH_SUPPORTS_UNALIGNED;
-    UnitToFloat64CastSpec->casting = NPY_SAME_KIND_CASTING;
+    UnitToFloat64CastSpec->casting = NPY_SAFE_CASTING;
     UnitToFloat64CastSpec->dtypes = u2f_dtypes;
     UnitToFloat64CastSpec->slots = u2f_slots;
 
