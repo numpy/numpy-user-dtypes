@@ -337,22 +337,90 @@ unit_to_unit_get_loop(PyArrayMethod_Context *context, int aligned,
 
 static NPY_CASTING unit_to_float64_resolve_descriptors(PyObject *NPY_UNUSED(self),
                                                        PyArray_DTypeMeta *NPY_UNUSED(dtypes[2]),
-                                                       PyArray_Descr *NPY_UNUSED(given_descrs[2]),
-                                                       PyArray_Descr *NPY_UNUSED(loop_descrs[2]),
+                                                       PyArray_Descr *given_descrs[2],
+                                                       PyArray_Descr *loop_descrs[2],
                                                        npy_intp *NPY_UNUSED(view_offset))
 {
+    if (given_descrs[1] == NULL) {
+        Py_INCREF(given_descrs[0]);
+        loop_descrs[1] = given_descrs[0];
+    }
+    else {
+        Py_INCREF(given_descrs[1]);
+        loop_descrs[1] = given_descrs[1];
+    }
+    Py_INCREF(given_descrs[0]);
+    loop_descrs[0] = given_descrs[0];
     return NPY_SAME_KIND_CASTING;
 }
 
 static int
-unit_to_float64(PyArrayMethod_Context *NPY_UNUSED(context),
-                char *const *NPY_UNUSED(data[]),
-                npy_intp const *NPY_UNUSED(dimensions[]),
-                npy_intp const *NPY_UNUSED(strides[]),
-                conv_auxdata *NPY_UNUSED(auxdata))
+unit_to_float64_contiguous(PyArrayMethod_Context *NPY_UNUSED(context),
+                           char *const data[],
+                           npy_intp const dimensions[],
+                           npy_intp const NPY_UNUSED(strides[]),
+                           conv_auxdata *NPY_UNUSED(auxdata))
 {
+    npy_intp N = dimensions[0];
+    double *in = (double*)data[0];
+    double *out = (double*)data[1];
+
+    while(N--) {
+        *out = *in;
+        out++;
+        in++;
+    }
+    
     return 0;
 }
+
+static int
+unit_to_float64_strided(PyArrayMethod_Context *NPY_UNUSED(context),
+                        char *const data[],
+                        npy_intp const dimensions[],
+                        npy_intp const strides[],
+                        conv_auxdata *NPY_UNUSED(auxdata))
+{
+    npy_intp N = dimensions[0];
+    char *in = data[0];
+    char *out = data[1];
+    npy_intp in_stride = strides[0];
+    npy_intp out_stride = strides[1];
+
+    while(N--) {
+        *(double *)out = *(double *)in;
+        out += out_stride;
+        in += in_stride;
+    }
+    
+    return 0;
+}
+
+static int
+unit_to_float64_unaligned(PyArrayMethod_Context *NPY_UNUSED(context),
+                          char *const data[],
+                          npy_intp const dimensions[],
+                          npy_intp const strides[],
+                          conv_auxdata *NPY_UNUSED(auxdata))
+{
+    npy_intp N = dimensions[0];
+    char *in = data[0];
+    char *out = data[1];
+    npy_intp in_stride = strides[0];
+    npy_intp out_stride = strides[1];
+
+    while(N--) {
+        double in_val, out_val;
+        memcpy(&in_val, in, sizeof(double));
+        out_val = in_val;
+        memcpy(out, &out_val, sizeof(double));
+        out += out_stride;
+        in += in_stride;
+    }
+    
+    return 0;
+}
+
 
 static int
 unit_to_float64_get_loop(PyArrayMethod_Context *context, int aligned,
@@ -361,7 +429,18 @@ unit_to_float64_get_loop(PyArrayMethod_Context *context, int aligned,
                          NpyAuxData **out_transferdata,
                          NPY_ARRAYMETHOD_FLAGS *flags)
 {
-    *out_loop = (PyArrayMethod_StridedLoop *)&unit_to_float64;
+    int contig =
+        (strides[0] == sizeof(double) && strides[1] == sizeof(double));
+
+    if (aligned && contig) {
+        *out_loop = (PyArrayMethod_StridedLoop *)&unit_to_float64_contiguous;
+    }
+    else if (aligned) {
+        *out_loop = (PyArrayMethod_StridedLoop *)&unit_to_float64_strided;
+    }
+    else {
+        *out_loop = (PyArrayMethod_StridedLoop *)&unit_to_float64_unaligned;
+    }
 
     *flags = 0;
     return 0;
