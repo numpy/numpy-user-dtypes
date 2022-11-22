@@ -18,18 +18,38 @@ PyMODINIT_FUNC PyInit__quaddtype_main(void) {
     if (_import_array() < 0) return NULL;
 
     // Fail to init if the experimental DType API version 5 isn't supported
-    if (import_experimental_dtype_api(5) < 0) return NULL;
+    if (import_experimental_dtype_api(5) < 0) {
+        PyErr_SetString(PyExc_ImportError,
+                        "Error encountered importing the experimental dtype API.");
+        return NULL;
+    }
 
     PyObject* m = PyModule_Create(&moduledef);
-    if (m == NULL) return NULL;
+    if (m == NULL) {
+        PyErr_SetString(PyExc_ImportError, "Unable to create the quaddtype_main module.");
+        return NULL;
+    }
 
     PyObject* mod = PyImport_ImportModule("quaddtype");
-    if (mod == NULL) goto error;
+    if (mod == NULL) {
+        PyErr_SetString(PyExc_ImportError, "Unable to import the quaddtype module.");
+        goto error;
+    }
     QuadScalar_Type = (PyTypeObject*)PyObject_GetAttrString(mod, "QuadScalar");
     Py_DECREF(mod);
-    if (QuadScalar_Type == NULL) goto error;
-    if (init_quad_dtype() < 0) goto error;
-    if (PyModule_AddObject(m, "quaddtype", (PyObject*)&QuadDType) < 0) goto error;
+    if (QuadScalar_Type == NULL) {
+        PyErr_SetString(PyExc_AttributeError,
+                        "Unable to find QuadScalar attribute in the quaddtype_main module.");
+        goto error;
+    }
+    if (init_quad_dtype() < 0) {
+        PyErr_SetString(PyExc_AttributeError, "QuadDType failed to initialize.");
+        goto error;
+    }
+    if (PyModule_AddObject(m, "QuadDType", (PyObject*)&QuadDType) < 0) {
+        PyErr_SetString(PyExc_TypeError, "Failed to add QuadDType to the quaddtype_main module.");
+        goto error;
+    }
 
     return m;
 
