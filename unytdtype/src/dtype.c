@@ -286,5 +286,9 @@ init_unyt_dtype(void)
 
     UnytDType.singleton = PyArray_GetDefaultDescr(&UnytDType);
 
+    free(UnytDType_DTypeSpec.casts[1]->dtypes);
+    free(UnytDType_DTypeSpec.casts[1]);
+    free(UnytDType_DTypeSpec.casts);
+
     return 0;
 }
