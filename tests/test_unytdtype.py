@@ -53,4 +53,4 @@ def test_cast_to_float64():
     meter = UnytScalar(1, unyt.m)
     arr = np.array([meter, meter, meter])
     conv = arr.astype('float64')
-    assert str(arr) == "[1. 1. 1.]"
+    assert str(conv) == "[1. 1. 1.]"
