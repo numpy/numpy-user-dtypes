@@ -478,8 +478,8 @@ static char* u2f_name = "cast_UnytDType_to_Float64";
 PyArrayMethod_Spec** get_casts(void) {
 
     PyArray_DTypeMeta **u2f_dtypes = malloc(2*sizeof(PyArray_DTypeMeta*));
-    memcpy(u2f_dtypes, (PyArray_DTypeMeta*[]){NULL, &PyArray_DoubleDType},
-           2*sizeof(PyArray_DTypeMeta*));
+    u2f_dtypes[0] = NULL;
+    u2f_dtypes[1] = &PyArray_DoubleDType;
 
     PyArrayMethod_Spec* UnitToFloat64CastSpec = malloc(sizeof(PyArrayMethod_Spec));
     UnitToFloat64CastSpec->name = u2f_name;
@@ -491,8 +491,9 @@ PyArrayMethod_Spec** get_casts(void) {
     UnitToFloat64CastSpec->slots = u2f_slots;
 
     PyArrayMethod_Spec** casts = malloc(3*sizeof(PyArrayMethod_Spec*));
-    memcpy(casts, (PyArrayMethod_Spec*[]){
-            &UnitToUnitCastSpec, UnitToFloat64CastSpec, NULL
-        }, 3*sizeof(PyArrayMethod_Spec*));
+    casts[0] = &UnitToUnitCastSpec;
+    casts[1] = UnitToFloat64CastSpec;
+    casts[2] = NULL;
+
     return casts;
 }
