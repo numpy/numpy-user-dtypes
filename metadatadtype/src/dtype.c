@@ -17,15 +17,19 @@ PyTypeObject *MetadataScalar_Type = NULL;
  * `get_value` and `get_unit` are small helpers to deal with the scalar.
  */
 
-// NJG hack: get_value assumes scalar is a float64 - possible to generalize?
 static double
 get_value(PyObject *scalar)
 {
-    if (Py_TYPE(scalar) != MetadataScalar_Type) {
-        PyErr_SetString(
+    PyTypeObject *scalar_type = Py_TYPE(scalar);
+    if (scalar_type != MetadataScalar_Type) {
+        double res = PyFloat_AsDouble(scalar);
+        if (res == -1 && PyErr_Occurred()) {
+            PyErr_SetString(
                 PyExc_TypeError,
                 "Can only store MetadataScalar in a MetadataDType array.");
-        return -1;
+            return -1;
+        }
+        return res;
     }
 
     PyObject *value = PyObject_GetAttrString(scalar, "value");
@@ -138,13 +142,8 @@ metadata_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls),
 static int
 metadatadtype_setitem(MetadataDTypeObject *descr, PyObject *obj, char *dataptr)
 {
-    PyObject *metadata = get_metadata(obj);
-    if (metadata == NULL) {
-        return -1;
-    }
+    PyObject *metadata = descr->metadata;
 
-    // NJG hack: assume obj is a float64 scalar - how to more generically
-    // handle dtype that is parametric over the underlying data dtype?
     double value = get_value(obj);
     if (value == -1 && PyErr_Occurred()) {
         return -1;
