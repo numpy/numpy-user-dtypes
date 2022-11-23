@@ -142,8 +142,6 @@ metadata_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls),
 static int
 metadatadtype_setitem(MetadataDTypeObject *descr, PyObject *obj, char *dataptr)
 {
-    PyObject *metadata = descr->metadata;
-
     double value = get_value(obj);
     if (value == -1 && PyErr_Occurred()) {
         return -1;
@@ -257,7 +255,7 @@ init_metadata_dtype(void)
      * To create our DType, we have to use a "Spec" that tells NumPy how to
      * do it.  You first have to create a static type, but see the note there!
      */
-    PyArrayMethod_Spec *casts[] = {&MetadataToMetadataCastSpec, NULL};
+    PyArrayMethod_Spec **casts = get_casts();
 
     PyArrayDTypeMeta_Spec MetadataDType_DTypeSpec = {
             .flags = NPY_DT_PARAMETRIC,
@@ -278,6 +276,10 @@ init_metadata_dtype(void)
     }
 
     MetadataDType.singleton = PyArray_GetDefaultDescr(&MetadataDType);
+
+    free(MetadataDType_DTypeSpec.casts[1]->dtypes);
+    free(MetadataDType_DTypeSpec.casts[1]);
+    free(MetadataDType_DTypeSpec.casts);
 
     return 0;
 }
