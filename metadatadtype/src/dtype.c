@@ -1,4 +1,5 @@
 #include <Python.h>
+#include "structmember.h"
 
 #define PY_ARRAY_UNIQUE_SYMBOL metadatadtype_ARRAY_API
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
@@ -225,6 +226,11 @@ metadatadtype_repr(MetadataDTypeObject *self)
     return res;
 }
 
+static PyMemberDef MetadataDType_members[] = {
+    {"_metadata", T_OBJECT_EX, offsetof(MetadataDTypeObject, metadata), READONLY, "some metadata"},
+    {NULL},
+};
+
 /*
  * This is the basic things that you need to create a Python Type/Class in C.
  * However, there is a slight difference here because we create a
@@ -240,6 +246,7 @@ PyArray_DTypeMeta MetadataDType = {
                 .tp_dealloc = (destructor)metadatadtype_dealloc,
                 .tp_repr = (reprfunc)metadatadtype_repr,
                 .tp_str = (reprfunc)metadatadtype_repr,
+                .tp_members = MetadataDType_members,
         }},
         /* rest, filled in during DTypeMeta initialization */
 };

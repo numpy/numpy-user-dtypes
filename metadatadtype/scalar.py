@@ -7,4 +7,4 @@ class MetadataScalar:
         self.dtype = dtype
 
     def __repr__(self):
-        return f"{self.value} {self.dtype}"
+        return f"{self.value} {self.dtype._metadata}"
