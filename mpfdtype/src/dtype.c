@@ -47,6 +47,7 @@ new_MPFDType_instance(mpfr_prec_t precision)
     }
     new->base.elsize = sizeof(mpf_field) + size;
     new->base.alignment = _Alignof(mpf_field);
+    new->base.flags |= NPY_NEEDS_INIT;
 
     return new;
 }
@@ -160,7 +161,9 @@ mpf_getitem(MPFDTypeObject *descr, char *dataptr)
     if (new == NULL) {
         return NULL;
     }
-    mpfr_set(new->mpf.x, ((mpf_field *)dataptr)->x, MPFR_RNDN);
+    mpf_field *mpf_ptr = (mpf_field *)dataptr;
+    ensure_mpf_init(mpf_ptr, descr->precision);
+    mpfr_set(new->mpf.x, mpf_ptr->x, MPFR_RNDN);
 
     return (PyObject *)new;
 }

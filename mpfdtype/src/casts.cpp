@@ -1,13 +1,17 @@
-#include <Python.h>
 
 #define PY_ARRAY_UNIQUE_SYMBOL unitdtype_ARRAY_API
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #define NO_IMPORT_ARRAY
-#include "numpy/arrayobject.h"
-#include "numpy/ndarraytypes.h"
-#include "numpy/experimental_dtype_api.h"
 
-#include "mpfr.h"
+extern "C" {
+    #include <Python.h>
+
+    #include "numpy/arrayobject.h"
+    #include "numpy/ndarraytypes.h"
+    #include "numpy/experimental_dtype_api.h"
+
+    #include "mpfr.h"
+}
 
 #include "casts.h"
 #include "dtype.h"
@@ -53,14 +57,15 @@ mpf_to_mof_strided_loop(PyArrayMethod_Context *context,
     char *in_ptr = data[0];
     char *out_ptr = data[1];
 
-    mpfr_prec_t prec = ((MPFDTypeObject *)context->descriptors[1])->precision;
+    mpfr_prec_t prec_in = ((MPFDTypeObject *)context->descriptors[0])->precision;
+    mpfr_prec_t prec_out = ((MPFDTypeObject *)context->descriptors[1])->precision;
 
     while (N--) {
         mpf_field *in = (mpf_field *)in_ptr;
         mpf_field *out = (mpf_field *)out_ptr;
+        ensure_mpf_init(in, prec_in);
+        ensure_mpf_init(out, prec_out);
 
-        mpfr_custom_init_set(
-                out->x, MPFR_ZERO_KIND, 0, prec, out->significand);
         mpfr_set(out->x, in->x, MPFR_RNDN);
 
         in_ptr += strides[0];

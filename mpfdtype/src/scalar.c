@@ -52,7 +52,7 @@ MPFLoat_raw_new(mpfr_prec_t prec)
 }
 
 
-PyObject *
+MPFloatObject *
 MPFloat_from_object(PyObject *value, Py_ssize_t prec)
 {
     if (prec != -1) {
@@ -101,7 +101,7 @@ MPFloat_from_object(PyObject *value, Py_ssize_t prec)
         return NULL;
     }
 
-    return (PyObject *)self;
+    return self;
 }
 
 
@@ -117,7 +117,7 @@ MPFloat_new(PyTypeObject *cls, PyObject *args, PyObject *kwargs)
         return NULL;
     }
 
-    return MPFloat_from_object(value, prec);
+    return (PyObject *)MPFloat_from_object(value, prec);
 }
 
 
