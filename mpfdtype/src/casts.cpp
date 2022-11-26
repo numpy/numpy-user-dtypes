@@ -1,5 +1,5 @@
 
-#define PY_ARRAY_UNIQUE_SYMBOL unitdtype_ARRAY_API
+#define PY_ARRAY_UNIQUE_SYMBOL MPFDType_ARRAY_API
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #define NO_IMPORT_ARRAY
 
@@ -9,9 +9,9 @@ extern "C" {
     #include "numpy/arrayobject.h"
     #include "numpy/ndarraytypes.h"
     #include "numpy/experimental_dtype_api.h"
-
-    #include "mpfr.h"
 }
+
+#include "mpfr.h"
 
 #include "casts.h"
 #include "dtype.h"
@@ -83,11 +83,11 @@ static PyArray_DTypeMeta *mpf2mpf_dtypes[2] = {NULL, NULL};
 
 
 static PyType_Slot mpf2mpf_slots[] = {
-        {NPY_METH_resolve_descriptors, &mpf_to_mpf_resolve_descriptors},
-        {NPY_METH_strided_loop, &mpf_to_mof_strided_loop},
-        /* We don't actually support unaligned access... */
-        {NPY_METH_unaligned_strided_loop, &mpf_to_mof_strided_loop},
-        {0, NULL}
+    {NPY_METH_resolve_descriptors, (void *)&mpf_to_mpf_resolve_descriptors},
+    {NPY_METH_strided_loop, (void *)&mpf_to_mof_strided_loop},
+    /* We don't actually support unaligned access... */
+    {NPY_METH_unaligned_strided_loop, (void *)&mpf_to_mof_strided_loop},
+    {0, NULL}
 };
 
 
@@ -95,8 +95,8 @@ PyArrayMethod_Spec MPFToMPFCastSpec = {
     .name = "cast_MPF_to_MPF",
     .nin = 1,
     .nout = 1,
-    .flags = NPY_METH_SUPPORTS_UNALIGNED,  /* not really ... */
     .casting = NPY_SAME_KIND_CASTING,
+    .flags = NPY_METH_SUPPORTS_UNALIGNED,  /* not really ... */
     .dtypes = mpf2mpf_dtypes,
     .slots = mpf2mpf_slots,
 };

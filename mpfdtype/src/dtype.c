@@ -161,8 +161,7 @@ mpf_getitem(MPFDTypeObject *descr, char *dataptr)
     if (new == NULL) {
         return NULL;
     }
-    mpf_field *mpf_ptr = (mpf_field *)dataptr;
-    ensure_mpf_init(mpf_ptr, descr->precision);
+    mpf_field *mpf_ptr = ensure_mpf_init((mpf_field *)dataptr, descr->precision);
     mpfr_set(new->mpf.x, mpf_ptr->x, MPFR_RNDN);
 
     return (PyObject *)new;

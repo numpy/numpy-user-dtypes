@@ -1,14 +1,13 @@
 #ifndef _MPRFDTYPE_SCALAR_H
 #define _MPRFDTYPE_SCALAR_H
 
+#include "mpfr.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #include <Python.h>
-
-#include "mpfr.h"
-
 
 typedef struct {
     mpfr_t x;
