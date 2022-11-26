@@ -16,7 +16,7 @@ get_prec_from_object(PyObject *value) {
     if (PyFloat_Check(value)) {
         prec = 53;
     }
-    if (PyLong_Check(value)) {
+    else if (PyLong_Check(value)) {
         prec = 8 * sizeof(Py_ssize_t);
     }
     else if (PyObject_TypeCheck(value, &MPFloat_Type)) {
