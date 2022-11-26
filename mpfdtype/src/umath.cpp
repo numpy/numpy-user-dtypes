@@ -44,7 +44,7 @@ generic_unary_op_strided_loop(PyArrayMethod_Context *context,
         mpf_field *out = ensure_mpf_init((mpf_field *)out_ptr, prec2);
 
         // TODO: Should maybe do something with the result?
-        unary_op(out->x, in->x);
+        unary_op(in->x, out->x);
 
         in_ptr += in_stride;
         out_ptr += out_stride;
@@ -66,31 +66,19 @@ unary_op_resolve_descriptors(PyObject *self,
 {
     Py_INCREF(given_descrs[0]);
     loop_descrs[0] = given_descrs[0];
+
+    if (given_descrs[1] == NULL) {
+        Py_INCREF(given_descrs[0]);
+        loop_descrs[1] = given_descrs[0];
+        return NPY_NO_CASTING;
+    }
     Py_INCREF(given_descrs[1]);
     loop_descrs[1] = given_descrs[1];
 
-    mpfr_prec_t res_prec = std::max(
-            given_descrs[0]->precision, given_descrs[1]->precision);
-
-    if (given_descrs[2] == NULL) {
-        if (given_descrs[0]->precision >= given_descrs[1]->precision) {
-            Py_INCREF(given_descrs[0]);
-            loop_descrs[2] = given_descrs[0];
-        }
-        else {
-            Py_INCREF(given_descrs[1]);
-            loop_descrs[2] = given_descrs[1];
-        }
-    }
-    else {
-        Py_INCREF(given_descrs[2]);
-        loop_descrs[2] = given_descrs[2];
-    }
-
-    if (res_prec == loop_descrs[2]->precision) {
+    if (given_descrs[1]->precision == loop_descrs[2]->precision) {
         return NPY_NO_CASTING;
     }
-    else if (res_prec < loop_descrs[2]->precision) {
+    else if (given_descrs[1]->precision < loop_descrs[2]->precision) {
         return NPY_SAME_KIND_CASTING;
     }
     else {
@@ -513,6 +501,9 @@ init_mpf_umath(void)
         return -1;
     }
     if (init_binary_ops(numpy) < 0) {
+        goto err;
+    }
+    if (init_unary_ops(numpy) < 0) {
         goto err;
     }
 
