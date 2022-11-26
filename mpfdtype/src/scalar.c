@@ -13,8 +13,11 @@
 mpfr_prec_t
 get_prec_from_object(PyObject *value) {
     Py_ssize_t prec;
-    if (PyFloat_CheckExact(value)) {
+    if (PyFloat_Check(value)) {
         prec = 53;
+    }
+    if (PyLong_Check(value)) {
+        prec = 8 * sizeof(Py_ssize_t);
     }
     else if (PyObject_TypeCheck(value, &MPFloat_Type)) {
         prec = mpfr_get_prec(((MPFloatObject *)value)->mpf.x);
@@ -75,8 +78,15 @@ MPFloat_from_object(PyObject *value, Py_ssize_t prec)
         return NULL;
     }
 
-    if (PyFloat_CheckExact(value)) {
+    if (PyFloat_Check(value)) {
         mpfr_set_d(self->mpf.x, PyFloat_AsDouble(value), MPFR_RNDN);
+    }
+    else if (PyLong_Check(value)) {
+        Py_ssize_t val = PyLong_AsSsize_t(value);
+        if (val == -1 && PyErr_Occurred()) {
+            return NULL;
+        }
+        mpfr_set_sj(self->mpf.x, val, MPFR_RNDN);
     }
     else if (PyObject_TypeCheck(value, &MPFloat_Type)) {
         mpfr_set(self->mpf.x, ((MPFloatObject *)value)->mpf.x, MPFR_RNDN);
@@ -124,9 +134,18 @@ MPFloat_new(PyTypeObject *cls, PyObject *args, PyObject *kwargs)
 static PyObject *
 MPFloat_repr(MPFloatObject* self) {
     char *val_repr;
+    char format[100];
+
+    // TODO: I am not 100% sure this ensures round-tripping.
+    size_t ndigits = mpfr_get_str_ndigits(10, mpfr_min_prec(self->mpf.x));
+    ndigits -= 1;
+    if (ndigits < 0) {
+        ndigits = 0;
+    }
+    snprintf(format, 99, "%%.%zdRE", ndigits);
 
     /* Note: For format characters other than "e" precision is needed */
-    if (mpfr_asprintf(&val_repr, "%Re", self->mpf.x) < 0) {
+    if (mpfr_asprintf(&val_repr, format, self->mpf.x) < 0) {
         /* Lets assume errors must be memory errors. */
         PyErr_NoMemory();
         return NULL;

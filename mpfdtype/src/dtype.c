@@ -238,9 +238,7 @@ init_mpf_dtype(void)
      * To create our DType, we have to use a "Spec" that tells NumPy how to
      * do it.  You first have to create a static type, but see the note there!
      */
-    PyArrayMethod_Spec *casts[] = {
-            &MPFToMPFCastSpec,
-            NULL};
+    PyArrayMethod_Spec **casts = init_casts();
 
     PyArrayDTypeMeta_Spec MPFDType_DTypeSpec = {
             .flags = NPY_DT_PARAMETRIC,
@@ -252,13 +250,16 @@ init_mpf_dtype(void)
     ((PyObject *)&MPFDType)->ob_type = &PyArrayDTypeMeta_Type;
     ((PyTypeObject *)&MPFDType)->tp_base = &PyArrayDescr_Type;
     if (PyType_Ready((PyTypeObject *)&MPFDType) < 0) {
+        free_casts();
         return -1;
     }
 
     if (PyArrayInitDTypeMeta_FromSpec(
             &MPFDType, &MPFDType_DTypeSpec) < 0) {
+        free_casts();
         return -1;
     }
 
+    free_casts();
     return 0;
 }

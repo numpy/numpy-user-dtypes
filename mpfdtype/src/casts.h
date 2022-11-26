@@ -5,12 +5,13 @@
 extern "C" {
 #endif
 
-/* Gets the conversion between two units: */
-int
-get_conversion_factor(
-        PyObject *from_unit, PyObject *to_unit, double *factor, double *offset);
-
 extern PyArrayMethod_Spec MPFToMPFCastSpec;
+
+PyArrayMethod_Spec **
+init_casts(void);
+
+void
+free_casts(void);
 
 #ifdef __cplusplus
 }

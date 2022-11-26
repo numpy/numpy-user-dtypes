@@ -445,6 +445,30 @@ arctan2(mpfr_t out, mpfr_t op1, mpfr_t op2)
     return mpfr_atan2(out, op1, op2, MPFR_RNDN);
 }
 
+static int
+nextafter(mpfr_t out, mpfr_t op1, mpfr_t op2)
+{
+    /*
+     * Not ideal at all, but we should operate on the input, not output prec.
+     * Plus, we actually know if this is the case or not, so could at least
+     * short-cut (or special case both paths).
+     */
+    mpfr_prec_t prec = mpfr_get_prec(op1);
+    if (prec == mpfr_get_prec(out)) {
+        mpfr_set(out, op1, MPFR_RNDN);
+        mpfr_nexttoward(out, op2);
+        return 0;
+    }
+    mpfr_t tmp;
+    mpfr_init2(tmp, prec);  // TODO: This could fail, mabye manual?
+    mpfr_set(tmp, op1, MPFR_RNDN);
+    mpfr_nexttoward(tmp, op2);
+    int res = mpfr_set(out, tmp, MPFR_RNDN);
+    mpfr_clear(tmp);
+
+    return res;
+}
+
 
 int init_binary_ops(PyObject *numpy)
 {
@@ -467,6 +491,9 @@ int init_binary_ops(PyObject *numpy)
         return -1;
     }
     if (create_binary_ufunc<arctan2>(numpy, "arctan2") < 0) {
+        return -1;
+    }
+    if (create_binary_ufunc<nextafter>(numpy, "nextafter") < 0) {
         return -1;
     }
     return 0;
