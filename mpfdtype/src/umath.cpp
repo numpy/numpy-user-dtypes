@@ -46,8 +46,8 @@ generic_unary_op_strided_loop(PyArrayMethod_Context *context,
         // TODO: Should maybe do something with the result?
         unary_op(out->x, in->x);
 
-        in += in_stride;
-        out += out_stride;
+        in_ptr += in_stride;
+        out_ptr += out_stride;
     }
     return 0;
 }
@@ -111,10 +111,10 @@ create_unary_ufunc(PyObject *numpy, const char *ufunc_name)
     /*
      * The initializing "wrap up" code from the slides (plus one error check)
      */
-    static PyArray_DTypeMeta *dtypes[2] = {
+    PyArray_DTypeMeta *dtypes[2] = {
        &MPFDType, &MPFDType};
 
-    static PyType_Slot slots[] = {
+    PyType_Slot slots[] = {
        {NPY_METH_resolve_descriptors,
             (void *)&unary_op_resolve_descriptors},
        {NPY_METH_strided_loop,
@@ -306,9 +306,9 @@ generic_binop_strided_loop(PyArrayMethod_Context *context,
         // TODO: Should maybe do something with the result?
         binop(out->x, in1->x, in2->x);
 
-        in1 += in1_stride;
-        in2 += in2_stride;
-        out += out_stride;
+        in1_ptr += in1_stride;
+        in2_ptr += in2_stride;
+        out_ptr += out_stride;
     }
     return 0;
 }
@@ -372,10 +372,10 @@ create_binary_ufunc(PyObject *numpy, const char *ufunc_name)
     /*
      * The initializing "wrap up" code from the slides (plus one error check)
      */
-    static PyArray_DTypeMeta *dtypes[3] = {
+    PyArray_DTypeMeta *dtypes[3] = {
        &MPFDType, &MPFDType, &MPFDType};
 
-    static PyType_Slot slots[] = {
+    PyType_Slot slots[] = {
        {NPY_METH_resolve_descriptors,
             (void *)&binary_op_resolve_descriptors},
        {NPY_METH_strided_loop,
