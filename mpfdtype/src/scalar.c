@@ -8,6 +8,7 @@
 #include "numpy/experimental_dtype_api.h"
 
 #include "scalar.h"
+#include "numbers.h"
 
 
 mpfr_prec_t
@@ -86,6 +87,7 @@ MPFloat_from_object(PyObject *value, Py_ssize_t prec)
         if (val == -1 && PyErr_Occurred()) {
             return NULL;
         }
+        // TODO: Should raise an error if precision is too low!
         mpfr_set_sj(self->mpf.x, val, MPFR_RNDN);
     }
     else if (PyObject_TypeCheck(value, &MPFloat_Type)) {
@@ -170,4 +172,5 @@ PyTypeObject MPFloat_Type = {
     .tp_itemsize = sizeof(mp_limb_t),
     .tp_new = MPFloat_new,
     .tp_repr = (reprfunc)MPFloat_repr,
+    .tp_as_number = &mpf_as_number,
 };
