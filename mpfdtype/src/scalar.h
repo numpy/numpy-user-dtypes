@@ -16,7 +16,7 @@ typedef struct {
 
 
 typedef struct {
-    PyObject_HEAD;
+    PyObject_VAR_HEAD;
     mpf_field mpf;
 } MPFloatObject;
 
