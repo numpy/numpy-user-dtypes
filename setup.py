@@ -8,7 +8,8 @@ def configuration(parent_package='', top_path=None):
     config = Configuration(None, parent_package, top_path)
 
     cfiles = [
-        "mpfdtype_main.c", "scalar.c", "dtype.c", "casts.cpp", "umath.cpp"]
+        "mpfdtype_main.c", "scalar.c", "dtype.c", "casts.cpp", "umath.cpp",
+        "terrible_hacks.c"]
     cfiles = [path.join('mpfdtype/src', f) for f in cfiles]
 
     config.add_subpackage('mpfdtype')

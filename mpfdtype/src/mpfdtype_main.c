@@ -7,6 +7,7 @@
 
 #include "dtype.h"
 #include "umath.h"
+#include "terrible_hacks.h"
 
 
 static struct PyModuleDef moduledef = {
@@ -50,6 +51,10 @@ PyMODINIT_FUNC PyInit__mpfdtype_main(void)
     }
 
     if (init_mpf_umath() < 0) {
+        goto error;
+    }
+
+    if (init_terrible_hacks() < 0) {
         goto error;
     }
 

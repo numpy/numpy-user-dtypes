@@ -19,10 +19,7 @@ extern "C" {
 #include "dtype.h"
 #include "umath.h"
 
-
-typedef int unary_op_def(mpfr_t, mpfr_t);
-typedef int binop_def(mpfr_t, mpfr_t, mpfr_t);
-typedef npy_bool cmp_def(mpfr_t, mpfr_t);
+#include "ops.hpp"
 
 
 template <unary_op_def unary_op>
@@ -128,94 +125,6 @@ create_unary_ufunc(PyObject *numpy, const char *ufunc_name)
     return 0;
 }
 
-int negative(mpfr_t op, mpfr_t out)
-{
-    return mpfr_neg(out, op, MPFR_RNDN);
-}
-
-int positive(mpfr_t op, mpfr_t out)
-{
-    if (out == op) {
-        return 0;
-    }
-    return mpfr_set(out, op, MPFR_RNDN);
-}
-
-int sqrt(mpfr_t op, mpfr_t out)
-{
-    return mpfr_sqrt(out, op, MPFR_RNDN);
-}
-
-int absolute(mpfr_t op, mpfr_t out)
-{
-    return mpfr_abs(out, op, MPFR_RNDN);
-}
-
-int log(mpfr_t op, mpfr_t out)
-{
-    return mpfr_log(out, op, MPFR_RNDN);
-}
-
-int log2(mpfr_t op, mpfr_t out)
-{
-    return mpfr_log2(out, op, MPFR_RNDN);
-}
-
-int log10(mpfr_t op, mpfr_t out)
-{
-    return mpfr_log10(out, op, MPFR_RNDN);
-}
-
-int log1p(mpfr_t op, mpfr_t out)
-{
-    return mpfr_log1p(out, op, MPFR_RNDN);
-}
-
-int exp(mpfr_t op, mpfr_t out)
-{
-    return mpfr_exp(out, op, MPFR_RNDN);
-}
-
-int exp2(mpfr_t op, mpfr_t out)
-{
-    return mpfr_exp2(out, op, MPFR_RNDN);
-}
-
-int expm1(mpfr_t op, mpfr_t out)
-{
-    return mpfr_expm1(out, op, MPFR_RNDN);
-}
-
-int sin(mpfr_t op, mpfr_t out)
-{
-    return mpfr_sin(out, op, MPFR_RNDN);
-}
-
-int cos(mpfr_t op, mpfr_t out)
-{
-    return mpfr_cos(out, op, MPFR_RNDN);
-}
-
-int tan(mpfr_t op, mpfr_t out)
-{
-    return mpfr_tan(out, op, MPFR_RNDN);
-}
-
-int arcsin(mpfr_t op, mpfr_t out)
-{
-    return mpfr_asin(out, op, MPFR_RNDN);
-}
-
-int arccos(mpfr_t op, mpfr_t out)
-{
-    return mpfr_acos(out, op, MPFR_RNDN);
-}
-
-int arctan(mpfr_t op, mpfr_t out)
-{
-    return mpfr_tan(out, op, MPFR_RNDN);
-}
-
 
 int init_unary_ops(PyObject *numpy)
 {
@@ -225,10 +134,22 @@ int init_unary_ops(PyObject *numpy)
     if (create_unary_ufunc<positive>(numpy, "positive") < 0) {
         return -1;
     }
-    if (create_unary_ufunc<sqrt>(numpy, "sqrt") < 0) {
+    if (create_unary_ufunc<absolute>(numpy, "absolute") < 0) {
         return -1;
     }
-    if (create_unary_ufunc<absolute>(numpy, "absolute") < 0) {
+    if (create_unary_ufunc<rint>(numpy, "rint") < 0) {
+        return -1;
+    }
+    if (create_unary_ufunc<trunc>(numpy, "trunc") < 0) {
+        return -1;
+    }
+    if (create_unary_ufunc<floor>(numpy, "floor") < 0) {
+        return -1;
+    }
+    if (create_unary_ufunc<ceil>(numpy, "ceil") < 0) {
+        return -1;
+    }
+    if (create_unary_ufunc<sqrt>(numpy, "sqrt") < 0) {
         return -1;
     }
     if (create_unary_ufunc<log>(numpy, "log") < 0) {
@@ -263,7 +184,6 @@ int init_unary_ops(PyObject *numpy)
     }
     return 0;
 }
-
 
 
 /*
@@ -480,74 +400,7 @@ create_binary_ufunc(PyObject *numpy, const char *ufunc_name)
     return 0;
 }
 
-/*
- * Not sure how to use templates without these helpers?
- */
-static int
-add(mpfr_t out, mpfr_t op1, mpfr_t op2)
-{
-    return mpfr_add(out, op1, op2, MPFR_RNDN);
-}
 
-static int
-sub(mpfr_t out, mpfr_t op1, mpfr_t op2)
-{
-    return mpfr_sub(out, op1, op2, MPFR_RNDN);
-}
-
-static int
-mul(mpfr_t out, mpfr_t op1, mpfr_t op2)
-{
-    return mpfr_mul(out, op1, op2, MPFR_RNDN);
-}
-
-static int
-div(mpfr_t out, mpfr_t op1, mpfr_t op2)
-{
-    return mpfr_div(out, op1, op2, MPFR_RNDN);
-}
-
-static int
-hypot(mpfr_t out, mpfr_t op1, mpfr_t op2)
-{
-    return mpfr_hypot(out, op1, op2, MPFR_RNDN);
-}
-
-static int
-pow(mpfr_t out, mpfr_t op1, mpfr_t op2)
-{
-    return mpfr_pow(out, op1, op2, MPFR_RNDN);
-}
-
-static int
-arctan2(mpfr_t out, mpfr_t op1, mpfr_t op2)
-{
-    return mpfr_atan2(out, op1, op2, MPFR_RNDN);
-}
-
-static int
-nextafter(mpfr_t out, mpfr_t op1, mpfr_t op2)
-{
-    /*
-     * Not ideal at all, but we should operate on the input, not output prec.
-     * Plus, we actually know if this is the case or not, so could at least
-     * short-cut (or special case both paths).
-     */
-    mpfr_prec_t prec = mpfr_get_prec(op1);
-    if (prec == mpfr_get_prec(out)) {
-        mpfr_set(out, op1, MPFR_RNDN);
-        mpfr_nexttoward(out, op2);
-        return 0;
-    }
-    mpfr_t tmp;
-    mpfr_init2(tmp, prec);  // TODO: This could fail, mabye manual?
-    mpfr_set(tmp, op1, MPFR_RNDN);
-    mpfr_nexttoward(tmp, op2);
-    int res = mpfr_set(out, tmp, MPFR_RNDN);
-    mpfr_clear(tmp);
-
-    return res;
-}
 
 
 int init_binary_ops(PyObject *numpy)
@@ -614,19 +467,6 @@ generic_comp_strided_loop(PyArrayMethod_Context *context,
     return 0;
 }
 
-npy_bool
-mpf_equal(mpfr_t in1, mpfr_t in2) {return mpfr_equal_p(in1, in2) != 0;}
-npy_bool
-mpf_notequal(mpfr_t in1, mpfr_t in2) {return mpfr_equal_p(in1, in2) == 0;}
-npy_bool
-mpf_less(mpfr_t in1, mpfr_t in2) {return mpfr_less_p(in1, in2) != 0;}
-npy_bool
-mpf_lessequal(mpfr_t in1, mpfr_t in2) {return mpfr_lessequal_p(in1, in2) != 0;}
-npy_bool
-mpf_greater(mpfr_t in1, mpfr_t in2) {return mpfr_greater_p(in1, in2) != 0;}
-npy_bool
-mpf_greaterequal(mpfr_t in1, mpfr_t in2) {return mpfr_greaterequal_p(in1, in2) != 0;}
-
 
 /* In theory simpler, but reuse default one (except for forcing object) */
 NPY_NO_EXPORT int
@@ -637,10 +477,13 @@ comparison_ufunc_promoter(PyUFuncObject *ufunc,
     PyArray_DTypeMeta *new_signature[NPY_MAXARGS];
 
     memcpy(new_signature, signature, 3 * sizeof(PyArray_DTypeMeta *));
-    if (new_signature[2] == NULL) {
-        new_signature[2] = &PyArray_BoolDType;
+    new_signature[2] = NULL;
+    int res = default_ufunc_promoter(ufunc, op_dtypes, new_signature, new_op_dtypes);
+    if (res < 0) {
+        return -1;
     }
-    return default_ufunc_promoter(ufunc, op_dtypes, new_signature, new_op_dtypes);
+    Py_XSETREF(new_op_dtypes[2], &PyArray_BoolDType);
+    return 0;
 }
 
 
