@@ -142,12 +142,15 @@ MPFloat_new(PyTypeObject *cls, PyObject *args, PyObject *kwargs)
 
 
 static PyObject *
-MPFloat_repr(MPFloatObject* self) {
+MPFloat_str(MPFloatObject* self)
+{
     char *val_repr;
     char format[100];
 
+    mpfr_prec_t precision = mpfr_min_prec(self->mpf.x);
+
     // TODO: I am not 100% sure this ensures round-tripping.
-    size_t ndigits = mpfr_get_str_ndigits(10, mpfr_min_prec(self->mpf.x));
+    size_t ndigits = mpfr_get_str_ndigits(10, precision);
     ndigits -= 1;
     if (ndigits < 0) {
         ndigits = 0;
@@ -160,8 +163,23 @@ MPFloat_repr(MPFloatObject* self) {
         PyErr_NoMemory();
         return NULL;
     }
-    PyObject *res = PyUnicode_FromFormat("MPFloat('%s')", val_repr);
+    PyObject *str = PyUnicode_FromString(val_repr);
     mpfr_free_str(val_repr);
+    return str;
+}
+
+
+static PyObject *
+MPFloat_repr(MPFloatObject* self)
+{
+    PyObject *val_repr = MPFloat_str(self);
+    if (val_repr == NULL) {
+        return NULL;
+    }
+
+    PyObject *res = PyUnicode_FromFormat(
+            "MPFloat('%S', prec=%zd)", val_repr, mpfr_get_prec(self->mpf.x));
+    Py_DECREF(val_repr);
     return res;
 }
 
@@ -180,6 +198,7 @@ PyTypeObject MPFloat_Type = {
     .tp_itemsize = sizeof(mp_limb_t),
     .tp_new = MPFloat_new,
     .tp_repr = (reprfunc)MPFloat_repr,
+    .tp_str = (reprfunc)MPFloat_str,
     .tp_as_number = &mpf_as_number,
     .tp_richcompare = &mpf_richcompare,
 };
