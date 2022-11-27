@@ -1,3 +1,7 @@
+/*
+ * This file defines scalar numeric operations.
+ */
+
 #define PY_ARRAY_UNIQUE_SYMBOL MPFDType_ARRAY_API
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #define NO_IMPORT_ARRAY
@@ -46,13 +50,13 @@ binary_func(PyObject *op1, PyObject *op2)
     int is_forward;  /* We may be a forward operation (so can defer) */
     if (PyObject_TypeCheck(op1, &MPFloat_Type)) {
         is_forward = 1;
-        self = (MPFloatObject *)op2;
-        other = Py_NewRef(op1);
+        self = (MPFloatObject *)op1;
+        other = Py_NewRef(op2);
     }
     else {
         is_forward = 0;
-        self = (MPFloatObject *)op1;
-        other = Py_NewRef(op2);
+        self = (MPFloatObject *)op2;
+        other = Py_NewRef(op1);
     }
 
     precision = mpfr_get_prec(self->mpf.x);
