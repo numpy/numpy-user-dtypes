@@ -348,6 +348,73 @@ binary_op_resolve_descriptors(PyObject *self,
 }
 
 
+/*
+ * Copied from NumPy, because NumPy doesn't always use it :)
+ */
+static int
+default_ufunc_promoter(PyUFuncObject *ufunc,
+        PyArray_DTypeMeta *op_dtypes[], PyArray_DTypeMeta *signature[],
+        PyArray_DTypeMeta *new_op_dtypes[])
+{
+    /* If nin < 2 promotion is a no-op, so it should not be registered */
+    assert(ufunc->nin > 1);
+    if (op_dtypes[0] == NULL) {
+        assert(ufunc->nin == 2 && ufunc->nout == 1);  /* must be reduction */
+        Py_INCREF(op_dtypes[1]);
+        new_op_dtypes[0] = op_dtypes[1];
+        Py_INCREF(op_dtypes[1]);
+        new_op_dtypes[1] = op_dtypes[1];
+        Py_INCREF(op_dtypes[1]);
+        new_op_dtypes[2] = op_dtypes[1];
+        return 0;
+    }
+    PyArray_DTypeMeta *common = NULL;
+    /*
+     * If a signature is used and homogeneous in its outputs use that
+     * (Could/should likely be rather applied to inputs also, although outs
+     * only could have some advantage and input dtypes are rarely enforced.)
+     */
+    for (int i = ufunc->nin; i < ufunc->nargs; i++) {
+        if (signature[i] != NULL) {
+            if (common == NULL) {
+                Py_INCREF(signature[i]);
+                common = signature[i];
+            }
+            else if (common != signature[i]) {
+                Py_CLEAR(common);  /* Not homogeneous, unset common */
+                break;
+            }
+        }
+    }
+    /* Otherwise, use the common DType of all input operands */
+    if (common == NULL) {
+        common = PyArray_PromoteDTypeSequence(ufunc->nin, op_dtypes);
+        if (common == NULL) {
+            if (PyErr_ExceptionMatches(PyExc_TypeError)) {
+                PyErr_Clear();  /* Do not propagate normal promotion errors */
+            }
+            return -1;
+        }
+    }
+
+    for (int i = 0; i < ufunc->nargs; i++) {
+        PyArray_DTypeMeta *tmp = common;
+        if (signature[i]) {
+            tmp = signature[i];  /* never replace a fixed one. */
+        }
+        Py_INCREF(tmp);
+        new_op_dtypes[i] = tmp;
+    }
+    for (int i = ufunc->nin; i < ufunc->nargs; i++) {
+        Py_XINCREF(op_dtypes[i]);
+        new_op_dtypes[i] = op_dtypes[i];
+    }
+
+    Py_DECREF(common);
+    return 0;
+}
+
+
 template <binop_def binop>
 int
 create_binary_ufunc(PyObject *numpy, const char *ufunc_name)
@@ -384,6 +451,30 @@ create_binary_ufunc(PyObject *numpy, const char *ufunc_name)
     if (PyUFunc_AddLoopFromSpec(ufunc, &Spec) < 0) {
         return -1;
     }
+
+    /*
+     * This might interfere with NumPy at this time.
+     */
+    PyObject *promoter_capsule = PyCapsule_New(
+            (void *)&default_ufunc_promoter, "numpy._ufunc_promoter", NULL);
+    if (promoter_capsule == NULL) {
+        return -1;
+    }
+
+    PyObject *DTypes = PyTuple_Pack(
+            3, &PyArrayDescr_Type, &PyArrayDescr_Type, &PyArrayDescr_Type);
+    if (DTypes  == 0) {
+        Py_DECREF(promoter_capsule);
+        return -1;
+    }
+
+    if (PyUFunc_AddPromoter(ufunc, DTypes, promoter_capsule) < 0) {
+        Py_DECREF(promoter_capsule);
+        Py_DECREF(DTypes);
+        return -1;
+    }
+    Py_DECREF(promoter_capsule);
+    Py_DECREF(DTypes);
 
     return 0;
 }
