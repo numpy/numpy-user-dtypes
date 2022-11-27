@@ -5,6 +5,9 @@
 extern "C" {
 #endif
 
+PyObject *
+mpf_richcompare(MPFloatObject *self, PyObject *other, int cmp_op);
+
 extern PyNumberMethods mpf_as_number;
 
 #ifdef __cplusplus

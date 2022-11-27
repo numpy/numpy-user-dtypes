@@ -87,8 +87,16 @@ MPFloat_from_object(PyObject *value, Py_ssize_t prec)
         if (val == -1 && PyErr_Occurred()) {
             return NULL;
         }
-        // TODO: Should raise an error if precision is too low!
-        mpfr_set_sj(self->mpf.x, val, MPFR_RNDN);
+        int ternary = mpfr_set_sj(self->mpf.x, val, MPFR_RNDN);
+        if (ternary != 0) {
+            // TODO: Not sure this should always raise, since a float will
+            //       still be close to correct.
+            PyErr_Format(PyExc_ValueError,
+                "%zd could not be converted to MPFloat with precision %zd",
+                val, (Py_ssize_t)prec);
+            Py_DECREF(self);
+            return NULL;
+        }
     }
     else if (PyObject_TypeCheck(value, &MPFloat_Type)) {
         mpfr_set(self->mpf.x, ((MPFloatObject *)value)->mpf.x, MPFR_RNDN);
@@ -173,4 +181,5 @@ PyTypeObject MPFloat_Type = {
     .tp_new = MPFloat_new,
     .tp_repr = (reprfunc)MPFloat_repr,
     .tp_as_number = &mpf_as_number,
+    .tp_richcompare = &mpf_richcompare,
 };
