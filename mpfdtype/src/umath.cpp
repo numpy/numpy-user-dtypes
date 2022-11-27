@@ -22,6 +22,7 @@ extern "C" {
 
 typedef int unary_op_def(mpfr_t, mpfr_t);
 typedef int binop_def(mpfr_t, mpfr_t, mpfr_t);
+typedef npy_bool cmp_def(mpfr_t, mpfr_t);
 
 
 template <unary_op_def unary_op>
@@ -578,6 +579,160 @@ int init_binary_ops(PyObject *numpy)
     return 0;
 }
 
+
+/*
+ * Comparisons
+ */
+
+template <cmp_def comp>
+int
+generic_comp_strided_loop(PyArrayMethod_Context *context,
+        char *const data[], npy_intp const dimensions[],
+        npy_intp const strides[], NpyAuxData *auxdata)
+{
+    npy_intp N = dimensions[0];
+    char *in1_ptr = data[0], *in2_ptr = data[1];
+    char *out_ptr = data[2];
+    npy_intp in1_stride = strides[0];
+    npy_intp in2_stride = strides[1];
+    npy_intp out_stride = strides[2];
+
+    mpfr_prec_t prec1 = ((MPFDTypeObject *)context->descriptors[0])->precision;
+    mpfr_prec_t prec2 = ((MPFDTypeObject *)context->descriptors[0])->precision;
+
+    while (N--) {
+        mpf_field *in1 = ensure_mpf_init((mpf_field *)in1_ptr, prec1);
+        mpf_field *in2 = ensure_mpf_init((mpf_field *)in2_ptr, prec2);
+
+        // TODO: Should maybe do something with the result?
+        *((npy_bool *)out_ptr) = comp(in1->x, in2->x);
+
+        in1_ptr += in1_stride;
+        in2_ptr += in2_stride;
+        out_ptr += out_stride;
+    }
+    return 0;
+}
+
+npy_bool
+mpf_equal(mpfr_t in1, mpfr_t in2) {return mpfr_equal_p(in1, in2) != 0;}
+npy_bool
+mpf_notequal(mpfr_t in1, mpfr_t in2) {return mpfr_equal_p(in1, in2) == 0;}
+npy_bool
+mpf_less(mpfr_t in1, mpfr_t in2) {return mpfr_less_p(in1, in2) != 0;}
+npy_bool
+mpf_lessequal(mpfr_t in1, mpfr_t in2) {return mpfr_lessequal_p(in1, in2) != 0;}
+npy_bool
+mpf_greater(mpfr_t in1, mpfr_t in2) {return mpfr_greater_p(in1, in2) != 0;}
+npy_bool
+mpf_greaterequal(mpfr_t in1, mpfr_t in2) {return mpfr_greaterequal_p(in1, in2) != 0;}
+
+
+/* In theory simpler, but reuse default one (except for forcing object) */
+NPY_NO_EXPORT int
+comparison_ufunc_promoter(PyUFuncObject *ufunc,
+        PyArray_DTypeMeta *op_dtypes[], PyArray_DTypeMeta *signature[],
+        PyArray_DTypeMeta *new_op_dtypes[])
+{
+    PyArray_DTypeMeta *new_signature[NPY_MAXARGS];
+
+    memcpy(new_signature, signature, 3 * sizeof(PyArray_DTypeMeta *));
+    if (new_signature[2] == NULL) {
+        new_signature[2] = &PyArray_BoolDType;
+    }
+    return default_ufunc_promoter(ufunc, op_dtypes, new_signature, new_op_dtypes);
+}
+
+
+template <cmp_def comp>
+int
+create_comparison_ufunc(PyObject *numpy, const char *ufunc_name)
+{
+    PyObject *ufunc = PyObject_GetAttrString(numpy, ufunc_name);
+    if (ufunc == NULL) {
+        return -1;
+    }
+
+    /*
+     * The initializing "wrap up" code from the slides (plus one error check)
+     */
+    PyArray_DTypeMeta *dtypes[3] = {
+       &MPFDType, &MPFDType, &PyArray_BoolDType};
+
+    PyType_Slot slots[] = {
+       {NPY_METH_strided_loop,
+            (void *)&generic_comp_strided_loop<comp>},
+       {0, NULL}
+    };
+
+    PyArrayMethod_Spec Spec = {
+        .name = "mpf_comp",
+        .nin = 2,
+        .nout = 1,
+        .casting = NPY_NO_CASTING,
+        .flags = (NPY_ARRAYMETHOD_FLAGS)0,
+        .dtypes = dtypes,
+        .slots = slots,
+    };
+
+    if (PyUFunc_AddLoopFromSpec(ufunc, &Spec) < 0) {
+        return -1;
+    }
+
+    /*
+     * This might interfere with NumPy at this time.
+     */
+    PyObject *promoter_capsule = PyCapsule_New(
+            (void *)&comparison_ufunc_promoter, "numpy._ufunc_promoter", NULL);
+    if (promoter_capsule == NULL) {
+        return -1;
+    }
+
+    PyObject *DTypes = PyTuple_Pack(
+            3, &PyArrayDescr_Type, &PyArrayDescr_Type, &PyArray_BoolDType);
+    if (DTypes  == 0) {
+        Py_DECREF(promoter_capsule);
+        return -1;
+    }
+
+    if (PyUFunc_AddPromoter(ufunc, DTypes, promoter_capsule) < 0) {
+        Py_DECREF(promoter_capsule);
+        Py_DECREF(DTypes);
+        return -1;
+    }
+    Py_DECREF(promoter_capsule);
+    Py_DECREF(DTypes);
+
+    return 0;
+}
+
+
+int
+init_comps(PyObject *numpy)
+{
+    if (create_comparison_ufunc<mpf_equal>(numpy, "equal") < 0) {
+        return -1;
+    }
+    if (create_comparison_ufunc<mpf_notequal>(numpy, "not_equal") < 0) {
+        return -1;
+    }
+    if (create_comparison_ufunc<mpf_less>(numpy, "less") < 0) {
+        return -1;
+    }
+    if (create_comparison_ufunc<mpf_lessequal>(numpy, "less_equal") < 0) {
+        return -1;
+    }
+    if (create_comparison_ufunc<mpf_greater>(numpy, "greater") < 0) {
+        return -1;
+    }
+    if (create_comparison_ufunc<mpf_greaterequal>(numpy, "greater_equal") < 0) {
+        return -1;
+    }
+
+    return 0;
+}
+
+
 /*
  * Function that adds our multiply loop to NumPy's multiply ufunc.
  */
@@ -591,10 +746,14 @@ init_mpf_umath(void)
     if (numpy == NULL) {
         return -1;
     }
+
+    if (init_unary_ops(numpy) < 0) {
+        goto err;
+    }
     if (init_binary_ops(numpy) < 0) {
         goto err;
     }
-    if (init_unary_ops(numpy) < 0) {
+    if (init_comps(numpy) < 0) {
         goto err;
     }
 
