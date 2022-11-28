@@ -45,8 +45,8 @@ new_MPFDType_instance(mpfr_prec_t precision)
         PyErr_SetString(PyExc_TypeError,
                 "storage of single float would be too large for precision.");
     }
-    new->base.elsize = sizeof(mpf_field) + size;
-    new->base.alignment = _Alignof(mpf_field);
+    new->base.elsize = sizeof(mpf_storage) + size;
+    new->base.alignment = _Alignof(mpf_storage);
     new->base.flags |= NPY_NEEDS_INIT;
 
     return new;
@@ -135,11 +135,10 @@ mpf_setitem(MPFDTypeObject *descr, PyObject *obj, char *dataptr)
     // TODO: This doesn't support unaligned access, maybe we should just
     //       allow DTypes to say that they cannot be unaligned?!
 
-    mpf_field *res = ((mpf_field *)dataptr);
-
-    mpfr_custom_init_set(
-            res->x, MPFR_ZERO_KIND, 0, descr->precision, res->significand);
-    mpfr_set(res->x, value->mpf.x, MPFR_RNDN);
+    mpfr_t res;
+    mpf_load(res, dataptr, descr->precision);
+    mpfr_set(res, value->mpf.x, MPFR_RNDN);
+    mpf_store(dataptr, res);
 
     Py_DECREF(value);
     return 0;
@@ -161,8 +160,9 @@ mpf_getitem(MPFDTypeObject *descr, char *dataptr)
     if (new == NULL) {
         return NULL;
     }
-    mpf_field *mpf_ptr = ensure_mpf_init((mpf_field *)dataptr, descr->precision);
-    mpfr_set(new->mpf.x, mpf_ptr->x, MPFR_RNDN);
+    mpfr_t val;
+    mpf_load(val, dataptr, descr->precision);
+    mpfr_set(new->mpf.x, val, MPFR_RNDN);
 
     return (PyObject *)new;
 }

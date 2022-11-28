@@ -62,13 +62,14 @@ mpf_to_mof_strided_loop(PyArrayMethod_Context *context,
     mpfr_prec_t prec_in = ((MPFDTypeObject *)context->descriptors[0])->precision;
     mpfr_prec_t prec_out = ((MPFDTypeObject *)context->descriptors[1])->precision;
 
-    while (N--) {
-        mpf_field *in = (mpf_field *)in_ptr;
-        mpf_field *out = (mpf_field *)out_ptr;
-        ensure_mpf_init(in, prec_in);
-        ensure_mpf_init(out, prec_out);
+    mpfr_t in, out;
 
-        mpfr_set(out->x, in->x, MPFR_RNDN);
+    while (N--) {
+        mpf_load(in, in_ptr, prec_in);
+        mpf_load(out, out_ptr, prec_out);
+
+        mpfr_set(out, in, MPFR_RNDN);
+        mpf_store(out_ptr, out);
 
         in_ptr += strides[0];
         out_ptr += strides[1];
@@ -82,53 +83,53 @@ mpf_to_mof_strided_loop(PyArrayMethod_Context *context,
  * for simplicity.  MPFR has more.
  */
 template <typename conv_T, typename T>
-int C_to_mpfr(T val, mpf_field *res);
+int C_to_mpfr(T val, mpfr_t res);
 
 template<> int
-C_to_mpfr<uintmax_t, npy_ubyte>(npy_ubyte val, mpf_field *res) {return mpfr_set_uj(res->x, val, MPFR_RNDN);}
+C_to_mpfr<uintmax_t, npy_ubyte>(npy_ubyte val, mpfr_t res) {return mpfr_set_uj(res, val, MPFR_RNDN);}
 template<> int
-C_to_mpfr<uintmax_t, npy_ushort>(npy_ushort val, mpf_field *res) {return mpfr_set_uj(res->x, val, MPFR_RNDN);}
+C_to_mpfr<uintmax_t, npy_ushort>(npy_ushort val, mpfr_t res) {return mpfr_set_uj(res, val, MPFR_RNDN);}
 template<> int
-C_to_mpfr<uintmax_t, npy_uint>(npy_uint val, mpf_field *res) {return mpfr_set_uj(res->x, val, MPFR_RNDN);}
+C_to_mpfr<uintmax_t, npy_uint>(npy_uint val, mpfr_t res) {return mpfr_set_uj(res, val, MPFR_RNDN);}
 template<> int
-C_to_mpfr<uintmax_t, npy_ulong>(npy_ulong val, mpf_field *res) {return mpfr_set_uj(res->x, val, MPFR_RNDN);}
+C_to_mpfr<uintmax_t, npy_ulong>(npy_ulong val, mpfr_t res) {return mpfr_set_uj(res, val, MPFR_RNDN);}
 template<> int
-C_to_mpfr<uintmax_t, npy_ulonglong>(npy_ulonglong val, mpf_field *res) {return mpfr_set_uj(res->x, val, MPFR_RNDN);}
+C_to_mpfr<uintmax_t, npy_ulonglong>(npy_ulonglong val, mpfr_t res) {return mpfr_set_uj(res, val, MPFR_RNDN);}
 
 template<> int
-C_to_mpfr<intmax_t, npy_byte>(npy_byte val, mpf_field *res) {return mpfr_set_sj(res->x, val, MPFR_RNDN);}
+C_to_mpfr<intmax_t, npy_byte>(npy_byte val, mpfr_t res) {return mpfr_set_sj(res, val, MPFR_RNDN);}
 template<> int
-C_to_mpfr<intmax_t, npy_short>(npy_short val, mpf_field *res) {return mpfr_set_sj(res->x, val, MPFR_RNDN);}
+C_to_mpfr<intmax_t, npy_short>(npy_short val, mpfr_t res) {return mpfr_set_sj(res, val, MPFR_RNDN);}
 template<> int
-C_to_mpfr<intmax_t, npy_int>(npy_int val, mpf_field *res) {return mpfr_set_sj(res->x, val, MPFR_RNDN);}
+C_to_mpfr<intmax_t, npy_int>(npy_int val, mpfr_t res) {return mpfr_set_sj(res, val, MPFR_RNDN);}
 template<> int
-C_to_mpfr<intmax_t, npy_long>(npy_long val, mpf_field *res) {return mpfr_set_sj(res->x, val, MPFR_RNDN);}
+C_to_mpfr<intmax_t, npy_long>(npy_long val, mpfr_t res) {return mpfr_set_sj(res, val, MPFR_RNDN);}
 template<> int
-C_to_mpfr<intmax_t, npy_longlong>(npy_longlong val, mpf_field *res) {return mpfr_set_sj(res->x, val, MPFR_RNDN);}
+C_to_mpfr<intmax_t, npy_longlong>(npy_longlong val, mpfr_t res) {return mpfr_set_sj(res, val, MPFR_RNDN);}
 
 
 template<> int
-C_to_mpfr<float, float>(float val, mpf_field *res)
+C_to_mpfr<float, float>(float val, mpfr_t res)
 {
-    return mpfr_set_flt(res->x, val, MPFR_RNDN);
+    return mpfr_set_flt(res, val, MPFR_RNDN);
 }
 
 template<> int
-C_to_mpfr<double, double>(double val, mpf_field *res)
+C_to_mpfr<double, double>(double val, mpfr_t res)
 {
-    return mpfr_set_d(res->x, val, MPFR_RNDN);
+    return mpfr_set_d(res, val, MPFR_RNDN);
 }
 
 template<> int
-C_to_mpfr<long double, long double>(long double val, mpf_field *res)
+C_to_mpfr<long double, long double>(long double val, mpfr_t res)
 {
-    return mpfr_set_ld(res->x, val, MPFR_RNDN);
+    return mpfr_set_ld(res, val, MPFR_RNDN);
 }
 
 template<> int
-C_to_mpfr<bool, npy_bool>(npy_bool val, mpf_field *res)
+C_to_mpfr<bool, npy_bool>(npy_bool val, mpfr_t res)
 {
-    return mpfr_set_si(res->x, val != 0, MPFR_RNDN);
+    return mpfr_set_si(res, val != 0, MPFR_RNDN);
 }
 
 
@@ -175,15 +176,15 @@ numpy_to_mpf_strided_loop(PyArrayMethod_Context *context,
 
     mpfr_prec_t prec_out = ((MPFDTypeObject *)context->descriptors[1])->precision;
 
+    mpfr_t out;
+
     while (N--) {
         T *in = (T *)in_ptr;
-        mpf_field *out = (mpf_field *)out_ptr;
-        ensure_mpf_init(out, prec_out);
+        mpf_load(out, out_ptr, prec_out);
 
         int res = C_to_mpfr<conv_T, T>(*in, out);
-        if (res < 0) {
-            return -1;  /* We flag errors for out-of-bound ints */
-        }
+        // TODO: At least for ints, could flag out of bounds...
+        mpf_store(out_ptr, out);
 
         in_ptr += strides[0];
         out_ptr += strides[1];
@@ -197,15 +198,15 @@ numpy_to_mpf_strided_loop(PyArrayMethod_Context *context,
  */
 
 template <typename T, typename conv_T>
-int mpfr_to_C(mpf_field *val, T *res);
+int mpfr_to_C(mpfr_t val, T *res);
 
 // TODO: Is there a way to do this partial templating?
 template <typename UINT>
 int
-mpfr_to_uint(mpf_field *val, UINT *res)
+mpfr_to_uint(mpfr_t val, UINT *res)
 {
-    if (mpfr_fits_intmax_p(val->x, MPFR_RNDN)) {
-        uintmax_t mval = mpfr_get_uj(val->x, MPFR_RNDN);
+    if (mpfr_fits_intmax_p(val, MPFR_RNDN)) {
+        uintmax_t mval = mpfr_get_uj(val, MPFR_RNDN);
         *res = mval;
         if (mval == *res) {
             return 0;
@@ -221,23 +222,23 @@ mpfr_to_uint(mpf_field *val, UINT *res)
 }
 
 template<>
-int mpfr_to_C<npy_ubyte, uintmax_t>(mpf_field *val, npy_ubyte *res) {return mpfr_to_uint(val, res);}
+int mpfr_to_C<npy_ubyte, uintmax_t>(mpfr_t val, npy_ubyte *res) {return mpfr_to_uint(val, res);}
 template<>
-int mpfr_to_C<npy_ushort, uintmax_t>(mpf_field *val, npy_ushort *res) {return mpfr_to_uint(val, res);}
+int mpfr_to_C<npy_ushort, uintmax_t>(mpfr_t val, npy_ushort *res) {return mpfr_to_uint(val, res);}
 template<>
-int mpfr_to_C<npy_uint, uintmax_t>(mpf_field *val, npy_uint *res) {return mpfr_to_uint(val, res);}
+int mpfr_to_C<npy_uint, uintmax_t>(mpfr_t val, npy_uint *res) {return mpfr_to_uint(val, res);}
 template<>
-int mpfr_to_C<npy_ulong, uintmax_t>(mpf_field *val, npy_ulong *res) {return mpfr_to_uint(val, res);}
+int mpfr_to_C<npy_ulong, uintmax_t>(mpfr_t val, npy_ulong *res) {return mpfr_to_uint(val, res);}
 template<>
-int mpfr_to_C<npy_ulonglong, uintmax_t>(mpf_field *val, npy_ulonglong *res) {return mpfr_to_uint(val, res);}
+int mpfr_to_C<npy_ulonglong, uintmax_t>(mpfr_t val, npy_ulonglong *res) {return mpfr_to_uint(val, res);}
 
 
 template <typename INT>
 int
-mpfr_to_int(mpf_field *val, INT *res)
+mpfr_to_int(mpfr_t val, INT *res)
 {
-    if (mpfr_fits_intmax_p(val->x, MPFR_RNDN)) {
-        intmax_t mval = mpfr_get_sj(val->x, MPFR_RNDN);
+    if (mpfr_fits_intmax_p(val, MPFR_RNDN)) {
+        intmax_t mval = mpfr_get_sj(val, MPFR_RNDN);
         *res = mval;
         if (mval == *res) {
             return 0;
@@ -253,44 +254,44 @@ mpfr_to_int(mpf_field *val, INT *res)
 }
 
 template<>
-int mpfr_to_C<npy_byte, intmax_t>(mpf_field *val, npy_byte *res) {return mpfr_to_int(val, res);}
+int mpfr_to_C<npy_byte, intmax_t>(mpfr_t val, npy_byte *res) {return mpfr_to_int(val, res);}
 template<>
-int mpfr_to_C<npy_short, intmax_t>(mpf_field *val, npy_short *res) {return mpfr_to_int(val, res);}
+int mpfr_to_C<npy_short, intmax_t>(mpfr_t val, npy_short *res) {return mpfr_to_int(val, res);}
 template<>
-int mpfr_to_C<npy_int, intmax_t>(mpf_field *val, npy_int *res) {return mpfr_to_int(val, res);}
+int mpfr_to_C<npy_int, intmax_t>(mpfr_t val, npy_int *res) {return mpfr_to_int(val, res);}
 template<>
-int mpfr_to_C<npy_long, intmax_t>(mpf_field *val, npy_long *res) {return mpfr_to_int(val, res);}
+int mpfr_to_C<npy_long, intmax_t>(mpfr_t val, npy_long *res) {return mpfr_to_int(val, res);}
 template<>
-int mpfr_to_C<npy_longlong, intmax_t>(mpf_field *val, npy_longlong *res) {return mpfr_to_int(val, res);}
+int mpfr_to_C<npy_longlong, intmax_t>(mpfr_t val, npy_longlong *res) {return mpfr_to_int(val, res);}
 
 
 template<> int
-mpfr_to_C<float, float>(mpf_field *val, float *res)
+mpfr_to_C<float, float>(mpfr_t val, float *res)
 {
-    *res = mpfr_get_flt(val->x, MPFR_RNDN);
+    *res = mpfr_get_flt(val, MPFR_RNDN);
     return 0;
 }
 
 template<> int
-mpfr_to_C<double, double>(mpf_field *val, double *res)
+mpfr_to_C<double, double>(mpfr_t val, double *res)
 {
-    *res = mpfr_get_d(val->x, MPFR_RNDN);
+    *res = mpfr_get_d(val, MPFR_RNDN);
     return 0;
 }
 
 template<> int
-mpfr_to_C<long double, long double>(mpf_field *val, long double *res)
+mpfr_to_C<long double, long double>(mpfr_t val, long double *res)
 {
-    *res = mpfr_get_ld(val->x, MPFR_RNDN);
+    *res = mpfr_get_ld(val, MPFR_RNDN);
     return 0;
 }
 
 template<> int
-mpfr_to_C<npy_bool, bool>(mpf_field *val, npy_bool *res)
+mpfr_to_C<npy_bool, bool>(mpfr_t val, npy_bool *res)
 {
     // TODO: This is god awful, but should work. C++ bool may not be correct
     //       (I think it may be int size), so we reinterpret cast here.
-    *res = !mpfr_zero_p(val->x);
+    *res = !mpfr_zero_p(val);
     return 0;
 }
 
@@ -307,10 +308,11 @@ mpf_to_numpy_strided_loop(PyArrayMethod_Context *context,
 
     mpfr_prec_t prec_in = ((MPFDTypeObject *)context->descriptors[0])->precision;
 
+    mpfr_t in;
+
     while (N--) {
-        mpf_field *in = (mpf_field *)in_ptr;
+        mpf_load(in, in_ptr, prec_in);
         T *out = (T *)out_ptr;
-        ensure_mpf_init(in, prec_in);
 
         mpfr_to_C<T, conv_T>(in, out);
 

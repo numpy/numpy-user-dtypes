@@ -37,12 +37,15 @@ generic_unary_op_strided_loop(PyArrayMethod_Context *context,
     mpfr_prec_t prec1 = ((MPFDTypeObject *)context->descriptors[0])->precision;
     mpfr_prec_t prec2 = ((MPFDTypeObject *)context->descriptors[1])->precision;
 
+    mpfr_t in, out;
+
     while (N--) {
-        mpf_field *in = ensure_mpf_init((mpf_field *)in_ptr, prec1);
-        mpf_field *out = ensure_mpf_init((mpf_field *)out_ptr, prec2);
+        mpf_load(in, in_ptr, prec1);
+        mpf_load(out, out_ptr, prec2);
 
         // TODO: Should maybe do something with the result?
-        unary_op(in->x, out->x);
+        unary_op(in, out);
+        mpf_store(out_ptr, out);
 
         in_ptr += in_stride;
         out_ptr += out_stride;
@@ -207,13 +210,17 @@ generic_binop_strided_loop(PyArrayMethod_Context *context,
     mpfr_prec_t prec2 = ((MPFDTypeObject *)context->descriptors[0])->precision;
     mpfr_prec_t prec3 = ((MPFDTypeObject *)context->descriptors[0])->precision;
 
+    mpfr_t in1, in2, out;
+
     while (N--) {
-        mpf_field *in1 = ensure_mpf_init((mpf_field *)in1_ptr, prec1);
-        mpf_field *in2 = ensure_mpf_init((mpf_field *)in2_ptr, prec2);
-        mpf_field *out = ensure_mpf_init((mpf_field *)out_ptr, prec3);
+        mpf_load(in1, in1_ptr, prec1);
+        mpf_load(in2, in2_ptr, prec2);
+        mpf_load(out, out_ptr, prec3);
 
         // TODO: Should maybe do something with the result?
-        binop(out->x, in1->x, in2->x);
+        binop(out, in1, in2);
+
+        mpf_store(out_ptr, out);
 
         in1_ptr += in1_stride;
         in2_ptr += in2_stride;
@@ -453,12 +460,14 @@ generic_comp_strided_loop(PyArrayMethod_Context *context,
     mpfr_prec_t prec1 = ((MPFDTypeObject *)context->descriptors[0])->precision;
     mpfr_prec_t prec2 = ((MPFDTypeObject *)context->descriptors[0])->precision;
 
+    mpfr_t in1, in2;
+
     while (N--) {
-        mpf_field *in1 = ensure_mpf_init((mpf_field *)in1_ptr, prec1);
-        mpf_field *in2 = ensure_mpf_init((mpf_field *)in2_ptr, prec2);
+        mpf_load(in1, in1_ptr, prec1);
+        mpf_load(in2, in2_ptr, prec2);
 
         // TODO: Should maybe do something with the result?
-        *((npy_bool *)out_ptr) = comp(in1->x, in2->x);
+        *((npy_bool *)out_ptr) = comp(in1, in2);
 
         in1_ptr += in1_stride;
         in2_ptr += in2_stride;

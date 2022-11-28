@@ -15,7 +15,9 @@
 
 
 /*
- * A copy swap function (we never need to swap, but do need the copy).
+ * A previous verion had a more tricky copyswap, but really we can just
+ * copy the itemsize, needed because NumPy still uses it occasionally
+ * (for larger itemsizes at least).
  */
 static void
 copyswap_mpf(char *dst, char *src, int swap, PyArrayObject *arr)
@@ -23,30 +25,23 @@ copyswap_mpf(char *dst, char *src, int swap, PyArrayObject *arr)
     PyArray_Descr *descr = PyArray_DESCR(arr);
 
     memcpy(dst, src, descr->elsize);
-    /* Support unaligned access */
-    if ((uintptr_t)dst % _Alignof(mpf_field) == 0) {
-        mpf_field *mpf = (mpf_field *)dst;
-        /* May yet be uninitialized/NULL, in which case do nothing. */
-        if (mpfr_custom_get_significand(mpf->x) != NULL) {
-            /* Otherwise, move the signficand to the correct new offset: */
-            mpfr_custom_move(mpf->x, mpf->significand);
-        }
-    }
-    /* No point in updating signficand, needs to be done on load. */
 }
 
 
 /* Should only be used for sorting, so more complex than necessary, probably */
-int compare_mpf(mpf_field *in1, mpf_field *in2, PyArrayObject *ap)
+int compare_mpf(char *in1_ptr, char *in2_ptr, int swap, PyArrayObject *ap)
 {
     mpfr_prec_t precision = ((MPFDTypeObject *)PyArray_DESCR(ap))->precision;
-    in1 = ensure_mpf_init(in1, precision);
-    in2 = ensure_mpf_init(in2, precision);
 
-    if (!mpfr_total_order_p(in1->x, in2->x)) {
+    mpfr_t in1, in2;
+
+    mpf_load(in1, in1_ptr, precision);
+    mpf_load(in2, in2_ptr, precision);
+
+    if (!mpfr_total_order_p(in1, in2)) {
         return 1;
     }
-    if (!mpfr_total_order_p(in2->x, in1->x)) {
+    if (!mpfr_total_order_p(in2, in1)) {
         return -1;
     }
     return 0;

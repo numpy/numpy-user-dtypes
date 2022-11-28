@@ -15,22 +15,46 @@ typedef struct {
     mpfr_prec_t precision;
 } MPFDTypeObject;
 
+
+/*
+ * It would be slightly easier/faster to store the internals, but use the
+ * proper public API here:
+ */
+typedef struct {
+    int kind;
+    mpfr_exp_t exp;
+    mp_limb_t significand[];
+} mpf_storage;
+
 extern PyArray_DTypeMeta MPFDType;
 
 
 /*
- * We can make sure NumPy initializes with NULL, but currently not more
- * which should maybe be added (cleanup may need to deal with NULLs, but
- * other than that we probably could allow init if necessary).
+ * We currently use this also when init would suffice (to set significand).
  */
-static inline mpf_field *
-ensure_mpf_init(mpf_field *mpf_ptr, mpfr_prec_t precision) {
-    if (mpfr_custom_get_significand(mpf_ptr->x) == NULL) {
-        /* since we need to init anyway, set it to NAN... */
-        mpfr_custom_init_set(
-            mpf_ptr->x, MPFR_ZERO_KIND, 0, precision, mpf_ptr->significand);
+static inline void
+mpf_load(mpfr_t x, char *data_ptr, mpfr_prec_t precision) {
+    mpf_storage *mpf_ptr = (mpf_storage *)data_ptr;
+    /* if the kind is 0, reinitialize significand (presumably it never was) */
+    if (mpf_ptr->kind == 0) {
+        mpfr_custom_init(mpf_ptr->significand, precision);
+        mpfr_custom_init_set(x, MPFR_NAN_KIND, 0, precision, mpf_ptr->significand);
     }
-    return mpf_ptr;
+    else {
+        mpfr_custom_init_set(
+            x, mpf_ptr->kind, mpf_ptr->exp, precision, mpf_ptr->significand);
+    }
+}
+
+/*
+ * Signficand is always stored, but write back kind and exp
+ */
+static inline void
+mpf_store(char *data_ptr, mpfr_t x) {
+    mpf_storage *mpf_ptr = (mpf_storage *)data_ptr;
+    assert(mpfr_custom_get_signficand(x) == mpf_ptr->Signficand);
+    mpf_ptr->kind = mpfr_custom_get_kind(x);
+    mpf_ptr->exp = mpfr_custom_get_exp(x);
 }
 
 
