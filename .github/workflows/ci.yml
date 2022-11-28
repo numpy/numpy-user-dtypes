@@ -19,7 +19,7 @@ jobs:
       - name: Install build and test dependencies
         run: |
           python -m pip install -U pip build pytest unyt wheel meson ninja meson-python patchelf
-          python -m pip install -i https://pypi.anaconda.org/scipy-wheels-nightly/simple numpy
+          python -m pip install git+https://github.com/numpy/numpy.git
       - name: Install metadatadtype
         working-directory: metadatadtype
         run: |
