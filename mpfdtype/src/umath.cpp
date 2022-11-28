@@ -155,6 +155,9 @@ int init_unary_ops(PyObject *numpy)
     if (create_unary_ufunc<sqrt>(numpy, "sqrt") < 0) {
         return -1;
     }
+    if (create_unary_ufunc<square>(numpy, "square") < 0) {
+        return -1;
+    }
     if (create_unary_ufunc<log>(numpy, "log") < 0) {
         return -1;
     }
