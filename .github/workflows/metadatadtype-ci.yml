@@ -23,7 +23,7 @@ jobs:
       - name: Install build and test dependencies
         run: |
           python -m pip install -U pip build pytest
-          python -m pip install -i https://pypi.anaconda.org/scipy-wheels-nightly/simple numpy
+          python -m pip install git+https://github.com/numpy/numpy.git
       - name: Install metadatadtype
         run: |
           python -m build --no-isolation --wheel -Cbuilddir=build
