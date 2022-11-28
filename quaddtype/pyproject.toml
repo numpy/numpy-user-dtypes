@@ -1,0 +1,25 @@
+[build-system]
+requires = [
+    "meson>=0.63.0",
+    "meson-python",
+    "patchelf",
+    "wheel",
+    "numpy @ file:///home/pdmurray/Desktop/numpy-1.24.0.dev0+1120.gf30af6acd-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
+]
+build-backend = "mesonpy"
+
+[project]
+name = "quaddtype"
+description = "Quad (128-bit) float dtype for numpy"
+version = "0.0.1"
+readme = 'README.md'
+author = "Peyton Murray"
+requires-python = ">=3.9.0"
+dependencies = [
+    "numpy @ file:///home/pdmurray/Desktop/numpy-1.24.0.dev0+1120.gf30af6acd-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+]

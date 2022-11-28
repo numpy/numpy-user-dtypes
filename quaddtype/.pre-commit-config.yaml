@@ -1,0 +1,75 @@
+exclude: (casts\.(c|h)|umath\.(c|h))
+repos:
+  - repo: local
+    hooks:
+      - id: generate-compilation-database
+        name: Generate compilation database
+        files: (^meson\.build$|\.(c|h)$)
+        language: system
+        entry: |
+          bash -c 'mkdir -p build; pip install build meson-python patchelf wheel; python -m build --wheel --no-isolation -Cbuilddir=build';
+        fail_fast: true
+  - repo: https://github.com/pocc/pre-commit-hooks
+    rev: v1.3.5
+    hooks:
+      - id: clang-tidy
+        args: [-p=build]
+      - id: clang-format
+        args: ['--style={BasedOnStyle: Google, ColumnLimit: "100", IndentWidth: "4"}', -i, ]
+      # - id: uncrustify
+      #   args: [--replace, --no-backup]
+      # - id: oclint
+      # - id: cppcheck
+  - repo: local
+    hooks:
+      - id: include-what-you-use
+        name: Include What You Use
+        types: ['c', 'c++']
+        language: system
+        entry: iwyu-tool -p build
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.3.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: check-ast
+  - repo: https://gitlab.com/pycqa/flake8
+    rev: 3.9.2
+    hooks:
+      - id: flake8
+        additional_dependencies:
+          [
+            flake8-docstrings,
+            flake8-mutable,
+            flake8-debugger,
+            flake8-pytest-style,
+            flake8-simplify,
+            pep8-naming,
+            darglint,
+          ]
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.0.0-alpha.0
+    hooks:
+      - id: prettier
+        types:
+          [
+            markdown,
+            yaml,
+          ]
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: "v0.971"
+    hooks:
+      - id: mypy
+  - repo: https://github.com/pycqa/isort
+    rev: 5.10.1
+    hooks:
+      - id: isort
+        name: isort (python)
+      - id: isort
+        name: isort (cython)
+        types: [cython]
+      - id: isort
+        name: isort (pyi)
+        types: [pyi]
