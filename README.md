@@ -1,4 +1,4 @@
-#numpy-user-dtypes
+# numpy-user-dtypes
 
 Repository for development of dtypes making use of the [NEP
 42](https://numpy.org/neps/nep-0042-new-dtypes.html) extensible dtype API. See
