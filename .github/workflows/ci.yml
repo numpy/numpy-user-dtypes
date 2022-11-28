@@ -1,8 +1,4 @@
-name: metadatadtype CI
-
-defaults:
-  run:
-    working-directory: metadatadtype
+name: Numpy User DTypes CI
 
 on:
   push:
@@ -25,9 +21,21 @@ jobs:
           python -m pip install -U pip build pytest wheel meson ninja meson-python patchelf
           python -m pip install git+https://github.com/numpy/numpy.git
       - name: Install metadatadtype
+        working-directory: metadatadtype
         run: |
           python -m build --no-isolation --wheel -Cbuilddir=build
           find ./dist/*.whl | xargs python -m pip install
-      - name: Run tests
+      - name: Run metadatadtype tests
+        working-directory: metadatadtype
         run: |
           pytest -vvv --color=yes
+      - name: Install unytdtype
+        working-directory: unytdtype
+        run: |
+          python -m build --no-isolation --wheel -Cbuilddir=build
+          find ./dist/*.whl | xargs python -m pip install
+      - name: Run unytdtype tests
+        working-directory: unytdtype
+        run: |
+          pytest -vvv --color=yes
+        
