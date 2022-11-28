@@ -37,7 +37,7 @@ generic_unary_op_strided_loop(PyArrayMethod_Context *context,
     mpfr_prec_t prec1 = ((MPFDTypeObject *)context->descriptors[0])->precision;
     mpfr_prec_t prec2 = ((MPFDTypeObject *)context->descriptors[1])->precision;
 
-    mpfr_t in, out;
+    mpfr_ptr in, out;
 
     while (N--) {
         mpf_load(in, in_ptr, prec1);
@@ -213,7 +213,7 @@ generic_binop_strided_loop(PyArrayMethod_Context *context,
     mpfr_prec_t prec2 = ((MPFDTypeObject *)context->descriptors[0])->precision;
     mpfr_prec_t prec3 = ((MPFDTypeObject *)context->descriptors[0])->precision;
 
-    mpfr_t in1, in2, out;
+    mpfr_ptr in1, in2, out;
 
     while (N--) {
         mpf_load(in1, in1_ptr, prec1);
@@ -463,7 +463,7 @@ generic_comp_strided_loop(PyArrayMethod_Context *context,
     mpfr_prec_t prec1 = ((MPFDTypeObject *)context->descriptors[0])->precision;
     mpfr_prec_t prec2 = ((MPFDTypeObject *)context->descriptors[0])->precision;
 
-    mpfr_t in1, in2;
+    mpfr_ptr in1, in2;
 
     while (N--) {
         mpf_load(in1, in1_ptr, prec1);

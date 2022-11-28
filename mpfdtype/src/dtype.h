@@ -17,44 +17,47 @@ typedef struct {
 
 
 /*
- * It would be slightly easier/faster to store the internals, but use the
- * proper public API here:
+ * It would be more compat to just store the kind, exponent and signfificand,
+ * however.  For in-place operations mpfr needs cannot share the same
+ * significand for multiple ops (but can have an op repeat).
+ * So not storeing only those (saving 16 bytes of 48 for a 128 bit number)
+ * removes the need to worry about this.
  */
-typedef struct {
-    int kind;
-    mpfr_exp_t exp;
-    mp_limb_t significand[];
-} mpf_storage;
+static_assert(_Alignof(mpfr_t) >= _Alignof(mp_limb_t),
+              "mpfr_t storage not aligned as much as limb_t?!");
+typedef mpfr_t mpf_storage;
 
 extern PyArray_DTypeMeta MPFDType;
 
 
 /*
- * We currently use this also when init would suffice (to set significand).
+ * Load into an mpfr_ptr, use a macro which may allow easier changing back
+ * to a compact storage scheme.
  */
 static inline void
-mpf_load(mpfr_t x, char *data_ptr, mpfr_prec_t precision) {
-    mpf_storage *mpf_ptr = (mpf_storage *)data_ptr;
-    /* if the kind is 0, reinitialize significand (presumably it never was) */
-    if (mpf_ptr->kind == 0) {
-        mpfr_custom_init(mpf_ptr->significand, precision);
-        mpfr_custom_init_set(x, MPFR_NAN_KIND, 0, precision, mpf_ptr->significand);
-    }
-    else {
-        mpfr_custom_init_set(
-            x, mpf_ptr->kind, mpf_ptr->exp, precision, mpf_ptr->significand);
+_mpf_load(mpfr_ptr *x, char *data_ptr, mpfr_prec_t precision) {
+    x[0] = (mpfr_ptr)data_ptr;
+    /*
+     * We must ensure the signficand is initialized, but NumPy only ensures
+     * everything is NULL'ed.
+     */
+    if (mpfr_custom_get_significand(x[0]) == NULL) {
+        void *signficand = data_ptr + sizeof(mpf_storage);
+        mpfr_custom_init(signficand, precision);
+        mpfr_custom_init_set(x[0], MPFR_NAN_KIND, 0, precision, signficand);
     }
 }
+#define mpf_load(x, data_ptr, precision) _mpf_load(&x, data_ptr, precision)
+
+
 
 /*
- * Signficand is always stored, but write back kind and exp
+ * Not actually required in the current scheme, but keep for now.
+ * (I had a more compat storage scheme at some point.)
  */
 static inline void
 mpf_store(char *data_ptr, mpfr_t x) {
-    mpf_storage *mpf_ptr = (mpf_storage *)data_ptr;
-    assert(mpfr_custom_get_signficand(x) == mpf_ptr->Signficand);
-    mpf_ptr->kind = mpfr_custom_get_kind(x);
-    mpf_ptr->exp = mpfr_custom_get_exp(x);
+    assert(data_ptr == mpfr_t);
 }
 
 

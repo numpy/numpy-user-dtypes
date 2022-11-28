@@ -62,7 +62,7 @@ mpf_to_mof_strided_loop(PyArrayMethod_Context *context,
     mpfr_prec_t prec_in = ((MPFDTypeObject *)context->descriptors[0])->precision;
     mpfr_prec_t prec_out = ((MPFDTypeObject *)context->descriptors[1])->precision;
 
-    mpfr_t in, out;
+    mpfr_ptr in, out;
 
     while (N--) {
         mpf_load(in, in_ptr, prec_in);
@@ -176,7 +176,7 @@ numpy_to_mpf_strided_loop(PyArrayMethod_Context *context,
 
     mpfr_prec_t prec_out = ((MPFDTypeObject *)context->descriptors[1])->precision;
 
-    mpfr_t out;
+    mpfr_ptr out;
 
     while (N--) {
         T *in = (T *)in_ptr;
@@ -308,7 +308,7 @@ mpf_to_numpy_strided_loop(PyArrayMethod_Context *context,
 
     mpfr_prec_t prec_in = ((MPFDTypeObject *)context->descriptors[0])->precision;
 
-    mpfr_t in;
+    mpfr_ptr in;
 
     while (N--) {
         mpf_load(in, in_ptr, prec_in);

@@ -135,7 +135,7 @@ mpf_setitem(MPFDTypeObject *descr, PyObject *obj, char *dataptr)
     // TODO: This doesn't support unaligned access, maybe we should just
     //       allow DTypes to say that they cannot be unaligned?!
 
-    mpfr_t res;
+    mpfr_ptr res;
     mpf_load(res, dataptr, descr->precision);
     mpfr_set(res, value->mpf.x, MPFR_RNDN);
     mpf_store(dataptr, res);
@@ -160,7 +160,7 @@ mpf_getitem(MPFDTypeObject *descr, char *dataptr)
     if (new == NULL) {
         return NULL;
     }
-    mpfr_t val;
+    mpfr_ptr val;
     mpf_load(val, dataptr, descr->precision);
     mpfr_set(new->mpf.x, val, MPFR_RNDN);
 
