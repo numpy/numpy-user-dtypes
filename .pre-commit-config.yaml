@@ -7,40 +7,61 @@ repos:
         files: metadatadtype/(meson\.build$|.*\.(c|h)$)
         language: system
         entry: |
-          bash -c 'cd metadatadtype && mkdir -p build && pip install build meson-python patchelf wheel && python -m build --wheel --no-isolation -Cbuilddir=build';
+          bash -c 'rm -f ./build/ && cd metadatadtype && mkdir -p build && pip install build meson-python patchelf wheel && python -m build --wheel --no-isolation -Cbuilddir=build';
         fail_fast: false
       - id: generate-compilation-database-quaddtype
         name: Generate compilation database [quaddtype]
         files: quaddtype/(meson\.build$|.*\.(c|h)$)
         language: system
         entry: |
-          bash -c 'cd quaddtype && mkdir -p build && pip install build meson-python patchelf wheel && python -m build --wheel --no-isolation -Cbuilddir=build';
+          bash -c 'rm -f ./build/ && cd quaddtype && mkdir -p build && pip install build meson-python patchelf wheel && python -m build --wheel --no-isolation -Cbuilddir=build';
         fail_fast: false
       - id: generate-compilation-database-unytdtype
         name: Generate compilation database [unytdtype]
         files: unytdtype/(meson\.build$|.*\.(c|h)$)
         language: system
         entry: |
-          bash -c 'cd unytdtype && mkdir -p build && pip install build meson-python patchelf wheel && python -m build --wheel --no-isolation -Cbuilddir=build';
+          bash -c 'rm -f ./build/ && cd unytdtype && mkdir -p build && pip install build meson-python patchelf wheel && python -m build --wheel --no-isolation -Cbuilddir=build';
         fail_fast: false
   - repo: https://github.com/pocc/pre-commit-hooks
     rev: v1.3.5
     hooks:
       - id: clang-tidy
-        args: [-p=build]
+        name: clang-tidy [metadatadtype]
+        args: [-p=metadatadtype/build]
+        files: metadatadtype/(.*\.(c|h)$)
+      - id: clang-tidy
+        name: clang-tidy [quaddtype]
+        args: [-p=quaddtype/build]
+        files: quaddtype/(.*\.(c|h)$)
+      - id: clang-tidy
+        name: clang-tidy [unytdtype]
+        args: [-p=unytdtype/build]
+        files: unytdtype/(.*\.(c|h)$)
       - id: clang-format
-        args: ['--style={BasedOnStyle: Google, ColumnLimit: "100", IndentWidth: "4"}', -i, ]
-      # - id: uncrustify
-      #   args: [--replace, --no-backup]
+        args: ['--no-diff', -i]
       # - id: oclint
       # - id: cppcheck
   - repo: local
     hooks:
       - id: include-what-you-use
-        name: Include What You Use
+        name: Include What You Use [metadatadtype]
         types: ['c', 'c++']
         language: system
-        entry: iwyu-tool -p build
+        entry: iwyu-tool -p metadatadtype/build
+        files: metadatadtype/(.*\.(c|h)$)
+      - id: include-what-you-use
+        name: Include What You Use [quaddtype]
+        types: ['c', 'c++']
+        language: system
+        entry: iwyu-tool -p quaddtype/build
+        files: quaddtype/(.*\.(c|h)$)
+      - id: include-what-you-use
+        name: Include What You Use [unytdtype]
+        types: ['c', 'c++']
+        language: system
+        entry: iwyu-tool -p unytdtype/build
+        files: unytdtype/(.*\.(c|h)$)
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.3.0
     hooks:
