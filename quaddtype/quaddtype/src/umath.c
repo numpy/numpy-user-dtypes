@@ -17,7 +17,7 @@
 // some of the more advanced things you can do for optimization!
 // Look at the seberg/unitdtype exaple repository for how this can be done
 // more generically without implementing a multiply loop!
-static int unit_multiply_strided_loop(
+static int quad_multiply_strided_loop(
     PyArrayMethod_Context* context,
     char* const data[],
     npy_intp const dimensions[],
@@ -32,14 +32,13 @@ static int unit_multiply_strided_loop(
     npy_intp out_stride = strides[2];
 
     while (N--) {
-        *(double*)out = *(double*)in1 * *(double*)in2;
+        *(__float128*)out = *(__float128*)in1 * *(__float128*)in2;
         in1 += in1_stride;
         in2 += in2_stride;
         out += out_stride;
     }
     return 0;
 }
-
 
 // This is the "dtype/descriptor resolver".  Its main job is to fill in the
 // result dtype in this case, that is:
@@ -84,7 +83,6 @@ int init_multiply_ufunc(void) {
         return -1;
     }
 
-
     // The initializing "wrap up" code from the slides (plus one error check)
     static PyArray_DTypeMeta* dtypes[3] = {
         &QuadDType,
@@ -93,13 +91,13 @@ int init_multiply_ufunc(void) {
     };
 
     static PyType_Slot slots[] = {
-        { NPY_METH_resolve_descriptors, &unit_multiply_resolve_descriptors },
-        { NPY_METH_strided_loop, &unit_multiply_strided_loop },
+        { NPY_METH_resolve_descriptors, &quad_multiply_resolve_descriptors },
+        { NPY_METH_strided_loop, &quad_multiply_strided_loop },
         { 0, NULL }
     };
 
     PyArrayMethod_Spec MultiplySpec = {
-        .name = "unit_multiply",
+        .name = "quad_multiply",
         .nin = 2,
         .nout = 1,
         .dtypes = dtypes,

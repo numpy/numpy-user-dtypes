@@ -38,4 +38,3 @@ jobs:
         working-directory: unytdtype
         run: |
           pytest -vvv --color=yes
-        
