@@ -4,4 +4,8 @@
 class QuadScalar:
     """Quad scalar floating point type."""
 
-    pass
+    def __init__(self, value):
+        self.value = value
+
+    def __repr__(self):
+        return f"{self.value}"

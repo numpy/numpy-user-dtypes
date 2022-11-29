@@ -7,7 +7,7 @@ repos:
         files: (^meson\.build$|\.(c|h)$)
         language: system
         entry: |
-          bash -c 'mkdir -p build; pip install build meson-python patchelf wheel; python -m build --wheel --no-isolation -Cbuilddir=build';
+          bash -c 'cd quaddtype && mkdir -p build && pip install build meson-python patchelf wheel && python -m build --wheel --no-isolation -Cbuilddir=build';
         fail_fast: true
   - repo: https://github.com/pocc/pre-commit-hooks
     rev: v1.3.5

@@ -51,6 +51,11 @@ PyMODINIT_FUNC PyInit__quaddtype_main(void) {
         goto error;
     }
 
+    if (init_multiply_ufunc() < 0) {
+        PyErr_SetString(PyExc_TypeError, "Failed to initialize the quadscalar multiply ufunc.");
+        goto error;
+    }
+
     return m;
 
 error:

@@ -22,6 +22,7 @@ includes = include_directories(
 )
 
 srcs = [
+  'quaddtype/src/umath.c',
   'quaddtype/src/casts.c',
   'quaddtype/src/dtype.c',
   'quaddtype/src/quaddtype_main.c',
