@@ -6,3 +6,5 @@ in Numpy and is not intended for any real purpose.
 
 from ._metadatadtype_main import MetadataDType
 from .scalar import MetadataScalar
+
+__all__ = ["MetadataDType", "MetadataScalar"]

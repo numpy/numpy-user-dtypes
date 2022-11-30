@@ -1,5 +1,4 @@
 import numpy as np
-import pytest
 import unyt
 
 from unytdtype import UnytDType, UnytScalar
@@ -49,6 +48,7 @@ def test_insert_with_different_unit():
     arr = np.array([meter, meter, meter])
     arr[0] = cm
     assert str(arr) == "[0.01 m 1.0 m 1.0 m]"
+
 
 def test_cast_to_float64():
     meter = UnytScalar(1, unyt.m)

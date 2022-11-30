@@ -6,3 +6,5 @@ in Numpy and is not yet intended for any real purpose.
 
 from ._unytdtype_main import UnytDType
 from .scalar import UnytScalar
+
+__all__ = ["UnytDType", "UnytScalar"]
