@@ -1,5 +1,5 @@
-#include "structmember.h"
 #include <Python.h>
+#include "structmember.h"
 
 #define PY_ARRAY_UNIQUE_SYMBOL metadatadtype_ARRAY_API
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
