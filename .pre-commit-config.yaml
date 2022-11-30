@@ -44,26 +44,6 @@ repos:
         args: ['--no-diff', -i]
       # - id: oclint
       # - id: cppcheck
-  - repo: local
-    hooks:
-      - id: include-what-you-use
-        name: Include What You Use [metadatadtype]
-        types: ['c', 'c++']
-        language: system
-        entry: iwyu_tool -p metadatadtype/build
-        files: metadatadtype/(.*\.(c|h)$)
-      - id: include-what-you-use
-        name: Include What You Use [quaddtype]
-        types: ['c', 'c++']
-        language: system
-        entry: iwyu_tool -p quaddtype/build
-        files: quaddtype/(.*\.(c|h)$)
-      - id: include-what-you-use
-        name: Include What You Use [unytdtype]
-        types: ['c', 'c++']
-        language: system
-        entry: iwyu_tool -p unytdtype/build
-        files: unytdtype/(.*\.(c|h)$)
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.3.0
     hooks:
