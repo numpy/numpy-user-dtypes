@@ -140,6 +140,7 @@ init_quad_dtype(void)
     // do it.  You first have to create a static type, but see the note there!
     PyArrayMethod_Spec *casts[] = {
             &QuadToQuadCastSpec,
+            &QuadToFloat128CastSpec,
             NULL,
     };
 
