@@ -1,4 +1,3 @@
-exclude: (casts\.(c|h)|umath\.(c|h))
 repos:
   - repo: local
     hooks:
@@ -6,6 +5,7 @@ repos:
         name: Generate compilation database [metadatadtype]
         files: metadatadtype/(meson\.build$|.*\.(c|h)$)
         language: system
+        require_serial: true
         entry: |
           bash -c 'cd metadatadtype && mkdir -p build && pip install build meson-python patchelf wheel && python -m build --wheel --no-isolation -Cbuilddir=build';
         fail_fast: false
@@ -13,6 +13,7 @@ repos:
         name: Generate compilation database [quaddtype]
         files: quaddtype/(meson\.build$|.*\.(c|h)$)
         language: system
+        require_serial: true
         entry: |
           bash -c 'cd quaddtype && mkdir -p build && pip install build meson-python patchelf wheel && python -m build --wheel --no-isolation -Cbuilddir=build';
         fail_fast: false
@@ -20,6 +21,7 @@ repos:
         name: Generate compilation database [unytdtype]
         files: unytdtype/(meson\.build$|.*\.(c|h)$)
         language: system
+        require_serial: true
         entry: |
           bash -c 'cd unytdtype && mkdir -p build && pip install build meson-python patchelf wheel && python -m build --wheel --no-isolation -Cbuilddir=build';
         fail_fast: false
