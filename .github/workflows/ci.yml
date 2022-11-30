@@ -22,9 +22,9 @@ jobs:
         uses: hendrikmuhs/ccache-action@v1.2
       - name: Install build and test dependencies
         run: |
-          export CC=ccache $CC
+          export CC=ccache gcc
           python -m pip install -U pip build pytest unyt wheel meson ninja meson-python patchelf
-          python -m pip install git+https://github.com/numpy/numpy.git
+          python -m pip install -vvv git+https://github.com/numpy/numpy.git
       - name: Install metadatadtype
         working-directory: metadatadtype
         run: |
