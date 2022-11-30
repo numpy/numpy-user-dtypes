@@ -94,10 +94,6 @@ repos:
             markdown,
             yaml,
           ]
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: "v0.971"
-    hooks:
-      - id: mypy
   - repo: https://github.com/pycqa/isort
     rev: 5.10.1
     hooks:
