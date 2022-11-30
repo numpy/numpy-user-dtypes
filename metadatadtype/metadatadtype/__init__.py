@@ -4,7 +4,7 @@ This is an example usage of the experimental new dtype API
 in Numpy and is not intended for any real purpose.
 """
 
+from .scalar import MetadataScalar  # isort: skip
 from ._metadatadtype_main import MetadataDType
-from .scalar import MetadataScalar
 
 __all__ = ["MetadataDType", "MetadataScalar"]
