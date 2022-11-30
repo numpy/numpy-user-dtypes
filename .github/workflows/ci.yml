@@ -23,6 +23,7 @@ jobs:
       - name: Install build and test dependencies
         run: |
           export CC="ccache gcc"
+          export CXX=ccache g++"
           python -m pip install -U pip build pytest unyt wheel meson ninja meson-python patchelf
           python -m pip install -vvv git+https://github.com/numpy/numpy.git
       - name: Install metadatadtype
