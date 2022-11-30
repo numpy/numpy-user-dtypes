@@ -125,7 +125,7 @@ unit_to_unit_resolve_descriptors(PyObject *NPY_UNUSED(self),
         Py_INCREF(given_descrs[0]);
         loop_descrs[1] = given_descrs[0];
     }
-    else {
+    else if (given_descrs[0] != NULL) {
         if (get_conversion_factor(((UnytDTypeObject *)given_descrs[0])->unit,
                                   ((UnytDTypeObject *)given_descrs[1])->unit,
                                   &factor, &offset) < 0) {
@@ -284,9 +284,9 @@ unit_to_unit_unaligned(PyArrayMethod_Context *NPY_UNUSED(context),
 
     while (N--) {
         double in_val, out_val;
-        memcpy(&in_val, in, sizeof(double));
+        memcpy(&in_val, in, sizeof(double));  // NOLINT
         out_val = factor * (in_val + offset);
-        memcpy(out, &out_val, sizeof(double));
+        memcpy(out, &out_val, sizeof(double));  // NOLINT
         in += in_stride;
         out += out_stride;
     }
@@ -334,31 +334,28 @@ unit_to_unit_get_loop(PyArrayMethod_Context *context, int aligned,
     return 0;
 }
 
-
 static int
 unit_to_float64_contiguous(PyArrayMethod_Context *NPY_UNUSED(context),
-                           char *const data[],
-                           npy_intp const dimensions[],
+                           char *const data[], npy_intp const dimensions[],
                            npy_intp const NPY_UNUSED(strides[]),
                            conv_auxdata *NPY_UNUSED(auxdata))
 {
     npy_intp N = dimensions[0];
-    double *in = (double*)data[0];
-    double *out = (double*)data[1];
+    double *in = (double *)data[0];
+    double *out = (double *)data[1];
 
-    while(N--) {
+    while (N--) {
         *out = *in;
         out++;
         in++;
     }
-    
+
     return 0;
 }
 
 static int
 unit_to_float64_strided(PyArrayMethod_Context *NPY_UNUSED(context),
-                        char *const data[],
-                        npy_intp const dimensions[],
+                        char *const data[], npy_intp const dimensions[],
                         npy_intp const strides[],
                         conv_auxdata *NPY_UNUSED(auxdata))
 {
@@ -368,19 +365,18 @@ unit_to_float64_strided(PyArrayMethod_Context *NPY_UNUSED(context),
     npy_intp in_stride = strides[0];
     npy_intp out_stride = strides[1];
 
-    while(N--) {
+    while (N--) {
         *(double *)out = *(double *)in;
         out += out_stride;
         in += in_stride;
     }
-    
+
     return 0;
 }
 
 static int
 unit_to_float64_unaligned(PyArrayMethod_Context *NPY_UNUSED(context),
-                          char *const data[],
-                          npy_intp const dimensions[],
+                          char *const data[], npy_intp const dimensions[],
                           npy_intp const strides[],
                           conv_auxdata *NPY_UNUSED(auxdata))
 {
@@ -390,28 +386,28 @@ unit_to_float64_unaligned(PyArrayMethod_Context *NPY_UNUSED(context),
     npy_intp in_stride = strides[0];
     npy_intp out_stride = strides[1];
 
-    while(N--) {
+    while (N--) {
         double in_val, out_val;
-        memcpy(&in_val, in, sizeof(double));
+        memcpy(&in_val, in, sizeof(double));  // NOLINT
         out_val = in_val;
-        memcpy(out, &out_val, sizeof(double));
+        memcpy(out, &out_val, sizeof(double));  // NOLINT
         out += out_stride;
         in += in_stride;
     }
-    
+
     return 0;
 }
 
-
 static int
 unit_to_float64_get_loop(PyArrayMethod_Context *context, int aligned,
-                         int NPY_UNUSED(move_references), const npy_intp *strides,
+                         int NPY_UNUSED(move_references),
+                         const npy_intp *strides,
                          PyArrayMethod_StridedLoop **out_loop,
                          NpyAuxData **out_transferdata,
                          NPY_ARRAYMETHOD_FLAGS *flags)
 {
     int contig =
-        (strides[0] == sizeof(double) && strides[1] == sizeof(double));
+            (strides[0] == sizeof(double) && strides[1] == sizeof(double));
 
     if (aligned && contig) {
         *out_loop = (PyArrayMethod_StridedLoop *)&unit_to_float64_contiguous;
@@ -433,35 +429,34 @@ unit_to_float64_get_loop(PyArrayMethod_Context *context, int aligned,
 static PyArray_DTypeMeta *u2u_dtypes[2] = {NULL, NULL};
 
 static PyType_Slot u2u_slots[] = {
-    {NPY_METH_resolve_descriptors, &unit_to_unit_resolve_descriptors},
-    {_NPY_METH_get_loop, &unit_to_unit_get_loop},
-    {0, NULL}
-};
+        {NPY_METH_resolve_descriptors, &unit_to_unit_resolve_descriptors},
+        {_NPY_METH_get_loop, &unit_to_unit_get_loop},
+        {0, NULL}};
 
 static PyArrayMethod_Spec UnitToUnitCastSpec = {
-    .name = "cast_UnytDType_to_UnytDType",
-    .nin = 1,
-    .nout = 1,
-    .flags = NPY_METH_SUPPORTS_UNALIGNED,
-    .casting = NPY_SAFE_CASTING,
-    .dtypes = u2u_dtypes,
-    .slots = u2u_slots,
+        .name = "cast_UnytDType_to_UnytDType",
+        .nin = 1,
+        .nout = 1,
+        .flags = NPY_METH_SUPPORTS_UNALIGNED,
+        .casting = NPY_SAFE_CASTING,
+        .dtypes = u2u_dtypes,
+        .slots = u2u_slots,
 };
 
 static PyType_Slot u2f_slots[] = {
-    {_NPY_METH_get_loop, &unit_to_float64_get_loop},
-    {0, NULL}
-};
+        {_NPY_METH_get_loop, &unit_to_float64_get_loop}, {0, NULL}};
 
-static char* u2f_name = "cast_UnytDType_to_Float64";
+static char *u2f_name = "cast_UnytDType_to_Float64";
 
-PyArrayMethod_Spec** get_casts(void) {
-
-    PyArray_DTypeMeta **u2f_dtypes = malloc(2*sizeof(PyArray_DTypeMeta*));
+PyArrayMethod_Spec **
+get_casts(void)
+{
+    PyArray_DTypeMeta **u2f_dtypes = malloc(2 * sizeof(PyArray_DTypeMeta *));
     u2f_dtypes[0] = NULL;
     u2f_dtypes[1] = &PyArray_DoubleDType;
 
-    PyArrayMethod_Spec* UnitToFloat64CastSpec = malloc(sizeof(PyArrayMethod_Spec));
+    PyArrayMethod_Spec *UnitToFloat64CastSpec =
+            malloc(sizeof(PyArrayMethod_Spec));
     UnitToFloat64CastSpec->name = u2f_name;
     UnitToFloat64CastSpec->nin = 1;
     UnitToFloat64CastSpec->nout = 1;
@@ -470,7 +465,7 @@ PyArrayMethod_Spec** get_casts(void) {
     UnitToFloat64CastSpec->dtypes = u2f_dtypes;
     UnitToFloat64CastSpec->slots = u2f_slots;
 
-    PyArrayMethod_Spec** casts = malloc(3*sizeof(PyArrayMethod_Spec*));
+    PyArrayMethod_Spec **casts = malloc(3 * sizeof(PyArrayMethod_Spec *));
     casts[0] = &UnitToUnitCastSpec;
     casts[1] = UnitToFloat64CastSpec;
     casts[2] = NULL;

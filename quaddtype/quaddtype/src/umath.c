@@ -12,27 +12,24 @@
 #include "dtype.h"
 #include "umath.h"
 
-
 // The multiplication loop, this is very minimal!  Look at the cast to see
 // some of the more advanced things you can do for optimization!
 // Look at the seberg/unitdtype exaple repository for how this can be done
 // more generically without implementing a multiply loop!
-static int quad_multiply_strided_loop(
-    PyArrayMethod_Context* context,
-    char* const data[],
-    npy_intp const dimensions[],
-    npy_intp const strides[],
-    NpyAuxData* auxdata
-) {
+static int
+quad_multiply_strided_loop(PyArrayMethod_Context *context, char *const data[],
+                           npy_intp const dimensions[], npy_intp const strides[],
+                           NpyAuxData *auxdata)
+{
     npy_intp N = dimensions[0];
     char *in1 = data[0], *in2 = data[1];
-    char* out = data[2];
+    char *out = data[2];
     npy_intp in1_stride = strides[0];
     npy_intp in2_stride = strides[0];
     npy_intp out_stride = strides[2];
 
     while (N--) {
-        *(__float128*)out = *(__float128*)in1 * *(__float128*)in2;
+        *(__float128 *)out = *(__float128 *)in1 * *(__float128 *)in2;
         in1 += in1_stride;
         in2 += in2_stride;
         out += out_stride;
@@ -51,13 +48,11 @@ static int quad_multiply_strided_loop(
 // In practice that is just fill in the last `out.dtype`.  But in principle,
 // we might need casting (e.g. swap `>f8` to `<f8`), so the input dtypes could
 // also be changed (but we do not do this here!).
-static NPY_CASTING quad_multiply_resolve_descriptors(
-    PyObject* self,
-    PyArray_DTypeMeta* dtypes[],
-    PyArray_Descr* given_descrs[],
-    PyArray_Descr* loop_descrs[],
-    npy_intp* unused
-) {
+static NPY_CASTING
+quad_multiply_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *dtypes[],
+                                  PyArray_Descr *given_descrs[], PyArray_Descr *loop_descrs[],
+                                  npy_intp *unused)
+{
     // The operand units can be used as-is; no casting required for quad types.
     Py_INCREF(given_descrs[0]);
     loop_descrs[0] = given_descrs[0];
@@ -66,16 +61,16 @@ static NPY_CASTING quad_multiply_resolve_descriptors(
     return NPY_NO_CASTING;
 }
 
-
- // Function that adds our multiply loop to NumPy's multiply ufunc.
-int init_multiply_ufunc(void) {
-
+// Function that adds our multiply loop to NumPy's multiply ufunc.
+int
+init_multiply_ufunc(void)
+{
     // Get the multiply ufunc:
-    PyObject* numpy = PyImport_ImportModule("numpy");
+    PyObject *numpy = PyImport_ImportModule("numpy");
     if (numpy == NULL) {
         return -1;
     }
-    PyObject* multiply = PyObject_GetAttrString(numpy, "multiply");
+    PyObject *multiply = PyObject_GetAttrString(numpy, "multiply");
 
     // Why decref here?
     Py_DECREF(numpy);
@@ -84,26 +79,25 @@ int init_multiply_ufunc(void) {
     }
 
     // The initializing "wrap up" code from the slides (plus one error check)
-    static PyArray_DTypeMeta* dtypes[3] = {
-        &QuadDType,
-        &QuadDType,
-        &QuadDType,
+    static PyArray_DTypeMeta *dtypes[3] = {
+            &QuadDType,
+            &QuadDType,
+            &QuadDType,
     };
 
     static PyType_Slot slots[] = {
-        { NPY_METH_resolve_descriptors, &quad_multiply_resolve_descriptors },
-        { NPY_METH_strided_loop, &quad_multiply_strided_loop },
-        { 0, NULL }
-    };
+            {NPY_METH_resolve_descriptors, &quad_multiply_resolve_descriptors},
+            {NPY_METH_strided_loop, &quad_multiply_strided_loop},
+            {0, NULL}};
 
     PyArrayMethod_Spec MultiplySpec = {
-        .name = "quad_multiply",
-        .nin = 2,
-        .nout = 1,
-        .dtypes = dtypes,
-        .slots = slots,
-        .flags = 0,
-        .casting = NPY_NO_CASTING,
+            .name = "quad_multiply",
+            .nin = 2,
+            .nout = 1,
+            .dtypes = dtypes,
+            .slots = slots,
+            .flags = 0,
+            .casting = NPY_NO_CASTING,
     };
 
     /* Register */

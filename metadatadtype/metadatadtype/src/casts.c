@@ -58,10 +58,11 @@ metadata_to_metadata_resolve_descriptors(
 }
 
 static int
-metadata_to_float64like_contiguous(
-    PyArrayMethod_Context *NPY_UNUSED(context), char *const data[],
-    npy_intp const dimensions[], npy_intp const NPY_UNUSED(strides[]),
-    NpyAuxData *NPY_UNUSED(auxdata))
+metadata_to_float64like_contiguous(PyArrayMethod_Context *NPY_UNUSED(context),
+                                   char *const data[],
+                                   npy_intp const dimensions[],
+                                   npy_intp const NPY_UNUSED(strides[]),
+                                   NpyAuxData *NPY_UNUSED(auxdata))
 {
     npy_intp N = dimensions[0];
     double *in = (double *)data[0];
@@ -78,10 +79,10 @@ metadata_to_float64like_contiguous(
 
 static int
 metadata_to_float64like_strided(PyArrayMethod_Context *NPY_UNUSED(context),
-                             char *const data[],
-                             npy_intp const dimensions[],
-                             npy_intp const strides[],
-                             NpyAuxData *NPY_UNUSED(auxdata))
+                                char *const data[],
+                                npy_intp const dimensions[],
+                                npy_intp const strides[],
+                                NpyAuxData *NPY_UNUSED(auxdata))
 {
     npy_intp N = dimensions[0];
     char *in = data[0];
@@ -95,14 +96,15 @@ metadata_to_float64like_strided(PyArrayMethod_Context *NPY_UNUSED(context),
         out += out_stride;
     }
 
-
     return 0;
 }
 
 static int
 metadata_to_float64like_unaligned(PyArrayMethod_Context *NPY_UNUSED(context),
-                               char *const data[], npy_intp const dimensions[],
-                               npy_intp const strides[], NpyAuxData *NPY_UNUSED(auxdata))
+                                  char *const data[],
+                                  npy_intp const dimensions[],
+                                  npy_intp const strides[],
+                                  NpyAuxData *NPY_UNUSED(auxdata))
 {
     npy_intp N = dimensions[0];
     char *in = data[0];
@@ -111,7 +113,7 @@ metadata_to_float64like_unaligned(PyArrayMethod_Context *NPY_UNUSED(context),
     npy_intp out_stride = strides[1];
 
     while (N--) {
-        memcpy(out, in, sizeof(double));
+        memcpy(out, in, sizeof(double));  // NOLINT
         in += in_stride;
         out += out_stride;
     }
@@ -120,8 +122,8 @@ metadata_to_float64like_unaligned(PyArrayMethod_Context *NPY_UNUSED(context),
 }
 
 static int
-metadata_to_metadata_get_loop(PyArrayMethod_Context *NPY_UNUSED(context), int aligned,
-                              int NPY_UNUSED(move_references),
+metadata_to_metadata_get_loop(PyArrayMethod_Context *NPY_UNUSED(context),
+                              int aligned, int NPY_UNUSED(move_references),
                               const npy_intp *strides,
                               PyArrayMethod_StridedLoop **out_loop,
                               NpyAuxData **NPY_UNUSED(out_transferdata),
@@ -131,14 +133,16 @@ metadata_to_metadata_get_loop(PyArrayMethod_Context *NPY_UNUSED(context), int al
             (strides[0] == sizeof(double) && strides[1] == sizeof(double));
 
     if (aligned && contig) {
-        *out_loop = (PyArrayMethod_StridedLoop*)&metadata_to_float64like_contiguous;
+        *out_loop = (PyArrayMethod_StridedLoop
+                             *)&metadata_to_float64like_contiguous;
     }
     else if (aligned) {
-        *out_loop = (PyArrayMethod_StridedLoop*)&metadata_to_float64like_strided;
+        *out_loop =
+                (PyArrayMethod_StridedLoop *)&metadata_to_float64like_strided;
     }
     else {
-        *out_loop =
-            (PyArrayMethod_StridedLoop *)&metadata_to_float64like_unaligned;
+        *out_loop = (PyArrayMethod_StridedLoop
+                             *)&metadata_to_float64like_unaligned;
     }
 
     *flags = 0;
@@ -146,8 +150,8 @@ metadata_to_metadata_get_loop(PyArrayMethod_Context *NPY_UNUSED(context), int al
 }
 
 static int
-metadata_to_float64_get_loop(PyArrayMethod_Context *NPY_UNUSED(context), int aligned,
-                             int NPY_UNUSED(move_references),
+metadata_to_float64_get_loop(PyArrayMethod_Context *NPY_UNUSED(context),
+                             int aligned, int NPY_UNUSED(move_references),
                              const npy_intp *strides,
                              PyArrayMethod_StridedLoop **out_loop,
                              NpyAuxData **NPY_UNUSED(out_transferdata),
@@ -157,14 +161,16 @@ metadata_to_float64_get_loop(PyArrayMethod_Context *NPY_UNUSED(context), int ali
             (strides[0] == sizeof(double) && strides[1] == sizeof(double));
 
     if (aligned && contig) {
-        *out_loop = (PyArrayMethod_StridedLoop*)&metadata_to_float64like_contiguous;
+        *out_loop = (PyArrayMethod_StridedLoop
+                             *)&metadata_to_float64like_contiguous;
     }
     else if (aligned) {
-        *out_loop = (PyArrayMethod_StridedLoop*)&metadata_to_float64like_strided;
+        *out_loop =
+                (PyArrayMethod_StridedLoop *)&metadata_to_float64like_strided;
     }
     else {
-        *out_loop =
-            (PyArrayMethod_StridedLoop *)&metadata_to_float64like_unaligned;
+        *out_loop = (PyArrayMethod_StridedLoop
+                             *)&metadata_to_float64like_unaligned;
     }
 
     *flags = 0;
@@ -194,18 +200,19 @@ PyArrayMethod_Spec MetadataToMetadataCastSpec = {
 };
 
 static PyType_Slot m2f_slots[] = {
-    {_NPY_METH_get_loop, &metadata_to_float64_get_loop},
-    {0, NULL}
-};
+        {_NPY_METH_get_loop, &metadata_to_float64_get_loop}, {0, NULL}};
 
-static char* m2f_name = "cast_MetadataDType_to_Float64";
+static char *m2f_name = "cast_MetadataDType_to_Float64";
 
-PyArrayMethod_Spec** get_casts(void) {
-    PyArray_DTypeMeta **m2f_dtypes = malloc(2*sizeof(PyArray_DTypeMeta*));
+PyArrayMethod_Spec **
+get_casts(void)
+{
+    PyArray_DTypeMeta **m2f_dtypes = malloc(2 * sizeof(PyArray_DTypeMeta *));
     m2f_dtypes[0] = NULL;
     m2f_dtypes[1] = &PyArray_DoubleDType;
 
-    PyArrayMethod_Spec* MetadataToFloat64CastSpec = malloc(sizeof(PyArrayMethod_Spec));
+    PyArrayMethod_Spec *MetadataToFloat64CastSpec =
+            malloc(sizeof(PyArrayMethod_Spec));
     MetadataToFloat64CastSpec->name = m2f_name;
     MetadataToFloat64CastSpec->nin = 1;
     MetadataToFloat64CastSpec->nout = 1;
@@ -214,7 +221,7 @@ PyArrayMethod_Spec** get_casts(void) {
     MetadataToFloat64CastSpec->dtypes = m2f_dtypes;
     MetadataToFloat64CastSpec->slots = m2f_slots;
 
-    PyArrayMethod_Spec** casts = malloc(3*sizeof(PyArrayMethod_Spec*));
+    PyArrayMethod_Spec **casts = malloc(3 * sizeof(PyArrayMethod_Spec *));
     casts[0] = &MetadataToMetadataCastSpec;
     casts[1] = MetadataToFloat64CastSpec;
     casts[2] = NULL;
