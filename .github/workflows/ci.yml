@@ -16,10 +16,17 @@ jobs:
         uses: actions/setup-python@v3
         with:
           python-version: "3.10"
+      - name: Update linux dependencies
+        run: sudo apt update
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
       - name: Install build and test dependencies
         run: |
+          export CC="ccache gcc"
+          export CXX="ccache g++"
+          export CCACHE_NOHASHDIR=
           python -m pip install -U pip build pytest unyt wheel meson ninja meson-python patchelf
-          python -m pip install git+https://github.com/numpy/numpy.git
+          python -m pip install -vvv git+https://github.com/numpy/numpy.git
       - name: Install metadatadtype
         working-directory: metadatadtype
         run: |
