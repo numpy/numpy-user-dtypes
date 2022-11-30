@@ -188,8 +188,9 @@ unytdtype_getitem(UnytDTypeObject *descr, char *dataptr)
     return res;
 }
 
-static UnytDTypeObject*
-unytdtype_ensure_canonical(UnytDTypeObject* self) {
+static UnytDTypeObject *
+unytdtype_ensure_canonical(UnytDTypeObject *self)
+{
     Py_INCREF(self);
     return self;
 }

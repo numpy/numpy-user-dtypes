@@ -1,5 +1,5 @@
-#include <Python.h>
 #include "structmember.h"
+#include <Python.h>
 
 #define PY_ARRAY_UNIQUE_SYMBOL metadatadtype_ARRAY_API
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
@@ -25,8 +25,8 @@ get_value(PyObject *scalar)
         double res = PyFloat_AsDouble(scalar);
         if (res == -1 && PyErr_Occurred()) {
             PyErr_SetString(
-                PyExc_TypeError,
-                "Can only store MetadataScalar in a MetadataDType array.");
+                    PyExc_TypeError,
+                    "Can only store MetadataScalar in a MetadataDType array.");
             return -1;
         }
         return res;
@@ -174,7 +174,9 @@ metadatadtype_getitem(MetadataDTypeObject *descr, char *dataptr)
     return res;
 }
 
-static MetadataDTypeObject* metadatadtype_ensure_canonical(MetadataDTypeObject* self) {
+static MetadataDTypeObject *
+metadatadtype_ensure_canonical(MetadataDTypeObject *self)
+{
     Py_INCREF(self);
     return self;
 }
@@ -224,8 +226,9 @@ metadatadtype_repr(MetadataDTypeObject *self)
 }
 
 static PyMemberDef MetadataDType_members[] = {
-    {"_metadata", T_OBJECT_EX, offsetof(MetadataDTypeObject, metadata), READONLY, "some metadata"},
-    {NULL},
+        {"_metadata", T_OBJECT_EX, offsetof(MetadataDTypeObject, metadata),
+         READONLY, "some metadata"},
+        {NULL},
 };
 
 /*

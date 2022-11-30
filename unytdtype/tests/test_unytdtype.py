@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 import unyt
+
 from unytdtype import UnytDType, UnytScalar
 
 
