@@ -8,6 +8,10 @@ def test_dtype_creation():
     dtype = UnytDType("m")
     assert str(dtype) == "UnytDType('m')"
 
+    dtype2 = UnytDType(unyt.Unit('m'))
+    assert str(dtype2) == "UnytDType('m')"
+    assert dtype == dtype2
+
 
 def test_creation_from_zeros():
     dtype = UnytDType("m")
