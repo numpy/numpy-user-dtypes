@@ -240,6 +240,12 @@ unytdtype_repr(UnytDTypeObject *self)
     return res;
 }
 
+static PyMemberDef UnytDType_members[] = {
+        {"unit", T_OBJECT_EX, offsetof(UnytDTypeObject, unit), READONLY,
+         "the unit"},
+        {NULL},
+};
+
 /*
  * This is the basic things that you need to create a Python Type/Class in C.
  * However, there is a slight difference here because we create a
@@ -254,6 +260,7 @@ PyArray_DTypeMeta UnytDType = {
                 .tp_dealloc = (destructor)unytdtype_dealloc,
                 .tp_repr = (reprfunc)unytdtype_repr,
                 .tp_str = (reprfunc)unytdtype_repr,
+                .tp_members = UnytDType_members,
         }},
         /* rest, filled in during DTypeMeta initialization */
 };

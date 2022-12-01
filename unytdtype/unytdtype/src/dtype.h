@@ -1,7 +1,10 @@
 #ifndef _NPY_DTYPE_H
 #define _NPY_DTYPE_H
 
+// clang-format off
 #include <Python.h>
+#include "structmember.h"
+// clang-format on
 
 #define PY_ARRAY_UNIQUE_SYMBOL unytdtype_ARRAY_API
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
