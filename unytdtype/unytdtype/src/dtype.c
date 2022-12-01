@@ -43,7 +43,12 @@ get_unit(PyObject *scalar, UnytDTypeObject *descr)
         return descr->unit;
     }
 
-    PyObject *unit = PyObject_GetAttrString(scalar, "unit");
+    PyObject *dtype = PyObject_GetAttrString(scalar, "dtype");
+    if (dtype == NULL) {
+        return NULL;
+    }
+    PyObject *unit = PyObject_GetAttrString(dtype, "unit");
+    Py_DECREF(dtype);
     if (unit == NULL) {
         return NULL;
     }
