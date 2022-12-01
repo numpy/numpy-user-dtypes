@@ -28,10 +28,22 @@ UnitConverter(PyObject *obj, PyObject **unit)
             return -1;
         }
     }
-    *unit = PyObject_GetAttr(unyt_mod, obj);
-    if (*unit == NULL) {
-        return 0;
+    PyTypeObject *unit_type =
+            (PyTypeObject *)PyObject_GetAttrString(unyt_mod, "Unit");
+    PyTypeObject *obj_type = Py_TYPE(obj);
+    if (obj_type == unit_type) {
+        Py_INCREF(obj);
+        *unit = obj;
     }
+    else {
+        // assume obj is a string unit name
+        *unit = PyObject_GetAttr(unyt_mod, obj);
+        if (*unit == NULL) {
+            Py_DECREF(unit_type);
+            return 0;
+        }
+    }
+    Py_DECREF(unit_type);
     return 1;
 }
 
