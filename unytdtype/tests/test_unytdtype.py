@@ -13,6 +13,18 @@ def test_dtype_creation():
     assert dtype == dtype2
 
 
+def test_scalar_creation():
+    dtype = UnytDType("m")
+    unit = unyt.Unit("m")
+    unit_s = "m"
+
+    s_1 = UnytScalar(1, dtype)
+    s_2 = UnytScalar(1, unit)
+    s_3 = UnytScalar(1, unit_s)
+
+    assert s_1 == s_2 == s_3
+
+
 def test_creation_from_zeros():
     dtype = UnytDType("m")
     arr = np.zeros(3, dtype=dtype)
