@@ -57,7 +57,7 @@ _mpf_load(mpfr_ptr *x, char *data_ptr, mpfr_prec_t precision) {
  */
 static inline void
 mpf_store(char *data_ptr, mpfr_t x) {
-    assert(data_ptr == mpfr_t);
+    assert(data_ptr == (char *)x);
 }
 
 

@@ -7,6 +7,8 @@
 #include "numpy/ndarraytypes.h"
 #include "numpy/experimental_dtype_api.h"
 
+#include "mpfr.h"
+
 #include "dtype.h"
 #include "scalar.h"
 /*
