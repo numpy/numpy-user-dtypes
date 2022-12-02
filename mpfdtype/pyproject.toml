@@ -1,0 +1,20 @@
+[build-system]
+requires = [
+    "meson>=0.63.0",
+    "meson-python",
+    "patchelf",
+    "wheel",
+    "numpy",
+]
+build-backend = "mesonpy"
+
+[project]
+name = "mpfdtype"
+description = "A dtype backing MPFR multi-precision floats"
+version = "0.0.1"
+readme = 'README.md'
+author = "Sebastian Berg and NumPy Developers"
+requires-python = ">=3.9.0"
+dependencies = [
+    "numpy"
+]
