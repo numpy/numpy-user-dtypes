@@ -213,6 +213,22 @@ MPFDType_repr(MPFDTypeObject *self)
 }
 
 
+PyObject *
+MPFDType_get_prec(MPFDTypeObject *self)
+{
+    return PyLong_FromLong(self->precision);
+}
+
+
+NPY_NO_EXPORT PyGetSetDef mpfdtype_getsetlist[] = {
+    {"prec",
+        (getter)MPFDType_get_prec,
+        NULL,
+        NULL, NULL},
+    {NULL, NULL, NULL, NULL, NULL},  /* Sentinel */
+};
+
+
 /*
  * This is the basic things that you need to create a Python Type/Class in C.
  * However, there is a slight difference here because we create a
@@ -226,6 +242,7 @@ PyArray_DTypeMeta MPFDType = {{{
         .tp_new = MPFDType_new,
         .tp_repr = (reprfunc)MPFDType_repr,
         .tp_str = (reprfunc)MPFDType_repr,
+        .tp_getset = &mpfdtype_getsetlist,
     }},
     /* rest, filled in during DTypeMeta initialization */
 };

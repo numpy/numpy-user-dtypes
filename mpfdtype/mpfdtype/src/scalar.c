@@ -184,11 +184,20 @@ MPFloat_repr(MPFloatObject* self)
 }
 
 
-int
-init_mpf_scalar(void)
+static PyObject *
+MPFloat_get_prec(MPFloatObject *self)
 {
-    return PyType_Ready(&MPFloat_Type);
+    return PyLong_FromLong(mpfr_get_prec(self->mpf.x));
 }
+
+
+NPY_NO_EXPORT PyGetSetDef mpfloat_getsetlist[] = {
+    {"prec",
+        (getter)MPFloat_get_prec,
+        NULL,
+        NULL, NULL},
+    {NULL, NULL, NULL, NULL, NULL},  /* Sentinel */
+};
 
 
 PyTypeObject MPFloat_Type = {
@@ -201,4 +210,12 @@ PyTypeObject MPFloat_Type = {
     .tp_str = (reprfunc)MPFloat_str,
     .tp_as_number = &mpf_as_number,
     .tp_richcompare = &mpf_richcompare,
+    .tp_getset = &mpfloat_getsetlist,
 };
+
+
+int
+init_mpf_scalar(void)
+{
+    return PyType_Ready(&MPFloat_Type);
+}
