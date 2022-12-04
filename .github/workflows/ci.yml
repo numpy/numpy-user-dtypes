@@ -29,6 +29,15 @@ jobs:
         working-directory: metadatadtype
         run: |
           pytest -vvv --color=yes
+      - name: install mpfdtype
+        working-directory: mpfdtype
+        run: |
+          sudo apt install libmpfr-dev -y
+          python -m pip install . --no-build-isolation
+      - name: Run mpfdtype tests
+        working-directory: mpfdtype
+        run: |
+          pytest -vvv --color=yes
       - name: Install unytdtype
         working-directory: unytdtype
         run: |
