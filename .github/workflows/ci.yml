@@ -33,7 +33,7 @@ jobs:
         working-directory: mpfdtype
         run: |
           sudo apt install libmpfr-dev -y
-          python -m pip install . --no-build-isolation
+          CFLAGS="-Werror" python -m pip install . --no-build-isolation
       - name: Run mpfdtype tests
         working-directory: mpfdtype
         run: |

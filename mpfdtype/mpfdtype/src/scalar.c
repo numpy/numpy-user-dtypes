@@ -209,8 +209,8 @@ PyTypeObject MPFloat_Type = {
     .tp_repr = (reprfunc)MPFloat_repr,
     .tp_str = (reprfunc)MPFloat_str,
     .tp_as_number = &mpf_as_number,
-    .tp_richcompare = &mpf_richcompare,
-    .tp_getset = &mpfloat_getsetlist,
+    .tp_richcompare = (richcmpfunc)mpf_richcompare,
+    .tp_getset = mpfloat_getsetlist,
 };
 
 

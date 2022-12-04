@@ -46,7 +46,7 @@ new_MPFDType_instance(mpfr_prec_t precision)
                 "storage of single float would be too large for precision.");
     }
     new->base.elsize = sizeof(mpf_storage) + size;
-    new->base.alignment = _Alignof(mpf_storage);
+    new->base.alignment = _Alignof(mpf_field);
     new->base.flags |= NPY_NEEDS_INIT;
 
     return new;
@@ -242,7 +242,7 @@ PyArray_DTypeMeta MPFDType = {{{
         .tp_new = MPFDType_new,
         .tp_repr = (reprfunc)MPFDType_repr,
         .tp_str = (reprfunc)MPFDType_repr,
-        .tp_getset = &mpfdtype_getsetlist,
+        .tp_getset = mpfdtype_getsetlist,
     }},
     /* rest, filled in during DTypeMeta initialization */
 };
