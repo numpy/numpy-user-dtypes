@@ -22,9 +22,10 @@
  * (for larger itemsizes at least).
  */
 static void
-copyswap_mpf(char *dst, char *src, int swap, PyArrayObject *arr)
+copyswap_mpf(char *dst, char *src, int swap, PyArrayObject *ap)
 {
-    PyArray_Descr *descr = PyArray_DESCR(arr);
+    /* Note that it is probably better to only get the descr from `ap` */
+    PyArray_Descr *descr = PyArray_DESCR(ap);
 
     memcpy(dst, src, descr->elsize);
 }
@@ -33,9 +34,10 @@ copyswap_mpf(char *dst, char *src, int swap, PyArrayObject *arr)
 /* Should only be used for sorting, so more complex than necessary, probably */
 int compare_mpf(char *in1_ptr, char *in2_ptr, int swap, PyArrayObject *ap)
 {
+    /* Note that it is probably better to only get the descr from `ap` */
     mpfr_prec_t precision = ((MPFDTypeObject *)PyArray_DESCR(ap))->precision;
 
-    mpfr_t in1, in2;
+    mpfr_ptr in1, in2;
 
     mpf_load(in1, in1_ptr, precision);
     mpf_load(in2, in2_ptr, precision);
@@ -63,8 +65,8 @@ init_terrible_hacks(void) {
         return -1;
     }
     /* ->f slots are the same for all instances (currently). */
-    descr->base.f->copyswap = &copyswap_mpf;
-    descr->base.f->compare = &compare_mpf;
+    descr->base.f->copyswap = (PyArray_CopySwapFunc *)&copyswap_mpf;
+    descr->base.f->compare = (PyArray_CompareFunc *)&compare_mpf;
     Py_DECREF(descr);
 
     return 0;

@@ -182,8 +182,9 @@ numpy_to_mpf_strided_loop(PyArrayMethod_Context *context,
         T *in = (T *)in_ptr;
         mpf_load(out, out_ptr, prec_out);
 
-        int res = C_to_mpfr<conv_T, T>(*in, out);
-        // TODO: At least for ints, could flag out of bounds...
+        C_to_mpfr<conv_T, T>(*in, out);
+        // TODO: At least for ints, could flag out of bounds, the return value
+        //       of C_to_mpfr may help with that (it flags imprecisions).
         mpf_store(out_ptr, out);
 
         in_ptr += strides[0];

@@ -23,8 +23,6 @@ typedef struct {
  * So not storeing only those (saving 16 bytes of 48 for a 128 bit number)
  * removes the need to worry about this.
  */
-static_assert(_Alignof(mpfr_t) >= _Alignof(mp_limb_t),
-              "mpfr_t storage not aligned as much as limb_t?!");
 typedef mpfr_t mpf_storage;
 
 extern PyArray_DTypeMeta MPFDType;
