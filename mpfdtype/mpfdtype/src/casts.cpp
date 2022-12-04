@@ -51,7 +51,7 @@ mpf_to_mpf_resolve_descriptors(
 
 
 static int
-mpf_to_mof_strided_loop(PyArrayMethod_Context *context,
+mpf_to_mpf_strided_loop(PyArrayMethod_Context *context,
         char *const data[], npy_intp const dimensions[],
         npy_intp const strides[], void *NPY_UNUSED(auxdata))
 {
@@ -395,9 +395,9 @@ init_casts_internal(void)
     PyType_Slot *mpf2mpf_slots = new PyType_Slot [4]{
         {NPY_METH_resolve_descriptors,
             (void *)&mpf_to_mpf_resolve_descriptors},
-        {NPY_METH_strided_loop, (void *)&mpf_to_mof_strided_loop},
+        {NPY_METH_strided_loop, (void *)&mpf_to_mpf_strided_loop},
         /* We don't actually support unaligned access... */
-        {NPY_METH_unaligned_strided_loop, (void *)&mpf_to_mof_strided_loop},
+        {NPY_METH_unaligned_strided_loop, (void *)&mpf_to_mpf_strided_loop},
         {0, nullptr}
     };
 
