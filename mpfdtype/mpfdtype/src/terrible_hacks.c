@@ -27,7 +27,10 @@ copyswap_mpf(char *dst, char *src, int swap, PyArrayObject *ap)
     /* Note that it is probably better to only get the descr from `ap` */
     PyArray_Descr *descr = PyArray_DESCR(ap);
 
+    /* copy data and then fix significand (could also do same as cast...) */
     memcpy(dst, src, descr->elsize);
+    // TODO: To support unaligned data, only need to do this if it is aligned:
+    mpfr_custom_move((mpfr_ptr)dst, ((mpf_field *)dst)->significand);
 }
 
 
