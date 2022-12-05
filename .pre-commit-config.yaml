@@ -9,6 +9,14 @@ repos:
         entry: |
           bash -c 'cd metadatadtype && mkdir -p build && pip install build meson-python patchelf wheel && python -m build --wheel --no-isolation -Cbuilddir=build';
         fail_fast: false
+      - id: generate-compilation-database-asciidtype
+        name: Generate compilation database [asciidtype]
+        files: asciidtype/(meson\.build$|.*\.(c|h)$)
+        language: system
+        require_serial: true
+        entry: |
+          bash -c 'cd asciidtype && mkdir -p build && pip install build meson-python patchelf wheel && python -m build --wheel --no-isolation -Cbuilddir=build';
+        fail_fast: false
       - id: generate-compilation-database-quaddtype
         name: Generate compilation database [quaddtype]
         files: quaddtype/(meson\.build$|.*\.(c|h)$)
