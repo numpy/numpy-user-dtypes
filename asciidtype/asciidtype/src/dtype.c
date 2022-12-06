@@ -21,6 +21,7 @@ get_value(PyObject *scalar)
     PyObject *res_bytes = PyUnicode_AsASCIIString(value);
     Py_DECREF(value);
     char *res = PyBytes_AsString(res_bytes);
+    Py_DECREF(res_bytes);
     if (res == NULL) {
         return NULL;
     }
