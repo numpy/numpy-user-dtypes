@@ -7,5 +7,5 @@ def test_dtype_creation():
 
 
 def test_scalar_creation():
-    dtype = ASCIIDType(5)
+    dtype = ASCIIDType(7)
     ASCIIScalar('string', dtype)

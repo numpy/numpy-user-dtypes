@@ -161,13 +161,12 @@ asciidtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwds)
         return NULL;
     }
     if (size == NULL) {
-        PyErr_SetString(
-                PyExc_TypeError,
-                "Must provide a size to instantiate an ASCIIDType instance");
-        return NULL;
+        size = PyLong_FromLong(0);
     }
 
-    return (PyObject *)new_asciidtype_instance(size);
+    PyObject *ret = (PyObject *)new_asciidtype_instance(size);
+    Py_DECREF(size);
+    return ret;
 }
 
 static void
@@ -212,10 +211,13 @@ PyArray_DTypeMeta ASCIIDType = {
 int
 init_ascii_dtype(void)
 {
+    static PyArrayMethod_Spec *casts[] = {&ASCIIToASCIICastSpec, NULL};
+
     PyArrayDTypeMeta_Spec ASCIIDType_DTypeSpec = {
             .flags = NPY_DT_PARAMETRIC,
             .typeobj = ASCIIScalar_Type,
             .slots = ASCIIDType_Slots,
+            .casts = casts,
     };
     /* Loaded dynamically, so may need to be set here: */
     ((PyObject *)&ASCIIDType)->ob_type = &PyArrayDTypeMeta_Type;
@@ -229,7 +231,13 @@ init_ascii_dtype(void)
         return -1;
     }
 
-    ASCIIDType.singleton = PyArray_GetDefaultDescr(&ASCIIDType);
+    PyArray_Descr *singleton = PyArray_GetDefaultDescr(&ASCIIDType);
+
+    if (singleton == NULL) {
+        return -1;
+    }
+
+    ASCIIDType.singleton = singleton;
 
     return 0;
 }

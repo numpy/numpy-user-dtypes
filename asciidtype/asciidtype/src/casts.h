@@ -10,4 +10,6 @@
 #include "numpy/experimental_dtype_api.h"
 #include "numpy/ndarraytypes.h"
 
+extern PyArrayMethod_Spec ASCIIToASCIICastSpec;
+
 #endif /* _NPY_CASTS_H */
