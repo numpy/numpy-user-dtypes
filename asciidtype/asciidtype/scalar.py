@@ -6,5 +6,8 @@ class ASCIIScalar:
         self.value = value
         self.dtype = dtype
 
+    def __str__(self):
+        return str(self.value)
+
     def __repr__(self):
-        return f"{self.value}"
+        return repr(self.value)

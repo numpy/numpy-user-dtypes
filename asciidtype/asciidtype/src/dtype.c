@@ -4,28 +4,34 @@
 
 PyTypeObject *ASCIIScalar_Type = NULL;
 
-static char *
+static PyObject *
 get_value(PyObject *scalar)
 {
+    PyObject *ret_bytes = NULL;
     PyTypeObject *scalar_type = Py_TYPE(scalar);
-    if (scalar_type != ASCIIScalar_Type) {
+    if (scalar_type == &PyUnicode_Type) {
+        // attempt to decode as ASCII
+        ret_bytes = PyUnicode_AsASCIIString(scalar);
+        if (ret_bytes == NULL) {
+            PyErr_SetString(
+                    PyExc_TypeError,
+                    "Can only store ASCII text in a ASCIIDType array.");
+        }
+    }
+    else if (scalar_type != ASCIIScalar_Type) {
         PyErr_SetString(PyExc_TypeError,
-                        "Can only store ASCIIScalar in a ASCIIDType array.");
+                        "Can only store ASCII text in a ASCIIDType array.");
         return NULL;
     }
-
-    PyObject *value = PyObject_GetAttrString(scalar, "value");
-    if (value == NULL) {
-        return NULL;
+    else {
+        PyObject *value = PyObject_GetAttrString(scalar, "value");
+        if (value == NULL) {
+            return NULL;
+        }
+        ret_bytes = PyUnicode_AsASCIIString(value);
+        Py_DECREF(value);
     }
-    PyObject *res_bytes = PyUnicode_AsASCIIString(value);
-    Py_DECREF(value);
-    char *res = PyBytes_AsString(res_bytes);
-    Py_DECREF(res_bytes);
-    if (res == NULL) {
-        return NULL;
-    }
-    return res;
+    return ret_bytes;
 }
 
 /*
@@ -100,12 +106,31 @@ ascii_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls),
 static int
 asciidtype_setitem(ASCIIDTypeObject *descr, PyObject *obj, char *dataptr)
 {
-    char *value = get_value(obj);
+    PyObject *value = get_value(obj);
     if (value == NULL) {
         return -1;
     }
 
-    memcpy(dataptr, value, descr->size * sizeof(char));  // NOLINT
+    Py_ssize_t len = PyBytes_Size(value);
+
+    size_t copysize;
+
+    if (len > descr->size) {
+        copysize = descr->size;
+    }
+    else {
+        copysize = len;
+    }
+
+    char *char_value = PyBytes_AsString(value);
+
+    memcpy(dataptr, char_value, copysize * sizeof(char));  // NOLINT
+
+    for (int i = copysize; i < descr->size; i++) {
+        dataptr[i] = '\0';
+    }
+
+    Py_DECREF(value);
 
     return 0;
 }
@@ -113,11 +138,7 @@ asciidtype_setitem(ASCIIDTypeObject *descr, PyObject *obj, char *dataptr)
 static PyObject *
 asciidtype_getitem(ASCIIDTypeObject *descr, char *dataptr)
 {
-    char *val = NULL;
-    /* get the value */
-    memcpy(val, dataptr, descr->size * sizeof(char));  // NOLINT
-
-    PyObject *val_obj = PyUnicode_FromStringAndSize(val, descr->size);
+    PyObject *val_obj = PyUnicode_FromString(dataptr);
     if (val_obj == NULL) {
         return NULL;
     }
