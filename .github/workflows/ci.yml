@@ -21,9 +21,11 @@ jobs:
           pip install -i https://pypi.anaconda.org/scipy-wheels-nightly/simple numpy
           python -m pip install -U pip build pytest unyt wheel meson ninja meson-python patchelf
       - name: Install asciidtype
+        working-directory: asciidtype
         run: |
           CFLAGS="-Werror" python -m pip install . --no-build-isolation
       - name: Run asciidtype tests
+        working-directory: asciidtype
         run: |
           pytest -vvv --color=yes
       - name: Install metadatadtype
