@@ -48,7 +48,7 @@ ascii_to_ascii_contiguous(PyArrayMethod_Context *context, char *const data[],
     // the same, consider adding an assert to check?
     long size = ((ASCIIDTypeObject *)descrs[0])->size;
 
-    npy_intp N = dimensions[0] * size;
+    npy_intp N = dimensions[0] * (size + 1);
     char *in = data[0];
     char *out = data[1];
 
@@ -69,15 +69,15 @@ ascii_to_ascii_strided_or_unaligned(PyArrayMethod_Context *context,
                                     NpyAuxData *NPY_UNUSED(auxdata))
 {
     PyArray_Descr **descrs = context->descriptors;
-    long in_size = ((ASCIIDTypeObject *)descrs[0])->size;
-    long out_size = ((ASCIIDTypeObject *)descrs[1])->size;
+    long in_size = (((ASCIIDTypeObject *)descrs[0])->size + 1);
+    long out_size = (((ASCIIDTypeObject *)descrs[1])->size + 1);
     long copy_size;
 
     if (out_size > in_size) {
         copy_size = in_size;
     }
     else {
-        copy_size = out_size;
+        copy_size = out_size - 1;
     }
 
     npy_intp N = dimensions[0];
@@ -87,7 +87,7 @@ ascii_to_ascii_strided_or_unaligned(PyArrayMethod_Context *context,
     npy_intp out_stride = strides[1];
 
     while (N--) {
-        memcpy(out, in, out_size * sizeof(char));  // NOLINT
+        memcpy(out, in, copy_size * sizeof(char));  // NOLINT
         for (int i = copy_size; i < out_size; i++) {
             *(out + i) = '\0';
         }
@@ -108,10 +108,12 @@ ascii_to_ascii_get_loop(PyArrayMethod_Context *context, int aligned,
 {
     PyArray_Descr **descrs = context->descriptors;
 
-    int contig = (strides[0] == ((ASCIIDTypeObject *)descrs[0])->size *
-                                        sizeof(char) &&
-                  strides[1] == ((ASCIIDTypeObject *)descrs[1])->size *
-                                        sizeof(char));
+    size_t in_size = ((ASCIIDTypeObject *)descrs[0])->size + 1;
+    size_t out_size = ((ASCIIDTypeObject *)descrs[1])->size + 1;
+
+    int contig =
+            (strides[0] == in_size * sizeof(char) &&
+             strides[1] == out_size * sizeof(char) && in_size == out_size);
 
     if (aligned && contig) {
         *out_loop = (PyArrayMethod_StridedLoop *)&ascii_to_ascii_contiguous;
