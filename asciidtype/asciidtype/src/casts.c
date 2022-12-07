@@ -25,7 +25,7 @@ ascii_to_ascii_resolve_descriptors(PyObject *NPY_UNUSED(self),
     }
     else {
         Py_INCREF(given_descrs[1]);
-        loop_descrs[1] = given_descrs[0];
+        loop_descrs[1] = given_descrs[1];
     }
 
     if (((ASCIIDTypeObject *)loop_descrs[0])->size ==
