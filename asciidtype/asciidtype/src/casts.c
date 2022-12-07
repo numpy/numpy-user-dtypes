@@ -62,46 +62,11 @@ ascii_to_ascii_contiguous(PyArrayMethod_Context *context, char *const data[],
 }
 
 static int
-ascii_to_ascii_strided(PyArrayMethod_Context *context, char *const data[],
-                       npy_intp const dimensions[], npy_intp const strides[],
-                       NpyAuxData *NPY_UNUSED(auxdata))
-{
-    PyArray_Descr **descrs = context->descriptors;
-    long in_size = ((ASCIIDTypeObject *)descrs[0])->size;
-    long out_size = ((ASCIIDTypeObject *)descrs[1])->size;
-    long copy_size;
-
-    if (out_size > in_size) {
-        copy_size = in_size;
-    }
-    else {
-        copy_size = out_size;
-    }
-
-    npy_intp N = dimensions[0];
-    char *in = data[0];
-    char *out = data[1];
-    npy_intp in_stride = strides[0];
-    npy_intp out_stride = strides[1];
-
-    while (N--) {
-        for (int i = 0; i < copy_size; i++) {
-            *(out + i) = *(in + i);
-        }
-        for (int i = copy_size; i < out_size; i++) {
-            *(out + i) = '\0';
-        }
-        in += in_stride;
-        out += out_stride;
-    }
-
-    return 0;
-}
-
-static int
-ascii_to_ascii_unaligned(PyArrayMethod_Context *context, char *const data[],
-                         npy_intp const dimensions[], npy_intp const strides[],
-                         NpyAuxData *NPY_UNUSED(auxdata))
+ascii_to_ascii_strided_or_unaligned(PyArrayMethod_Context *context,
+                                    char *const data[],
+                                    npy_intp const dimensions[],
+                                    npy_intp const strides[],
+                                    NpyAuxData *NPY_UNUSED(auxdata))
 {
     PyArray_Descr **descrs = context->descriptors;
     long in_size = ((ASCIIDTypeObject *)descrs[0])->size;
@@ -151,11 +116,9 @@ ascii_to_ascii_get_loop(PyArrayMethod_Context *context, int aligned,
     if (aligned && contig) {
         *out_loop = (PyArrayMethod_StridedLoop *)&ascii_to_ascii_contiguous;
     }
-    else if (aligned) {
-        *out_loop = (PyArrayMethod_StridedLoop *)&ascii_to_ascii_strided;
-    }
     else {
-        *out_loop = (PyArrayMethod_StridedLoop *)&ascii_to_ascii_unaligned;
+        *out_loop = (PyArrayMethod_StridedLoop
+                             *)&ascii_to_ascii_strided_or_unaligned;
     }
 
     *flags = 0;
