@@ -28,6 +28,9 @@ get_value(PyObject *scalar)
         return -1;
     }
     double res = PyFloat_AsDouble(value);
+    if (res == -1 && PyErr_Occurred()) {
+        return -1;
+    }
     Py_DECREF(value);
     return res;
 }
