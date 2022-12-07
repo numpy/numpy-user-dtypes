@@ -50,8 +50,9 @@ new_asciidtype_instance(PyObject *size)
         return NULL;
     }
     new->size = size_l;
-    new->base.elsize = size_l * sizeof(char);
-    new->base.alignment = size_l *_Alignof(char);
+    // need extra byte per item for null-termination
+    new->base.elsize = (size_l + 1) * sizeof(char);
+    new->base.alignment = (size_l + 1) * _Alignof(char);
 
     return new;
 }
@@ -126,7 +127,7 @@ asciidtype_setitem(ASCIIDTypeObject *descr, PyObject *obj, char *dataptr)
 
     memcpy(dataptr, char_value, copysize * sizeof(char));  // NOLINT
 
-    for (int i = copysize; i < descr->size; i++) {
+    for (int i = copysize; i < (descr->size + 1); i++) {
         dataptr[i] = '\0';
     }
 
