@@ -50,9 +50,8 @@ new_asciidtype_instance(PyObject *size)
         return NULL;
     }
     new->size = size_l;
-    // need extra byte per item for null-termination
-    new->base.elsize = (size_l + 1) * sizeof(char);
-    new->base.alignment = (size_l + 1) * _Alignof(char);
+    new->base.elsize = size_l * sizeof(char);
+    new->base.alignment = size_l *_Alignof(char);
 
     return new;
 }
@@ -114,7 +113,7 @@ asciidtype_setitem(ASCIIDTypeObject *descr, PyObject *obj, char *dataptr)
 
     Py_ssize_t len = PyBytes_Size(value);
 
-    size_t copysize;
+    long copysize;
 
     if (len > descr->size) {
         copysize = descr->size;
@@ -127,7 +126,7 @@ asciidtype_setitem(ASCIIDTypeObject *descr, PyObject *obj, char *dataptr)
 
     memcpy(dataptr, char_value, copysize * sizeof(char));  // NOLINT
 
-    for (int i = copysize; i < (descr->size + 1); i++) {
+    for (int i = copysize; i < descr->size; i++) {
         dataptr[i] = '\0';
     }
 
@@ -139,7 +138,13 @@ asciidtype_setitem(ASCIIDTypeObject *descr, PyObject *obj, char *dataptr)
 static PyObject *
 asciidtype_getitem(ASCIIDTypeObject *descr, char *dataptr)
 {
-    PyObject *val_obj = PyUnicode_FromString(dataptr);
+    char scalar_buffer[descr->size + 1];
+
+    memcpy(scalar_buffer, dataptr, descr->size * sizeof(char));
+
+    scalar_buffer[descr->size] = '\0';
+
+    PyObject *val_obj = PyUnicode_FromString(scalar_buffer);
     if (val_obj == NULL) {
         return NULL;
     }
@@ -206,7 +211,7 @@ asciidtype_repr(ASCIIDTypeObject *self)
 }
 
 static PyMemberDef ASCIIDType_members[] = {
-        {"size", T_OBJECT_EX, offsetof(ASCIIDTypeObject, size), READONLY,
+        {"size", T_LONG, offsetof(ASCIIDTypeObject, size), READONLY,
          "The number of characters per array element"},
         {NULL},
 };
