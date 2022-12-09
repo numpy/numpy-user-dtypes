@@ -25,7 +25,7 @@ ascii_to_ascii_resolve_descriptors(PyObject *NPY_UNUSED(self),
     }
     else {
         Py_INCREF(given_descrs[1]);
-        loop_descrs[1] = given_descrs[0];
+        loop_descrs[1] = given_descrs[1];
     }
 
     if (((ASCIIDTypeObject *)loop_descrs[0])->size ==
@@ -38,35 +38,9 @@ ascii_to_ascii_resolve_descriptors(PyObject *NPY_UNUSED(self),
 }
 
 static int
-ascii_to_ascii_contiguous(PyArrayMethod_Context *context, char *const data[],
-                          npy_intp const dimensions[],
-                          npy_intp const NPY_UNUSED(strides[]),
-                          NpyAuxData *NPY_UNUSED(auxdata))
-{
-    PyArray_Descr **descrs = context->descriptors;
-    // for contiguous assignment the sizes of the two dtypes should be
-    // the same, consider adding an assert to check?
-    long size = ((ASCIIDTypeObject *)descrs[0])->size;
-
-    npy_intp N = dimensions[0] * size;
-    char *in = data[0];
-    char *out = data[1];
-
-    while (N--) {
-        *out = *in;
-        out++;
-        in++;
-    }
-
-    return 0;
-}
-
-static int
-ascii_to_ascii_strided_or_unaligned(PyArrayMethod_Context *context,
-                                    char *const data[],
-                                    npy_intp const dimensions[],
-                                    npy_intp const strides[],
-                                    NpyAuxData *NPY_UNUSED(auxdata))
+ascii_to_ascii(PyArrayMethod_Context *context, char *const data[],
+               npy_intp const dimensions[], npy_intp const strides[],
+               NpyAuxData *NPY_UNUSED(auxdata))
 {
     PyArray_Descr **descrs = context->descriptors;
     long in_size = ((ASCIIDTypeObject *)descrs[0])->size;
@@ -87,7 +61,7 @@ ascii_to_ascii_strided_or_unaligned(PyArrayMethod_Context *context,
     npy_intp out_stride = strides[1];
 
     while (N--) {
-        memcpy(out, in, out_size * sizeof(char));  // NOLINT
+        memcpy(out, in, copy_size * sizeof(char));  // NOLINT
         for (int i = copy_size; i < out_size; i++) {
             *(out + i) = '\0';
         }
@@ -106,20 +80,7 @@ ascii_to_ascii_get_loop(PyArrayMethod_Context *context, int aligned,
                         NpyAuxData **NPY_UNUSED(out_transferdata),
                         NPY_ARRAYMETHOD_FLAGS *flags)
 {
-    PyArray_Descr **descrs = context->descriptors;
-
-    int contig = (strides[0] == ((ASCIIDTypeObject *)descrs[0])->size *
-                                        sizeof(char) &&
-                  strides[1] == ((ASCIIDTypeObject *)descrs[1])->size *
-                                        sizeof(char));
-
-    if (aligned && contig) {
-        *out_loop = (PyArrayMethod_StridedLoop *)&ascii_to_ascii_contiguous;
-    }
-    else {
-        *out_loop = (PyArrayMethod_StridedLoop
-                             *)&ascii_to_ascii_strided_or_unaligned;
-    }
+    *out_loop = (PyArrayMethod_StridedLoop *)&ascii_to_ascii;
 
     *flags = 0;
     return 0;

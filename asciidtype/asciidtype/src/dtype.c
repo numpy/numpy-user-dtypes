@@ -113,7 +113,7 @@ asciidtype_setitem(ASCIIDTypeObject *descr, PyObject *obj, char *dataptr)
 
     Py_ssize_t len = PyBytes_Size(value);
 
-    size_t copysize;
+    long copysize;
 
     if (len > descr->size) {
         copysize = descr->size;
@@ -138,7 +138,13 @@ asciidtype_setitem(ASCIIDTypeObject *descr, PyObject *obj, char *dataptr)
 static PyObject *
 asciidtype_getitem(ASCIIDTypeObject *descr, char *dataptr)
 {
-    PyObject *val_obj = PyUnicode_FromString(dataptr);
+    char scalar_buffer[descr->size + 1];
+
+    memcpy(scalar_buffer, dataptr, descr->size * sizeof(char));
+
+    scalar_buffer[descr->size] = '\0';
+
+    PyObject *val_obj = PyUnicode_FromString(scalar_buffer);
     if (val_obj == NULL) {
         return NULL;
     }
@@ -205,7 +211,7 @@ asciidtype_repr(ASCIIDTypeObject *self)
 }
 
 static PyMemberDef ASCIIDType_members[] = {
-        {"size", T_OBJECT_EX, offsetof(ASCIIDTypeObject, size), READONLY,
+        {"size", T_LONG, offsetof(ASCIIDTypeObject, size), READONLY,
          "The number of characters per array element"},
         {NULL},
 };
