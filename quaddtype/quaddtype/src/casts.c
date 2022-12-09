@@ -29,24 +29,69 @@ quad_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self),
     return NPY_SAME_KIND_CASTING;
 }
 
+// Each element is a __float128 element; no casting needed
 static int
 quad_to_quad_contiguous(PyArrayMethod_Context *NPY_UNUSED(context), char *const data[],
-                        npy_intp const dimensions[], npy_intp const strides[], void *auxdata)
+                        npy_intp const dimensions[], npy_intp const strides[],
+                        NpyAuxData *NPY_UNUSED(auxdata))
 {
+    npy_intp N = dimensions[0];
+    __float128 *in = (__float128 *)data[0];
+    __float128 *out = (__float128 *)data[1];
+
+    while (N--) {
+        *out = *in;
+        out++;
+        in++;
+    }
+
     return 0;
 }
 
+// Elements are strided, e.g.
+//
+// x = np.linspace(40)
+// x[::3]
+//
+// Therefore the stride needs to be used to increment the pointers inside the loop.
 static int
 quad_to_quad_strided(PyArrayMethod_Context *NPY_UNUSED(context), char *const data[],
-                     npy_intp const dimensions[], npy_intp const strides[], void *auxdata)
+                     npy_intp const dimensions[], npy_intp const strides[],
+                     NpyAuxData *NPY_UNUSED(auxdata))
 {
+    npy_intp N = dimensions[0];
+    char *in = data[0];
+    char *out = data[1];
+    npy_intp in_stride = strides[0];
+    npy_intp out_stride = strides[1];
+
+    while (N--) {
+        *(__float128 *)out = *(__float128 *)in;
+        in += in_stride;
+        out += out_stride;
+    }
+
     return 0;
 }
 
+// Arrays are unaligned.
 static int
 quad_to_quad_unaligned(PyArrayMethod_Context *NPY_UNUSED(context), char *const data[],
-                       npy_intp const dimensions[], npy_intp const strides[], void *auxdata)
+                       npy_intp const dimensions[], npy_intp const strides[],
+                       NpyAuxData *NPY_UNUSED(auxdata))
 {
+    npy_intp N = dimensions[0];
+    char *in = data[0];
+    char *out = data[1];
+    npy_intp in_stride = strides[0];
+    npy_intp out_stride = strides[1];
+
+    while (N--) {
+        memcpy(out, in, sizeof(__float128));  // NOLINT
+        in += in_stride;
+        out += out_stride;
+    }
+
     return 0;
 }
 
