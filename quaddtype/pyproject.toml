@@ -4,7 +4,7 @@ requires = [
     "meson-python",
     "patchelf",
     "wheel",
-    "numpy @ file:///home/pdmurray/Desktop/numpy-1.25.0.dev0+167.g4ca8204c5-cp311-cp311d-linux_x86_64.whl"
+    "numpy @ file:///home/pdmurray/Desktop/numpy-1.24.0.dev0+1345.g4ca8204c5-cp311-cp311d-linux_x86_64.whl"
 ]
 build-backend = "mesonpy"
 
@@ -16,7 +16,7 @@ readme = 'README.md'
 author = "Peyton Murray"
 requires-python = ">=3.9.0"
 dependencies = [
-    "numpy @ file:///home/pdmurray/Desktop/numpy-1.25.0.dev0+167.g4ca8204c5-cp311-cp311d-linux_x86_64.whl"
+    "numpy @ file:///home/pdmurray/Desktop/numpy-1.24.0.dev0+1345.g4ca8204c5-cp311-cp311d-linux_x86_64.whl"
 ]
 
 [project.optional-dependencies]
