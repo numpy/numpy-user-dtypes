@@ -73,9 +73,10 @@ ascii_to_ascii(PyArrayMethod_Context *context, char *const data[],
 }
 
 static int
-ascii_to_ascii_get_loop(PyArrayMethod_Context *context, int aligned,
+ascii_to_ascii_get_loop(PyArrayMethod_Context *NPY_UNUSED(context),
+                        int NPY_UNUSED(aligned),
                         int NPY_UNUSED(move_references),
-                        const npy_intp *strides,
+                        const npy_intp *NPY_UNUSED(strides),
                         PyArrayMethod_StridedLoop **out_loop,
                         NpyAuxData **NPY_UNUSED(out_transferdata),
                         NPY_ARRAYMETHOD_FLAGS *flags)
