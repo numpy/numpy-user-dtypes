@@ -16,6 +16,7 @@ get_value(PyObject *scalar)
             PyErr_SetString(
                     PyExc_TypeError,
                     "Can only store ASCII text in a ASCIIDType array.");
+            return NULL;
         }
     }
     else if (scalar_type != ASCIIScalar_Type) {
