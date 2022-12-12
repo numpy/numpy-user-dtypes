@@ -1,4 +1,5 @@
 #include "dtype.h"
+#include "abstract.h"
 #include "casts.h"
 
 PyTypeObject *QuadScalar_Type = NULL;
@@ -37,9 +38,13 @@ quad_getitem(QuadDTypeObject *descr, char *dataptr)
         return NULL;
     }
 
-    Py_DECREF(val_obj);  // Why decrement this pointer? Shouldn't this be
-                         // Py_INCREF?
-    return val_obj;
+    // Need to create a new QuadScalar instance here and return that...
+    PyObject *res = PyObject_CallFunctionObjArgs((PyObject *)QuadScalar_Type, val_obj, NULL);
+    if (res == NULL) {
+        return NULL;
+    }
+    Py_DECREF(val_obj);
+    return res;
 }
 
 // For two instances of the same dtype, both have the same precision. Return
@@ -74,6 +79,8 @@ common_dtype(PyArray_DTypeMeta *self, PyArray_DTypeMeta *other)
     return (PyArray_DTypeMeta *)Py_NotImplemented;
 }
 
+// Expected to have this, and that it does an incref; see NEP42
+// Without this you'll get weird memory corruption bugs in the casting code
 static QuadDTypeObject *
 quaddtype_ensure_canonical(QuadDTypeObject *self)
 {

@@ -26,6 +26,18 @@ quad_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self),
                                  PyArray_Descr *given_descrs[2], PyArray_Descr *loop_descrs[2],
                                  npy_intp *view_offset)
 {
+    Py_INCREF(given_descrs[0]);
+    loop_descrs[0] = given_descrs[0];
+
+    if (given_descrs[1] == NULL) {
+        Py_INCREF(given_descrs[0]);
+        loop_descrs[1] = given_descrs[0];
+    }
+    else {
+        Py_INCREF(given_descrs[1]);
+        loop_descrs[1] = given_descrs[1];
+    }
+
     return NPY_SAME_KIND_CASTING;
 }
 
@@ -139,70 +151,4 @@ PyArrayMethod_Spec QuadToQuadCastSpec = {
         .casting = NPY_SAME_KIND_CASTING,
         .dtypes = QuadToQuadDtypes,
         .slots = QuadToQuadSlots,
-};
-
-// Quad to Float128
-static NPY_CASTING
-quad_to_float128_resolve_descriptors(PyObject *NPY_UNUSED(self),
-                                     PyArray_DTypeMeta *NPY_UNUSED(dtypes[2]),
-                                     PyArray_Descr *given_descrs[2], PyArray_Descr *loop_descrs[2],
-                                     npy_intp *view_offset)
-{
-    return NPY_SAME_KIND_CASTING;
-}
-
-static int
-quad_to_float128_contiguous(PyArrayMethod_Context *NPY_UNUSED(context), char *const data[],
-                            npy_intp const dimensions[], npy_intp const strides[], void *auxdata)
-{
-    return 0;
-}
-
-static int
-quad_to_float128_strided(PyArrayMethod_Context *NPY_UNUSED(context), char *const data[],
-                         npy_intp const dimensions[], npy_intp const strides[], void *auxdata)
-{
-    return 0;
-}
-
-static int
-quad_to_float128_unaligned(PyArrayMethod_Context *NPY_UNUSED(context), char *const data[],
-                           npy_intp const dimensions[], npy_intp const strides[], void *auxdata)
-{
-    return 0;
-}
-
-static int
-quad_to_float128_get_loop(PyArrayMethod_Context *context, int aligned,
-                          int NPY_UNUSED(move_references), const npy_intp *strides,
-                          PyArrayMethod_StridedLoop **out_loop, NpyAuxData **out_transferdata,
-                          NPY_ARRAYMETHOD_FLAGS *flags)
-{
-    int contig = (strides[0] == sizeof(__float128) && strides[1] == sizeof(__float128));
-
-    if (aligned && contig)
-        *out_loop = (PyArrayMethod_StridedLoop *)&quad_to_float128_contiguous;
-    else if (aligned)
-        *out_loop = (PyArrayMethod_StridedLoop *)&quad_to_float128_strided;
-    else
-        *out_loop = (PyArrayMethod_StridedLoop *)&quad_to_float128_unaligned;
-
-    *flags = 0;
-    return 0;
-}
-
-static PyArray_DTypeMeta *QuadToFloat128Dtypes[2] = {NULL, NULL};
-static PyType_Slot QuadToFloat128Slots[] = {
-        {NPY_METH_resolve_descriptors, &quad_to_float128_resolve_descriptors},
-        {_NPY_METH_get_loop, &quad_to_float128_get_loop},
-        {0, NULL}};
-
-PyArrayMethod_Spec QuadToFloat128CastSpec = {
-        .name = "cast_QuadDType_to_Float128",
-        .nin = 1,
-        .nout = 1,
-        .flags = NPY_METH_SUPPORTS_UNALIGNED,
-        .casting = NPY_SAFE_CASTING,
-        .dtypes = QuadToFloat128Dtypes,
-        .slots = QuadToFloat128Slots,
 };
