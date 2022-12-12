@@ -1,14 +1,5 @@
-#include <Python.h>
-
-#define PY_ARRAY_UNIQUE_SYMBOL quaddtype_ARRAY_API
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
-#define NO_IMPORT_ARRAY
-#include "numpy/arrayobject.h"
-#include "numpy/experimental_dtype_api.h"
-#include "numpy/ndarraytypes.h"
-
-#include "casts.h"
 #include "dtype.h"
+#include "casts.h"
 
 PyTypeObject *QuadScalar_Type = NULL;
 
@@ -17,8 +8,9 @@ new_quaddtype_instance(void)
 {
     QuadDTypeObject *new =
             (QuadDTypeObject *)PyArrayDescr_Type.tp_new((PyTypeObject *)&QuadDType, NULL, NULL);
-    if (new == NULL)
+    if (new == NULL) {
         return NULL;
+    }
 
     new->base.elsize = sizeof(__float128);
     new->base.alignment = _Alignof(__float128);
@@ -82,14 +74,34 @@ common_dtype(PyArray_DTypeMeta *self, PyArray_DTypeMeta *other)
     return (PyArray_DTypeMeta *)Py_NotImplemented;
 }
 
-static PyType_Slot QuadDType_Slots[] = {{NPY_DT_common_instance, &common_instance},
-                                        {NPY_DT_common_dtype, &common_dtype},
-                                        // {NPY_DT_discover_descr_from_pyobject,
-                                        // &unit_discover_descriptor_from_pyobject},
-                                        /* The header is wrong on main :(, so we add 1 */
-                                        {NPY_DT_setitem, &quad_setitem},
-                                        {NPY_DT_getitem, &quad_getitem},
-                                        {0, NULL}};
+static QuadDTypeObject *
+quaddtype_ensure_canonical(QuadDTypeObject *self)
+{
+    Py_INCREF(self);
+    return self;
+}
+
+static PyArray_Descr *
+quad_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls), PyObject *obj)
+{
+    if (Py_TYPE(obj) != QuadScalar_Type) {
+        PyErr_SetString(PyExc_TypeError, "Can only store QuadScalars in a QuadDType array.");
+        return NULL;
+    }
+
+    // Get the dtype attribute from the object.
+    return (PyArray_Descr *)PyObject_GetAttrString(obj, "dtype");
+}
+
+static PyType_Slot QuadDType_Slots[] = {
+        {NPY_DT_common_instance, &common_instance},
+        {NPY_DT_common_dtype, &common_dtype},
+        {NPY_DT_discover_descr_from_pyobject, &quad_discover_descriptor_from_pyobject},
+        /* The header is wrong on main :(, so we add 1 */
+        {NPY_DT_setitem, &quad_setitem},
+        {NPY_DT_getitem, &quad_getitem},
+        {NPY_DT_ensure_canonical, &quaddtype_ensure_canonical},
+        {0, NULL}};
 
 /*
  * The following defines everything type object related (i.e. not NumPy
@@ -114,7 +126,8 @@ quaddtype_dealloc(QuadDTypeObject *self)
 static PyObject *
 quaddtype_repr(QuadDTypeObject *self)
 {
-    return PyUnicode_FromString("This is a quad (128-bit float) dtype.");
+    PyObject *res = PyUnicode_FromString("This is a quad (128-bit float) dtype.");
+    return res;
 }
 
 // These are the basic things that you need to create a Python Type/Class in C.
@@ -140,7 +153,6 @@ init_quad_dtype(void)
     // do it.  You first have to create a static type, but see the note there!
     PyArrayMethod_Spec *casts[] = {
             &QuadToQuadCastSpec,
-            &QuadToFloat128CastSpec,
             NULL,
     };
 

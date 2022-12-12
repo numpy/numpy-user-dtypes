@@ -25,7 +25,7 @@ quad_multiply_strided_loop(PyArrayMethod_Context *context, char *const data[],
     char *in1 = data[0], *in2 = data[1];
     char *out = data[2];
     npy_intp in1_stride = strides[0];
-    npy_intp in2_stride = strides[0];
+    npy_intp in2_stride = strides[1];
     npy_intp out_stride = strides[2];
 
     while (N--) {
@@ -56,9 +56,18 @@ quad_multiply_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *dtypes[],
     // The operand units can be used as-is; no casting required for quad types.
     Py_INCREF(given_descrs[0]);
     loop_descrs[0] = given_descrs[0];
+
+    if (given_descrs[1] == NULL) {
+        Py_INCREF(given_descrs[0]);
+        loop_descrs[1] = given_descrs[0];
+        return NPY_NO_CASTING;
+    }
     Py_INCREF(given_descrs[1]);
     loop_descrs[1] = given_descrs[1];
-    return NPY_NO_CASTING;
+
+    Py_INCREF(given_descrs[1]);
+    loop_descrs[1] = given_descrs[1];
+    return NPY_SAFE_CASTING;
 }
 
 // Function that adds our multiply loop to NumPy's multiply ufunc.
