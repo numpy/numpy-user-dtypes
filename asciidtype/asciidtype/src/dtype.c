@@ -200,7 +200,6 @@ asciidtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwds)
     }
 
     PyObject *ret = (PyObject *)new_asciidtype_instance(size);
-    Py_DECREF(size);
     return ret;
 }
 
