@@ -245,7 +245,7 @@ PyArray_DTypeMeta ASCIIDType = {
 int
 init_ascii_dtype(void)
 {
-    static PyArrayMethod_Spec *casts[] = {&ASCIIToASCIICastSpec, NULL};
+    PyArrayMethod_Spec **casts = get_casts();
 
     PyArrayDTypeMeta_Spec ASCIIDType_DTypeSpec = {
             .flags = NPY_DT_PARAMETRIC,
@@ -272,6 +272,12 @@ init_ascii_dtype(void)
     }
 
     ASCIIDType.singleton = singleton;
+
+    free(ASCIIDType_DTypeSpec.casts[1]->dtypes);
+    free(ASCIIDType_DTypeSpec.casts[1]);
+    free(ASCIIDType_DTypeSpec.casts[2]->dtypes);
+    free(ASCIIDType_DTypeSpec.casts[2]);
+    free(ASCIIDType_DTypeSpec.casts);
 
     return 0;
 }
