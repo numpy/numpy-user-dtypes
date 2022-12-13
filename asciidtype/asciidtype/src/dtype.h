@@ -22,7 +22,7 @@ extern PyArray_DTypeMeta ASCIIDType;
 extern PyTypeObject *ASCIIScalar_Type;
 
 ASCIIDTypeObject *
-new_asciidtype_instance(PyObject *size);
+new_asciidtype_instance(long size);
 
 int
 init_ascii_dtype(void);

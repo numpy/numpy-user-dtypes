@@ -45,20 +45,16 @@ get_value(PyObject *scalar)
  * Internal helper to create new instances
  */
 ASCIIDTypeObject *
-new_asciidtype_instance(PyObject *size)
+new_asciidtype_instance(long size)
 {
     ASCIIDTypeObject *new = (ASCIIDTypeObject *)PyArrayDescr_Type.tp_new(
             (PyTypeObject *)&ASCIIDType, NULL, NULL);
     if (new == NULL) {
         return NULL;
     }
-    long size_l = PyLong_AsLong(size);
-    if (size_l == -1 && PyErr_Occurred()) {
-        return NULL;
-    }
-    new->size = size_l;
-    new->base.elsize = size_l * sizeof(char);
-    new->base.alignment = size_l *_Alignof(char);
+    new->size = size;
+    new->base.elsize = size * sizeof(char);
+    new->base.alignment = size *_Alignof(char);
 
     return new;
 }
@@ -189,14 +185,11 @@ asciidtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwds)
 {
     static char *kwargs_strs[] = {"size", NULL};
 
-    PyObject *size = NULL;
+    long size = 0;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|O:ASCIIDType", kwargs_strs,
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|l:ASCIIDType", kwargs_strs,
                                      &size)) {
         return NULL;
-    }
-    if (size == NULL) {
-        size = PyLong_FromLong(0);
     }
 
     PyObject *ret = (PyObject *)new_asciidtype_instance(size);
