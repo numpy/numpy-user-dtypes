@@ -198,16 +198,11 @@ ascii_to_unicode(PyArrayMethod_Context *context, char *const data[],
     while (N--) {
         // copy ASCII input to first byte, fill rest with zeros
         for (int i = 0; i < copy_size; i++) {
-            *(out + i * 4) = *(in + i);
-            for (int j = 1; j < 4; j++) {
-                *(out + i * 4 + j) = '\0';
-            }
+            ((Py_UCS4 *)out)[i] = ((Py_UCS1 *)in)[i];
         }
         // fill all remaining UCS4 characters with zeros
         for (int i = copy_size; i < out_size; i++) {
-            for (int j = 0; j < 4; j++) {
-                *(out + i * 4 + j) = '\0';
-            }
+            ((Py_UCS4 *)out)[i] = (Py_UCS1)0;
         }
         in += in_stride;
         out += out_stride;
