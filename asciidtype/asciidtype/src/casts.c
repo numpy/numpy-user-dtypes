@@ -109,9 +109,9 @@ unicode_to_ascii_resolve_descriptors(PyObject *NPY_UNUSED(self),
 static int
 ucs4_character_is_ascii(char *buffer)
 {
-    int first_char = buffer[0];
+    unsigned char first_char = buffer[0];
 
-    if (first_char < 0 || first_char > 127) {
+    if (first_char > 127) {
         return -1;
     }
 
