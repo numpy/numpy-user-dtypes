@@ -1,3 +1,5 @@
+import re
+
 import numpy as np
 import pytest
 
@@ -73,6 +75,71 @@ def test_casting_to_asciidtype():
         # assert repr(arr.astype(ASCIIDType())) == (
         #    "array(['', '', '', '', ''], dtype=ASCIIDType(0))"
         # )
+
+
+def test_casting_safety():
+    arr = np.array(["this", "is", "an", "array"])
+    assert repr(arr.astype(ASCIIDType(6), casting="safe")) == (
+        "array(['this', 'is', 'an', 'array'], dtype=ASCIIDType(6))"
+    )
+    assert repr(arr.astype(ASCIIDType(5), casting="safe")) == (
+        "array(['this', 'is', 'an', 'array'], dtype=ASCIIDType(5))"
+    )
+    with pytest.raises(
+        TypeError,
+        match=re.escape(
+            "Cannot cast array data from dtype('<U5') to ASCIIDType(4) "
+            "according to the rule 'safe'"
+        ),
+    ):
+        assert repr(arr.astype(ASCIIDType(4), casting="safe")) == (
+            "array(['this', 'is', 'an', 'array'], dtype=ASCIIDType(5))"
+        )
+    assert repr(arr.astype(ASCIIDType(4), casting="unsafe")) == (
+        "array(['this', 'is', 'an', 'arra'], dtype=ASCIIDType(4))"
+    )
+
+    arr = np.array(["this", "is", "an", "array"], dtype=ASCIIDType(5))
+    assert repr(arr.astype(ASCIIDType(6), casting="safe")) == (
+        "array(['this', 'is', 'an', 'array'], dtype=ASCIIDType(6))"
+    )
+    assert repr(arr.astype(ASCIIDType(5), casting="safe")) == (
+        "array(['this', 'is', 'an', 'array'], dtype=ASCIIDType(5))"
+    )
+    with pytest.raises(
+        TypeError,
+        match=re.escape(
+            "Cannot cast array data from ASCIIDType(5) to ASCIIDType(4) "
+            "according to the rule 'safe'"
+        ),
+    ):
+        assert repr(arr.astype(ASCIIDType(4), casting="safe")) == (
+            "array(['this', 'is', 'an', 'array'], dtype=ASCIIDType(5))"
+        )
+    assert repr(arr.astype(ASCIIDType(4), casting="unsafe")) == (
+        "array(['this', 'is', 'an', 'arra'], dtype=ASCIIDType(4))"
+    )
+
+    arr = np.array(["this", "is", "an", "array"], dtype=ASCIIDType(5))
+    assert repr(arr.astype("U6", casting="safe")) == (
+        "array(['this', 'is', 'an', 'array'], dtype='<U6')"
+    )
+    assert repr(arr.astype("U5", casting="safe")) == (
+        "array(['this', 'is', 'an', 'array'], dtype='<U5')"
+    )
+    with pytest.raises(
+        TypeError,
+        match=re.escape(
+            "Cannot cast array data from ASCIIDType(5) to dtype('<U4') "
+            "according to the rule 'safe'"
+        ),
+    ):
+        assert repr(arr.astype("U4", casting="safe")) == (
+            "array(['this', 'is', 'an', 'array'], dtype=ASCIIDType(5))"
+        )
+    assert repr(arr.astype("U4", casting="unsafe")) == (
+        "array(['this', 'is', 'an', 'arra'], dtype='<U4')"
+    )
 
 
 def test_unicode_to_ascii_to_unicode():

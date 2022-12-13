@@ -28,13 +28,17 @@ ascii_to_ascii_resolve_descriptors(PyObject *NPY_UNUSED(self),
         loop_descrs[1] = given_descrs[1];
     }
 
-    if (((ASCIIDTypeObject *)loop_descrs[0])->size ==
-        ((ASCIIDTypeObject *)loop_descrs[1])->size) {
+    long in_size = ((ASCIIDTypeObject *)loop_descrs[0])->size;
+    long out_size = ((ASCIIDTypeObject *)loop_descrs[1])->size;
+
+    if (in_size == out_size) {
         *view_offset = 0;
         return NPY_NO_CASTING;
     }
-
-    return NPY_SAME_KIND_CASTING;
+    else if (in_size > out_size) {
+        return NPY_UNSAFE_CASTING;
+    }
+    return NPY_SAFE_CASTING;
 }
 
 static int
@@ -72,21 +76,6 @@ ascii_to_ascii(PyArrayMethod_Context *context, char *const data[],
     return 0;
 }
 
-static int
-ascii_to_ascii_get_loop(PyArrayMethod_Context *NPY_UNUSED(context),
-                        int NPY_UNUSED(aligned),
-                        int NPY_UNUSED(move_references),
-                        const npy_intp *NPY_UNUSED(strides),
-                        PyArrayMethod_StridedLoop **out_loop,
-                        NpyAuxData **NPY_UNUSED(out_transferdata),
-                        NPY_ARRAYMETHOD_FLAGS *flags)
-{
-    *out_loop = (PyArrayMethod_StridedLoop *)&ascii_to_ascii;
-
-    *flags = 0;
-    return 0;
-}
-
 static NPY_CASTING
 unicode_to_ascii_resolve_descriptors(PyObject *NPY_UNUSED(self),
                                      PyArray_DTypeMeta *NPY_UNUSED(dtypes[2]),
@@ -96,11 +85,11 @@ unicode_to_ascii_resolve_descriptors(PyObject *NPY_UNUSED(self),
 {
     Py_INCREF(given_descrs[0]);
     loop_descrs[0] = given_descrs[0];
+    // numpy stores unicode as UCS4 (4 bytes wide), so bitshift
+    // by 2 to get the number of ASCII bytes needed
+    long in_size = (loop_descrs[0]->elsize) >> 2;
     if (given_descrs[1] == NULL) {
-        // numpy stores unicode as UCS4 (4 bytes wide), so bitshift
-        // by 2 to get the number of ASCII bytes needed
-        long size = (loop_descrs[0]->elsize) >> 2;
-        ASCIIDTypeObject *ascii_descr = new_asciidtype_instance(size);
+        ASCIIDTypeObject *ascii_descr = new_asciidtype_instance(in_size);
         loop_descrs[1] = (PyArray_Descr *)ascii_descr;
     }
     else {
@@ -108,7 +97,13 @@ unicode_to_ascii_resolve_descriptors(PyObject *NPY_UNUSED(self),
         loop_descrs[1] = given_descrs[1];
     }
 
-    return NPY_SAME_KIND_CASTING;
+    long out_size = ((ASCIIDTypeObject *)loop_descrs[1])->size;
+
+    if (out_size >= in_size) {
+        return NPY_SAFE_CASTING;
+    }
+
+    return NPY_UNSAFE_CASTING;
 }
 
 static int
@@ -157,12 +152,9 @@ unicode_to_ascii(PyArrayMethod_Context *context, char *const data[],
         // characters are all ascii, raising an error otherwise
         for (int i = 0; i < copy_size; i++) {
             if (ucs4_character_is_ascii(in) == -1) {
-                PyGILState_STATE gstate;
-                gstate = PyGILState_Ensure();
                 PyErr_SetString(
                         PyExc_TypeError,
                         "Can only store ASCII text in a ASCIIDType array.");
-                PyGILState_Release(gstate);
                 return -1;
             }
             // UCS4 character is ascii, so copy first byte of character
@@ -177,21 +169,6 @@ unicode_to_ascii(PyArrayMethod_Context *context, char *const data[],
         out += out_stride;
     }
 
-    return 0;
-}
-
-static int
-unicode_to_ascii_get_loop(PyArrayMethod_Context *NPY_UNUSED(context),
-                          int NPY_UNUSED(aligned),
-                          int NPY_UNUSED(move_references),
-                          const npy_intp *NPY_UNUSED(strides),
-                          PyArrayMethod_StridedLoop **out_loop,
-                          NpyAuxData **NPY_UNUSED(out_transferdata),
-                          NPY_ARRAYMETHOD_FLAGS *flags)
-{
-    *out_loop = (PyArrayMethod_StridedLoop *)&unicode_to_ascii;
-
-    *flags = 0;
     return 0;
 }
 
@@ -247,12 +224,12 @@ ascii_to_unicode_resolve_descriptors(PyObject *NPY_UNUSED(self),
 {
     Py_INCREF(given_descrs[0]);
     loop_descrs[0] = given_descrs[0];
+    long in_size = ((ASCIIDTypeObject *)given_descrs[0])->size;
     if (given_descrs[1] == NULL) {
         PyArray_Descr *unicode_descr = PyArray_DescrNewFromType(NPY_UNICODE);
-        long num_ascii_bytes = ((ASCIIDTypeObject *)given_descrs[0])->size;
         // numpy stores unicode as UCS4 (4 bytes wide), so bitshift
         // by 2 to get the number of bytes needed to store the UCS4 charaters
-        unicode_descr->elsize = num_ascii_bytes << 2;
+        unicode_descr->elsize = in_size << 2;
         loop_descrs[1] = unicode_descr;
     }
     else {
@@ -260,51 +237,44 @@ ascii_to_unicode_resolve_descriptors(PyObject *NPY_UNUSED(self),
         loop_descrs[1] = given_descrs[1];
     }
 
-    return NPY_SAME_KIND_CASTING;
-}
+    long out_size = (loop_descrs[1]->elsize) >> 2;
 
-static int
-ascii_to_unicode_get_loop(PyArrayMethod_Context *NPY_UNUSED(context),
-                          int NPY_UNUSED(aligned),
-                          int NPY_UNUSED(move_references),
-                          const npy_intp *NPY_UNUSED(strides),
-                          PyArrayMethod_StridedLoop **out_loop,
-                          NpyAuxData **NPY_UNUSED(out_transferdata),
-                          NPY_ARRAYMETHOD_FLAGS *flags)
-{
-    *out_loop = (PyArrayMethod_StridedLoop *)&ascii_to_unicode;
+    if (out_size >= in_size) {
+        return NPY_SAFE_CASTING;
+    }
 
-    *flags = 0;
-    return 0;
+    return NPY_UNSAFE_CASTING;
 }
 
 static PyArray_DTypeMeta *a2a_dtypes[2] = {NULL, NULL};
 
 static PyType_Slot a2a_slots[] = {
         {NPY_METH_resolve_descriptors, &ascii_to_ascii_resolve_descriptors},
-        {_NPY_METH_get_loop, &ascii_to_ascii_get_loop},
+        {NPY_METH_strided_loop, &ascii_to_ascii},
+        {NPY_METH_unaligned_strided_loop, &ascii_to_ascii},
         {0, NULL}};
 
 PyArrayMethod_Spec ASCIIToASCIICastSpec = {
         .name = "cast_ASCIIDType_to_ASCIIDType",
         .nin = 1,
         .nout = 1,
-        .flags = NPY_METH_SUPPORTS_UNALIGNED,
-        .casting = NPY_SAME_KIND_CASTING,
+        .casting = NPY_UNSAFE_CASTING,
+        .flags = (NPY_METH_NO_FLOATINGPOINT_ERRORS |
+                  NPY_METH_SUPPORTS_UNALIGNED),
         .dtypes = a2a_dtypes,
         .slots = a2a_slots,
 };
 
 static PyType_Slot u2a_slots[] = {
         {NPY_METH_resolve_descriptors, &unicode_to_ascii_resolve_descriptors},
-        {_NPY_METH_get_loop, &unicode_to_ascii_get_loop},
+        {NPY_METH_strided_loop, &unicode_to_ascii},
         {0, NULL}};
 
 static char *u2a_name = "cast_Unicode_to_ASCIIDType";
 
 static PyType_Slot a2u_slots[] = {
         {NPY_METH_resolve_descriptors, &ascii_to_unicode_resolve_descriptors},
-        {_NPY_METH_get_loop, &ascii_to_unicode_get_loop},
+        {NPY_METH_strided_loop, &ascii_to_unicode},
         {0, NULL}};
 
 static char *a2u_name = "cast_ASCIIDType_to_Unicode";
@@ -322,8 +292,9 @@ get_casts(void)
     UnicodeToASCIICastSpec->name = u2a_name;
     UnicodeToASCIICastSpec->nin = 1;
     UnicodeToASCIICastSpec->nout = 1;
-    UnicodeToASCIICastSpec->flags = NPY_METH_SUPPORTS_UNALIGNED;
-    UnicodeToASCIICastSpec->casting = NPY_SAME_KIND_CASTING;
+    UnicodeToASCIICastSpec->casting = NPY_UNSAFE_CASTING,
+    UnicodeToASCIICastSpec->flags =
+            (NPY_METH_NO_FLOATINGPOINT_ERRORS | NPY_METH_REQUIRES_PYAPI);
     UnicodeToASCIICastSpec->dtypes = u2a_dtypes;
     UnicodeToASCIICastSpec->slots = u2a_slots;
 
@@ -337,8 +308,8 @@ get_casts(void)
     ASCIIToUnicodeCastSpec->name = a2u_name;
     ASCIIToUnicodeCastSpec->nin = 1;
     ASCIIToUnicodeCastSpec->nout = 1;
-    ASCIIToUnicodeCastSpec->flags = NPY_METH_SUPPORTS_UNALIGNED;
-    ASCIIToUnicodeCastSpec->casting = NPY_SAME_KIND_CASTING;
+    ASCIIToUnicodeCastSpec->casting = NPY_UNSAFE_CASTING,
+    ASCIIToUnicodeCastSpec->flags = NPY_METH_NO_FLOATINGPOINT_ERRORS;
     ASCIIToUnicodeCastSpec->dtypes = a2u_dtypes;
     ASCIIToUnicodeCastSpec->slots = a2u_slots;
 
