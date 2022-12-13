@@ -78,8 +78,9 @@ def test_casting_to_asciidtype():
 def test_unicode_to_ascii_to_unicode():
     arr = np.array(["hello", "this", "is", "an", "array"])
     ascii_arr = arr.astype(ASCIIDType(5))
-    round_trip_arr = ascii_arr.astype("U5")
-    np.testing.assert_array_equal(arr, round_trip_arr)
+    for dtype in ["U5", np.unicode_, np.str_]:
+        round_trip_arr = ascii_arr.astype(dtype)
+        np.testing.assert_array_equal(arr, round_trip_arr)
 
 
 def test_creation_fails_with_non_ascii_characters():

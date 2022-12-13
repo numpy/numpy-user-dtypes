@@ -97,8 +97,11 @@ unicode_to_ascii_resolve_descriptors(PyObject *NPY_UNUSED(self),
     Py_INCREF(given_descrs[0]);
     loop_descrs[0] = given_descrs[0];
     if (given_descrs[1] == NULL) {
-        Py_INCREF(given_descrs[0]);
-        loop_descrs[1] = given_descrs[0];
+        // numpy stores unicode as UCS4 (4 bytes wide), so bitshift
+        // by 2 to get the number of ASCII bytes needed
+        long size = (loop_descrs[0]->elsize) >> 2;
+        ASCIIDTypeObject *ascii_descr = new_asciidtype_instance(size);
+        loop_descrs[1] = (PyArray_Descr *)ascii_descr;
     }
     else {
         Py_INCREF(given_descrs[1]);
@@ -245,8 +248,12 @@ ascii_to_unicode_resolve_descriptors(PyObject *NPY_UNUSED(self),
     Py_INCREF(given_descrs[0]);
     loop_descrs[0] = given_descrs[0];
     if (given_descrs[1] == NULL) {
-        Py_INCREF(given_descrs[0]);
-        loop_descrs[1] = given_descrs[0];
+        PyArray_Descr *unicode_descr = PyArray_DescrNewFromType(NPY_UNICODE);
+        long num_ascii_bytes = ((ASCIIDTypeObject *)given_descrs[0])->size;
+        // numpy stores unicode as UCS4 (4 bytes wide), so bitshift
+        // by 2 to get the number of bytes needed to store the UCS4 charaters
+        unicode_descr->elsize = num_ascii_bytes << 2;
+        loop_descrs[1] = unicode_descr;
     }
     else {
         Py_INCREF(given_descrs[1]);
