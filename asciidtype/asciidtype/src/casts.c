@@ -107,24 +107,6 @@ unicode_to_ascii_resolve_descriptors(PyObject *NPY_UNUSED(self),
 }
 
 static int
-ucs4_character_is_ascii(char *buffer)
-{
-    unsigned char first_char = buffer[0];
-
-    if (first_char > 127) {
-        return -1;
-    }
-
-    for (int i = 1; i < 4; i++) {
-        if (buffer[i] != 0) {
-            return -1;
-        }
-    }
-
-    return 0;
-}
-
-static int
 unicode_to_ascii(PyArrayMethod_Context *context, char *const data[],
                  npy_intp const dimensions[], npy_intp const strides[],
                  NpyAuxData *NPY_UNUSED(auxdata))
@@ -151,15 +133,15 @@ unicode_to_ascii(PyArrayMethod_Context *context, char *const data[],
         // copy input characters, checking that input UCS4
         // characters are all ascii, raising an error otherwise
         for (int i = 0; i < copy_size; i++) {
-            if (ucs4_character_is_ascii(in) == -1) {
+            Py_UCS4 c = ((Py_UCS4 *)in)[i];
+            if (c > 127) {
                 PyErr_SetString(
                         PyExc_TypeError,
                         "Can only store ASCII text in a ASCIIDType array.");
                 return -1;
             }
-            // UCS4 character is ascii, so copy first byte of character
-            // into output, ignoring the rest
-            *(out + i) = *(in + i * 4);
+            // UCS4 character is ascii, so casting to Py_UCS1 does not truncate
+            out[i] = (Py_UCS1)c;
         }
         // write zeros to remaining ASCII characters (if any)
         for (int i = copy_size; i < out_size; i++) {
