@@ -135,9 +135,12 @@ unicode_to_ascii(PyArrayMethod_Context *context, char *const data[],
         for (int i = 0; i < copy_size; i++) {
             Py_UCS4 c = ((Py_UCS4 *)in)[i];
             if (c > 127) {
+                PyGILState_STATE gstate;
+                gstate = PyGILState_Ensure();
                 PyErr_SetString(
                         PyExc_TypeError,
                         "Can only store ASCII text in a ASCIIDType array.");
+                PyGILState_Release(gstate);
                 return -1;
             }
             // UCS4 character is ascii, so casting to Py_UCS1 does not truncate
