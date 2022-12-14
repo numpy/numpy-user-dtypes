@@ -269,9 +269,8 @@ get_casts(void)
     UnicodeToASCIICastSpec->name = u2a_name;
     UnicodeToASCIICastSpec->nin = 1;
     UnicodeToASCIICastSpec->nout = 1;
-    UnicodeToASCIICastSpec->casting = NPY_UNSAFE_CASTING,
-    UnicodeToASCIICastSpec->flags =
-            (NPY_METH_NO_FLOATINGPOINT_ERRORS | NPY_METH_REQUIRES_PYAPI);
+    UnicodeToASCIICastSpec->casting = NPY_UNSAFE_CASTING;
+    UnicodeToASCIICastSpec->flags = NPY_METH_NO_FLOATINGPOINT_ERRORS;
     UnicodeToASCIICastSpec->dtypes = u2a_dtypes;
     UnicodeToASCIICastSpec->slots = u2a_slots;
 
@@ -285,7 +284,7 @@ get_casts(void)
     ASCIIToUnicodeCastSpec->name = a2u_name;
     ASCIIToUnicodeCastSpec->nin = 1;
     ASCIIToUnicodeCastSpec->nout = 1;
-    ASCIIToUnicodeCastSpec->casting = NPY_UNSAFE_CASTING,
+    ASCIIToUnicodeCastSpec->casting = NPY_UNSAFE_CASTING;
     ASCIIToUnicodeCastSpec->flags = NPY_METH_NO_FLOATINGPOINT_ERRORS;
     ASCIIToUnicodeCastSpec->dtypes = a2u_dtypes;
     ASCIIToUnicodeCastSpec->slots = a2u_slots;
