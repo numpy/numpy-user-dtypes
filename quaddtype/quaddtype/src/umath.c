@@ -65,9 +65,11 @@ quad_multiply_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *dtypes[],
     Py_INCREF(given_descrs[1]);
     loop_descrs[1] = given_descrs[1];
 
-    Py_INCREF(given_descrs[1]);
-    loop_descrs[1] = given_descrs[1];
-    return NPY_SAFE_CASTING;
+    // For now, we assume that the input dtypes are all simply quads. We therefore
+    // can just reuse the input dtype for the output dtype, given by loop_descrs[2]
+    Py_INCREF(given_descrs[0]);
+    loop_descrs[2] = given_descrs[0];
+    return NPY_NO_CASTING;
 }
 
 // Function that adds our multiply loop to NumPy's multiply ufunc.
