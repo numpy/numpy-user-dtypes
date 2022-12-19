@@ -184,6 +184,7 @@ def test_casting_fails_with_non_ascii_characters():
     [
         (["hello "], ["world"], ["hello world"]),
         (["a", "b", "c"], ["aa", "bbbb", "cc"], ["aaa", "bbbbb", "ccc"]),
+        (["aa", "bbbb", "cc"], ["a", "b", "c"], ["aaa", "bbbbb", "ccc"]),
     ],
 )
 def test_addition(input1, input2, expected):

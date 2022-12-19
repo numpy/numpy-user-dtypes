@@ -20,6 +20,7 @@ ascii_add_strided_loop(PyArrayMethod_Context *context, char *const data[],
     PyArray_Descr **descrs = context->descriptors;
     long in1_size = ((ASCIIDTypeObject *)descrs[0])->size;
     long in2_size = ((ASCIIDTypeObject *)descrs[1])->size;
+    long out_size = ((ASCIIDTypeObject *)descrs[2])->size;
 
     npy_intp N = dimensions[0];
     char *in1 = data[0], *in2 = data[1], *out = data[2];
@@ -27,8 +28,13 @@ ascii_add_strided_loop(PyArrayMethod_Context *context, char *const data[],
              out_stride = strides[2];
 
     while (N--) {
-        strncpy(out, in1, in1_size);
-        strncpy(out + in1_size, in2, in2_size);
+        size_t in1_len = strnlen(in1, in1_size);
+        size_t in2_len = strnlen(in2, in2_size);
+        strncpy(out, in1, in1_len);
+        strncpy(out + in1_len, in2, in2_len);
+        if (in1_len + in2_len < out_size) {
+            out[in1_len + in2_len] = '\0';
+        }
         in1 += in1_stride;
         in2 += in2_stride;
         out += out_stride;
