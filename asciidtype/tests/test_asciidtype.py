@@ -177,3 +177,39 @@ def test_casting_fails_with_non_ascii_characters():
             match="Can only store ASCII text in a ASCIIDType array.",
         ):
             arr.astype(ASCIIDType(5))
+
+
+@pytest.mark.parametrize(
+    ("input1", "input2", "expected"),
+    [
+        (["hello "], ["world"], ["hello world"]),
+        (["a", "b", "c"], ["aa", "bbbb", "cc"], ["aaa", "bbbbb", "ccc"]),
+        (["aa", "bbbb", "cc"], ["a", "b", "c"], ["aaa", "bbbbb", "ccc"]),
+    ],
+)
+def test_addition(input1, input2, expected):
+    maxlen1 = max([len(i) for i in input1])
+    maxlen2 = max([len(i) for i in input2])
+    maxlene = max([len(e) for e in expected])
+    input1 = np.array(input1, dtype=ASCIIDType(maxlen1))
+    input2 = np.array(input2, dtype=ASCIIDType(maxlen2))
+    expected = np.array(expected, dtype=ASCIIDType(maxlene))
+    np.testing.assert_array_equal(input1 + input2, expected)
+
+
+@pytest.mark.parametrize(
+    ("input1", "input2", "expected"),
+    [
+        (["hello", "world"], ["hello", "world"], [True, True]),
+        (["hello ", "world"], ["hello", "world"], [False, True]),
+        (["hello", "world"], ["h", "w"], [False, False]),
+    ],
+)
+def test_equality(input1, input2, expected):
+    maxlen1 = max([len(i) for i in input1])
+    maxlen2 = max([len(i) for i in input2])
+    input1 = np.array(input1, dtype=ASCIIDType(maxlen1))
+    input2 = np.array(input2, dtype=ASCIIDType(maxlen2))
+    expected = np.array(expected, dtype=np.bool_)
+    np.testing.assert_array_equal(input1 == input2, expected)
+    np.testing.assert_array_equal(input2 == input1, expected)

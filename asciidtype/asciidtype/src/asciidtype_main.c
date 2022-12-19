@@ -6,6 +6,7 @@
 #include "numpy/experimental_dtype_api.h"
 
 #include "dtype.h"
+#include "umath.h"
 
 static struct PyModuleDef moduledef = {
         PyModuleDef_HEAD_INIT,
@@ -46,6 +47,10 @@ PyInit__asciidtype_main(void)
     }
 
     if (PyModule_AddObject(m, "ASCIIDType", (PyObject *)&ASCIIDType) < 0) {
+        goto error;
+    }
+
+    if (init_ufuncs() < 0) {
         goto error;
     }
 
