@@ -25,9 +25,9 @@ srcs = [
   'strptrdtype/src/casts.c',
   'strptrdtype/src/casts.h',
   'strptrdtype/src/dtype.c',
-  'strptrdtype/src/_main.c',
-  'strptrdtype/src/umath.c',
-  'strptrdtype/src/umath.h',
+  'strptrdtype/src/main.c',
+  # 'strptrdtype/src/umath.c',
+  # 'strptrdtype/src/umath.h',
 ]
 
 py.install_sources(

@@ -1,16 +1,14 @@
 #include <Python.h>
 
-#define PY_ARRAY_UNIQUE_SYMBOL strptrdtype_ARRAY_API
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include "numpy/arrayobject.h"
 #include "numpy/experimental_dtype_api.h"
 
 #include "dtype.h"
-#include "umath.h"
+// #include "umath.h"
 
 static struct PyModuleDef moduledef = {
         PyModuleDef_HEAD_INIT,
-        .m_name = "asciidtype_main",
+        .m_name = "strptrdtype_main",
         .m_size = -1,
 };
 
@@ -30,29 +28,29 @@ PyInit__strptrdtype_main(void)
         return NULL;
     }
 
-    PyObject *mod = PyImport_ImportModule("asciidtype");
+    PyObject *mod = PyImport_ImportModule("strptrdtype");
     if (mod == NULL) {
         goto error;
     }
-    ASCIIScalar_Type =
-            (PyTypeObject *)PyObject_GetAttrString(mod, "ASCIIScalar");
+    StrPtrScalar_Type =
+            (PyTypeObject *)PyObject_GetAttrString(mod, "StrPtrScalar");
     Py_DECREF(mod);
 
-    if (ASCIIScalar_Type == NULL) {
+    if (StrPtrScalar_Type == NULL) {
         goto error;
     }
 
-    if (init_ascii_dtype() < 0) {
+    if (init_strptr_dtype() < 0) {
         goto error;
     }
 
-    if (PyModule_AddObject(m, "ASCIIDType", (PyObject *)&ASCIIDType) < 0) {
+    if (PyModule_AddObject(m, "StrPtrDType", (PyObject *)&StrPtrDType) < 0) {
         goto error;
     }
 
-    if (init_ufuncs() < 0) {
-        goto error;
-    }
+    // if (init_ufuncs() < 0) {
+    //     goto error;
+    // }
 
     return m;
 

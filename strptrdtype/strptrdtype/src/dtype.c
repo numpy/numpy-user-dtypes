@@ -1,76 +1,75 @@
 #include "dtype.h"
 
-#include "casts.h"
+// #include "casts.h"
 
-PyTypeObject *ASCIIScalar_Type = NULL;
+PyTypeObject *StrPtrScalar_Type = NULL;
 
-static PyObject *
-get_value(PyObject *scalar)
-{
-    PyObject *ret_bytes = NULL;
-    PyTypeObject *scalar_type = Py_TYPE(scalar);
-    if (scalar_type == &PyUnicode_Type) {
-        // attempt to decode as ASCII
-        ret_bytes = PyUnicode_AsASCIIString(scalar);
-        if (ret_bytes == NULL) {
-            PyErr_SetString(
-                    PyExc_TypeError,
-                    "Can only store ASCII text in a ASCIIDType array.");
-            return NULL;
-        }
-    }
-    else if (scalar_type != ASCIIScalar_Type) {
-        PyErr_SetString(PyExc_TypeError,
-                        "Can only store ASCII text in a ASCIIDType array.");
-        return NULL;
-    }
-    else {
-        PyObject *value = PyObject_GetAttrString(scalar, "value");
-        if (value == NULL) {
-            return NULL;
-        }
-        ret_bytes = PyUnicode_AsASCIIString(value);
-        if (ret_bytes == NULL) {
-            PyErr_SetString(
-                    PyExc_TypeError,
-                    "Can only store ASCII text in a ASCIIDType array.");
-            return NULL;
-        }
-        Py_DECREF(value);
-    }
-    return ret_bytes;
-}
+// static PyObject *
+// get_value(PyObject *scalar)
+// {
+//     PyObject *ret_bytes = NULL;
+//     PyTypeObject *scalar_type = Py_TYPE(scalar);
+//     if (scalar_type == &PyUnicode_Type) {
+//         // attempt to decode as ASCII
+//         ret_bytes = PyUnicode_AsASCIIString(scalar);
+//         if (ret_bytes == NULL) {
+//             PyErr_SetString(
+//                     PyExc_TypeError,
+//                     "Can only store ASCII text in a ASCIIDType array.");
+//             return NULL;
+//         }
+//     }
+//     else if (scalar_type != StrPtrScalar_Type) {
+//         PyErr_SetString(PyExc_TypeError,
+//                         "Can only store ASCII text in a ASCIIDType array.");
+//         return NULL;
+//     }
+//     else {
+//         PyObject *value = PyObject_GetAttrString(scalar, "value");
+//         if (value == NULL) {
+//             return NULL;
+//         }
+//         ret_bytes = PyUnicode_AsASCIIString(value);
+//         if (ret_bytes == NULL) {
+//             PyErr_SetString(
+//                     PyExc_TypeError,
+//                     "Can only store ASCII text in a ASCIIDType array.");
+//             return NULL;
+//         }
+//         Py_DECREF(value);
+//     }
+//     return ret_bytes;
+// }
 
 /*
  * Internal helper to create new instances
  */
-ASCIIDTypeObject *
-new_asciidtype_instance(long size)
+StrPtrDTypeObject *
+new_strptrdtype_instance(void)
 {
-    ASCIIDTypeObject *new = (ASCIIDTypeObject *)PyArrayDescr_Type.tp_new(
-            (PyTypeObject *)&ASCIIDType, NULL, NULL);
+    StrPtrDTypeObject *new = (StrPtrDTypeObject *)PyArrayDescr_Type.tp_new(
+            (PyTypeObject *)&StrPtrDType, NULL, NULL);
     if (new == NULL) {
         return NULL;
     }
-    new->size = size;
-    new->base.elsize = size * sizeof(char);
-    new->base.alignment = size *_Alignof(char);
+    new->base.elsize = sizeof(char *);
+    new->base.alignment = _Alignof(char *);
 
     return new;
 }
 
-/*
- * This is used to determine the correct dtype to return when operations mix
- * dtypes (I think?). For now just return the first one.
- */
-static ASCIIDTypeObject *
-common_instance(ASCIIDTypeObject *dtype1, ASCIIDTypeObject *dtype2)
+//
+// This is used to determine the correct dtype to return when operations mix
+// dtypes (I think?). For now just return the first one.
+//
+static StrPtrDTypeObject *
+common_instance(StrPtrDTypeObject *dtype1, StrPtrDTypeObject *dtype2)
 {
     if (!PyObject_RichCompareBool((PyObject *)dtype1, (PyObject *)dtype2,
                                   Py_EQ)) {
         PyErr_SetString(
                 PyExc_RuntimeError,
-                "common_instance called on unequal ASCIIDType instances");
+                "common_instance called on unequal StrPtrDType instances");
         return NULL;
     }
     return dtype1;
@@ -89,13 +88,15 @@ common_dtype(PyArray_DTypeMeta *cls, PyArray_DTypeMeta *other)
     // return (PyArray_DTypeMeta *)Py_NotImplemented;
 }
 
+// For a given python object, this function returns a borrowed reference
+// to the dtype property of the array
 static PyArray_Descr *
-ascii_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls),
+strptr_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls),
                                         PyObject *obj)
 {
-    if (Py_TYPE(obj) != ASCIIScalar_Type) {
+    if (Py_TYPE(obj) != StrPtrScalar_Type) {
         PyErr_SetString(PyExc_TypeError,
-                        "Can only store ASCIIScalar in a ASCIIDType array.");
+                        "Can only store StrPtrScalar in a StrPtrDType array.");
         return NULL;
     }
 
@@ -107,53 +108,52 @@ ascii_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls),
 }
 
 static int
-asciidtype_setitem(ASCIIDTypeObject *descr, PyObject *obj, char *dataptr)
+strptrdtype_setitem(StrPtrDTypeObject *descr, PyObject *obj, char *dataptr)
 {
-    PyObject *value = get_value(obj);
-    if (value == NULL) {
-        return -1;
-    }
+    // PyObject *value = get_value(obj);
+    // if (value == NULL) {
+    //     return -1;
+    // }
+    //
+    // Py_ssize_t len = PyBytes_Size(value);
+    //
+    // long copysize;
+    //
+    // if (len > descr->size) {
+    //     copysize = descr->size;
+    // }
+    // else {
+    //     copysize = len;
+    // }
+    //
+    // char *char_value = PyBytes_AsString(value);
+    //
+    // memcpy(dataptr, char_value, copysize * sizeof(char));  // NOLINT
+    //
+    // for (int i = copysize; i < descr->size; i++) {
+    //     dataptr[i] = '\0';
+    // }
+    //
+    // Py_DECREF(value);
+    //
 
-    Py_ssize_t len = PyBytes_Size(value);
+    char *val = PyBytes_AsString(obj);
 
-    long copysize;
-
-    if (len > descr->size) {
-        copysize = descr->size;
-    }
-    else {
-        copysize = len;
-    }
-
-    char *char_value = PyBytes_AsString(value);
-
-    memcpy(dataptr, char_value, copysize * sizeof(char));  // NOLINT
-
-    for (int i = copysize; i < descr->size; i++) {
-        dataptr[i] = '\0';
-    }
-
-    Py_DECREF(value);
 
     return 0;
 }
 
 static PyObject *
-asciidtype_getitem(ASCIIDTypeObject *descr, char *dataptr)
+strptrdtype_getitem(StrPtrDTypeObject *descr, char *dataptr)
 {
-    char scalar_buffer[descr->size + 1];
-
-    memcpy(scalar_buffer, dataptr, descr->size * sizeof(char));
-
-    scalar_buffer[descr->size] = '\0';
-
-    PyObject *val_obj = PyUnicode_FromString(scalar_buffer);
+    // dataptr points to an element of the array; but each element is itself a pointer
+    // to a charcter array in memory, so we probably need to dereference this
+    PyObject *val_obj = PyBytes_FromString(dataptr);
     if (val_obj == NULL) {
         return NULL;
     }
 
-    PyObject *res = PyObject_CallFunctionObjArgs((PyObject *)ASCIIScalar_Type,
-                                                 val_obj, descr, NULL);
+    PyObject *res = PyObject_CallFunctionObjArgs((PyObject *)StrPtrScalar_Type, val_obj, NULL);
     if (res == NULL) {
         return NULL;
     }
@@ -162,58 +162,41 @@ asciidtype_getitem(ASCIIDTypeObject *descr, char *dataptr)
     return res;
 }
 
-static ASCIIDTypeObject *
-asciidtype_ensure_canonical(ASCIIDTypeObject *self)
+static StrPtrDTypeObject *
+strptrdtype_ensure_canonical(StrPtrDTypeObject *self)
 {
     Py_INCREF(self);
     return self;
 }
 
-static PyType_Slot ASCIIDType_Slots[] = {
+static PyType_Slot StrPtrDType_Slots[] = {
         {NPY_DT_common_instance, &common_instance},
         {NPY_DT_common_dtype, &common_dtype},
         {NPY_DT_discover_descr_from_pyobject,
-         &ascii_discover_descriptor_from_pyobject},
+         &strptr_discover_descriptor_from_pyobject},
         /* The header is wrong on main :(, so we add 1 */
-        {NPY_DT_setitem, &asciidtype_setitem},
-        {NPY_DT_getitem, &asciidtype_getitem},
-        {NPY_DT_ensure_canonical, &asciidtype_ensure_canonical},
+        {NPY_DT_setitem, &strptrdtype_setitem},
+        {NPY_DT_getitem, &strptrdtype_getitem},
+        {NPY_DT_ensure_canonical, &strptrdtype_ensure_canonical},
         {0, NULL}};
 
 static PyObject *
-asciidtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwds)
+strptrdtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwds)
 {
-    static char *kwargs_strs[] = {"size", NULL};
-
-    long size = 0;
-
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|l:ASCIIDType", kwargs_strs,
-                                     &size)) {
-        return NULL;
-    }
-
-    PyObject *ret = (PyObject *)new_asciidtype_instance(size);
-    return ret;
+    return (PyObject *)new_strptrdtype_instance();
 }
 
 static void
-asciidtype_dealloc(ASCIIDTypeObject *self)
+strptrdtype_dealloc(StrPtrDTypeObject *self)
 {
     PyArrayDescr_Type.tp_dealloc((PyObject *)self);
 }
 
 static PyObject *
-asciidtype_repr(ASCIIDTypeObject *self)
+strptrdtype_repr(ASCIIDTypeObject *self)
 {
-    PyObject *res = PyUnicode_FromFormat("ASCIIDType(%ld)", self->size);
-    return res;
+    return PyUnicode_FromString("StrPtrDType");
 }
-
-static PyMemberDef ASCIIDType_members[] = {
-        {"size", T_LONG, offsetof(ASCIIDTypeObject, size), READONLY,
-         "The number of characters per array element"},
-        {NULL},
-};
 
 /*
  * This is the basic things that you need to create a Python Type/Class in C.
@@ -224,53 +207,52 @@ static PyMemberDef ASCIIDType_members[] = {
 PyArray_DTypeMeta ASCIIDType = {
         {{
                 PyVarObject_HEAD_INIT(NULL, 0).tp_name =
-                        "asciidtype.ASCIIDType",
-                .tp_basicsize = sizeof(ASCIIDTypeObject),
-                .tp_new = asciidtype_new,
-                .tp_dealloc = (destructor)asciidtype_dealloc,
-                .tp_repr = (reprfunc)asciidtype_repr,
-                .tp_str = (reprfunc)asciidtype_repr,
-                .tp_members = ASCIIDType_members,
+                        "strptrdtype.StrPtrDType",
+                .tp_basicsize = sizeof(StrPtrDTypeObject),
+                .tp_new = strptrdtype_new,
+                .tp_dealloc = (destructor)strptrdtype_dealloc,
+                .tp_repr = (reprfunc)strptrdtype_repr,
+                .tp_str = (reprfunc)strptrdtype_repr,
         }},
         /* rest, filled in during DTypeMeta initialization */
 };
 
 int
-init_ascii_dtype(void)
+init_strptr_dtype(void)
 {
-    PyArrayMethod_Spec **casts = get_casts();
+    // PyArrayMethod_Spec **casts = get_casts();
 
-    PyArrayDTypeMeta_Spec ASCIIDType_DTypeSpec = {
-            .flags = NPY_DT_PARAMETRIC,
-            .typeobj = ASCIIScalar_Type,
-            .slots = ASCIIDType_Slots,
-            .casts = casts,
+    PyArrayDTypeMeta_Spec StrPtrDType_DTypeSpec = {
+            .typeobj = StrPtrScalar_Type,
+            .slots = StrPtrDType_Slots,
+            // .casts = casts,
     };
+
     /* Loaded dynamically, so may need to be set here: */
-    ((PyObject *)&ASCIIDType)->ob_type = &PyArrayDTypeMeta_Type;
-    ((PyTypeObject *)&ASCIIDType)->tp_base = &PyArrayDescr_Type;
-    if (PyType_Ready((PyTypeObject *)&ASCIIDType) < 0) {
+    ((PyObject *)&StrPtrDType)->ob_type = &PyArrayDTypeMeta_Type;
+    ((PyTypeObject *)&StrPtrDType)->tp_base = &PyArrayDescr_Type;
+    if (PyType_Ready((PyTypeObject *)&StrPtrDType) < 0) {
         return -1;
     }
 
-    if (PyArrayInitDTypeMeta_FromSpec(&ASCIIDType, &ASCIIDType_DTypeSpec) <
+    if (PyArrayInitDTypeMeta_FromSpec(&StrPtrDType, &StrPtrDType_DTypeSpec) <
         0) {
         return -1;
     }
 
-    PyArray_Descr *singleton = PyArray_GetDefaultDescr(&ASCIIDType);
+    PyArray_Descr *singleton = PyArray_GetDefaultDescr(&StrPtrDType);
 
     if (singleton == NULL) {
         return -1;
     }
 
-    ASCIIDType.singleton = singleton;
+    StrPtrDType.singleton = singleton;
 
-    free(ASCIIDType_DTypeSpec.casts[1]->dtypes);
-    free(ASCIIDType_DTypeSpec.casts[1]);
-    free(ASCIIDType_DTypeSpec.casts[2]->dtypes);
-    free(ASCIIDType_DTypeSpec.casts[2]);
-    free(ASCIIDType_DTypeSpec.casts);
+    // free(StrPtrDType_DTypeSpec.casts[1]->dtypes);
+    // free(StrPtrDType_DTypeSpec.casts[1]);
+    // free(StrPtrDType_DTypeSpec.casts[2]->dtypes);
+    // free(StrPtrDType_DTypeSpec.casts[2]);
+    // free(StrPtrDType_DTypeSpec.casts);
 
     return 0;
 }
