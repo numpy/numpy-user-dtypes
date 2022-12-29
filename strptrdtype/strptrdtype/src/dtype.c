@@ -1,45 +1,8 @@
 #include "dtype.h"
 
-// #include "casts.h"
+#include "casts.h"
 
 PyTypeObject *StrPtrScalar_Type = NULL;
-
-// static PyObject *
-// get_value(PyObject *scalar)
-// {
-//     PyObject *ret_bytes = NULL;
-//     PyTypeObject *scalar_type = Py_TYPE(scalar);
-//     if (scalar_type == &PyUnicode_Type) {
-//         // attempt to decode as ASCII
-//         ret_bytes = PyUnicode_AsASCIIString(scalar);
-//         if (ret_bytes == NULL) {
-//             PyErr_SetString(
-//                     PyExc_TypeError,
-//                     "Can only store ASCII text in a ASCIIDType array.");
-//             return NULL;
-//         }
-//     }
-//     else if (scalar_type != StrPtrScalar_Type) {
-//         PyErr_SetString(PyExc_TypeError,
-//                         "Can only store ASCII text in a ASCIIDType array.");
-//         return NULL;
-//     }
-//     else {
-//         PyObject *value = PyObject_GetAttrString(scalar, "value");
-//         if (value == NULL) {
-//             return NULL;
-//         }
-//         ret_bytes = PyUnicode_AsASCIIString(value);
-//         if (ret_bytes == NULL) {
-//             PyErr_SetString(
-//                     PyExc_TypeError,
-//                     "Can only store ASCII text in a ASCIIDType array.");
-//             return NULL;
-//         }
-//         Py_DECREF(value);
-//     }
-//     return ret_bytes;
-// }
 
 /*
  * Internal helper to create new instances
@@ -80,19 +43,15 @@ common_dtype(PyArray_DTypeMeta *cls, PyArray_DTypeMeta *other)
 {
     // for now always raise an error here until we can figure out
     // how to deal with strings here
-
-    PyErr_SetString(PyExc_RuntimeError, "common_dtype called in ASCIIDType");
+    PyErr_SetString(PyExc_RuntimeError, "common_dtype called in StrPtrDType");
     return NULL;
-
-    // Py_INCREF(Py_NotImplemented);
-    // return (PyArray_DTypeMeta *)Py_NotImplemented;
 }
 
 // For a given python object, this function returns a borrowed reference
 // to the dtype property of the array
 static PyArray_Descr *
 strptr_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls),
-                                        PyObject *obj)
+                                         PyObject *obj)
 {
     if (Py_TYPE(obj) != StrPtrScalar_Type) {
         PyErr_SetString(PyExc_TypeError,
@@ -107,53 +66,31 @@ strptr_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls),
     return ret;
 }
 
+// Take a python object `obj` and insert it into the array of dtype `descr` at
+// the position given by dataptr.
 static int
-strptrdtype_setitem(StrPtrDTypeObject *descr, PyObject *obj, char *dataptr)
+strptrdtype_setitem(StrPtrDTypeObject *descr, PyObject *obj, char **dataptr)
 {
-    // PyObject *value = get_value(obj);
-    // if (value == NULL) {
-    //     return -1;
-    // }
-    //
-    // Py_ssize_t len = PyBytes_Size(value);
-    //
-    // long copysize;
-    //
-    // if (len > descr->size) {
-    //     copysize = descr->size;
-    // }
-    // else {
-    //     copysize = len;
-    // }
-    //
-    // char *char_value = PyBytes_AsString(value);
-    //
-    // memcpy(dataptr, char_value, copysize * sizeof(char));  // NOLINT
-    //
-    // for (int i = copysize; i < descr->size; i++) {
-    //     dataptr[i] = '\0';
-    // }
-    //
-    // Py_DECREF(value);
-    //
-
     char *val = PyBytes_AsString(obj);
+    if (val == NULL) {
+        return -1;
+    }
 
-
+    *dataptr = malloc(sizeof(char) * strlen(val));
+    strcpy(*dataptr, val);
     return 0;
 }
 
 static PyObject *
-strptrdtype_getitem(StrPtrDTypeObject *descr, char *dataptr)
+strptrdtype_getitem(StrPtrDTypeObject *descr, char **dataptr)
 {
-    // dataptr points to an element of the array; but each element is itself a pointer
-    // to a charcter array in memory, so we probably need to dereference this
-    PyObject *val_obj = PyBytes_FromString(dataptr);
+    PyObject *val_obj = PyBytes_FromString(*dataptr);
     if (val_obj == NULL) {
         return NULL;
     }
 
-    PyObject *res = PyObject_CallFunctionObjArgs((PyObject *)StrPtrScalar_Type, val_obj, NULL);
+    PyObject *res = PyObject_CallFunctionObjArgs((PyObject *)StrPtrScalar_Type,
+                                                 val_obj, NULL);
     if (res == NULL) {
         return NULL;
     }
@@ -174,7 +111,6 @@ static PyType_Slot StrPtrDType_Slots[] = {
         {NPY_DT_common_dtype, &common_dtype},
         {NPY_DT_discover_descr_from_pyobject,
          &strptr_discover_descriptor_from_pyobject},
-        /* The header is wrong on main :(, so we add 1 */
         {NPY_DT_setitem, &strptrdtype_setitem},
         {NPY_DT_getitem, &strptrdtype_getitem},
         {NPY_DT_ensure_canonical, &strptrdtype_ensure_canonical},
@@ -189,11 +125,13 @@ strptrdtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwds)
 static void
 strptrdtype_dealloc(StrPtrDTypeObject *self)
 {
+    // Need to deallocate all the memory allocated during setitem.
+
     PyArrayDescr_Type.tp_dealloc((PyObject *)self);
 }
 
 static PyObject *
-strptrdtype_repr(ASCIIDTypeObject *self)
+strptrdtype_repr(StrPtrDTypeObject *self)
 {
     return PyUnicode_FromString("StrPtrDType");
 }
@@ -204,7 +142,7 @@ strptrdtype_repr(ASCIIDTypeObject *self)
  * PyArray_DTypeMeta, which is a larger struct than a typical type.
  * (This should get a bit nicer eventually with Python >3.11.)
  */
-PyArray_DTypeMeta ASCIIDType = {
+PyArray_DTypeMeta StrPtrDType = {
         {{
                 PyVarObject_HEAD_INIT(NULL, 0).tp_name =
                         "strptrdtype.StrPtrDType",
@@ -220,12 +158,12 @@ PyArray_DTypeMeta ASCIIDType = {
 int
 init_strptr_dtype(void)
 {
-    // PyArrayMethod_Spec **casts = get_casts();
+    PyArrayMethod_Spec **casts = get_casts();
 
     PyArrayDTypeMeta_Spec StrPtrDType_DTypeSpec = {
             .typeobj = StrPtrScalar_Type,
             .slots = StrPtrDType_Slots,
-            // .casts = casts,
+            .casts = casts,
     };
 
     /* Loaded dynamically, so may need to be set here: */
@@ -247,12 +185,6 @@ init_strptr_dtype(void)
     }
 
     StrPtrDType.singleton = singleton;
-
-    // free(StrPtrDType_DTypeSpec.casts[1]->dtypes);
-    // free(StrPtrDType_DTypeSpec.casts[1]);
-    // free(StrPtrDType_DTypeSpec.casts[2]->dtypes);
-    // free(StrPtrDType_DTypeSpec.casts[2]);
-    // free(StrPtrDType_DTypeSpec.casts);
 
     return 0;
 }
