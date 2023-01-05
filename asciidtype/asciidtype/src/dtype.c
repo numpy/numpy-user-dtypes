@@ -25,18 +25,13 @@ get_value(PyObject *scalar)
         return NULL;
     }
     else {
-        PyObject *value = PyObject_GetAttrString(scalar, "value");
-        if (value == NULL) {
-            return NULL;
-        }
-        ret_bytes = PyUnicode_AsASCIIString(value);
+        ret_bytes = PyUnicode_AsASCIIString(scalar);
         if (ret_bytes == NULL) {
             PyErr_SetString(
                     PyExc_TypeError,
                     "Can only store ASCII text in a ASCIIDType array.");
             return NULL;
         }
-        Py_DECREF(value);
     }
     return ret_bytes;
 }

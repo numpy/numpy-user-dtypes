@@ -213,3 +213,11 @@ def test_equality(input1, input2, expected):
     expected = np.array(expected, dtype=np.bool_)
     np.testing.assert_array_equal(input1 == input2, expected)
     np.testing.assert_array_equal(input2 == input1, expected)
+
+
+def test_insert_scalar_directly():
+    dtype = ASCIIDType(5)
+    arr = np.array(["some", "array"], dtype=dtype)
+    val = arr[0]
+    arr[1] = val
+    np.testing.assert_array_equal(arr, np.array(["some", "some"], dtype=dtype))
