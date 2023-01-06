@@ -41,7 +41,7 @@ py.install_sources(
 py.extension_module(
   '_main',
   srcs,
-  c_args: ['-g', '-O0'],
+  c_args: ['-g', '-O0', '-pg'],
   install: true,
   subdir: 'strptrdtype',
   include_directories: includes
