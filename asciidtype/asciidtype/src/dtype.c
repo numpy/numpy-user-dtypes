@@ -55,20 +55,20 @@ new_asciidtype_instance(long size)
 }
 
 /*
- * This is used to determine the correct dtype to return when operations mix
- * dtypes (I think?). For now just return the first one.
+ * This is used to determine the correct dtype to return when dealing
+ * with a mix of different dtypes (for example when creating an array
+ * from a list of scalars). Always return the dtype with the biggest
+ * size.
  */
 static ASCIIDTypeObject *
 common_instance(ASCIIDTypeObject *dtype1, ASCIIDTypeObject *dtype2)
 {
-    if (!PyObject_RichCompareBool((PyObject *)dtype1, (PyObject *)dtype2,
-                                  Py_EQ)) {
-        PyErr_SetString(
-                PyExc_RuntimeError,
-                "common_instance called on unequal ASCIIDType instances");
-        return NULL;
+    if (dtype1->size >= dtype2->size) {
+        Py_INCREF(dtype1);
+        return dtype1;
     }
-    return dtype1;
+    Py_INCREF(dtype2);
+    return dtype2;
 }
 
 static PyArray_DTypeMeta *
