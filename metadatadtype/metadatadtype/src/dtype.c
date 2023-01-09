@@ -52,6 +52,7 @@ get_metadata(PyObject *scalar)
     }
 
     PyObject *metadata = dtype->metadata;
+    Py_DECREF(dtype);
     if (metadata == NULL) {
         return NULL;
     }
@@ -87,6 +88,7 @@ new_metadatadtype_instance(PyObject *metadata)
 static MetadataDTypeObject *
 common_instance(MetadataDTypeObject *dtype1, MetadataDTypeObject *dtype2)
 {
+    Py_INCREF(dtype1);
     return dtype1;
 }
 

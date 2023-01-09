@@ -24,6 +24,15 @@ def test_creation_with_explicit_dtype():
     )
 
 
+def test_creation_from_scalar():
+    data = [
+        ASCIIScalar("hello", ASCIIDType(6)),
+        ASCIIScalar("array", ASCIIDType(7)),
+    ]
+    arr = np.array(data)
+    assert repr(arr) == ("array(['hello', 'array'], dtype=ASCIIDType(7))")
+
+
 def test_creation_truncation():
     inp = ["hello", "this", "is", "an", "array"]
 
