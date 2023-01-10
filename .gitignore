@@ -130,3 +130,5 @@ dmypy.json
 
 .mesonpy-native-file.ini
 compile_commands.json
+
+.ruff-cache/

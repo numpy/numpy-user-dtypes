@@ -11,7 +11,7 @@
 // From https://numpy.org/neps/nep-0043-extensible-ufuncs.html#arraymethod:
 // resolve_descriptors returns the safety of the operation (casting safety)
 static NPY_CASTING
-strptr_to_strptr_resolve_descriptors(PyObject *NPY_UNUSED(self),
+string_to_string_resolve_descriptors(PyObject *NPY_UNUSED(self),
                                      PyArray_DTypeMeta *NPY_UNUSED(dtypes[2]),
                                      PyArray_Descr *given_descrs[2],
                                      PyArray_Descr *loop_descrs[2],
@@ -33,7 +33,7 @@ strptr_to_strptr_resolve_descriptors(PyObject *NPY_UNUSED(self),
 }
 
 static int
-strptr_to_strptr(PyArrayMethod_Context *NPY_UNUSED(context),
+string_to_string(PyArrayMethod_Context *NPY_UNUSED(context),
                  char **const data[], npy_intp const dimensions[],
                  npy_intp const strides[], NpyAuxData *NPY_UNUSED(auxdata))
 {
@@ -55,13 +55,13 @@ strptr_to_strptr(PyArrayMethod_Context *NPY_UNUSED(context),
 static PyArray_DTypeMeta *a2a_dtypes[2] = {NULL, NULL};
 
 static PyType_Slot a2a_slots[] = {
-        {NPY_METH_resolve_descriptors, &strptr_to_strptr_resolve_descriptors},
-        {NPY_METH_strided_loop, &strptr_to_strptr},
-        {NPY_METH_unaligned_strided_loop, &strptr_to_strptr},
+        {NPY_METH_resolve_descriptors, &string_to_string_resolve_descriptors},
+        {NPY_METH_strided_loop, &string_to_string},
+        {NPY_METH_unaligned_strided_loop, &string_to_string},
         {0, NULL}};
 
-PyArrayMethod_Spec StrPtrToStrPtrCastSpec = {
-        .name = "cast_StrPtrDType_to_StrPtrDType",
+PyArrayMethod_Spec StringToStringCastSpec = {
+        .name = "cast_StringDType_to_StringDType",
         .nin = 1,
         .nout = 1,
         .casting = NPY_UNSAFE_CASTING,
@@ -74,7 +74,7 @@ PyArrayMethod_Spec **
 get_casts(void)
 {
     PyArrayMethod_Spec **casts = malloc(2 * sizeof(PyArrayMethod_Spec *));
-    casts[0] = &StrPtrToStrPtrCastSpec;
+    casts[0] = &StringToStringCastSpec;
     casts[1] = NULL;
 
     return casts;

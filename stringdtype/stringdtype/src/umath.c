@@ -1,6 +1,6 @@
 #include <Python.h>
 
-#define PY_ARRAY_UNIQUE_SYMBOL strptrdtype_ARRAY_API
+#define PY_ARRAY_UNIQUE_SYMBOL stringdtype_ARRAY_API
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #define NO_IMPORT_ARRAY
 #include "numpy/arrayobject.h"

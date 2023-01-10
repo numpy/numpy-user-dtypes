@@ -1,6 +1,6 @@
 #include <Python.h>
 
-#define PY_ARRAY_UNIQUE_SYMBOL strptrdtype_ARRAY_API
+#define PY_ARRAY_UNIQUE_SYMBOL stringdtype_ARRAY_API
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include "numpy/arrayobject.h"
 #include "numpy/experimental_dtype_api.h"
@@ -10,7 +10,7 @@
 
 static struct PyModuleDef moduledef = {
         PyModuleDef_HEAD_INIT,
-        .m_name = "strptrdtype_main",
+        .m_name = "stringdtype_main",
         .m_size = -1,
 };
 
@@ -30,23 +30,23 @@ PyInit__main(void)
         return NULL;
     }
 
-    PyObject *mod = PyImport_ImportModule("strptrdtype");
+    PyObject *mod = PyImport_ImportModule("stringdtype");
     if (mod == NULL) {
         goto error;
     }
-    StrPtrScalar_Type =
-            (PyTypeObject *)PyObject_GetAttrString(mod, "StrPtrScalar");
+    StringScalar_Type =
+            (PyTypeObject *)PyObject_GetAttrString(mod, "StringScalar");
     Py_DECREF(mod);
 
-    if (StrPtrScalar_Type == NULL) {
+    if (StringScalar_Type == NULL) {
         goto error;
     }
 
-    if (init_strptr_dtype() < 0) {
+    if (init_string_dtype() < 0) {
         goto error;
     }
 
-    if (PyModule_AddObject(m, "StrPtrDType", (PyObject *)&StrPtrDType) < 0) {
+    if (PyModule_AddObject(m, "StringDType", (PyObject *)&StringDType) < 0) {
         goto error;
     }
 

@@ -2,16 +2,16 @@
 
 #include "casts.h"
 
-PyTypeObject *StrPtrScalar_Type = NULL;
+PyTypeObject *StringScalar_Type = NULL;
 
 /*
  * Internal helper to create new instances
  */
-StrPtrDTypeObject *
-new_strptrdtype_instance(void)
+StringDTypeObject *
+new_stringdtype_instance(void)
 {
-    StrPtrDTypeObject *new = (StrPtrDTypeObject *)PyArrayDescr_Type.tp_new(
-            (PyTypeObject *)&StrPtrDType, NULL, NULL);
+    StringDTypeObject *new = (StringDTypeObject *)PyArrayDescr_Type.tp_new(
+            (PyTypeObject *)&StringDType, NULL, NULL);
     if (new == NULL) {
         return NULL;
     }
@@ -25,14 +25,14 @@ new_strptrdtype_instance(void)
 // This is used to determine the correct dtype to return when operations mix
 // dtypes (I think?). For now just return the first one.
 //
-static StrPtrDTypeObject *
-common_instance(StrPtrDTypeObject *dtype1, StrPtrDTypeObject *dtype2)
+static StringDTypeObject *
+common_instance(StringDTypeObject *dtype1, StringDTypeObject *dtype2)
 {
     if (!PyObject_RichCompareBool((PyObject *)dtype1, (PyObject *)dtype2,
                                   Py_EQ)) {
         PyErr_SetString(
                 PyExc_RuntimeError,
-                "common_instance called on unequal StrPtrDType instances");
+                "common_instance called on unequal StringDType instances");
         return NULL;
     }
     return dtype1;
@@ -43,19 +43,19 @@ common_dtype(PyArray_DTypeMeta *cls, PyArray_DTypeMeta *other)
 {
     // for now always raise an error here until we can figure out
     // how to deal with strings here
-    PyErr_SetString(PyExc_RuntimeError, "common_dtype called in StrPtrDType");
+    PyErr_SetString(PyExc_RuntimeError, "common_dtype called in StringDType");
     return NULL;
 }
 
 // For a given python object, this function returns a borrowed reference
 // to the dtype property of the array
 static PyArray_Descr *
-strptr_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls),
+string_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls),
                                          PyObject *obj)
 {
-    if (Py_TYPE(obj) != StrPtrScalar_Type) {
+    if (Py_TYPE(obj) != StringScalar_Type) {
         PyErr_SetString(PyExc_TypeError,
-                        "Can only store StrPtrScalar in a StrPtrDType array.");
+                        "Can only store StringScalar in a StringDType array.");
         return NULL;
     }
 
@@ -69,7 +69,7 @@ strptr_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls),
 // Take a python object `obj` and insert it into the array of dtype `descr` at
 // the position given by dataptr.
 static int
-strptrdtype_setitem(StrPtrDTypeObject *descr, PyObject *obj, char **dataptr)
+stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
 {
     char *val = PyBytes_AsString(obj);
     if (val == NULL) {
@@ -82,14 +82,14 @@ strptrdtype_setitem(StrPtrDTypeObject *descr, PyObject *obj, char **dataptr)
 }
 
 static PyObject *
-strptrdtype_getitem(StrPtrDTypeObject *descr, char **dataptr)
+stringdtype_getitem(StringDTypeObject *descr, char **dataptr)
 {
     PyObject *val_obj = PyBytes_FromString(*dataptr);
     if (val_obj == NULL) {
         return NULL;
     }
 
-    PyObject *res = PyObject_CallFunctionObjArgs((PyObject *)StrPtrScalar_Type,
+    PyObject *res = PyObject_CallFunctionObjArgs((PyObject *)StringScalar_Type,
                                                  val_obj, NULL);
     if (res == NULL) {
         return NULL;
@@ -99,31 +99,31 @@ strptrdtype_getitem(StrPtrDTypeObject *descr, char **dataptr)
     return res;
 }
 
-static StrPtrDTypeObject *
-strptrdtype_ensure_canonical(StrPtrDTypeObject *self)
+static StringDTypeObject *
+stringdtype_ensure_canonical(StringDTypeObject *self)
 {
     Py_INCREF(self);
     return self;
 }
 
-static PyType_Slot StrPtrDType_Slots[] = {
+static PyType_Slot StringDType_Slots[] = {
         {NPY_DT_common_instance, &common_instance},
         {NPY_DT_common_dtype, &common_dtype},
         {NPY_DT_discover_descr_from_pyobject,
-         &strptr_discover_descriptor_from_pyobject},
-        {NPY_DT_setitem, &strptrdtype_setitem},
-        {NPY_DT_getitem, &strptrdtype_getitem},
-        {NPY_DT_ensure_canonical, &strptrdtype_ensure_canonical},
+         &string_discover_descriptor_from_pyobject},
+        {NPY_DT_setitem, &stringdtype_setitem},
+        {NPY_DT_getitem, &stringdtype_getitem},
+        {NPY_DT_ensure_canonical, &stringdtype_ensure_canonical},
         {0, NULL}};
 
 static PyObject *
-strptrdtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwds)
+stringdtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwds)
 {
-    return (PyObject *)new_strptrdtype_instance();
+    return (PyObject *)new_stringdtype_instance();
 }
 
 static void
-strptrdtype_dealloc(StrPtrDTypeObject *self)
+stringdtype_dealloc(StringDTypeObject *self)
 {
     // Need to deallocate all the memory allocated during setitem.
 
@@ -131,9 +131,9 @@ strptrdtype_dealloc(StrPtrDTypeObject *self)
 }
 
 static PyObject *
-strptrdtype_repr(StrPtrDTypeObject *self)
+stringdtype_repr(StringDTypeObject *self)
 {
-    return PyUnicode_FromString("StrPtrDType");
+    return PyUnicode_FromString("StringDType");
 }
 
 /*
@@ -142,49 +142,49 @@ strptrdtype_repr(StrPtrDTypeObject *self)
  * PyArray_DTypeMeta, which is a larger struct than a typical type.
  * (This should get a bit nicer eventually with Python >3.11.)
  */
-PyArray_DTypeMeta StrPtrDType = {
+PyArray_DTypeMeta StringDType = {
         {{
                 PyVarObject_HEAD_INIT(NULL, 0).tp_name =
-                        "strptrdtype.StrPtrDType",
-                .tp_basicsize = sizeof(StrPtrDTypeObject),
-                .tp_new = strptrdtype_new,
-                .tp_dealloc = (destructor)strptrdtype_dealloc,
-                .tp_repr = (reprfunc)strptrdtype_repr,
-                .tp_str = (reprfunc)strptrdtype_repr,
+                        "stringdtype.StringDType",
+                .tp_basicsize = sizeof(StringDTypeObject),
+                .tp_new = stringdtype_new,
+                .tp_dealloc = (destructor)stringdtype_dealloc,
+                .tp_repr = (reprfunc)stringdtype_repr,
+                .tp_str = (reprfunc)stringdtype_repr,
         }},
         /* rest, filled in during DTypeMeta initialization */
 };
 
 int
-init_strptr_dtype(void)
+init_string_dtype(void)
 {
     PyArrayMethod_Spec **casts = get_casts();
 
-    PyArrayDTypeMeta_Spec StrPtrDType_DTypeSpec = {
-            .typeobj = StrPtrScalar_Type,
-            .slots = StrPtrDType_Slots,
+    PyArrayDTypeMeta_Spec StringDType_DTypeSpec = {
+            .typeobj = StringScalar_Type,
+            .slots = StringDType_Slots,
             .casts = casts,
     };
 
     /* Loaded dynamically, so may need to be set here: */
-    ((PyObject *)&StrPtrDType)->ob_type = &PyArrayDTypeMeta_Type;
-    ((PyTypeObject *)&StrPtrDType)->tp_base = &PyArrayDescr_Type;
-    if (PyType_Ready((PyTypeObject *)&StrPtrDType) < 0) {
+    ((PyObject *)&StringDType)->ob_type = &PyArrayDTypeMeta_Type;
+    ((PyTypeObject *)&StringDType)->tp_base = &PyArrayDescr_Type;
+    if (PyType_Ready((PyTypeObject *)&StringDType) < 0) {
         return -1;
     }
 
-    if (PyArrayInitDTypeMeta_FromSpec(&StrPtrDType, &StrPtrDType_DTypeSpec) <
+    if (PyArrayInitDTypeMeta_FromSpec(&StringDType, &StringDType_DTypeSpec) <
         0) {
         return -1;
     }
 
-    PyArray_Descr *singleton = PyArray_GetDefaultDescr(&StrPtrDType);
+    PyArray_Descr *singleton = PyArray_GetDefaultDescr(&StringDType);
 
     if (singleton == NULL) {
         return -1;
     }
 
-    StrPtrDType.singleton = singleton;
+    StringDType.singleton = singleton;
 
     return 0;
 }

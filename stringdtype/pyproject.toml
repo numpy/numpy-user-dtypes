@@ -12,12 +12,19 @@ build-backend = "mesonpy"
 line-length = 79
 
 [project]
-name = "strptrdtype"
-description = "A dtype for storing string pointers data"
+name = "stringdtype"
+description = "A dtype for storing UTF-8 strings"
 version = "0.0.1"
 readme = 'README.md'
-author = "Peyton Murray"
+authors = [
+    { name = "Nathan Goldbaum" },
+    { name = "Peyton Murray" }
+]
 requires-python = ">=3.9.0"
 dependencies = [
     "numpy",
 ]
+
+[tool.ruff]
+line-length = 79
+per-file-ignores = {"__init__.py" = ["F401"]}

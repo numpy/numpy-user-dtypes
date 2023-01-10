@@ -1,7 +1,7 @@
 """A scalar type needed by the dtype machinery."""
 
 
-class StrPtrScalar:
+class StringScalar:
     def __init__(self, value):
         self.value = value
 

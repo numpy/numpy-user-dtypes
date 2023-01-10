@@ -1,5 +1,5 @@
 project(
-  'strptrdtype',
+  'stringdtype',
   'c',
 )
 
@@ -17,25 +17,25 @@ incdir_numpy = run_command(py,
 includes = include_directories(
   [
     incdir_numpy,
-    'strptrdtype/src'
+    'stringdtype/src'
   ]
 )
 
 srcs = [
-  'strptrdtype/src/casts.c',
-  'strptrdtype/src/casts.h',
-  'strptrdtype/src/dtype.c',
-  'strptrdtype/src/main.c',
-  # 'strptrdtype/src/umath.c',
-  # 'strptrdtype/src/umath.h',
+  'stringdtype/src/casts.c',
+  'stringdtype/src/casts.h',
+  'stringdtype/src/dtype.c',
+  'stringdtype/src/main.c',
+  # 'stringdtype/src/umath.c',
+  # 'stringdtype/src/umath.h',
 ]
 
 py.install_sources(
   [
-    'strptrdtype/__init__.py',
-    'strptrdtype/scalar.py'
+    'stringdtype/__init__.py',
+    'stringdtype/scalar.py'
   ],
-  subdir: 'strptrdtype'
+  subdir: 'stringdtype'
 )
 
 py.extension_module(
@@ -43,6 +43,6 @@ py.extension_module(
   srcs,
   c_args: ['-g', '-O0', '-pg'],
   install: true,
-  subdir: 'strptrdtype',
+  subdir: 'stringdtype',
   include_directories: includes
 )

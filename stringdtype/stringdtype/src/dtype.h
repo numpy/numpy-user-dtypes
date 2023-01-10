@@ -6,7 +6,7 @@
 #include "structmember.h"
 // clang-format on
 
-#define PY_ARRAY_UNIQUE_SYMBOL strptrdtype_ARRAY_API
+#define PY_ARRAY_UNIQUE_SYMBOL stringdtype_ARRAY_API
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #define NO_IMPORT_ARRAY
 #include "numpy/arrayobject.h"
@@ -15,15 +15,15 @@
 
 typedef struct {
     PyArray_Descr base;
-} StrPtrDTypeObject;
+} StringDTypeObject;
 
-extern PyArray_DTypeMeta StrPtrDType;
-extern PyTypeObject *StrPtrScalar_Type;
+extern PyArray_DTypeMeta StringDType;
+extern PyTypeObject *StringScalar_Type;
 
-StrPtrDTypeObject *
-new_strptrdtype_instance(void);
+StringDTypeObject *
+new_stringdtype_instance(void);
 
 int
-init_strptr_dtype(void);
+init_string_dtype(void);
 
 #endif /*_NPY_DTYPE_H*/
