@@ -21,20 +21,16 @@ new_stringdtype_instance(void)
     return new;
 }
 
-//
-// This is used to determine the correct dtype to return when operations mix
-// dtypes (I think?). For now just return the first one.
-//
+/*
+ * This is used to determine the correct dtype to return when dealing
+ * with a mix of different dtypes (for example when creating an array
+ * from a list of scalars). Since StringDType doesn't have any parameters,
+ * we can safely always return the first one.
+ */
 static StringDTypeObject *
 common_instance(StringDTypeObject *dtype1, StringDTypeObject *dtype2)
 {
-    if (!PyObject_RichCompareBool((PyObject *)dtype1, (PyObject *)dtype2,
-                                  Py_EQ)) {
-        PyErr_SetString(
-                PyExc_RuntimeError,
-                "common_instance called on unequal StringDType instances");
-        return NULL;
-    }
+    Py_INCREF(dtype1);
     return dtype1;
 }
 
@@ -66,34 +62,65 @@ string_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls),
     return ret;
 }
 
+static PyObject *
+get_value(PyObject *scalar)
+{
+    PyObject *ret_bytes = NULL;
+    PyTypeObject *scalar_type = Py_TYPE(scalar);
+    // FIXME: handle bytes too
+    if ((scalar_type == &PyUnicode_Type) ||
+        (scalar_type == StringScalar_Type)) {
+        // attempt to decode as UTF8
+        ret_bytes = PyUnicode_AsUTF8String(scalar);
+        if (ret_bytes == NULL) {
+            PyErr_SetString(
+                    PyExc_TypeError,
+                    "Can only store UTF8 text in a StringDType array.");
+            return NULL;
+        }
+    }
+    else {
+        PyErr_SetString(PyExc_TypeError,
+                        "Can only store String text in a StringDType array.");
+        return NULL;
+    }
+    return ret_bytes;
+}
+
 // Take a python object `obj` and insert it into the array of dtype `descr` at
 // the position given by dataptr.
 static int
 stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
 {
-    char *val = PyBytes_AsString(obj);
-    if (val == NULL) {
+    PyObject *val_obj = get_value(obj);
+    char *val = NULL;
+    Py_ssize_t length = 0;
+    if (PyBytes_AsStringAndSize(val_obj, &val, &length) == -1) {
         return -1;
     }
 
-    *dataptr = malloc(sizeof(char) * strlen(val));
-    strcpy(*dataptr, val);
+    *dataptr = malloc(sizeof(char) * length + 1);
+    strncpy(*dataptr, val, length + 1);
+    Py_DECREF(val_obj);
     return 0;
 }
 
 static PyObject *
 stringdtype_getitem(StringDTypeObject *descr, char **dataptr)
 {
-    PyObject *val_obj = PyBytes_FromString(*dataptr);
+    PyObject *val_obj = PyUnicode_FromString(*dataptr);
+
     if (val_obj == NULL) {
         return NULL;
     }
 
     PyObject *res = PyObject_CallFunctionObjArgs((PyObject *)StringScalar_Type,
-                                                 val_obj, NULL);
+                                                 val_obj, descr, NULL);
+
     if (res == NULL) {
         return NULL;
     }
+
     Py_DECREF(val_obj);
 
     return res;
@@ -119,6 +146,15 @@ static PyType_Slot StringDType_Slots[] = {
 static PyObject *
 stringdtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwds)
 {
+    static char *kwargs_strs[] = {"size", NULL};
+
+    long size = 0;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|l:StringDType", kwargs_strs,
+                                     &size)) {
+        return NULL;
+    }
+
     return (PyObject *)new_stringdtype_instance();
 }
 
