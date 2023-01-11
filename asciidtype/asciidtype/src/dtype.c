@@ -88,15 +88,31 @@ static PyArray_Descr *
 ascii_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls),
                                         PyObject *obj)
 {
-    if (Py_TYPE(obj) != ASCIIScalar_Type) {
+    PyTypeObject *obj_type = Py_TYPE(obj);
+    PyArray_Descr *ret = NULL;
+    if (obj_type != ASCIIScalar_Type) {
+        if (PyUnicode_Check(obj)) {
+            if (!PyUnicode_IS_ASCII(obj)) {
+                PyErr_SetString(
+                        PyExc_TypeError,
+                        "Can only store strings or bytes convertible to ASCII "
+                        "in a ASCIIDType array.");
+                return NULL;
+            }
+            ret = (PyArray_Descr *)new_asciidtype_instance(
+                    (long)PyUnicode_GetLength(obj));
+        }
+        // could do bytes too if we want
         PyErr_SetString(PyExc_TypeError,
-                        "Can only store ASCIIScalar in a ASCIIDType array.");
+                        "Can only store strings or bytes convertible to ASCII "
+                        "in a ASCIIDType array.");
         return NULL;
     }
-
-    PyArray_Descr *ret = (PyArray_Descr *)PyObject_GetAttrString(obj, "dtype");
-    if (ret == NULL) {
-        return NULL;
+    else {
+        ret = (PyArray_Descr *)PyObject_GetAttrString(obj, "dtype");
+        if (ret == NULL) {
+            return NULL;
+        }
     }
     return ret;
 }
