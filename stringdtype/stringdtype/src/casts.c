@@ -1,21 +1,11 @@
 #include "casts.h"
 
-// And now the actual cast code!  Starting with the "resolver" which tells
-// us about cast safety.
-// Note also the `view_offset`!  It is a way for you to tell NumPy, that this
-// cast does not require anything at all, but the cast can simply be done as
-// a view.
-// For `arr.astype()` it might mean returning a view (eventually, not yet).
-// For ufuncs, it already means that they don't have to do a cast at all!
-//
-// From https://numpy.org/neps/nep-0043-extensible-ufuncs.html#arraymethod:
-// resolve_descriptors returns the safety of the operation (casting safety)
 static NPY_CASTING
 string_to_string_resolve_descriptors(PyObject *NPY_UNUSED(self),
                                      PyArray_DTypeMeta *NPY_UNUSED(dtypes[2]),
                                      PyArray_Descr *given_descrs[2],
                                      PyArray_Descr *loop_descrs[2],
-                                     npy_intp *view_offset)
+                                     npy_intp *NPY_UNUSED(view_offset))
 {
     Py_INCREF(given_descrs[0]);
     loop_descrs[0] = given_descrs[0];
@@ -33,18 +23,22 @@ string_to_string_resolve_descriptors(PyObject *NPY_UNUSED(self),
 }
 
 static int
-string_to_string(PyArrayMethod_Context *NPY_UNUSED(context),
-                 char **const data[], npy_intp const dimensions[],
-                 npy_intp const strides[], NpyAuxData *NPY_UNUSED(auxdata))
+string_to_string(PyArrayMethod_Context *context, char *const data[],
+                 npy_intp const dimensions[], npy_intp const strides[],
+                 NpyAuxData *NPY_UNUSED(auxdata))
 {
     npy_intp N = dimensions[0];
-    char **in = data[0];
-    char **out = data[1];
-    npy_intp in_stride = strides[0];
-    npy_intp out_stride = strides[1];
+    char **in = (char **)data[0];
+    char **out = (char **)data[1];
+    // strides are in bytes but pointer offsets are in pointer widths, so
+    // divide by the element size (one pointer width) to get the pointer offset
+    npy_intp in_stride = strides[0] / context->descriptors[0]->elsize;
+    npy_intp out_stride = strides[1] / context->descriptors[1]->elsize;
 
     while (N--) {
-        strcpy(*out, *in);
+        size_t length = strlen(*in);
+        out[0] = (char *)malloc((sizeof(char) * length) + 1);
+        strncpy(*out, *in, length + 1);
         in += in_stride;
         out += out_stride;
     }
@@ -52,9 +46,9 @@ string_to_string(PyArrayMethod_Context *NPY_UNUSED(context),
     return 0;
 }
 
-static PyArray_DTypeMeta *a2a_dtypes[2] = {NULL, NULL};
+static PyArray_DTypeMeta *s2s_dtypes[2] = {NULL, NULL};
 
-static PyType_Slot a2a_slots[] = {
+static PyType_Slot s2s_slots[] = {
         {NPY_METH_resolve_descriptors, &string_to_string_resolve_descriptors},
         {NPY_METH_strided_loop, &string_to_string},
         {NPY_METH_unaligned_strided_loop, &string_to_string},
@@ -66,8 +60,8 @@ PyArrayMethod_Spec StringToStringCastSpec = {
         .nout = 1,
         .casting = NPY_UNSAFE_CASTING,
         .flags = NPY_METH_SUPPORTS_UNALIGNED,
-        .dtypes = a2a_dtypes,
-        .slots = a2a_slots,
+        .dtypes = s2s_dtypes,
+        .slots = s2s_slots,
 };
 
 PyArrayMethod_Spec **
