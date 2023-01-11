@@ -1,0 +1,30 @@
+[build-system]
+requires = [
+    "meson>=0.63.0",
+    "meson-python",
+    "patchelf",
+    "wheel",
+    "numpy",
+]
+build-backend = "mesonpy"
+
+[tool.black]
+line-length = 79
+
+[project]
+name = "stringdtype"
+description = "A dtype for storing UTF-8 strings"
+version = "0.0.1"
+readme = 'README.md'
+authors = [
+    { name = "Nathan Goldbaum" },
+    { name = "Peyton Murray" }
+]
+requires-python = ">=3.9.0"
+dependencies = [
+    "numpy",
+]
+
+[tool.ruff]
+line-length = 79
+per-file-ignores = {"__init__.py" = ["F401"]}
