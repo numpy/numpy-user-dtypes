@@ -1,12 +1,16 @@
 """A scalar type needed by the dtype machinery."""
 
 
-class StringScalar:
-    def __init__(self, value):
-        self.value = value
+class StringScalar(str):
+    def __new__(cls, value, dtype):
+        instance = super().__new__(cls, value)
+        instance.dtype = dtype
+        return instance
 
-    def __str__(self):
-        return str(self.value)
+    def partition(self, sep):
+        ret = super().partition(sep)
+        return (str(ret[0]), str(ret[1]), str(ret[2]))
 
-    def __repr__(self):
-        return repr(self.value)
+    def rpartition(self, sep):
+        ret = super().rpartition(sep)
+        return (str(ret[0]), str(ret[1]), str(ret[2]))
