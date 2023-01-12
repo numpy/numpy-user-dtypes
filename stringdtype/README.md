@@ -1,6 +1,6 @@
-# A dtype that stores ASCII data
+# A dtype that stores pointers to strings
 
-This is a simple proof-of-concept dtype using the (as of late 2022) experimental
+This is a simple proof-of-concept dtype using the (as of early 2023) experimental
 [new dtype
 implementation](https://numpy.org/neps/nep-0041-improved-dtype-support.html) in
 NumPy.
