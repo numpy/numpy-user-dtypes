@@ -64,3 +64,12 @@ jobs:
         working-directory: quaddtype
         run: |
           pytest -vvv --color=yes
+      - name: Install stringdtype
+        working-directory: stringdtype
+        run: |
+          python -m build --no-isolation --wheel -Cbuilddir=build
+          find ./dist/*.whl | xargs python -m pip install
+      - name: Run stringdtype tests
+        working-directory: stringdtype
+        run: |
+          pytest -vvv --color=yes

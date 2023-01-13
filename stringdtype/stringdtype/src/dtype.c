@@ -93,6 +93,10 @@ static int
 stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
 {
     PyObject *val_obj = get_value(obj);
+    if (val_obj == NULL) {
+        return -1;
+    }
+
     char *val = NULL;
     Py_ssize_t length = 0;
     if (PyBytes_AsStringAndSize(val_obj, &val, &length) == -1) {
