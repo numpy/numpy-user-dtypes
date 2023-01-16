@@ -226,5 +226,9 @@ init_string_dtype(void)
 
     StringDType.singleton = singleton;
 
+    free(StringDType_DTypeSpec.casts[1]->dtypes);
+    free(StringDType_DTypeSpec.casts[1]);
+    free(StringDType_DTypeSpec.casts);
+
     return 0;
 }
