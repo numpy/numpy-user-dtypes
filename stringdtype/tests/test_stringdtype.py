@@ -62,38 +62,26 @@ def test_bad_scalars(data):
     [
         ["this", "is", "an", "array"],
         ["€", "", "😊"],
+        ["A¢☃€ 😊", " A☃€¢😊", "☃€😊 A¢", "😊☃A¢ €"],
     ],
 )
-def test_cast_to_stringdtype(string_list):
+def test_unicode_casts(string_list):
     arr = np.array(string_list, dtype=np.unicode_).astype(StringDType())
     expected = np.array(string_list, dtype=StringDType())
     np.testing.assert_array_equal(arr, expected)
 
-
-@pytest.mark.xfail(reason="Not yet implemented")
-def test_cast_to_unicode_safe(string_list):
     arr = np.array(string_list, dtype=StringDType())
 
     np.testing.assert_array_equal(
-        arr.astype("<U3", casting="safe"), np.array(string_list, dtype="<U3")
+        arr.astype("U8"), np.array(string_list, dtype="U8")
     )
-
-    # Safe casting should preserve data
-    with pytest.raises(TypeError):
-        arr.astype("<U2", casting="safe")
-
-
-@pytest.mark.xfail(reason="Not yet implemented")
-def test_cast_to_unicode_unsafe(string_list):
-    arr = np.array(string_list, dtype=StringDType())
-
+    np.testing.assert_array_equal(arr.astype("U8").astype(StringDType()), arr)
     np.testing.assert_array_equal(
-        arr.astype("<U3", casting="unsafe"), np.array(string_list, dtype="<U3")
+        arr.astype("U3"), np.array(string_list, dtype="U3")
     )
-
-    # Unsafe casting: each element is truncated
     np.testing.assert_array_equal(
-        arr.astype("<U2", casting="unsafe"), np.array(string_list, dtype="<U2")
+        arr.astype("U3").astype(StringDType()),
+        np.array([s[:3] for s in string_list], dtype=StringDType()),
     )
 
 

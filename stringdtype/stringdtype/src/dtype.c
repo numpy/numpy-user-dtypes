@@ -228,6 +228,8 @@ init_string_dtype(void)
 
     free(StringDType_DTypeSpec.casts[1]->dtypes);
     free(StringDType_DTypeSpec.casts[1]);
+    free(StringDType_DTypeSpec.casts[2]->dtypes);
+    free(StringDType_DTypeSpec.casts[2]);
     free(StringDType_DTypeSpec.casts);
 
     return 0;
