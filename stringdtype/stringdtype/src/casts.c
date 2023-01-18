@@ -72,24 +72,77 @@ unicode_to_string_resolve_descriptors(PyObject *NPY_UNUSED(self),
                                       PyArray_Descr *loop_descrs[2],
                                       npy_intp *NPY_UNUSED(view_offset))
 {
-    Py_INCREF(given_descrs[0]);
-    loop_descrs[0] = given_descrs[0];
-
     if (given_descrs[1] == NULL) {
-        loop_descrs[1] = (PyArray_Descr *)new_stringdtype_instance();
+        StringDTypeObject *new = new_stringdtype_instance();
+        if (new == NULL) {
+            return (NPY_CASTING)-1;
+        }
+        loop_descrs[1] = (PyArray_Descr *)new;
     }
     else {
         Py_INCREF(given_descrs[1]);
         loop_descrs[1] = given_descrs[1];
     }
 
+    Py_INCREF(given_descrs[0]);
+    loop_descrs[0] = given_descrs[0];
+
     return NPY_SAFE_CASTING;
 }
 
-// converts UCS4 code point to 4-byte char* assumes in is a zero-filled 4 byte
-// array returns -1 if the code point is not a valid unicode code point,
-// returns the number of bytes in the UTF-8 character on success
+// Find the number of bytes, *utf8_bytes*, needed to store the string
+// represented by *codepoints* in UTF-8. The array of *codepoints* is
+// *max_length* long, but may be padded with null codepoints. *num_codepoints*
+// is the number of codepoints that are not trailing null codepoints. Returns
+// 0 on success and -1 when an invalid code point is found.
 static int
+utf8_size(Py_UCS4 *codepoints, long max_length, size_t *num_codepoints,
+          size_t *utf8_bytes)
+{
+    size_t ucs4len = max_length;
+
+    while (ucs4len > 0 && codepoints[ucs4len - 1] == 0) {
+        ucs4len--;
+    }
+    // ucs4len is now the number of codepoints that aren't trailing nulls.
+
+    size_t num_bytes = 0;
+
+    for (int i = 0; i < ucs4len; i++) {
+        Py_UCS4 code = codepoints[i];
+
+        if (code <= 0x7F) {
+            num_bytes += 1;
+        }
+        else if (code <= 0x07FF) {
+            num_bytes += 2;
+        }
+        else if (code <= 0xFFFF) {
+            if ((code >= 0xD800) && (code <= 0xDFFF)) {
+                // surrogates are invalid UCS4 code points
+                return -1;
+            }
+            num_bytes += 3;
+        }
+        else if (code <= 0x10FFFF) {
+            num_bytes += 4;
+        }
+        else {
+            // codepoint is outside the valid unicode range
+            return -1;
+        }
+    }
+
+    *num_codepoints = ucs4len;
+    *utf8_bytes = num_bytes;
+
+    return 0;
+}
+
+// Converts UCS4 code point *code* to 4-byte character array *c*. Assumes *c*
+// is a zero-filled 4 byte array and *code* is a valid codepoint and does not
+// do any error checking! Returns the number of bytes in the UTF-8 character.
+static size_t
 ucs4_code_to_utf8_char(const Py_UCS4 code, char *c)
 {
     if (code <= 0x7F) {
@@ -110,7 +163,7 @@ ucs4_code_to_utf8_char(const Py_UCS4 code, char *c)
         c[2] = (0x80 | (code & 0x3f));
         return 3;
     }
-    else if (code <= 0x10FFFF) {
+    else {
         // 00wwwxx xxxxyyyy yyzzzzzz -> 11110www 10xxxxxx 10yyyyyy 10zzzzzz
         c[0] = (0xf0 | (code >> 18));
         c[1] = (0x80 | ((code >> 12) & 0x3f));
@@ -118,7 +171,6 @@ ucs4_code_to_utf8_char(const Py_UCS4 code, char *c)
         c[3] = (0x80 | (code & 0x3f));
         return 4;
     }
-    return -1;
 }
 
 static int
@@ -127,7 +179,7 @@ unicode_to_string(PyArrayMethod_Context *context, char *const data[],
                   NpyAuxData *NPY_UNUSED(auxdata))
 {
     PyArray_Descr **descrs = context->descriptors;
-    long in_size = (descrs[0]->elsize) / 4;
+    long max_in_size = (descrs[0]->elsize) / 4;
 
     npy_intp N = dimensions[0];
     Py_UCS4 *in = (Py_UCS4 *)data[0];
@@ -140,32 +192,30 @@ unicode_to_string(PyArrayMethod_Context *context, char *const data[],
     npy_intp out_stride = strides[1] / context->descriptors[1]->elsize;
 
     while (N--) {
-        // pessimistically allocate 4 bytes per allowed character
-        // plus one byte for the null terminator
-        char *out_buf = malloc((in_size * 4 + 1) * sizeof(char));
         size_t out_num_bytes = 0;
-        for (int i = 0; i < in_size; i++) {
+        size_t num_codepoints = 0;
+        if (utf8_size(in, max_in_size, &num_codepoints, &out_num_bytes) ==
+            -1) {
+            // invalid codepoint found so acquire GIL, set error, return
+            PyGILState_STATE gstate;
+            gstate = PyGILState_Ensure();
+            PyErr_SetString(PyExc_TypeError,
+                            "Invalid unicode code point found");
+            PyGILState_Release(gstate);
+            return -1;
+        }
+        // one extra byte for null terminator
+        char *out_buf = malloc((out_num_bytes + 1) * sizeof(char));
+        for (int i = 0; i < num_codepoints; i++) {
             // get code point
             Py_UCS4 code = in[i];
 
-            if (code == 0) {
-                break;
-            }
-
-            // convert codepoint to UTF8 bytes
+            // will be filled with UTF-8 bytes
             char utf8_c[4] = {0};
-            size_t num_bytes = ucs4_code_to_utf8_char(code, utf8_c);
-            out_num_bytes += num_bytes;
 
-            if (num_bytes == -1) {
-                // acquire GIL, set error, return
-                PyGILState_STATE gstate;
-                gstate = PyGILState_Ensure();
-                PyErr_SetString(PyExc_TypeError,
-                                "Invalid unicode code point found");
-                PyGILState_Release(gstate);
-                return -1;
-            }
+            // we already checked for invalid code points above,
+            // so no need to do error checking here
+            size_t num_bytes = ucs4_code_to_utf8_char(code, utf8_c);
 
             // copy utf8_c into out_buf
             strncpy(out_buf, utf8_c, num_bytes);
@@ -179,9 +229,6 @@ unicode_to_string(PyArrayMethod_Context *context, char *const data[],
 
         // pad string with null character
         out_buf[out_num_bytes] = '\0';
-
-        // resize out_buf now that we know the real size
-        out_buf = realloc(out_buf, out_num_bytes + 1);
 
         // set out to the address of the beginning of the string
         out[0] = out_buf;
@@ -207,9 +254,6 @@ string_to_unicode_resolve_descriptors(PyObject *NPY_UNUSED(self),
                                       PyArray_Descr *loop_descrs[2],
                                       npy_intp *NPY_UNUSED(view_offset))
 {
-    Py_INCREF(given_descrs[0]);
-    loop_descrs[0] = given_descrs[0];
-
     if (given_descrs[1] == NULL) {
         // currently there's no way to determine the correct output
         // size, so set an error and bail
@@ -225,10 +269,13 @@ string_to_unicode_resolve_descriptors(PyObject *NPY_UNUSED(self),
         loop_descrs[1] = given_descrs[1];
     }
 
+    Py_INCREF(given_descrs[0]);
+    loop_descrs[0] = given_descrs[0];
+
     return NPY_UNSAFE_CASTING;
 }
 
-// Given UTF-8 bytes in *c*, sets *codepoint* to the corresponding unicode
+// Given UTF-8 bytes in *c*, sets *code* to the corresponding unicode
 // codepoint for the next character, returning the size of the character in
 // bytes. Does not do any validation or error checking: assumes *c* is valid
 // utf-8
