@@ -6,7 +6,7 @@
 #include "numpy/experimental_dtype_api.h"
 
 #include "dtype.h"
-// #include "umath.h"
+#include "umath.h"
 
 static struct PyModuleDef moduledef = {
         PyModuleDef_HEAD_INIT,
@@ -50,9 +50,9 @@ PyInit__main(void)
         goto error;
     }
 
-    // if (init_ufuncs() < 0) {
-    //     goto error;
-    // }
+    if (init_ufuncs() < 0) {
+        goto error;
+    }
 
     return m;
 
