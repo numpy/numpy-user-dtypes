@@ -7,20 +7,26 @@ string_to_string_resolve_descriptors(PyObject *NPY_UNUSED(self),
                                      PyArray_DTypeMeta *NPY_UNUSED(dtypes[2]),
                                      PyArray_Descr *given_descrs[2],
                                      PyArray_Descr *loop_descrs[2],
-                                     npy_intp *NPY_UNUSED(view_offset))
+                                     npy_intp *view_offset)
 {
-    Py_INCREF(given_descrs[0]);
-    loop_descrs[0] = given_descrs[0];
-
     if (given_descrs[1] == NULL) {
-        loop_descrs[1] = (PyArray_Descr *)new_stringdtype_instance();
+        StringDTypeObject *new = new_stringdtype_instance();
+        if (new == NULL) {
+            return (NPY_CASTING)-1;
+        }
+        loop_descrs[1] = (PyArray_Descr *)new;
     }
     else {
         Py_INCREF(given_descrs[1]);
         loop_descrs[1] = given_descrs[1];
     }
 
-    return NPY_SAFE_CASTING;
+    Py_INCREF(given_descrs[0]);
+    loop_descrs[0] = given_descrs[0];
+
+    *view_offset = 0;
+
+    return NPY_NO_CASTING;
 }
 
 static int
@@ -59,7 +65,7 @@ PyArrayMethod_Spec StringToStringCastSpec = {
         .name = "cast_StringDType_to_StringDType",
         .nin = 1,
         .nout = 1,
-        .casting = NPY_UNSAFE_CASTING,
+        .casting = NPY_NO_CASTING,
         .flags = NPY_METH_SUPPORTS_UNALIGNED,
         .dtypes = s2s_dtypes,
         .slots = s2s_slots,

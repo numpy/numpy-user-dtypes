@@ -17,6 +17,12 @@ def test_dtype_creation():
     assert str(StringDType()) == "StringDType"
 
 
+def test_dtype_equality():
+    assert StringDType() == StringDType()
+    assert StringDType() != np.dtype("U")
+    assert StringDType() != np.dtype("U8")
+
+
 @pytest.mark.parametrize(
     "data",
     [
