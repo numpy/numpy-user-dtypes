@@ -60,7 +60,71 @@ string_equal_resolve_descriptors(PyObject *NPY_UNUSED(self),
     return NPY_SAFE_CASTING;
 }
 
-static char *equal_name = "string_equal";
+/*
+ * Copied from NumPy, because NumPy doesn't always use it :)
+ */
+static int
+default_ufunc_promoter(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
+                       PyArray_DTypeMeta *signature[],
+                       PyArray_DTypeMeta *new_op_dtypes[])
+{
+    /* If nin < 2 promotion is a no-op, so it should not be registered */
+    assert(ufunc->nin > 1);
+    if (op_dtypes[0] == NULL) {
+        assert(ufunc->nin == 2 && ufunc->nout == 1); /* must be reduction */
+        Py_INCREF(op_dtypes[1]);
+        new_op_dtypes[0] = op_dtypes[1];
+        Py_INCREF(op_dtypes[1]);
+        new_op_dtypes[1] = op_dtypes[1];
+        Py_INCREF(op_dtypes[1]);
+        new_op_dtypes[2] = op_dtypes[1];
+        return 0;
+    }
+    PyArray_DTypeMeta *common = NULL;
+    /*
+     * If a signature is used and homogeneous in its outputs use that
+     * (Could/should likely be rather applied to inputs also, although outs
+     * only could have some advantage and input dtypes are rarely enforced.)
+     */
+    for (int i = ufunc->nin; i < ufunc->nargs; i++) {
+        if (signature[i] != NULL) {
+            if (common == NULL) {
+                Py_INCREF(signature[i]);
+                common = signature[i];
+            }
+            else if (common != signature[i]) {
+                Py_CLEAR(common); /* Not homogeneous, unset common */
+                break;
+            }
+        }
+    }
+    /* Otherwise, use the common DType of all input operands */
+    if (common == NULL) {
+        common = PyArray_PromoteDTypeSequence(ufunc->nin, op_dtypes);
+        if (common == NULL) {
+            if (PyErr_ExceptionMatches(PyExc_TypeError)) {
+                PyErr_Clear(); /* Do not propagate normal promotion errors */
+            }
+            return -1;
+        }
+    }
+
+    for (int i = 0; i < ufunc->nargs; i++) {
+        PyArray_DTypeMeta *tmp = common;
+        if (signature[i]) {
+            tmp = signature[i]; /* never replace a fixed one. */
+        }
+        Py_INCREF(tmp);
+        new_op_dtypes[i] = tmp;
+    }
+    for (int i = ufunc->nin; i < ufunc->nargs; i++) {
+        Py_XINCREF(op_dtypes[i]);
+        new_op_dtypes[i] = op_dtypes[i];
+    }
+
+    Py_DECREF(common);
+    return 0;
+}
 
 int
 init_equal_ufunc(PyObject *numpy)
@@ -73,36 +137,74 @@ init_equal_ufunc(PyObject *numpy)
     /*
      * Initialize spec for equality
      */
-    PyArray_DTypeMeta **eq_dtypes = malloc(3 * sizeof(PyArray_DTypeMeta *));
-    eq_dtypes[0] = &StringDType;
-    eq_dtypes[1] = &StringDType;
-    eq_dtypes[2] = &PyArray_BoolDType;
+    PyArray_DTypeMeta *eq_dtypes[3] = {&StringDType, &StringDType,
+                                       &PyArray_BoolDType};
 
     static PyType_Slot eq_slots[] = {
             {NPY_METH_resolve_descriptors, &string_equal_resolve_descriptors},
             {NPY_METH_strided_loop, &string_equal_strided_loop},
             {0, NULL}};
 
-    PyArrayMethod_Spec *EqualSpec = malloc(sizeof(PyArrayMethod_Spec));
+    PyArrayMethod_Spec EqualSpec = {
+            .name = "string_equal",
+            .nin = 2,
+            .nout = 1,
+            .casting = NPY_NO_CASTING,
+            .flags = 0,
+            .dtypes = eq_dtypes,
+            .slots = eq_slots,
+    };
 
-    EqualSpec->name = equal_name;
-    EqualSpec->nin = 2;
-    EqualSpec->nout = 1;
-    EqualSpec->casting = NPY_SAFE_CASTING;
-    EqualSpec->flags = 0;
-    EqualSpec->dtypes = eq_dtypes;
-    EqualSpec->slots = eq_slots;
-
-    if (PyUFunc_AddLoopFromSpec(equal, EqualSpec) < 0) {
+    if (PyUFunc_AddLoopFromSpec(equal, &EqualSpec) < 0) {
         Py_DECREF(equal);
-        free(eq_dtypes);
-        free(EqualSpec);
         return -1;
     }
 
+    /*
+     * This might interfere with NumPy at this time.
+     */
+    PyObject *promoter_capsule1 = PyCapsule_New(
+            (void *)&default_ufunc_promoter, "numpy._ufunc_promoter", NULL);
+    if (promoter_capsule1 == NULL) {
+        return -1;
+    }
+
+    PyObject *DTypes1 = PyTuple_Pack(3, &StringDType, &PyArray_UnicodeDType,
+                                     &PyArrayDescr_Type);
+    if (DTypes1 == 0) {
+        Py_DECREF(promoter_capsule1);
+        return -1;
+    }
+
+    if (PyUFunc_AddPromoter(equal, DTypes1, promoter_capsule1) < 0) {
+        Py_DECREF(promoter_capsule1);
+        Py_DECREF(DTypes1);
+        return -1;
+    }
+    Py_DECREF(promoter_capsule1);
+    Py_DECREF(DTypes1);
+
+    PyObject *promoter_capsule2 = PyCapsule_New(
+            (void *)&default_ufunc_promoter, "numpy._ufunc_promoter", NULL);
+    if (promoter_capsule2 == NULL) {
+        return -1;
+    }
+    PyObject *DTypes2 = PyTuple_Pack(3, &PyArray_UnicodeDType, &StringDType,
+                                     &PyArrayDescr_Type);
+    if (DTypes2 == 0) {
+        Py_DECREF(promoter_capsule2);
+        return -1;
+    }
+
+    if (PyUFunc_AddPromoter(equal, DTypes2, promoter_capsule2) < 0) {
+        Py_DECREF(promoter_capsule2);
+        Py_DECREF(DTypes2);
+        return -1;
+    }
+    Py_DECREF(promoter_capsule2);
+    Py_DECREF(DTypes2);
+
     Py_DECREF(equal);
-    free(eq_dtypes);
-    free(EqualSpec);
     return 0;
 }
 

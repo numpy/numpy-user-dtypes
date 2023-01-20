@@ -34,13 +34,23 @@ common_instance(StringDTypeObject *dtype1, StringDTypeObject *dtype2)
     return dtype1;
 }
 
+/*
+ *  Used to determine the correct "common" dtype for promotion.
+ *  cls is always StringDType, other is an arbitrary other DType
+ */
 static PyArray_DTypeMeta *
 common_dtype(PyArray_DTypeMeta *cls, PyArray_DTypeMeta *other)
 {
-    // for now always raise an error here until we can figure out
-    // how to deal with strings here
-    PyErr_SetString(PyExc_RuntimeError, "common_dtype called in StringDType");
-    return NULL;
+    if (other->type_num == NPY_UNICODE) {
+        /*
+         *  We have a cast from unicode, so allow unicode to promote
+         *  to StringDType
+         */
+        Py_INCREF(cls);
+        return cls;
+    }
+    Py_INCREF(Py_NotImplemented);
+    return (PyArray_DTypeMeta *)Py_NotImplemented;
 }
 
 // For a given python object, this function returns a borrowed reference
