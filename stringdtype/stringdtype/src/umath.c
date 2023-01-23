@@ -135,7 +135,7 @@ init_equal_ufunc(PyObject *numpy)
     }
 
     /*
-     * Initialize spec for equality
+     *  Initialize spec for equality
      */
     PyArray_DTypeMeta *eq_dtypes[3] = {&StringDType, &StringDType,
                                        &PyArray_BoolDType};
@@ -161,50 +161,40 @@ init_equal_ufunc(PyObject *numpy)
     }
 
     /*
-     * This might interfere with NumPy at this time.
+     *  Add promoter to ufunc, ensures operations that mix StringDType and
+     *  UnicodeDType cast the unicode argument to string.
      */
-    PyObject *promoter_capsule1 = PyCapsule_New(
-            (void *)&default_ufunc_promoter, "numpy._ufunc_promoter", NULL);
-    if (promoter_capsule1 == NULL) {
+
+    PyObject *DTypes[] = {
+            PyTuple_Pack(3, &StringDType, &PyArray_UnicodeDType,
+                         &PyArray_BoolDType),
+            PyTuple_Pack(3, &PyArray_UnicodeDType, &StringDType,
+                         &PyArray_BoolDType),
+    };
+
+    if ((DTypes[0] == NULL) || (DTypes[1] == NULL)) {
+        Py_DECREF(equal);
         return -1;
     }
 
-    PyObject *DTypes1 = PyTuple_Pack(3, &StringDType, &PyArray_UnicodeDType,
-                                     &PyArrayDescr_Type);
-    if (DTypes1 == 0) {
-        Py_DECREF(promoter_capsule1);
-        return -1;
+    PyObject *promoter_capsule = PyCapsule_New((void *)&default_ufunc_promoter,
+                                               "numpy._ufunc_promoter", NULL);
+
+    for (int i = 0; i < 2; i++) {
+        if (PyUFunc_AddPromoter(equal, DTypes[i], promoter_capsule) < 0) {
+            Py_DECREF(promoter_capsule);
+            Py_DECREF(DTypes[0]);
+            Py_DECREF(DTypes[1]);
+            Py_DECREF(equal);
+            return -1;
+        }
     }
 
-    if (PyUFunc_AddPromoter(equal, DTypes1, promoter_capsule1) < 0) {
-        Py_DECREF(promoter_capsule1);
-        Py_DECREF(DTypes1);
-        return -1;
-    }
-    Py_DECREF(promoter_capsule1);
-    Py_DECREF(DTypes1);
-
-    PyObject *promoter_capsule2 = PyCapsule_New(
-            (void *)&default_ufunc_promoter, "numpy._ufunc_promoter", NULL);
-    if (promoter_capsule2 == NULL) {
-        return -1;
-    }
-    PyObject *DTypes2 = PyTuple_Pack(3, &PyArray_UnicodeDType, &StringDType,
-                                     &PyArrayDescr_Type);
-    if (DTypes2 == 0) {
-        Py_DECREF(promoter_capsule2);
-        return -1;
-    }
-
-    if (PyUFunc_AddPromoter(equal, DTypes2, promoter_capsule2) < 0) {
-        Py_DECREF(promoter_capsule2);
-        Py_DECREF(DTypes2);
-        return -1;
-    }
-    Py_DECREF(promoter_capsule2);
-    Py_DECREF(DTypes2);
-
+    Py_DECREF(promoter_capsule);
+    Py_DECREF(DTypes[0]);
+    Py_DECREF(DTypes[1]);
     Py_DECREF(equal);
+
     return 0;
 }
 
