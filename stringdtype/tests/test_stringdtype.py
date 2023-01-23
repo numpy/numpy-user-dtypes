@@ -96,3 +96,11 @@ def test_insert_scalar(string_list):
     arr = np.array(string_list, dtype=dtype)
     arr[1] = StringScalar("what", dtype=dtype)
     assert repr(arr) == repr(np.array(["abc", "what", "ghi"], dtype=dtype))
+
+
+def test_equality_promotion(string_list):
+    sarr = np.array(string_list, dtype=StringDType())
+    uarr = np.array(string_list, dtype=np.str_)
+
+    np.testing.assert_array_equal(sarr, uarr)
+    np.testing.assert_array_equal(uarr, sarr)
