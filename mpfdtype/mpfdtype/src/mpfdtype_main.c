@@ -9,21 +9,20 @@
 #include "umath.h"
 #include "terrible_hacks.h"
 
-
 static struct PyModuleDef moduledef = {
-    PyModuleDef_HEAD_INIT,
-    .m_name = "mpfdtype_main",
-    .m_size = -1,
+        PyModuleDef_HEAD_INIT,
+        .m_name = "mpfdtype_main",
+        .m_size = -1,
 };
 
-
 /* Module initialization function */
-PyMODINIT_FUNC PyInit__mpfdtype_main(void)
+PyMODINIT_FUNC
+PyInit__mpfdtype_main(void)
 {
     if (_import_array() < 0) {
         return NULL;
     }
-    if (import_experimental_dtype_api(5) < 0) {
+    if (import_experimental_dtype_api(6) < 0) {
         return NULL;
     }
 
@@ -36,8 +35,7 @@ PyMODINIT_FUNC PyInit__mpfdtype_main(void)
         goto error;
     }
 
-    if (PyModule_AddObject(m,
-            "MPFloat", (PyObject *)&MPFloat_Type) < 0) {
+    if (PyModule_AddObject(m, "MPFloat", (PyObject *)&MPFloat_Type) < 0) {
         goto error;
     }
 
@@ -45,8 +43,7 @@ PyMODINIT_FUNC PyInit__mpfdtype_main(void)
         goto error;
     }
 
-    if (PyModule_AddObject(m,
-            "MPFDType", (PyObject *)&MPFDType) < 0) {
+    if (PyModule_AddObject(m, "MPFDType", (PyObject *)&MPFDType) < 0) {
         goto error;
     }
 
@@ -60,7 +57,7 @@ PyMODINIT_FUNC PyInit__mpfdtype_main(void)
 
     return m;
 
-  error:
+error:
     Py_DECREF(m);
     return NULL;
 }
