@@ -1,6 +1,7 @@
 #include "dtype.h"
 
 #include "casts.h"
+#include "static_string.h"
 
 PyTypeObject *StringScalar_Type = NULL;
 
@@ -15,8 +16,8 @@ new_stringdtype_instance(void)
     if (new == NULL) {
         return NULL;
     }
-    new->base.elsize = sizeof(char *);
-    new->base.alignment = _Alignof(char *);
+    new->base.elsize = sizeof(ss *);
+    new->base.alignment = _Alignof(ss *);
 
     return new;
 }
@@ -113,8 +114,7 @@ stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
         return -1;
     }
 
-    *dataptr = malloc(sizeof(char) * length + 1);
-    strncpy(*dataptr, val, length + 1);
+    *dataptr = (char *)ssnewlen(val, length);
     Py_DECREF(val_obj);
     return 0;
 }
@@ -122,7 +122,7 @@ stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
 static PyObject *
 stringdtype_getitem(StringDTypeObject *descr, char **dataptr)
 {
-    PyObject *val_obj = PyUnicode_FromString(*dataptr);
+    PyObject *val_obj = PyUnicode_FromString(((ss *)*dataptr)->buf);
 
     if (val_obj == NULL) {
         return NULL;
