@@ -3,6 +3,15 @@
 #include "dtype.h"
 #include "static_string.h"
 
+void
+gil_error(PyObject *type, const char *msg)
+{
+    PyGILState_STATE gstate;
+    gstate = PyGILState_Ensure();
+    PyErr_SetString(type, msg);
+    PyGILState_Release(gstate);
+}
+
 static NPY_CASTING
 string_to_string_resolve_descriptors(PyObject *NPY_UNUSED(self),
                                      PyArray_DTypeMeta *NPY_UNUSED(dtypes[2]),
@@ -45,6 +54,10 @@ string_to_string(PyArrayMethod_Context *context, char *const data[],
 
     while (N--) {
         out[0] = ssdup(in[0]);
+        if (out[0] == NULL) {
+            gil_error(PyExc_MemoryError, "ssdup failed");
+            return -1;
+        }
         in += in_stride;
         out += out_stride;
     }
@@ -201,15 +214,13 @@ unicode_to_string(PyArrayMethod_Context *context, char *const data[],
         size_t num_codepoints = 0;
         if (utf8_size(in, max_in_size, &num_codepoints, &out_num_bytes) ==
             -1) {
-            // invalid codepoint found so acquire GIL, set error, return
-            PyGILState_STATE gstate;
-            gstate = PyGILState_Ensure();
-            PyErr_SetString(PyExc_TypeError,
-                            "Invalid unicode code point found");
-            PyGILState_Release(gstate);
+            gil_error(PyExc_TypeError, "Invalid unicode code point found");
             return -1;
         }
         ss *out_ss = ssnewempty(out_num_bytes);
+        if (out_ss == NULL) {
+            gil_error(PyExc_MemoryError, "ssnewempty failed");
+        }
         char *out_buf = out_ss->buf;
         for (int i = 0; i < num_codepoints; i++) {
             // get code point

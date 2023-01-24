@@ -114,7 +114,12 @@ stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
         return -1;
     }
 
-    *dataptr = (char *)ssnewlen(val, length);
+    ss *str_val = ssnewlen(val, length);
+    if (str_val == NULL) {
+        PyErr_SetString(PyExc_MemoryError, "ssnewlen failed");
+        return -1;
+    }
+    *dataptr = (char *)str_val;
     Py_DECREF(val_obj);
     return 0;
 }
