@@ -16,7 +16,7 @@
     // The Python project's subdirectory in your repo.  If missing or
     // the empty string, the project is assumed to be located at the root
     // of the repository.
-    "repo_subdir": "",
+    // "repo_subdir": "",
 
     // Customizable commands for building, installing, and
     // uninstalling the project. See asv.conf.json documentation.
@@ -24,10 +24,10 @@
     "install_command": [
       "pip install -i https://pypi.anaconda.org/scipy-wheels-nightly/simple numpy",
       "pip install meson-python patchelf wheel",
-      "in-dir={conf_dir} pip install ./asciidtype/ --no-build-isolation",
-      "in-dir={conf_dir} pip install ./strptrdtype/ --no-build-isolation"
+      "in-dir={conf_dir} pip install ../asciidtype/ --no-build-isolation",
+      "in-dir={conf_dir} pip install ../stringdtype/ --no-build-isolation"
     ],
-    "uninstall_command": ["return-code=any pip uninstall -y asciidtype strptrdtype"],
+    "uninstall_command": ["return-code=any pip uninstall -y asciidtype stringdtype"],
     "build_command": [
       "pip -V"
         /* "python setup.py build", */
@@ -56,7 +56,7 @@
     //"install_timeout": 600,
 
     // the base URL to show a commit for the project.
-    // "show_commit_url": "http://github.com/owner/project/commit/",
+    "show_commit_url": "http://github.com/numpy/numpy-user-dtypes/commit/",
 
     // The Pythons you'd like to test against.  If not provided, defaults
     // to the current version of Python used to run `asv`.
@@ -82,15 +82,9 @@
     // new environments.  A value of ``null`` means that the variable
     // will not be set for the current combination.
     //
-    // "matrix": {
-    //     "req": {
-    //         "numpy": ["1.6", "1.7"],
-    //         "six": ["", null],  // test with and without six installed
-    //         "pip+emcee": [""]   // emcee is only available for install with pip.
-    //     },
-    //     "env": {"ENV_VAR_1": ["val1", "val2"]},
-    //     "env_nobuild": {"ENV_VAR_2": ["val3", null]},
-    // },
+    "matrix": {
+        "env_nobuild": {"NUMPY_EXPERIMENTAL_DTYPE_API": "1"},
+    },
 
     // Combinations of libraries/python versions can be excluded/included
     // from the set to test. Each entry is a dictionary containing additional

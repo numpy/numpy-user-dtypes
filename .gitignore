@@ -132,3 +132,4 @@ dmypy.json
 compile_commands.json
 
 .ruff-cache/
+.asv
