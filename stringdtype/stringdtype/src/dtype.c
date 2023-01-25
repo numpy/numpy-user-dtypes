@@ -18,6 +18,7 @@ new_stringdtype_instance(void)
     }
     new->base.elsize = sizeof(ss *);
     new->base.alignment = _Alignof(ss *);
+    new->base.flags |= NPY_NEEDS_INIT;
 
     return new;
 }
@@ -118,6 +119,12 @@ stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
     if (str_val == NULL) {
         PyErr_SetString(PyExc_MemoryError, "ssnewlen failed");
         return -1;
+    }
+    // the dtype instance has the NPY_NEEDS_INIT flag set,
+    // so if *dataptr is NULL, that means we're initializing
+    // the array and don't need to free an existing string
+    if (*dataptr != NULL) {
+        free((ss *)*dataptr);
     }
     *dataptr = (char *)str_val;
     Py_DECREF(val_obj);
