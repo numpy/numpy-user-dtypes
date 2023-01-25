@@ -30,18 +30,10 @@ string_equal_strided_loop(PyArrayMethod_Context *context, char *const data[],
     npy_intp out_stride = strides[2];
 
     while (N--) {
-        size_t len1 = (*in1)->len;
-        size_t len2 = (*in2)->len;
-        size_t maxlen;
+        ss *s1 = *in1;
+        ss *s2 = *in2;
 
-        if (len1 > len2) {
-            maxlen = len1;
-        }
-        else {
-            maxlen = len2;
-        }
-
-        if (strncmp((*in1)->buf, (*in2)->buf, maxlen) == 0) {
+        if (s1->len == s2->len && strncmp(s1->buf, s2->buf, s1->len) == 0) {
             *out = (npy_bool)1;
         }
         else {
