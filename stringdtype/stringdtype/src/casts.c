@@ -1,6 +1,16 @@
 #include "casts.h"
 
 #include "dtype.h"
+#include "static_string.h"
+
+void
+gil_error(PyObject *type, const char *msg)
+{
+    PyGILState_STATE gstate;
+    gstate = PyGILState_Ensure();
+    PyErr_SetString(type, msg);
+    PyGILState_Release(gstate);
+}
 
 static NPY_CASTING
 string_to_string_resolve_descriptors(PyObject *NPY_UNUSED(self),
@@ -35,17 +45,19 @@ string_to_string(PyArrayMethod_Context *context, char *const data[],
                  NpyAuxData *NPY_UNUSED(auxdata))
 {
     npy_intp N = dimensions[0];
-    char **in = (char **)data[0];
-    char **out = (char **)data[1];
+    ss **in = (ss **)data[0];
+    ss **out = (ss **)data[1];
     // strides are in bytes but pointer offsets are in pointer widths, so
     // divide by the element size (one pointer width) to get the pointer offset
     npy_intp in_stride = strides[0] / context->descriptors[0]->elsize;
     npy_intp out_stride = strides[1] / context->descriptors[1]->elsize;
 
     while (N--) {
-        size_t length = strlen(*in);
-        out[0] = (char *)malloc((sizeof(char) * length) + 1);
-        strncpy(*out, *in, length + 1);
+        out[0] = ssdup(in[0]);
+        if (out[0] == NULL) {
+            gil_error(PyExc_MemoryError, "ssdup failed");
+            return -1;
+        }
         in += in_stride;
         out += out_stride;
     }
@@ -189,7 +201,7 @@ unicode_to_string(PyArrayMethod_Context *context, char *const data[],
 
     npy_intp N = dimensions[0];
     Py_UCS4 *in = (Py_UCS4 *)data[0];
-    char **out = (char **)data[1];
+    ss **out = (ss **)data[1];
 
     // 4 bytes per UCS4 character
     npy_intp in_stride = strides[0] / 4;
@@ -202,16 +214,14 @@ unicode_to_string(PyArrayMethod_Context *context, char *const data[],
         size_t num_codepoints = 0;
         if (utf8_size(in, max_in_size, &num_codepoints, &out_num_bytes) ==
             -1) {
-            // invalid codepoint found so acquire GIL, set error, return
-            PyGILState_STATE gstate;
-            gstate = PyGILState_Ensure();
-            PyErr_SetString(PyExc_TypeError,
-                            "Invalid unicode code point found");
-            PyGILState_Release(gstate);
+            gil_error(PyExc_TypeError, "Invalid unicode code point found");
             return -1;
         }
-        // one extra byte for null terminator
-        char *out_buf = malloc((out_num_bytes + 1) * sizeof(char));
+        ss *out_ss = ssnewempty(out_num_bytes);
+        if (out_ss == NULL) {
+            gil_error(PyExc_MemoryError, "ssnewempty failed");
+        }
+        char *out_buf = out_ss->buf;
         for (int i = 0; i < num_codepoints; i++) {
             // get code point
             Py_UCS4 code = in[i];
@@ -237,7 +247,7 @@ unicode_to_string(PyArrayMethod_Context *context, char *const data[],
         out_buf[out_num_bytes] = '\0';
 
         // set out to the address of the beginning of the string
-        out[0] = out_buf;
+        out[0] = out_ss;
 
         in += in_stride;
         out += out_stride;
@@ -318,7 +328,7 @@ string_to_unicode(PyArrayMethod_Context *context, char *const data[],
                   NpyAuxData *NPY_UNUSED(auxdata))
 {
     npy_intp N = dimensions[0];
-    char **in = (char **)data[0];
+    ss **in = (ss **)data[0];
     Py_UCS4 *out = (Py_UCS4 *)data[1];
     // strides are in bytes but pointer offsets are in pointer widths, so
     // divide by the element size (one pointer width) to get the pointer offset
@@ -329,7 +339,9 @@ string_to_unicode(PyArrayMethod_Context *context, char *const data[],
     long max_out_size = (context->descriptors[1]->elsize) / 4;
 
     while (N--) {
-        unsigned char *this_string = (unsigned char *)*in;
+        unsigned char *this_string = (unsigned char *)((*in)->buf);
+        size_t n_bytes = (*in)->len;
+        size_t tot_n_bytes = 0;
 
         for (int i = 0; i < max_out_size; i++) {
             Py_UCS4 code;
@@ -340,16 +352,13 @@ string_to_unicode(PyArrayMethod_Context *context, char *const data[],
 
             // move to next character
             this_string += num_bytes;
+            tot_n_bytes += num_bytes;
 
             // set output codepoint
             out[i] = code;
 
-            // check if this is the null terminator
-            if (code == 0) {
-                // fill all remaining characters (if any) with zero
-                for (int j = i + 1; j < max_out_size; j++) {
-                    out[j] = 0;
-                }
+            // stop if we've exhausted the input string
+            if (tot_n_bytes >= n_bytes) {
                 break;
             }
         }

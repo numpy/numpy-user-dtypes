@@ -9,6 +9,7 @@
 #include "numpy/ufuncobject.h"
 
 #include "dtype.h"
+#include "static_string.h"
 #include "string.h"
 #include "umath.h"
 
@@ -19,8 +20,8 @@ string_equal_strided_loop(PyArrayMethod_Context *context, char *const data[],
                           NpyAuxData *NPY_UNUSED(auxdata))
 {
     npy_intp N = dimensions[0];
-    char **in1 = (char **)data[0];
-    char **in2 = (char **)data[1];
+    ss **in1 = (ss **)data[0];
+    ss **in2 = (ss **)data[1];
     npy_bool *out = (npy_bool *)data[2];
     // strides are in bytes but pointer offsets are in pointer widths, so
     // divide by the element size (one pointer width) to get the pointer offset
@@ -29,7 +30,10 @@ string_equal_strided_loop(PyArrayMethod_Context *context, char *const data[],
     npy_intp out_stride = strides[2];
 
     while (N--) {
-        if (strcmp(*in1, *in2) == 0) {
+        ss *s1 = *in1;
+        ss *s2 = *in2;
+
+        if (s1->len == s2->len && strncmp(s1->buf, s2->buf, s1->len) == 0) {
             *out = (npy_bool)1;
         }
         else {

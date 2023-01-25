@@ -1,6 +1,7 @@
 #include "dtype.h"
 
 #include "casts.h"
+#include "static_string.h"
 
 PyTypeObject *StringScalar_Type = NULL;
 
@@ -15,8 +16,9 @@ new_stringdtype_instance(void)
     if (new == NULL) {
         return NULL;
     }
-    new->base.elsize = sizeof(char *);
-    new->base.alignment = _Alignof(char *);
+    new->base.elsize = sizeof(ss *);
+    new->base.alignment = _Alignof(ss *);
+    new->base.flags |= NPY_NEEDS_INIT;
 
     return new;
 }
@@ -113,8 +115,18 @@ stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
         return -1;
     }
 
-    *dataptr = malloc(sizeof(char) * length + 1);
-    strncpy(*dataptr, val, length + 1);
+    ss *str_val = ssnewlen(val, length);
+    if (str_val == NULL) {
+        PyErr_SetString(PyExc_MemoryError, "ssnewlen failed");
+        return -1;
+    }
+    // the dtype instance has the NPY_NEEDS_INIT flag set,
+    // so if *dataptr is NULL, that means we're initializing
+    // the array and don't need to free an existing string
+    if (*dataptr != NULL) {
+        free((ss *)*dataptr);
+    }
+    *dataptr = (char *)str_val;
     Py_DECREF(val_obj);
     return 0;
 }
@@ -122,7 +134,7 @@ stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
 static PyObject *
 stringdtype_getitem(StringDTypeObject *descr, char **dataptr)
 {
-    PyObject *val_obj = PyUnicode_FromString(*dataptr);
+    PyObject *val_obj = PyUnicode_FromString(((ss *)*dataptr)->buf);
 
     if (val_obj == NULL) {
         return NULL;

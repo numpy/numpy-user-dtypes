@@ -26,6 +26,8 @@ srcs = [
   'stringdtype/src/casts.h',
   'stringdtype/src/dtype.c',
   'stringdtype/src/main.c',
+  'stringdtype/src/static_string.c',
+  'stringdtype/src/static_string.h',
   'stringdtype/src/umath.c',
   'stringdtype/src/umath.h',
 ]
