@@ -104,3 +104,10 @@ def test_equality_promotion(string_list):
 
     np.testing.assert_array_equal(sarr, uarr)
     np.testing.assert_array_equal(uarr, sarr)
+
+
+def test_isnan(string_list):
+    sarr = np.array(string_list, dtype=StringDType())
+    np.testing.assert_array_equal(
+        np.isnan(sarr), np.zeros_like(sarr, dtype=np.bool_)
+    )

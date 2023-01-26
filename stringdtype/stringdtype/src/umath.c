@@ -49,7 +49,7 @@ string_equal_strided_loop(PyArrayMethod_Context *context, char *const data[],
 
 static NPY_CASTING
 string_equal_resolve_descriptors(PyObject *NPY_UNUSED(self),
-                                 PyArray_DTypeMeta *dtypes[],
+                                 PyArray_DTypeMeta *NPY_UNUSED(dtypes[]),
                                  PyArray_Descr *given_descrs[],
                                  PyArray_Descr *loop_descrs[],
                                  npy_intp *NPY_UNUSED(view_offset))
@@ -61,7 +61,42 @@ string_equal_resolve_descriptors(PyObject *NPY_UNUSED(self),
 
     loop_descrs[2] = PyArray_DescrFromType(NPY_BOOL);  // cannot fail
 
-    return NPY_SAFE_CASTING;
+    return NPY_NO_CASTING;
+}
+
+static int
+string_isnan_strided_loop(PyArrayMethod_Context *NPY_UNUSED(context),
+                          char *const data[], npy_intp const dimensions[],
+                          npy_intp const strides[],
+                          NpyAuxData *NPY_UNUSED(auxdata))
+{
+    npy_intp N = dimensions[0];
+    npy_bool *out = (npy_bool *)data[1];
+    npy_intp out_stride = strides[1];
+
+    while (N--) {
+        // we could represent missing data with a null pointer, but
+        // should isnan return True in that case?
+        *out = (npy_bool)0;
+
+        out += out_stride;
+    }
+
+    return 0;
+}
+
+static NPY_CASTING
+string_isnan_resolve_descriptors(PyObject *NPY_UNUSED(self),
+                                 PyArray_DTypeMeta *NPY_UNUSED(dtypes[]),
+                                 PyArray_Descr *given_descrs[],
+                                 PyArray_Descr *loop_descrs[],
+                                 npy_intp *NPY_UNUSED(view_offset))
+{
+    Py_INCREF(given_descrs[0]);
+    loop_descrs[0] = given_descrs[0];
+    loop_descrs[1] = PyArray_DescrFromType(NPY_BOOL);  // cannot fail
+
+    return NPY_NO_CASTING;
 }
 
 /*
@@ -131,73 +166,70 @@ default_ufunc_promoter(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
 }
 
 int
-init_equal_ufunc(PyObject *numpy)
+init_ufunc(PyObject *numpy, const char *ufunc_name, PyArray_DTypeMeta **dtypes,
+           resolve_descriptors_function *resolve_func,
+           PyArrayMethod_StridedLoop *loop_func, const char *loop_name,
+           int nin, int nout, NPY_CASTING casting, NPY_ARRAYMETHOD_FLAGS flags)
 {
-    PyObject *equal = PyObject_GetAttrString(numpy, "equal");
-    if (equal == NULL) {
+    PyObject *ufunc = PyObject_GetAttrString(numpy, ufunc_name);
+    if (ufunc == NULL) {
         return -1;
     }
 
     /*
      *  Initialize spec for equality
      */
-    PyArray_DTypeMeta *eq_dtypes[3] = {&StringDType, &StringDType,
-                                       &PyArray_BoolDType};
+    PyType_Slot slots[] = {{NPY_METH_resolve_descriptors, resolve_func},
+                           {NPY_METH_strided_loop, loop_func},
+                           {0, NULL}};
 
-    static PyType_Slot eq_slots[] = {
-            {NPY_METH_resolve_descriptors, &string_equal_resolve_descriptors},
-            {NPY_METH_strided_loop, &string_equal_strided_loop},
-            {0, NULL}};
-
-    PyArrayMethod_Spec EqualSpec = {
-            .name = "string_equal",
-            .nin = 2,
-            .nout = 1,
-            .casting = NPY_NO_CASTING,
-            .flags = 0,
-            .dtypes = eq_dtypes,
-            .slots = eq_slots,
+    PyArrayMethod_Spec spec = {
+            .name = loop_name,
+            .nin = nin,
+            .nout = nout,
+            .casting = casting,
+            .flags = flags,
+            .dtypes = dtypes,
+            .slots = slots,
     };
 
-    if (PyUFunc_AddLoopFromSpec(equal, &EqualSpec) < 0) {
-        Py_DECREF(equal);
+    if (PyUFunc_AddLoopFromSpec(ufunc, &spec) < 0) {
+        Py_DECREF(ufunc);
         return -1;
     }
 
-    /*
-     *  Add promoter to ufunc, ensures operations that mix StringDType and
-     *  UnicodeDType cast the unicode argument to string.
-     */
+    Py_DECREF(ufunc);
+    return 0;
+}
 
-    PyObject *DTypes[] = {
-            PyTuple_Pack(3, &StringDType, &PyArray_UnicodeDType,
-                         &PyArray_BoolDType),
-            PyTuple_Pack(3, &PyArray_UnicodeDType, &StringDType,
-                         &PyArray_BoolDType),
-    };
+int
+add_promoter(PyObject *numpy, const char *ufunc_name,
+             PyArray_DTypeMeta **dtypes)
+{
+    PyObject *ufunc = PyObject_GetAttrString(numpy, ufunc_name);
+    if (ufunc == NULL) {
+        return -1;
+    }
 
-    if ((DTypes[0] == NULL) || (DTypes[1] == NULL)) {
-        Py_DECREF(equal);
+    PyObject *DType_tuple = PyTuple_Pack(3, dtypes[0], dtypes[1], dtypes[2]);
+    if (DType_tuple == NULL) {
+        Py_DECREF(ufunc);
         return -1;
     }
 
     PyObject *promoter_capsule = PyCapsule_New((void *)&default_ufunc_promoter,
                                                "numpy._ufunc_promoter", NULL);
 
-    for (int i = 0; i < 2; i++) {
-        if (PyUFunc_AddPromoter(equal, DTypes[i], promoter_capsule) < 0) {
-            Py_DECREF(promoter_capsule);
-            Py_DECREF(DTypes[0]);
-            Py_DECREF(DTypes[1]);
-            Py_DECREF(equal);
-            return -1;
-        }
+    if (PyUFunc_AddPromoter(ufunc, DType_tuple, promoter_capsule) < 0) {
+        Py_DECREF(promoter_capsule);
+        Py_DECREF(DType_tuple);
+        Py_DECREF(ufunc);
+        return -1;
     }
 
     Py_DECREF(promoter_capsule);
-    Py_DECREF(DTypes[0]);
-    Py_DECREF(DTypes[1]);
-    Py_DECREF(equal);
+    Py_DECREF(DType_tuple);
+    Py_DECREF(ufunc);
 
     return 0;
 }
@@ -210,7 +242,35 @@ init_ufuncs(void)
         return -1;
     }
 
-    if (init_equal_ufunc(numpy) < 0) {
+    PyArray_DTypeMeta *eq_dtypes[] = {&StringDType, &StringDType,
+                                      &PyArray_BoolDType};
+
+    if (init_ufunc(numpy, "equal", eq_dtypes,
+                   &string_equal_resolve_descriptors,
+                   &string_equal_strided_loop, "string_equal", 2, 1,
+                   NPY_NO_CASTING, 0) < 0) {
+        goto error;
+    }
+
+    PyArray_DTypeMeta *promoter_dtypes[2][3] = {
+            {&StringDType, &PyArray_UnicodeDType, &PyArray_BoolDType},
+            {&PyArray_UnicodeDType, &StringDType, &PyArray_BoolDType},
+    };
+
+    if (add_promoter(numpy, "equal", promoter_dtypes[0]) < 0) {
+        goto error;
+    }
+
+    if (add_promoter(numpy, "equal", promoter_dtypes[1]) < 0) {
+        goto error;
+    }
+
+    PyArray_DTypeMeta *isnan_dtypes[] = {&StringDType, &PyArray_BoolDType};
+
+    if (init_ufunc(numpy, "isnan", isnan_dtypes,
+                   &string_isnan_resolve_descriptors,
+                   &string_isnan_strided_loop, "string_isnan", 1, 1,
+                   NPY_NO_CASTING, 0) < 0) {
         goto error;
     }
 
