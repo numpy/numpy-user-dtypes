@@ -1,3 +1,4 @@
+import concurrent.futures
 import os
 import pickle
 import tempfile
@@ -129,15 +130,34 @@ def test_memory_usage(string_list):
         _memory_usage(np.array([1, 2, 3]))
 
 
-def test_pickle_dtype():
+def _pickle_load(filename):
+    with open(filename, "rb") as f:
+        res = pickle.load(f)
+
+    return res
+
+
+def test_pickle(string_list):
     dtype = StringDType()
 
+    arr = np.array(string_list, dtype=dtype)
+
     with tempfile.NamedTemporaryFile("wb", delete=False) as f:
-        pickle.dump(dtype, f)
+        pickle.dump([arr, dtype], f)
 
     with open(f.name, "rb") as f:
-        load_dtype = pickle.load(f)
+        res = pickle.load(f)
 
-    assert dtype == load_dtype
+    np.testing.assert_array_equal(res[0], arr)
+    assert res[1] == dtype
+
+    # load the pickle in a subprocess to ensure the string data are
+    # actually stored in the pickle file
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        e = executor.submit(_pickle_load, f.name)
+        res = e.result()
+
+    np.testing.assert_array_equal(res[0], arr)
+    assert res[1] == dtype
 
     os.remove(f.name)

@@ -19,6 +19,7 @@ new_stringdtype_instance(void)
     new->base.elsize = sizeof(ss *);
     new->base.alignment = _Alignof(ss *);
     new->base.flags |= NPY_NEEDS_INIT;
+    new->base.flags |= NPY_LIST_PICKLE;
 
     return new;
 }
