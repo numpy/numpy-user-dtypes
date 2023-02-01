@@ -226,6 +226,82 @@ static PyMemberDef ASCIIDType_members[] = {
         {NULL},
 };
 
+static int PICKLE_VERSION = 1;
+
+static PyObject *
+asciidtype__reduce__(ASCIIDTypeObject *self)
+{
+    PyObject *ret, *mod, *obj, *state;
+
+    ret = PyTuple_New(3);
+    if (ret == NULL) {
+        return NULL;
+    }
+
+    mod = PyImport_ImportModule("asciidtype");
+    if (mod == NULL) {
+        Py_DECREF(ret);
+        return NULL;
+    }
+
+    obj = PyObject_GetAttrString(mod, "_reconstruct_ASCIIDType");
+    Py_DECREF(mod);
+    if (obj == NULL) {
+        Py_DECREF(ret);
+        return NULL;
+    }
+
+    PyTuple_SET_ITEM(ret, 0, obj);
+
+    PyTuple_SET_ITEM(ret, 1, Py_BuildValue("(l)", self->size));
+
+    state = PyTuple_New(1);
+
+    PyTuple_SET_ITEM(state, 0, PyLong_FromLong(PICKLE_VERSION));
+
+    PyTuple_SET_ITEM(ret, 2, state);
+
+    return ret;
+}
+
+static PyObject *
+asciidtype__setstate__(ASCIIDTypeObject *NPY_UNUSED(self), PyObject *args)
+{
+    if (PyTuple_GET_SIZE(args) != 1 ||
+        !(PyLong_Check(PyTuple_GET_ITEM(args, 0)))) {
+        PyErr_BadInternalCall();
+        return NULL;
+    }
+
+    long version = PyLong_AsLong(PyTuple_GET_ITEM(args, 0));
+
+    if (version != PICKLE_VERSION) {
+        PyErr_Format(PyExc_ValueError,
+                     "Pickle version mismatch. Got version %d but expected "
+                     "version %d.",
+                     version, PICKLE_VERSION);
+        return NULL;
+    }
+
+    Py_RETURN_NONE;
+}
+
+static PyMethodDef ASCIIDType_methods[] = {
+        {
+                "__reduce__",
+                (PyCFunction)asciidtype__reduce__,
+                METH_NOARGS,
+                "Reduction method for an ASCIIDType object",
+        },
+        {
+                "__setstate__",
+                (PyCFunction)asciidtype__setstate__,
+                METH_O,
+                "Unpickle an ASCIIDType object",
+        },
+        {NULL},
+};
+
 /*
  * This is the basic things that you need to create a Python Type/Class in C.
  * However, there is a slight difference here because we create a
@@ -242,6 +318,7 @@ PyArray_DTypeMeta ASCIIDType = {
                 .tp_repr = (reprfunc)asciidtype_repr,
                 .tp_str = (reprfunc)asciidtype_repr,
                 .tp_members = ASCIIDType_members,
+                .tp_methods = ASCIIDType_methods,
         }},
         /* rest, filled in during DTypeMeta initialization */
 };
