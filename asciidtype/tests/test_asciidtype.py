@@ -55,10 +55,10 @@ def test_creation_truncation():
     )
     assert arr.tobytes() == b"htiaa"
 
-    # dtype = ASCIIDType()
-    # arr = np.array(["hello", "this", "is", "an", "array"], dtype=dtype)
-    # assert repr(arr) == ("array(['', '', '', '', ''], dtype=ASCIIDType(0))")
-    # assert arr.tobytes() == b""
+    dtype = ASCIIDType()
+    arr = np.array(["hello", "this", "is", "an", "array"], dtype=dtype)
+    assert repr(arr) == ("array(['', '', '', '', ''], dtype=ASCIIDType(0))")
+    assert arr.tobytes() == b""
 
 
 def test_casting_to_asciidtype():
