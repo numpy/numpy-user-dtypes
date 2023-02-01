@@ -14,7 +14,7 @@ def string_list():
 
 
 def test_scalar_creation():
-    assert str(StringScalar("abc", StringDType())) == "abc"
+    assert str(StringScalar("abc")) == "abc"
 
 
 def test_dtype_creation():
@@ -42,12 +42,11 @@ def test_array_creation_utf8(data):
 
 
 def test_array_creation_scalars(string_list):
-    dtype = StringDType()
     arr = np.array(
         [
-            StringScalar("abc", dtype=dtype),
-            StringScalar("def", dtype=dtype),
-            StringScalar("ghi", dtype=dtype),
+            StringScalar("abc"),
+            StringScalar("def"),
+            StringScalar("ghi"),
         ]
     )
     assert repr(arr) == repr(np.array(string_list, dtype=StringDType()))
@@ -98,7 +97,7 @@ def test_unicode_casts(string_list):
 def test_insert_scalar(string_list):
     dtype = StringDType()
     arr = np.array(string_list, dtype=dtype)
-    arr[1] = StringScalar("what", dtype=dtype)
+    arr[1] = StringScalar("what")
     assert repr(arr) == repr(np.array(["abc", "what", "ghi"], dtype=dtype))
 
 

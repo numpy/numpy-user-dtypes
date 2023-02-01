@@ -68,7 +68,7 @@ string_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls),
         return NULL;
     }
 
-    PyArray_Descr *ret = (PyArray_Descr *)PyObject_GetAttrString(obj, "dtype");
+    PyArray_Descr *ret = (PyArray_Descr *)new_stringdtype_instance();
     if (ret == NULL) {
         return NULL;
     }
@@ -143,7 +143,7 @@ stringdtype_getitem(StringDTypeObject *descr, char **dataptr)
     }
 
     PyObject *res = PyObject_CallFunctionObjArgs((PyObject *)StringScalar_Type,
-                                                 val_obj, descr, NULL);
+                                                 val_obj, NULL);
 
     if (res == NULL) {
         return NULL;
