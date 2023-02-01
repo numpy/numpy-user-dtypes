@@ -14,7 +14,7 @@ def test_scalar_creation():
 
 
 def test_dtype_creation():
-    assert str(StringDType()) == "StringDType"
+    assert str(StringDType()) == "StringDType()"
 
 
 def test_dtype_equality():
@@ -34,7 +34,7 @@ def test_dtype_equality():
 )
 def test_array_creation_utf8(data):
     arr = np.array(data, dtype=StringDType())
-    assert repr(arr) == f"array({str(data)}, dtype=StringDType)"
+    assert repr(arr) == f"array({str(data)}, dtype=StringDType())"
 
 
 def test_array_creation_scalars(string_list):

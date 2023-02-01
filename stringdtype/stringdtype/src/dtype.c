@@ -30,7 +30,8 @@ new_stringdtype_instance(void)
  * we can safely always return the first one.
  */
 static StringDTypeObject *
-common_instance(StringDTypeObject *dtype1, StringDTypeObject *dtype2)
+common_instance(StringDTypeObject *dtype1,
+                StringDTypeObject *NPY_UNUSED(dtype2))
 {
     Py_INCREF(dtype1);
     return dtype1;
@@ -102,7 +103,8 @@ get_value(PyObject *scalar)
 // Take a python object `obj` and insert it into the array of dtype `descr` at
 // the position given by dataptr.
 static int
-stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
+stringdtype_setitem(StringDTypeObject *NPY_UNUSED(descr), PyObject *obj,
+                    char **dataptr)
 {
     PyObject *val_obj = get_value(obj);
     if (val_obj == NULL) {
@@ -193,9 +195,9 @@ stringdtype_dealloc(StringDTypeObject *self)
 }
 
 static PyObject *
-stringdtype_repr(StringDTypeObject *self)
+stringdtype_repr(StringDTypeObject *NPY_UNUSED(self))
 {
-    return PyUnicode_FromString("StringDType");
+    return PyUnicode_FromString("StringDType()");
 }
 
 /*
