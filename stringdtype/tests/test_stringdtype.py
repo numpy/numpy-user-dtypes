@@ -1,3 +1,7 @@
+import os
+import pickle
+import tempfile
+
 import numpy as np
 import pytest
 
@@ -124,3 +128,17 @@ def test_memory_usage(string_list):
         _memory_usage("hello")
     with pytest.raises(TypeError):
         _memory_usage(np.array([1, 2, 3]))
+
+
+def test_pickle_dtype():
+    dtype = StringDType()
+
+    with tempfile.NamedTemporaryFile("wb", delete=False) as f:
+        pickle.dump(dtype, f)
+
+    with open(f.name, "rb") as f:
+        load_dtype = pickle.load(f)
+
+    assert dtype == load_dtype
+
+    os.remove(f.name)
