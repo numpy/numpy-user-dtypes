@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from stringdtype import StringDType, StringScalar
+from stringdtype import StringDType, StringScalar, _memory_usage
 
 
 @pytest.fixture
@@ -111,3 +111,16 @@ def test_isnan(string_list):
     np.testing.assert_array_equal(
         np.isnan(sarr), np.zeros_like(sarr, dtype=np.bool_)
     )
+
+
+def test_memory_usage(string_list):
+    sarr = np.array(string_list, dtype=StringDType())
+    # 4 bytes for each ASCII string buffer in string_list
+    # (three characters and null terminator)
+    # plus enough bytes for the size_t length
+    # plus enough bytes for the pointer in the array buffer
+    assert _memory_usage(sarr) == (4 + 2 * np.dtype(np.uintp).itemsize) * 3
+    with pytest.raises(TypeError):
+        _memory_usage("hello")
+    with pytest.raises(TypeError):
+        _memory_usage(np.array([1, 2, 3]))

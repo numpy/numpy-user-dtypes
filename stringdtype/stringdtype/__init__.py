@@ -5,6 +5,10 @@ in Numpy and is not intended for any real purpose.
 """
 
 from .scalar import StringScalar  # isort: skip
-from ._main import StringDType
+from ._main import StringDType, _memory_usage
 
-__all__ = ["StringDType", "StringScalar"]
+__all__ = [
+    "StringDType",
+    "StringScalar",
+    "_memory_usage",
+]
