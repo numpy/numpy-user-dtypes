@@ -295,7 +295,7 @@ string_to_unicode_resolve_descriptors(PyObject *NPY_UNUSED(self),
 // codepoint for the next character, returning the size of the character in
 // bytes. Does not do any validation or error checking: assumes *c* is valid
 // utf-8
-static size_t
+size_t
 utf8_char_to_ucs4_code(unsigned char *c, Py_UCS4 *code)
 {
     if (c[0] <= 0x7F) {

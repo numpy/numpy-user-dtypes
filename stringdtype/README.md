@@ -10,18 +10,26 @@ NumPy.
 Ensure Meson and NumPy are installed in the python environment you would like to use:
 
 ```
-$ python3 -m pip install meson meson-python numpy build patchelf
+$ python3 -m pip install meson meson-python build patchelf
 ```
 
-Build with meson, create a wheel, and install it
+It is important to have the latest development version of numpy installed.
+Nightly wheels work well for this purpose, and can be installed easily:
 
+```bash
+$ pip install -i https://pypi.anaconda.org/scipy-wheels-nightly/simple numpy
 ```
+
+Build with meson, create a wheel, and install it.
+
+```bash
 $ rm -r dist/
 $ meson build
 $ python -m build --wheel -Cbuilddir=build
-$ python -m pip install dist/asciidtype*.whl
 ```
 
-The `mesonpy` build backend for pip [does not currently support editable
-installs](https://github.com/mesonbuild/meson-python/issues/47), so `pip install
--e .` will not work.
+Or simply install directly, taking care to install without build isolation:
+
+```bash
+$ pip install -v . --no-build-isolation
+```

@@ -13,4 +13,7 @@
 PyArrayMethod_Spec **
 get_casts(void);
 
+size_t
+utf8_char_to_ucs4_code(unsigned char *, Py_UCS4 *);
+
 #endif /* _NPY_CASTS_H */

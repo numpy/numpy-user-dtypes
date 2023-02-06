@@ -161,3 +161,23 @@ def test_pickle(string_list):
     assert res[1] == dtype
 
     os.remove(f.name)
+
+
+@pytest.mark.parametrize(
+    "strings",
+    [
+        ["left", "right", "leftovers", "righty", "up", "down"],
+        ["🤣🤣", "🤣", "📵", "😰"],
+        ["🚜", "🙃", "😾"],
+        ["😹", "🚠", "🚌"],
+        ["A¢☃€ 😊", " A☃€¢😊", "☃€😊 A¢", "😊☃A¢ €"],
+    ],
+)
+def test_sort(strings):
+    """Test that sorting matches python's internal sorting."""
+    arr = np.array(strings, dtype=StringDType())
+    arr_sorted = np.array(sorted(strings), dtype=StringDType())
+
+    np.random.default_rng().shuffle(arr)
+    arr.sort()
+    np.testing.assert_array_equal(arr, arr_sorted)

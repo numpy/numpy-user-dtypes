@@ -155,6 +155,16 @@ stringdtype_getitem(StringDTypeObject *descr, char **dataptr)
     return res;
 }
 
+// Implementation of PyArray_CompareFunc.
+// Compares unicode strings by their code points.
+int
+compare_strings(char **a, char **b, PyArrayObject *NPY_UNUSED(arr))
+{
+    ss *ss_a = (ss *)*a;
+    ss *ss_b = (ss *)*b;
+    return strcmp(ss_a->buf, ss_b->buf);
+}
+
 static StringDTypeObject *
 stringdtype_ensure_canonical(StringDTypeObject *self)
 {
@@ -170,6 +180,7 @@ static PyType_Slot StringDType_Slots[] = {
         {NPY_DT_setitem, &stringdtype_setitem},
         {NPY_DT_getitem, &stringdtype_getitem},
         {NPY_DT_ensure_canonical, &stringdtype_ensure_canonical},
+        {NPY_DT_PyArray_ArrFuncs_compare, &compare_strings},
         {0, NULL}};
 
 static PyObject *
