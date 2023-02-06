@@ -204,7 +204,7 @@ stringdtype_repr(StringDTypeObject *NPY_UNUSED(self))
 static int PICKLE_VERSION = 1;
 
 static PyObject *
-stringdtype__reduce__(StringDTypeObject *self)
+stringdtype__reduce__(StringDTypeObject *NPY_UNUSED(self))
 {
     PyObject *ret, *mod, *obj, *state;
 
@@ -219,7 +219,7 @@ stringdtype__reduce__(StringDTypeObject *self)
         return NULL;
     }
 
-    obj = PyObject_GetAttrString(mod, "_reconstruct_StringDType");
+    obj = PyObject_GetAttrString(mod, "StringDType");
     Py_DECREF(mod);
     if (obj == NULL) {
         Py_DECREF(ret);

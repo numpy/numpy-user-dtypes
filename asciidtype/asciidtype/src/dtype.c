@@ -244,7 +244,7 @@ asciidtype__reduce__(ASCIIDTypeObject *self)
         return NULL;
     }
 
-    obj = PyObject_GetAttrString(mod, "_reconstruct_ASCIIDType");
+    obj = PyObject_GetAttrString(mod, "ASCIIDType");
     Py_DECREF(mod);
     if (obj == NULL) {
         Py_DECREF(ret);
