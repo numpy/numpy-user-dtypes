@@ -26,4 +26,7 @@ new_stringdtype_instance(void);
 int
 init_string_dtype(void);
 
+// from dtypemeta.h, not public in numpy
+#define NPY_DTYPE(descr) ((PyArray_DTypeMeta *)Py_TYPE(descr))
+
 #endif /*_NPY_DTYPE_H*/
