@@ -2,11 +2,6 @@
 
 
 class StringScalar(str):
-    def __new__(cls, value, dtype):
-        instance = super().__new__(cls, value)
-        instance.dtype = dtype
-        return instance
-
     def partition(self, sep):
         ret = super().partition(sep)
         return (str(ret[0]), str(ret[1]), str(ret[2]))

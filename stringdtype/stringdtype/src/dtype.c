@@ -19,6 +19,7 @@ new_stringdtype_instance(void)
     new->base.elsize = sizeof(ss *);
     new->base.alignment = _Alignof(ss *);
     new->base.flags |= NPY_NEEDS_INIT;
+    new->base.flags |= NPY_LIST_PICKLE;
 
     return new;
 }
@@ -68,7 +69,7 @@ string_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls),
         return NULL;
     }
 
-    PyArray_Descr *ret = (PyArray_Descr *)PyObject_GetAttrString(obj, "dtype");
+    PyArray_Descr *ret = (PyArray_Descr *)new_stringdtype_instance();
     if (ret == NULL) {
         return NULL;
     }
@@ -143,7 +144,7 @@ stringdtype_getitem(StringDTypeObject *descr, char **dataptr)
     }
 
     PyObject *res = PyObject_CallFunctionObjArgs((PyObject *)StringScalar_Type,
-                                                 val_obj, descr, NULL);
+                                                 val_obj, NULL);
 
     if (res == NULL) {
         return NULL;
@@ -200,6 +201,82 @@ stringdtype_repr(StringDTypeObject *NPY_UNUSED(self))
     return PyUnicode_FromString("StringDType()");
 }
 
+static int PICKLE_VERSION = 1;
+
+static PyObject *
+stringdtype__reduce__(StringDTypeObject *NPY_UNUSED(self))
+{
+    PyObject *ret, *mod, *obj, *state;
+
+    ret = PyTuple_New(3);
+    if (ret == NULL) {
+        return NULL;
+    }
+
+    mod = PyImport_ImportModule("stringdtype");
+    if (mod == NULL) {
+        Py_DECREF(ret);
+        return NULL;
+    }
+
+    obj = PyObject_GetAttrString(mod, "StringDType");
+    Py_DECREF(mod);
+    if (obj == NULL) {
+        Py_DECREF(ret);
+        return NULL;
+    }
+
+    PyTuple_SET_ITEM(ret, 0, obj);
+
+    PyTuple_SET_ITEM(ret, 1, PyTuple_New(0));
+
+    state = PyTuple_New(1);
+
+    PyTuple_SET_ITEM(state, 0, PyLong_FromLong(PICKLE_VERSION));
+
+    PyTuple_SET_ITEM(ret, 2, state);
+
+    return ret;
+}
+
+static PyObject *
+stringdtype__setstate__(StringDTypeObject *NPY_UNUSED(self), PyObject *args)
+{
+    if (PyTuple_GET_SIZE(args) != 1 ||
+        !(PyLong_Check(PyTuple_GET_ITEM(args, 0)))) {
+        PyErr_BadInternalCall();
+        return NULL;
+    }
+
+    long version = PyLong_AsLong(PyTuple_GET_ITEM(args, 0));
+
+    if (version != PICKLE_VERSION) {
+        PyErr_Format(PyExc_ValueError,
+                     "Pickle version mismatch. Got version %d but expected "
+                     "version %d.",
+                     version, PICKLE_VERSION);
+        return NULL;
+    }
+
+    Py_RETURN_NONE;
+}
+
+static PyMethodDef StringDType_methods[] = {
+        {
+                "__reduce__",
+                (PyCFunction)stringdtype__reduce__,
+                METH_NOARGS,
+                "Reduction method for an StringDType object",
+        },
+        {
+                "__setstate__",
+                (PyCFunction)stringdtype__setstate__,
+                METH_O,
+                "Unpickle an StringDType object",
+        },
+        {NULL},
+};
+
 /*
  * This is the basic things that you need to create a Python Type/Class in C.
  * However, there is a slight difference here because we create a
@@ -215,6 +292,7 @@ PyArray_DTypeMeta StringDType = {
                 .tp_dealloc = (destructor)stringdtype_dealloc,
                 .tp_repr = (reprfunc)stringdtype_repr,
                 .tp_str = (reprfunc)stringdtype_repr,
+                .tp_methods = StringDType_methods,
         }},
         /* rest, filled in during DTypeMeta initialization */
 };

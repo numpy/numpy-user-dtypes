@@ -1,4 +1,7 @@
+import os
+import pickle
 import re
+import tempfile
 
 import numpy as np
 import pytest
@@ -230,3 +233,18 @@ def test_insert_scalar_directly():
     val = arr[0]
     arr[1] = val
     np.testing.assert_array_equal(arr, np.array(["some", "some"], dtype=dtype))
+
+
+def test_pickle():
+    dtype = ASCIIDType(6)
+    arr = np.array(["this", "is", "an", "array"], dtype=dtype)
+    with tempfile.NamedTemporaryFile("wb", delete=False) as f:
+        pickle.dump([arr, dtype], f)
+
+    with open(f.name, "rb") as f:
+        res = pickle.load(f)
+
+    np.testing.assert_array_equal(arr, res[0])
+    assert res[1] == dtype
+
+    os.remove(f.name)

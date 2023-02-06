@@ -1,3 +1,8 @@
+import concurrent.futures
+import os
+import pickle
+import tempfile
+
 import numpy as np
 import pytest
 
@@ -10,7 +15,7 @@ def string_list():
 
 
 def test_scalar_creation():
-    assert str(StringScalar("abc", StringDType())) == "abc"
+    assert str(StringScalar("abc")) == "abc"
 
 
 def test_dtype_creation():
@@ -38,12 +43,11 @@ def test_array_creation_utf8(data):
 
 
 def test_array_creation_scalars(string_list):
-    dtype = StringDType()
     arr = np.array(
         [
-            StringScalar("abc", dtype=dtype),
-            StringScalar("def", dtype=dtype),
-            StringScalar("ghi", dtype=dtype),
+            StringScalar("abc"),
+            StringScalar("def"),
+            StringScalar("ghi"),
         ]
     )
     assert repr(arr) == repr(np.array(string_list, dtype=StringDType()))
@@ -94,7 +98,7 @@ def test_unicode_casts(string_list):
 def test_insert_scalar(string_list):
     dtype = StringDType()
     arr = np.array(string_list, dtype=dtype)
-    arr[1] = StringScalar("what", dtype=dtype)
+    arr[1] = StringScalar("what")
     assert repr(arr) == repr(np.array(["abc", "what", "ghi"], dtype=dtype))
 
 
@@ -124,3 +128,36 @@ def test_memory_usage(string_list):
         _memory_usage("hello")
     with pytest.raises(TypeError):
         _memory_usage(np.array([1, 2, 3]))
+
+
+def _pickle_load(filename):
+    with open(filename, "rb") as f:
+        res = pickle.load(f)
+
+    return res
+
+
+def test_pickle(string_list):
+    dtype = StringDType()
+
+    arr = np.array(string_list, dtype=dtype)
+
+    with tempfile.NamedTemporaryFile("wb", delete=False) as f:
+        pickle.dump([arr, dtype], f)
+
+    with open(f.name, "rb") as f:
+        res = pickle.load(f)
+
+    np.testing.assert_array_equal(res[0], arr)
+    assert res[1] == dtype
+
+    # load the pickle in a subprocess to ensure the string data are
+    # actually stored in the pickle file
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        e = executor.submit(_pickle_load, f.name)
+        res = e.result()
+
+    np.testing.assert_array_equal(res[0], arr)
+    assert res[1] == dtype
+
+    os.remove(f.name)

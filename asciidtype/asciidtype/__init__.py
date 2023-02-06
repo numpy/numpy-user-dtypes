@@ -7,4 +7,7 @@ in Numpy and is not intended for any real purpose.
 from .scalar import ASCIIScalar  # isort: skip
 from ._asciidtype_main import ASCIIDType
 
-__all__ = ["ASCIIDType", "ASCIIScalar"]
+__all__ = [
+    "ASCIIDType",
+    "ASCIIScalar",
+]
