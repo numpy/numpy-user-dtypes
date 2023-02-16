@@ -48,11 +48,10 @@ string_equal_strided_loop(PyArrayMethod_Context *context, char *const data[],
 }
 
 static NPY_CASTING
-string_equal_resolve_descriptors(PyObject *NPY_UNUSED(self),
-                                 PyArray_DTypeMeta *NPY_UNUSED(dtypes[]),
-                                 PyArray_Descr *given_descrs[],
-                                 PyArray_Descr *loop_descrs[],
-                                 npy_intp *NPY_UNUSED(view_offset))
+string_equal_resolve_descriptors(
+        struct PyArrayMethodObject_tag *NPY_UNUSED(method),
+        PyArray_DTypeMeta *NPY_UNUSED(dtypes[]), PyArray_Descr *given_descrs[],
+        PyArray_Descr *loop_descrs[], npy_intp *NPY_UNUSED(view_offset))
 {
     Py_INCREF(given_descrs[0]);
     loop_descrs[0] = given_descrs[0];
@@ -86,11 +85,10 @@ string_isnan_strided_loop(PyArrayMethod_Context *NPY_UNUSED(context),
 }
 
 static NPY_CASTING
-string_isnan_resolve_descriptors(PyObject *NPY_UNUSED(self),
-                                 PyArray_DTypeMeta *NPY_UNUSED(dtypes[]),
-                                 PyArray_Descr *given_descrs[],
-                                 PyArray_Descr *loop_descrs[],
-                                 npy_intp *NPY_UNUSED(view_offset))
+string_isnan_resolve_descriptors(
+        struct PyArrayMethodObject_tag *NPY_UNUSED(method),
+        PyArray_DTypeMeta *NPY_UNUSED(dtypes[]), PyArray_Descr *given_descrs[],
+        PyArray_Descr *loop_descrs[], npy_intp *NPY_UNUSED(view_offset))
 {
     Py_INCREF(given_descrs[0]);
     loop_descrs[0] = given_descrs[0];
@@ -176,9 +174,6 @@ init_ufunc(PyObject *numpy, const char *ufunc_name, PyArray_DTypeMeta **dtypes,
         return -1;
     }
 
-    /*
-     *  Initialize spec for equality
-     */
     PyType_Slot slots[] = {{NPY_METH_resolve_descriptors, resolve_func},
                            {NPY_METH_strided_loop, loop_func},
                            {0, NULL}};
