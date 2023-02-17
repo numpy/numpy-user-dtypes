@@ -27,4 +27,8 @@ new_metadatadtype_instance(PyObject *metadata);
 int
 init_metadata_dtype(void);
 
+PyArray_Descr *
+common_instance(MetadataDTypeObject *dtype1,
+                MetadataDTypeObject *NPY_UNUSED(dtype2));
+
 #endif /*_NPY_DTYPE_H*/

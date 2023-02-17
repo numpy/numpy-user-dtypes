@@ -12,96 +12,78 @@
 #include "umath.h"
 
 static int
-metadata_multiply_strided_loop(PyArrayMethod_Context *context,
-                               char *const data[], npy_intp const dimensions[],
-                               npy_intp const strides[], NpyAuxData *auxdata)
+translate_given_descrs_to_double(
+        int nin, int nout, PyArray_DTypeMeta *NPY_UNUSED(wrapped_dtypes[]),
+        PyArray_Descr *given_descrs[], PyArray_Descr *new_descrs[])
 {
-    npy_intp N = dimensions[0];
-    char *in1 = data[0], *in2 = data[1];
-    char *out = data[2];
-    npy_intp in1_stride = strides[0];
-    npy_intp in2_stride = strides[1];
-    npy_intp out_stride = strides[2];
-
-    while (N--) {
-        *(double *)out = *(double *)in1 * *(double *)in2;
-        in1 += in1_stride;
-        in2 += in2_stride;
-        out += out_stride;
+    assert(nin == 2 && nout == 1);
+    for (int i = 0; i < 3; i++) {
+        if (given_descrs[i] == NULL) {
+            new_descrs[i] = NULL;
+        }
+        else {
+            new_descrs[i] = PyArray_DescrFromType(NPY_DOUBLE);
+        }
     }
     return 0;
 }
 
-static NPY_CASTING
-metadata_multiply_resolve_descriptors(PyObject *self,
-                                      PyArray_DTypeMeta *dtypes[],
-                                      PyArray_Descr *given_descrs[],
-                                      PyArray_Descr *loop_descrs[],
-                                      npy_intp *unused)
+static int
+translate_loop_descrs(int nin, int nout,
+                      PyArray_DTypeMeta *NPY_UNUSED(new_dtypes[]),
+                      PyArray_Descr *given_descrs[],
+                      PyArray_Descr *NPY_UNUSED(original_descrs[]),
+                      PyArray_Descr *loop_descrs[])
 {
-    // for now just the take the metadata of the first operand
-    PyObject *meta1 = ((MetadataDTypeObject *)given_descrs[0])->metadata;
-
-    /* Create new DType from the new unit: */
-    loop_descrs[2] = (PyArray_Descr *)new_metadatadtype_instance(meta1);
-    if (loop_descrs[2] == NULL) {
+    assert(nin == 2 && nout == 1);
+    loop_descrs[0] = common_instance((MetadataDTypeObject *)given_descrs[0],
+                                     (MetadataDTypeObject *)given_descrs[1]);
+    if (loop_descrs[0] == NULL) {
         return -1;
     }
-    /* The other operand units can be used as-is: */
-    Py_INCREF(given_descrs[0]);
-    loop_descrs[0] = given_descrs[0];
-    Py_INCREF(given_descrs[1]);
-    loop_descrs[1] = given_descrs[1];
-
-    return NPY_NO_CASTING;
+    Py_INCREF(loop_descrs[0]);
+    loop_descrs[1] = loop_descrs[0];
+    Py_INCREF(loop_descrs[0]);
+    loop_descrs[2] = loop_descrs[0];
+    return 0;
 }
 
-/*
- * Function that adds our multiply loop to NumPy's multiply ufunc.
- */
+static PyObject *
+get_ufunc(const char *ufunc_name)
+{
+    PyObject *mod = PyImport_ImportModule("numpy");
+    if (mod == NULL) {
+        return NULL;
+    }
+    PyObject *ufunc = PyObject_GetAttrString(mod, ufunc_name);
+    Py_DECREF(mod);
+    if (ufunc == NULL) {
+        return NULL;
+    }
+    return ufunc;
+}
+
+static int
+add_wrapping_loop(const char *ufunc_name, PyArray_DTypeMeta *dtypes[3])
+{
+    PyObject *ufunc = get_ufunc(ufunc_name);
+    PyArray_DTypeMeta *wrapped_dtypes[3] = {
+            &PyArray_DoubleDType, &PyArray_DoubleDType, &PyArray_DoubleDType};
+    return PyUFunc_AddWrappingLoop(ufunc, dtypes, wrapped_dtypes,
+                                   &translate_given_descrs_to_double,
+                                   &translate_loop_descrs);
+}
+
 int
-init_multiply_ufunc(void)
+init_ufuncs(void)
 {
-    /*
-     * Get the multiply ufunc:
-     */
-    PyObject *numpy = PyImport_ImportModule("numpy");
-    if (numpy == NULL) {
-        return -1;
-    }
-    PyObject *multiply = PyObject_GetAttrString(numpy, "multiply");
-    Py_DECREF(numpy);
-    if (multiply == NULL) {
-        return -1;
+    PyArray_DTypeMeta *dtypes[3] = {&MetadataDType, &MetadataDType,
+                                    &MetadataDType};
+    if (add_wrapping_loop("multiply", dtypes) == -1) {
+        goto error;
     }
 
-    /*
-     * The initializing "wrap up" code from the slides (plus one error check)
-     */
-    static PyArray_DTypeMeta *dtypes[3] = {&MetadataDType, &MetadataDType,
-                                           &MetadataDType};
-
-    static PyType_Slot slots[] = {
-            {NPY_METH_resolve_descriptors,
-             &metadata_multiply_resolve_descriptors},
-            {NPY_METH_strided_loop, &metadata_multiply_strided_loop},
-            {0, NULL}};
-
-    PyArrayMethod_Spec MultiplySpec = {
-            .name = "metadata_multiply",
-            .nin = 2,
-            .nout = 1,
-            .dtypes = dtypes,
-            .slots = slots,
-            .flags = 0,
-            .casting = NPY_NO_CASTING,
-    };
-
-    /* Register */
-    if (PyUFunc_AddLoopFromSpec(multiply, &MultiplySpec) < 0) {
-        Py_DECREF(multiply);
-        return -1;
-    }
-    Py_DECREF(multiply);
     return 0;
+error:
+    return -1;
 }
