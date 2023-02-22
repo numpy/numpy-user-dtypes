@@ -28,3 +28,9 @@ dependencies = [
 [tool.ruff]
 line-length = 79
 per-file-ignores = {"__init__.py" = ["F401"]}
+
+[tool.meson-python.args]
+dist = []
+setup = ["-Ddebug=true", "-Doptimization=0"]
+compile = []
+install = []

@@ -220,9 +220,10 @@ unicode_to_string(PyArrayMethod_Context *context, char *const data[],
         ss *out_ss = ssnewempty(out_num_bytes);
         if (out_ss == NULL) {
             gil_error(PyExc_MemoryError, "ssnewempty failed");
+            return -1;
         }
         char *out_buf = out_ss->buf;
-        for (int i = 0; i < num_codepoints; i++) {
+        for (size_t i = 0; i < num_codepoints; i++) {
             // get code point
             Py_UCS4 code = in[i];
 
