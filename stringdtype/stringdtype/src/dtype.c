@@ -183,6 +183,7 @@ stringdtype_clear_loop(void *NPY_UNUSED(traverse_context),
     while (size--) {
         if (data != NULL) {
             free(*(ss **)data);
+            *(ss **)data = NULL;
         }
         data += stride;
     }
@@ -199,7 +200,7 @@ stringdtype_get_clear_loop(void *NPY_UNUSED(traverse_context),
                            NpyAuxData **NPY_UNUSED(out_auxdata),
                            NPY_ARRAYMETHOD_FLAGS *flags)
 {
-    *flags = NPY_METH_REQUIRES_PYAPI | NPY_METH_NO_FLOATINGPOINT_ERRORS;
+    *flags = NPY_METH_NO_FLOATINGPOINT_ERRORS;
     *out_loop = &stringdtype_clear_loop;
     return 0;
 }
