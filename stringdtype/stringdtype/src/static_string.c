@@ -33,9 +33,26 @@ ssdup(const ss *s)
 // does not do any initialization, the caller must
 // initialize and null-terminate the string
 ss *
-ssnewempty(size_t len)
+ssnewemptylen(size_t len)
 {
     ss *ret = (ss *)malloc(sizeof(ss) + sizeof(char) * (len + 1));
     ret->len = len;
     return ret;
+}
+
+ss *
+ssempty(void)
+{
+    return ssnewlen("", 0);
+}
+
+ss *
+empty_if_null(ss **data)
+{
+    if (*data == NULL) {
+        return ssempty();
+    }
+    else {
+        return *data;
+    }
 }

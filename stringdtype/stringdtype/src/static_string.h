@@ -21,6 +21,13 @@ ssdup(const ss *s);
 // does not do any initialization, the caller must
 // initialize and null-terminate the string
 ss *
-ssnewempty(size_t len);
+ssnewemptylen(size_t len);
+
+// returns an new heap-allocated empty string
+ss *
+ssnewempty(void);
+
+ss *
+empty_if_null(ss **data);
 
 #endif /*_NPY_STATIC_STRING_H */
