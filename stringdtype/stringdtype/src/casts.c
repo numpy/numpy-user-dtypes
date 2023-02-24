@@ -53,11 +53,17 @@ string_to_string(PyArrayMethod_Context *context, char *const data[],
     npy_intp out_stride = strides[1] / context->descriptors[1]->elsize;
 
     while (N--) {
-        out[0] = ssdup(in[0]);
+        ss *s = empty_if_null(in);
+        out[0] = ssdup(s);
         if (out[0] == NULL) {
             gil_error(PyExc_MemoryError, "ssdup failed");
             return -1;
         }
+
+        if (*in == NULL) {
+            free(s);
+        }
+
         in += in_stride;
         out += out_stride;
     }
@@ -217,12 +223,13 @@ unicode_to_string(PyArrayMethod_Context *context, char *const data[],
             gil_error(PyExc_TypeError, "Invalid unicode code point found");
             return -1;
         }
-        ss *out_ss = ssnewempty(out_num_bytes);
+        ss *out_ss = ssnewemptylen(out_num_bytes);
         if (out_ss == NULL) {
-            gil_error(PyExc_MemoryError, "ssnewempty failed");
+            gil_error(PyExc_MemoryError, "ssnewemptylen failed");
+            return -1;
         }
         char *out_buf = out_ss->buf;
-        for (int i = 0; i < num_codepoints; i++) {
+        for (size_t i = 0; i < num_codepoints; i++) {
             // get code point
             Py_UCS4 code = in[i];
 
@@ -339,8 +346,9 @@ string_to_unicode(PyArrayMethod_Context *context, char *const data[],
     long max_out_size = (context->descriptors[1]->elsize) / 4;
 
     while (N--) {
-        unsigned char *this_string = (unsigned char *)((*in)->buf);
-        size_t n_bytes = (*in)->len;
+        ss *s = empty_if_null(in);
+        unsigned char *this_string = (unsigned char *)(s->buf);
+        size_t n_bytes = s->len;
         size_t tot_n_bytes = 0;
 
         for (int i = 0; i < max_out_size; i++) {
@@ -362,6 +370,11 @@ string_to_unicode(PyArrayMethod_Context *context, char *const data[],
                 break;
             }
         }
+
+        if (*in == NULL) {
+            free(s);
+        }
+
         in += in_stride;
         out += out_stride;
     }

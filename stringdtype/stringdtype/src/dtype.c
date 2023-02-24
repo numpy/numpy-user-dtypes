@@ -135,9 +135,21 @@ stringdtype_setitem(StringDTypeObject *NPY_UNUSED(descr), PyObject *obj,
 }
 
 static PyObject *
-stringdtype_getitem(StringDTypeObject *descr, char **dataptr)
+stringdtype_getitem(StringDTypeObject *NPY_UNUSED(descr), char **dataptr)
 {
-    PyObject *val_obj = PyUnicode_FromString(((ss *)*dataptr)->buf);
+    char *data;
+
+    // in the future this could represent missing data too, but we'd
+    // need to make it so np.empty and np.zeros take their initial value
+    // from an API hook that doesn't exist yet
+    if (*dataptr == NULL) {
+        data = "\0";
+    }
+    else {
+        data = ((ss *)*dataptr)->buf;
+    }
+
+    PyObject *val_obj = PyUnicode_FromString(data);
 
     if (val_obj == NULL) {
         return NULL;

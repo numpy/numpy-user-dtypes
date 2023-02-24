@@ -181,3 +181,16 @@ def test_sort(strings):
     np.random.default_rng().shuffle(arr)
     arr.sort()
     np.testing.assert_array_equal(arr, arr_sorted)
+
+
+def test_creation_functions():
+    np.testing.assert_array_equal(
+        np.zeros(3, dtype=StringDType()), ["", "", ""]
+    )
+
+    np.testing.assert_array_equal(
+        np.empty(3, dtype=StringDType()), ["", "", ""]
+    )
+
+    # make sure getitem works too
+    assert np.empty(3, dtype=StringDType())[0] == ""

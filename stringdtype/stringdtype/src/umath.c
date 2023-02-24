@@ -30,8 +30,8 @@ string_equal_strided_loop(PyArrayMethod_Context *context, char *const data[],
     npy_intp out_stride = strides[2];
 
     while (N--) {
-        ss *s1 = *in1;
-        ss *s2 = *in2;
+        ss *s1 = empty_if_null(in1);
+        ss *s2 = empty_if_null(in2);
 
         if (s1->len == s2->len && strncmp(s1->buf, s2->buf, s1->len) == 0) {
             *out = (npy_bool)1;
@@ -39,6 +39,15 @@ string_equal_strided_loop(PyArrayMethod_Context *context, char *const data[],
         else {
             *out = (npy_bool)0;
         }
+
+        if (*in1 == NULL) {
+            free(s1);
+        }
+
+        if (*in2 == NULL) {
+            free(s2);
+        }
+
         in1 += in1_stride;
         in2 += in2_stride;
         out += out_stride;
