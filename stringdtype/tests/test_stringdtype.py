@@ -212,3 +212,33 @@ def test_creation_functions():
 
 def test_is_numeric():
     assert not StringDType._is_numeric
+
+
+@pytest.mark.parametrize(
+    "strings",
+    [
+        ["left", "right", "leftovers", "righty", "up", "down"],
+        ["🤣🤣", "🤣", "📵", "😰"],
+        ["🚜", "🙃", "😾"],
+        ["😹", "🚠", "🚌"],
+        ["A¢☃€ 😊", " A☃€¢😊", "☃€😊 A¢", "😊☃A¢ €"],
+    ],
+)
+def test_argmax(strings):
+    """Test that argmax matches what python calculates as the argmax."""
+    arr = np.array(strings, dtype=StringDType())
+    assert np.argmax(arr) == strings.index(max(strings))
+
+
+@pytest.mark.parametrize(
+    "arrfunc,expected",
+    [
+        [np.sort, np.empty(10, dtype=StringDType())],
+        [np.nonzero, (np.array([], dtype=np.int64),)],
+        [np.argmax, 0],
+    ],
+)
+def test_arrfuncs_empty(arrfunc, expected):
+    arr = np.empty(10, dtype=StringDType())
+    result = arrfunc(arr)
+    np.testing.assert_array_equal(result, expected, strict=True)
