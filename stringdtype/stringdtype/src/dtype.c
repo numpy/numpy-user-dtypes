@@ -21,6 +21,7 @@ new_stringdtype_instance(void)
     new->base.flags |= NPY_NEEDS_INIT;
     new->base.flags |= NPY_LIST_PICKLE;
     new->base.flags |= NPY_ITEM_REFCOUNT;
+    new->base.flags |= NPY_NEEDS_PYAPI;
 
     return new;
 }
