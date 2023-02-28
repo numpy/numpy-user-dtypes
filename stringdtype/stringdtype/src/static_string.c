@@ -4,7 +4,7 @@ int
 ssnewlen(const char *init, size_t len, ss *to_init)
 {
     if ((to_init->buf != NULL) || (to_init->len != 0)) {
-        return -1;
+        return -2;
     }
 
     // one extra byte for null terminator
@@ -47,7 +47,7 @@ int
 ssnewemptylen(size_t num_bytes, ss *out)
 {
     if (out->len != 0 || out->buf != NULL) {
-        return -1;
+        return -2;
     }
 
     char *buf = (char *)malloc(sizeof(char) * (num_bytes + 1));

@@ -124,13 +124,19 @@ stringdtype_setitem(StringDTypeObject *NPY_UNUSED(descr), PyObject *obj,
     ssfree((ss *)dataptr);
 
     // copies contents of val into item_val->buf
-    if (ssnewlen(val, length, (ss *)dataptr) == -1) {
-        PyErr_SetString(PyExc_MemoryError, "ssnewlen failed");
-        return -1;
-    }
-
+    int res = ssnewlen(val, length, (ss *)dataptr);
     // val_obj must stay alive until here to ensure *val* doesn't get
     // deallocated
+    Py_DECREF(val_obj);
+    if (res == -1) {
+        PyErr_NoMemory();
+        return -1;
+    }
+    else if (res == -2) {
+        // this should never happen
+        assert(0);
+    }
+
     Py_DECREF(val_obj);
     return 0;
 }
@@ -155,10 +161,6 @@ stringdtype_getitem(StringDTypeObject *NPY_UNUSED(descr), char **dataptr)
 
     PyObject *res = PyObject_CallFunctionObjArgs((PyObject *)StringScalar_Type,
                                                  val_obj, NULL);
-
-    if (res == NULL) {
-        return NULL;
-    }
 
     Py_DECREF(val_obj);
 
