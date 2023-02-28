@@ -67,10 +67,11 @@ static ss EMPTY = {0, "\0"};
 void
 load_string(char *data, ss **out)
 {
-    if (data == NULL) {
+    ss *ss_d = (ss *)data;
+    if (ss_d->len == 0) {
         *out = &EMPTY;
     }
     else {
-        *out = (ss *)data;
+        *out = ss_d;
     }
 }
