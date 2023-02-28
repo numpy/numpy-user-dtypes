@@ -20,6 +20,7 @@ new_stringdtype_instance(void)
     new->base.alignment = _Alignof(ss *);
     new->base.flags |= NPY_NEEDS_INIT;
     new->base.flags |= NPY_LIST_PICKLE;
+    new->base.flags |= NPY_ITEM_REFCOUNT;
 
     return new;
 }
@@ -172,6 +173,37 @@ stringdtype_ensure_canonical(StringDTypeObject *self)
     return self;
 }
 
+static int
+stringdtype_clear_loop(void *NPY_UNUSED(traverse_context),
+                       PyArray_Descr *NPY_UNUSED(descr), char *data,
+                       npy_intp size, npy_intp stride,
+                       NpyAuxData *NPY_UNUSED(auxdata))
+{
+    while (size--) {
+        if (data != NULL) {
+            free(*(ss **)data);
+            *(ss **)data = NULL;
+        }
+        data += stride;
+    }
+
+    return 0;
+}
+
+static int
+stringdtype_get_clear_loop(void *NPY_UNUSED(traverse_context),
+                           PyArray_Descr *NPY_UNUSED(descr),
+                           int NPY_UNUSED(aligned),
+                           npy_intp NPY_UNUSED(fixed_stride),
+                           traverse_loop_function **out_loop,
+                           NpyAuxData **NPY_UNUSED(out_auxdata),
+                           NPY_ARRAYMETHOD_FLAGS *flags)
+{
+    *flags = NPY_METH_NO_FLOATINGPOINT_ERRORS;
+    *out_loop = &stringdtype_clear_loop;
+    return 0;
+}
+
 static PyType_Slot StringDType_Slots[] = {
         {NPY_DT_common_instance, &common_instance},
         {NPY_DT_common_dtype, &common_dtype},
@@ -181,6 +213,7 @@ static PyType_Slot StringDType_Slots[] = {
         {NPY_DT_getitem, &stringdtype_getitem},
         {NPY_DT_ensure_canonical, &stringdtype_ensure_canonical},
         {NPY_DT_PyArray_ArrFuncs_compare, &compare_strings},
+        {NPY_DT_get_clear_loop, &stringdtype_get_clear_loop},
         {0, NULL}};
 
 static PyObject *

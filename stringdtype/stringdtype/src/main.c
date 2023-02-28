@@ -29,9 +29,9 @@ _memory_usage(PyObject *NPY_UNUSED(self), PyObject *obj)
         return NULL;
     }
 
-    NpyIter *iter =
-            NpyIter_New(arr, NPY_ITER_READONLY | NPY_ITER_EXTERNAL_LOOP,
-                        NPY_KEEPORDER, NPY_NO_CASTING, NULL);
+    NpyIter *iter = NpyIter_New(
+            arr, NPY_ITER_READONLY | NPY_ITER_EXTERNAL_LOOP | NPY_ITER_REFS_OK,
+            NPY_KEEPORDER, NPY_NO_CASTING, NULL);
 
     if (iter == NULL) {
         return NULL;
@@ -90,7 +90,7 @@ PyInit__main(void)
     if (_import_array() < 0) {
         return NULL;
     }
-    if (import_experimental_dtype_api(8) < 0) {
+    if (import_experimental_dtype_api(9) < 0) {
         return NULL;
     }
 
