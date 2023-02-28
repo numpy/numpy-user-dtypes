@@ -16,8 +16,8 @@ new_stringdtype_instance(void)
     if (new == NULL) {
         return NULL;
     }
-    new->base.elsize = sizeof(ss *);
-    new->base.alignment = _Alignof(ss *);
+    new->base.elsize = sizeof(ss);
+    new->base.alignment = _Alignof(ss);
     new->base.flags |= NPY_NEEDS_INIT;
     new->base.flags |= NPY_LIST_PICKLE;
     new->base.flags |= NPY_ITEM_REFCOUNT;
@@ -119,26 +119,42 @@ stringdtype_setitem(StringDTypeObject *NPY_UNUSED(descr), PyObject *obj,
         return -1;
     }
 
-    ss *str_val = ssnewlen(val, length);
-    if (str_val == NULL) {
-        PyErr_SetString(PyExc_MemoryError, "ssnewlen failed");
+    // free if dataptr holds preexisting string data,
+    // ssfree does a NULL check
+    ssfree((ss *)dataptr);
+
+    // copies contents of val into item_val->buf
+    int res = ssnewlen(val, length, (ss *)dataptr);
+
+    // val_obj must stay alive until here to ensure *val* doesn't get
+    // deallocated
+    Py_DECREF(val_obj);
+
+    if (res == -1) {
+        PyErr_NoMemory();
         return -1;
     }
-    // the dtype instance has the NPY_NEEDS_INIT flag set,
-    // so if *dataptr is NULL, that means we're initializing
-    // the array and don't need to free an existing string
-    if (*dataptr != NULL) {
-        free((ss *)*dataptr);
+    else if (res == -2) {
+        // this should never happen
+        assert(0);
     }
-    *dataptr = (char *)str_val;
-    Py_DECREF(val_obj);
+
     return 0;
 }
 
 static PyObject *
-stringdtype_getitem(StringDTypeObject *descr, char **dataptr)
+stringdtype_getitem(StringDTypeObject *NPY_UNUSED(descr), char **dataptr)
 {
-    PyObject *val_obj = PyUnicode_FromString(((ss *)*dataptr)->buf);
+    char *data;
+
+    if (*dataptr == NULL) {
+        data = "\0";
+    }
+    else {
+        data = ((ss *)dataptr)->buf;
+    }
+
+    PyObject *val_obj = PyUnicode_FromString(data);
 
     if (val_obj == NULL) {
         return NULL;
@@ -146,10 +162,6 @@ stringdtype_getitem(StringDTypeObject *descr, char **dataptr)
 
     PyObject *res = PyObject_CallFunctionObjArgs((PyObject *)StringScalar_Type,
                                                  val_obj, NULL);
-
-    if (res == NULL) {
-        return NULL;
-    }
 
     Py_DECREF(val_obj);
 
@@ -161,8 +173,8 @@ stringdtype_getitem(StringDTypeObject *descr, char **dataptr)
 int
 compare_strings(char **a, char **b, PyArrayObject *NPY_UNUSED(arr))
 {
-    ss *ss_a = (ss *)*a;
-    ss *ss_b = (ss *)*b;
+    ss *ss_a = (ss *)a;
+    ss *ss_b = (ss *)b;
     return strcmp(ss_a->buf, ss_b->buf);
 }
 
@@ -181,8 +193,8 @@ stringdtype_clear_loop(void *NPY_UNUSED(traverse_context),
 {
     while (size--) {
         if (data != NULL) {
-            free(*(ss **)data);
-            *(ss **)data = NULL;
+            ssfree((ss *)data);
+            memset(data, 0, sizeof(ss));
         }
         data += stride;
     }
