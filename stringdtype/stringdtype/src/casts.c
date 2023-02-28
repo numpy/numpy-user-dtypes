@@ -55,7 +55,7 @@ string_to_string(PyArrayMethod_Context *NPY_UNUSED(context),
     while (N--) {
         load_string(in, &s);
         os = (ss *)out;
-        if (ssdup(s, os) == -1) {
+        if (ssdup(s, os) < 0) {
             gil_error(PyExc_MemoryError, "ssdup failed");
             return -1;
         }
@@ -218,7 +218,7 @@ unicode_to_string(PyArrayMethod_Context *context, char *const data[],
             return -1;
         }
         ss *out_ss = (ss *)out;
-        if (ssnewemptylen(out_num_bytes, out_ss) == -1) {
+        if (ssnewemptylen(out_num_bytes, out_ss) < 0) {
             gil_error(PyExc_MemoryError, "ssnewemptylen failed");
             return -1;
         }
