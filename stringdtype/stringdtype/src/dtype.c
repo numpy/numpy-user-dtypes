@@ -125,9 +125,11 @@ stringdtype_setitem(StringDTypeObject *NPY_UNUSED(descr), PyObject *obj,
 
     // copies contents of val into item_val->buf
     int res = ssnewlen(val, length, (ss *)dataptr);
+
     // val_obj must stay alive until here to ensure *val* doesn't get
     // deallocated
     Py_DECREF(val_obj);
+
     if (res == -1) {
         PyErr_NoMemory();
         return -1;
@@ -137,7 +139,6 @@ stringdtype_setitem(StringDTypeObject *NPY_UNUSED(descr), PyObject *obj,
         assert(0);
     }
 
-    Py_DECREF(val_obj);
     return 0;
 }
 
