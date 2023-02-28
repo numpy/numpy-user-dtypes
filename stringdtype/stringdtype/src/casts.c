@@ -40,28 +40,24 @@ string_to_string_resolve_descriptors(PyObject *NPY_UNUSED(self),
 }
 
 static int
-string_to_string(PyArrayMethod_Context *context, char *const data[],
-                 npy_intp const dimensions[], npy_intp const strides[],
-                 NpyAuxData *NPY_UNUSED(auxdata))
+string_to_string(PyArrayMethod_Context *NPY_UNUSED(context),
+                 char *const data[], npy_intp const dimensions[],
+                 npy_intp const strides[], NpyAuxData *NPY_UNUSED(auxdata))
 {
     npy_intp N = dimensions[0];
-    ss **in = (ss **)data[0];
-    ss **out = (ss **)data[1];
-    // strides are in bytes but pointer offsets are in pointer widths, so
-    // divide by the element size (one pointer width) to get the pointer offset
-    npy_intp in_stride = strides[0] / context->descriptors[0]->elsize;
-    npy_intp out_stride = strides[1] / context->descriptors[1]->elsize;
+    char *in = data[0];
+    char *out = data[1];
+    npy_intp in_stride = strides[0];
+    npy_intp out_stride = strides[1];
+
+    ss *s = NULL, *os = NULL;
 
     while (N--) {
-        ss *s = empty_if_null(in);
-        out[0] = ssdup(s);
-        if (out[0] == NULL) {
+        load_string(in, &s);
+        load_string(out, &os);
+        if (ssdup(s, os) == -1) {
             gil_error(PyExc_MemoryError, "ssdup failed");
             return -1;
-        }
-
-        if (*in == NULL) {
-            free(s);
         }
 
         in += in_stride;
@@ -120,7 +116,7 @@ unicode_to_string_resolve_descriptors(PyObject *NPY_UNUSED(self),
 // is the number of codepoints that are not trailing null codepoints. Returns
 // 0 on success and -1 when an invalid code point is found.
 static int
-utf8_size(Py_UCS4 *codepoints, long max_length, size_t *num_codepoints,
+utf8_size(const Py_UCS4 *codepoints, long max_length, size_t *num_codepoints,
           size_t *utf8_bytes)
 {
     size_t ucs4len = max_length;
@@ -132,7 +128,7 @@ utf8_size(Py_UCS4 *codepoints, long max_length, size_t *num_codepoints,
 
     size_t num_bytes = 0;
 
-    for (int i = 0; i < ucs4len; i++) {
+    for (size_t i = 0; i < ucs4len; i++) {
         Py_UCS4 code = codepoints[i];
 
         if (code <= 0x7F) {
@@ -207,13 +203,11 @@ unicode_to_string(PyArrayMethod_Context *context, char *const data[],
 
     npy_intp N = dimensions[0];
     Py_UCS4 *in = (Py_UCS4 *)data[0];
-    ss **out = (ss **)data[1];
+    char *out = data[1];
 
     // 4 bytes per UCS4 character
     npy_intp in_stride = strides[0] / 4;
-    // strides are in bytes but pointer offsets are in pointer widths, so
-    // divide by the element size (one pointer width) to get the pointer offset
-    npy_intp out_stride = strides[1] / context->descriptors[1]->elsize;
+    npy_intp out_stride = strides[1];
 
     while (N--) {
         size_t out_num_bytes = 0;
@@ -223,8 +217,8 @@ unicode_to_string(PyArrayMethod_Context *context, char *const data[],
             gil_error(PyExc_TypeError, "Invalid unicode code point found");
             return -1;
         }
-        ss *out_ss = ssnewemptylen(out_num_bytes);
-        if (out_ss == NULL) {
+        ss *out_ss = (ss *)out;
+        if (ssnewemptylen(out_num_bytes, out_ss) == -1) {
             gil_error(PyExc_MemoryError, "ssnewemptylen failed");
             return -1;
         }
@@ -252,9 +246,6 @@ unicode_to_string(PyArrayMethod_Context *context, char *const data[],
 
         // pad string with null character
         out_buf[out_num_bytes] = '\0';
-
-        // set out to the address of the beginning of the string
-        out[0] = out_ss;
 
         in += in_stride;
         out += out_stride;
@@ -335,18 +326,18 @@ string_to_unicode(PyArrayMethod_Context *context, char *const data[],
                   NpyAuxData *NPY_UNUSED(auxdata))
 {
     npy_intp N = dimensions[0];
-    ss **in = (ss **)data[0];
+    char *in = data[0];
     Py_UCS4 *out = (Py_UCS4 *)data[1];
-    // strides are in bytes but pointer offsets are in pointer widths, so
-    // divide by the element size (one pointer width) to get the pointer offset
-    npy_intp in_stride = strides[0] / context->descriptors[0]->elsize;
+    npy_intp in_stride = strides[0];
     // 4 bytes per UCS4 character
     npy_intp out_stride = strides[1] / 4;
     // max number of 4 byte UCS4 characters that can fit in the output
     long max_out_size = (context->descriptors[1]->elsize) / 4;
 
+    ss *s = NULL;
+
     while (N--) {
-        ss *s = empty_if_null(in);
+        load_string(in, &s);
         unsigned char *this_string = (unsigned char *)(s->buf);
         size_t n_bytes = s->len;
         size_t tot_n_bytes = 0;
@@ -369,10 +360,6 @@ string_to_unicode(PyArrayMethod_Context *context, char *const data[],
             if (tot_n_bytes >= n_bytes) {
                 break;
             }
-        }
-
-        if (*in == NULL) {
-            free(s);
         }
 
         in += in_stride;

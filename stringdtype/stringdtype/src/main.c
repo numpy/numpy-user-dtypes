@@ -50,16 +50,15 @@ _memory_usage(PyObject *NPY_UNUSED(self), PyObject *obj)
 
     // initialize with the size of the internal buffer
     size_t memory_usage = PyArray_NBYTES(arr);
-    size_t struct_size = sizeof(ss);
 
     do {
-        ss **in = (ss **)*dataptr;
-        npy_intp stride = *strideptr / descr->elsize;
+        char *in = dataptr[0];
+        npy_intp stride = *strideptr;
         npy_intp count = *innersizeptr;
 
         while (count--) {
             // +1 byte for the null terminator
-            memory_usage += (*in)->len + struct_size + 1;
+            memory_usage += ((ss *)in)->len + 1;
             in += stride;
         }
 

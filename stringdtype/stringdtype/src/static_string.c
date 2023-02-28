@@ -1,58 +1,76 @@
 #include "static_string.h"
 
-// allocates a new ss string of length len, filling with the contents of init
-ss *
-ssnewlen(const char *init, size_t len)
+int
+ssnewlen(const char *init, size_t len, ss *to_init)
 {
-    // one extra byte for null terminator
-    ss *ret = (ss *)malloc(sizeof(ss) + sizeof(char) * (len + 1));
-
-    if (ret == NULL) {
-        return NULL;
+    if ((to_init->buf != NULL) || (to_init->len != 0)) {
+        return -1;
     }
 
-    ret->len = len;
+    // one extra byte for null terminator
+    char *ret_buf = (char *)malloc(sizeof(char) * (len + 1));
+
+    if (ret_buf == NULL) {
+        return -1;
+    }
+
+    to_init->len = len;
 
     if (len > 0) {
-        memcpy(ret->buf, init, len);
+        memcpy(ret_buf, init, len);
     }
 
-    ret->buf[len] = '\0';
+    ret_buf[len] = '\0';
 
-    return ret;
+    to_init->buf = ret_buf;
+
+    return 0;
 }
 
-// returns a new heap-allocated copy of input string *s*
-ss *
-ssdup(const ss *s)
+void
+ssfree(ss *str)
 {
-    return ssnewlen(s->buf, s->len);
+    if (str->buf != NULL) {
+        free(str->buf);
+        str->buf = NULL;
+    }
+    str->len = 0;
 }
 
-// returns a new, empty string of length len
-// does not do any initialization, the caller must
-// initialize and null-terminate the string
-ss *
-ssnewemptylen(size_t len)
+int
+ssdup(ss *in, ss *out)
 {
-    ss *ret = (ss *)malloc(sizeof(ss) + sizeof(char) * (len + 1));
-    ret->len = len;
-    return ret;
+    return ssnewlen(in->buf, in->len, out);
 }
 
-ss *
-ssempty(void)
+int
+ssnewemptylen(size_t num_bytes, ss *out)
 {
-    return ssnewlen("", 0);
+    if (out->len != 0 || out->buf != NULL) {
+        return -1;
+    }
+
+    char *buf = (char *)malloc(sizeof(char) * (num_bytes + 1));
+
+    if (buf == NULL) {
+        return -1;
+    }
+
+    out->buf = buf;
+    out->len = num_bytes;
+
+    return 0;
 }
 
-ss *
-empty_if_null(ss **data)
+static ss EMPTY = {0, "\0"};
+
+void
+load_string(char *data, ss **out)
 {
-    if (*data == NULL) {
-        return ssempty();
+    if (data == NULL) {
+        *out = &EMPTY;
     }
     else {
-        return *data;
+        *out = (ss *)data;
     }
 }

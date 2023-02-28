@@ -14,38 +14,30 @@
 #include "umath.h"
 
 static int
-string_equal_strided_loop(PyArrayMethod_Context *context, char *const data[],
-                          npy_intp const dimensions[],
+string_equal_strided_loop(PyArrayMethod_Context *NPY_UNUSED(context),
+                          char *const data[], npy_intp const dimensions[],
                           npy_intp const strides[],
                           NpyAuxData *NPY_UNUSED(auxdata))
 {
     npy_intp N = dimensions[0];
-    ss **in1 = (ss **)data[0];
-    ss **in2 = (ss **)data[1];
+    char *in1 = data[0];
+    char *in2 = data[1];
     npy_bool *out = (npy_bool *)data[2];
-    // strides are in bytes but pointer offsets are in pointer widths, so
-    // divide by the element size (one pointer width) to get the pointer offset
-    npy_intp in1_stride = strides[0] / context->descriptors[0]->elsize;
-    npy_intp in2_stride = strides[1] / context->descriptors[1]->elsize;
+    npy_intp in1_stride = strides[0];
+    npy_intp in2_stride = strides[1];
     npy_intp out_stride = strides[2];
 
+    ss *s1 = NULL, *s2 = NULL;
+
     while (N--) {
-        ss *s1 = empty_if_null(in1);
-        ss *s2 = empty_if_null(in2);
+        load_string(in1, &s1);
+        load_string(in2, &s2);
 
         if (s1->len == s2->len && strncmp(s1->buf, s2->buf, s1->len) == 0) {
             *out = (npy_bool)1;
         }
         else {
             *out = (npy_bool)0;
-        }
-
-        if (*in1 == NULL) {
-            free(s1);
-        }
-
-        if (*in2 == NULL) {
-            free(s2);
         }
 
         in1 += in1_stride;

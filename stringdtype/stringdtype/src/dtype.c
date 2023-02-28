@@ -16,8 +16,8 @@ new_stringdtype_instance(void)
     if (new == NULL) {
         return NULL;
     }
-    new->base.elsize = sizeof(ss *);
-    new->base.alignment = _Alignof(ss *);
+    new->base.elsize = sizeof(ss);
+    new->base.alignment = _Alignof(ss);
     new->base.flags |= NPY_NEEDS_INIT;
     new->base.flags |= NPY_LIST_PICKLE;
     new->base.flags |= NPY_ITEM_REFCOUNT;
@@ -119,18 +119,18 @@ stringdtype_setitem(StringDTypeObject *NPY_UNUSED(descr), PyObject *obj,
         return -1;
     }
 
-    ss *str_val = ssnewlen(val, length);
-    if (str_val == NULL) {
+    // free if dataptr holds preexisting string data,
+    // ssfree does a NULL check
+    ssfree((ss *)dataptr);
+
+    // copies contents of val into item_val->buf
+    if (ssnewlen(val, length, (ss *)dataptr) == -1) {
         PyErr_SetString(PyExc_MemoryError, "ssnewlen failed");
         return -1;
     }
-    // the dtype instance has the NPY_NEEDS_INIT flag set,
-    // so if *dataptr is NULL, that means we're initializing
-    // the array and don't need to free an existing string
-    if (*dataptr != NULL) {
-        free((ss *)*dataptr);
-    }
-    *dataptr = (char *)str_val;
+
+    // val_obj must stay alive until here to ensure *val* doesn't get
+    // deallocated
     Py_DECREF(val_obj);
     return 0;
 }
@@ -140,14 +140,11 @@ stringdtype_getitem(StringDTypeObject *NPY_UNUSED(descr), char **dataptr)
 {
     char *data;
 
-    // in the future this could represent missing data too, but we'd
-    // need to make it so np.empty and np.zeros take their initial value
-    // from an API hook that doesn't exist yet
     if (*dataptr == NULL) {
         data = "\0";
     }
     else {
-        data = ((ss *)*dataptr)->buf;
+        data = ((ss *)dataptr)->buf;
     }
 
     PyObject *val_obj = PyUnicode_FromString(data);
@@ -173,8 +170,8 @@ stringdtype_getitem(StringDTypeObject *NPY_UNUSED(descr), char **dataptr)
 int
 compare_strings(char **a, char **b, PyArrayObject *NPY_UNUSED(arr))
 {
-    ss *ss_a = (ss *)*a;
-    ss *ss_b = (ss *)*b;
+    ss *ss_a = (ss *)a;
+    ss *ss_b = (ss *)b;
     return strcmp(ss_a->buf, ss_b->buf);
 }
 
@@ -193,8 +190,8 @@ stringdtype_clear_loop(void *NPY_UNUSED(traverse_context),
 {
     while (size--) {
         if (data != NULL) {
-            free(*(ss **)data);
-            *(ss **)data = NULL;
+            ssfree((ss *)data);
+            memset(data, 0, sizeof(ss));
         }
         data += stride;
     }
