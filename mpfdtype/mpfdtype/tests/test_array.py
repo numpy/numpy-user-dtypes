@@ -1,11 +1,7 @@
-import pytest
-
-import sys
 import numpy as np
-import operator
 from numpy.testing import assert_array_equal
 
-from mpfdtype import MPFDType, MPFloat
+from mpfdtype import MPFDType
 
 
 def test_advanced_indexing():
@@ -16,3 +12,7 @@ def test_advanced_indexing():
     b = arr[[1, 2, 3, 4]]
     b[...] = 5  # does not mutate arr (internal references not broken)
     assert_array_equal(arr, orig)
+
+
+def test_is_numeric():
+    assert MPFDType._is_numeric

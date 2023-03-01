@@ -50,5 +50,9 @@ def test_cast_to_float64():
     dtype = MetadataDType("test")
     scalar = MetadataScalar(1, dtype)
     arr = np.array([scalar, scalar, scalar])
-    conv = arr.astype('float64')
+    conv = arr.astype("float64")
     assert str(conv) == "[1. 1. 1.]"
+
+
+def test_is_numeric():
+    assert MetadataDType._is_numeric

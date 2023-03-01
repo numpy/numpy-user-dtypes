@@ -164,6 +164,7 @@ init_quad_dtype(void)
     };
 
     PyArrayDTypeMeta_Spec QuadDType_DTypeSpec = {
+            .flags = NPY_DT_NUMERIC,
             .casts = casts,
             .typeobj = QuadScalar_Type,
             .slots = QuadDType_Slots,

@@ -8,7 +8,7 @@ def test_dtype_creation():
     dtype = UnytDType("m")
     assert str(dtype) == "UnytDType('m')"
 
-    dtype2 = UnytDType(unyt.Unit('m'))
+    dtype2 = UnytDType(unyt.Unit("m"))
     assert str(dtype2) == "UnytDType('m')"
     assert dtype == dtype2
 
@@ -69,5 +69,9 @@ def test_insert_with_different_unit():
 def test_cast_to_float64():
     meter = UnytScalar(1, unyt.m)
     arr = np.array([meter, meter, meter])
-    conv = arr.astype('float64')
+    conv = arr.astype("float64")
     assert str(conv) == "[1. 1. 1.]"
+
+
+def test_is_numeric():
+    assert UnytDType._is_numeric

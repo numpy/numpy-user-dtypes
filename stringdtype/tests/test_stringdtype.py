@@ -194,3 +194,7 @@ def test_creation_functions():
 
     # make sure getitem works too
     assert np.empty(3, dtype=StringDType())[0] == ""
+
+
+def test_is_numeric():
+    assert not StringDType._is_numeric
