@@ -168,6 +168,14 @@ stringdtype_getitem(StringDTypeObject *NPY_UNUSED(descr), char **dataptr)
     return res;
 }
 
+// PyArray_NonzeroFunc
+// Unicode strings are nonzero if their length is nonzero.
+npy_bool
+nonzero(void *data, void *NPY_UNUSED(arr))
+{
+    return ((ss *)data)->len != 0;
+}
+
 // Implementation of PyArray_CompareFunc.
 // Compares unicode strings by their code points.
 int
@@ -225,6 +233,7 @@ static PyType_Slot StringDType_Slots[] = {
         {NPY_DT_getitem, &stringdtype_getitem},
         {NPY_DT_ensure_canonical, &stringdtype_ensure_canonical},
         {NPY_DT_PyArray_ArrFuncs_compare, &compare_strings},
+        {NPY_DT_PyArray_ArrFuncs_nonzero, &nonzero},
         {NPY_DT_get_clear_loop, &stringdtype_get_clear_loop},
         {0, NULL}};
 
