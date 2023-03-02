@@ -13,8 +13,6 @@
 #include "casts.h"
 #include "dtype.h"
 
-
-
 /*
  * Internal helper to create new instances.
  */
@@ -27,9 +25,8 @@ new_MPFDType_instance(mpfr_prec_t precision)
      * set in that case.
      */
     if (precision < MPFR_PREC_MIN || precision > MPFR_PREC_MAX) {
-        PyErr_Format(PyExc_ValueError,
-                "precision must be between %d and %d.",
-                MPFR_PREC_MIN, MPFR_PREC_MAX);
+        PyErr_Format(PyExc_ValueError, "precision must be between %d and %d.", MPFR_PREC_MIN,
+                     MPFR_PREC_MAX);
         return NULL;
     }
 
@@ -43,7 +40,7 @@ new_MPFDType_instance(mpfr_prec_t precision)
     size_t size = mpfr_custom_get_size(precision);
     if (size > NPY_MAX_INT - sizeof(mpf_field)) {
         PyErr_SetString(PyExc_TypeError,
-                "storage of single float would be too large for precision.");
+                        "storage of single float would be too large for precision.");
     }
     new->base.elsize = sizeof(mpf_storage) + size;
     new->base.alignment = _Alignof(mpf_field);
@@ -52,14 +49,12 @@ new_MPFDType_instance(mpfr_prec_t precision)
     return new;
 }
 
-
 static MPFDTypeObject *
 ensure_canonical(MPFDTypeObject *self)
 {
     Py_INCREF(self);
     return self;
 }
-
 
 static MPFDTypeObject *
 common_instance(MPFDTypeObject *dtype1, MPFDTypeObject *dtype2)
@@ -74,7 +69,6 @@ common_instance(MPFDTypeObject *dtype1, MPFDTypeObject *dtype2)
     }
 }
 
-
 static PyArray_DTypeMeta *
 common_dtype(PyArray_DTypeMeta *cls, PyArray_DTypeMeta *other)
 {
@@ -82,9 +76,8 @@ common_dtype(PyArray_DTypeMeta *cls, PyArray_DTypeMeta *other)
      * Typenum is useful for NumPy, but there it can still be convenient.
      * (New-style user dtypes will probably get -1 as type number...)
      */
-    if (other->type_num >= 0
-            && PyTypeNum_ISNUMBER(other->type_num)
-            && !PyTypeNum_ISCOMPLEX(other->type_num)) {
+    if (other->type_num >= 0 && PyTypeNum_ISNUMBER(other->type_num) &&
+        !PyTypeNum_ISCOMPLEX(other->type_num)) {
         /*
          * A (simple) builtin numeric type (not complex) promotes to fixed
          * precision.
@@ -96,18 +89,15 @@ common_dtype(PyArray_DTypeMeta *cls, PyArray_DTypeMeta *other)
     return (PyArray_DTypeMeta *)Py_NotImplemented;
 }
 
-
 /*
  * Functions dealing with scalar logic
  */
 
 static PyArray_Descr *
-mpf_discover_descriptor_from_pyobject(
-        PyArray_DTypeMeta *NPY_UNUSED(cls), PyObject *obj)
+mpf_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls), PyObject *obj)
 {
     if (Py_TYPE(obj) != &MPFloat_Type) {
-        PyErr_SetString(PyExc_TypeError,
-                "Can only store MPFloat in a MPFDType array.");
+        PyErr_SetString(PyExc_TypeError, "Can only store MPFloat in a MPFDType array.");
         return NULL;
     }
     mpfr_prec_t prec = get_prec_from_object(obj);
@@ -116,7 +106,6 @@ mpf_discover_descriptor_from_pyobject(
     }
     return (PyArray_Descr *)new_MPFDType_instance(prec);
 }
-
 
 static int
 mpf_setitem(MPFDTypeObject *descr, PyObject *obj, char *dataptr)
@@ -167,18 +156,14 @@ mpf_getitem(MPFDTypeObject *descr, char *dataptr)
     return (PyObject *)new;
 }
 
-
 static PyType_Slot MPFDType_Slots[] = {
-    {NPY_DT_ensure_canonical, &ensure_canonical},
-    {NPY_DT_common_instance, &common_instance},
-    {NPY_DT_common_dtype, &common_dtype},
-    {NPY_DT_discover_descr_from_pyobject,
-            &mpf_discover_descriptor_from_pyobject},
-    {NPY_DT_setitem, &mpf_setitem},
-    {NPY_DT_getitem, &mpf_getitem},
-    {0, NULL}
-};
-
+        {NPY_DT_ensure_canonical, &ensure_canonical},
+        {NPY_DT_common_instance, &common_instance},
+        {NPY_DT_common_dtype, &common_dtype},
+        {NPY_DT_discover_descr_from_pyobject, &mpf_discover_descriptor_from_pyobject},
+        {NPY_DT_setitem, &mpf_setitem},
+        {NPY_DT_getitem, &mpf_getitem},
+        {0, NULL}};
 
 /*
  * The following defines everything type object related (i.e. not NumPy
@@ -195,23 +180,19 @@ MPFDType_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwds)
 
     Py_ssize_t precision;
 
-    if (!PyArg_ParseTupleAndKeywords(
-            args, kwds, "n:MPFDType", kwargs_strs, &precision)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "n:MPFDType", kwargs_strs, &precision)) {
         return NULL;
     }
 
     return (PyObject *)new_MPFDType_instance(precision);
 }
 
-
 static PyObject *
 MPFDType_repr(MPFDTypeObject *self)
 {
-    PyObject *res = PyUnicode_FromFormat(
-            "MPFDType(%ld)", (long)self->precision);
+    PyObject *res = PyUnicode_FromFormat("MPFDType(%ld)", (long)self->precision);
     return res;
 }
-
 
 PyObject *
 MPFDType_get_prec(MPFDTypeObject *self)
@@ -219,15 +200,10 @@ MPFDType_get_prec(MPFDTypeObject *self)
     return PyLong_FromLong(self->precision);
 }
 
-
 NPY_NO_EXPORT PyGetSetDef mpfdtype_getsetlist[] = {
-    {"prec",
-        (getter)MPFDType_get_prec,
-        NULL,
-        NULL, NULL},
-    {NULL, NULL, NULL, NULL, NULL},  /* Sentinel */
+        {"prec", (getter)MPFDType_get_prec, NULL, NULL, NULL},
+        {NULL, NULL, NULL, NULL, NULL}, /* Sentinel */
 };
-
 
 /*
  * This is the basic things that you need to create a Python Type/Class in C.
@@ -235,18 +211,17 @@ NPY_NO_EXPORT PyGetSetDef mpfdtype_getsetlist[] = {
  * PyArray_DTypeMeta, which is a larger struct than a typical type.
  * (This should get a bit nicer eventually with Python >3.11.)
  */
-PyArray_DTypeMeta MPFDType = {{{
-        PyVarObject_HEAD_INIT(NULL, 0)
-        .tp_name = "MPFDType.MPFDType",
-        .tp_basicsize = sizeof(MPFDTypeObject),
-        .tp_new = MPFDType_new,
-        .tp_repr = (reprfunc)MPFDType_repr,
-        .tp_str = (reprfunc)MPFDType_repr,
-        .tp_getset = mpfdtype_getsetlist,
-    }},
-    /* rest, filled in during DTypeMeta initialization */
+PyArray_DTypeMeta MPFDType = {
+        {{
+                PyVarObject_HEAD_INIT(NULL, 0).tp_name = "MPFDType.MPFDType",
+                .tp_basicsize = sizeof(MPFDTypeObject),
+                .tp_new = MPFDType_new,
+                .tp_repr = (reprfunc)MPFDType_repr,
+                .tp_str = (reprfunc)MPFDType_repr,
+                .tp_getset = mpfdtype_getsetlist,
+        }},
+        /* rest, filled in during DTypeMeta initialization */
 };
-
 
 int
 init_mpf_dtype(void)
@@ -258,7 +233,7 @@ init_mpf_dtype(void)
     PyArrayMethod_Spec **casts = init_casts();
 
     PyArrayDTypeMeta_Spec MPFDType_DTypeSpec = {
-            .flags = NPY_DT_PARAMETRIC,
+            .flags = NPY_DT_PARAMETRIC | NPY_DT_NUMERIC,
             .casts = casts,
             .typeobj = &MPFloat_Type,
             .slots = MPFDType_Slots,
@@ -271,8 +246,7 @@ init_mpf_dtype(void)
         return -1;
     }
 
-    if (PyArrayInitDTypeMeta_FromSpec(
-            &MPFDType, &MPFDType_DTypeSpec) < 0) {
+    if (PyArrayInitDTypeMeta_FromSpec(&MPFDType, &MPFDType_DTypeSpec) < 0) {
         free_casts();
         return -1;
     }

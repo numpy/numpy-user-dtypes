@@ -257,7 +257,7 @@ init_metadata_dtype(void)
     PyArrayMethod_Spec **casts = get_casts();
 
     PyArrayDTypeMeta_Spec MetadataDType_DTypeSpec = {
-            .flags = NPY_DT_PARAMETRIC,
+            .flags = NPY_DT_PARAMETRIC | NPY_DT_NUMERIC,
             .casts = casts,
             .typeobj = MetadataScalar_Type,
             .slots = MetadataDType_Slots,

@@ -248,3 +248,7 @@ def test_pickle():
     assert res[1] == dtype
 
     os.remove(f.name)
+
+
+def test_is_numeric():
+    assert not ASCIIDType._is_numeric

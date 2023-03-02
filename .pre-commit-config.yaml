@@ -102,3 +102,20 @@ repos:
     rev: 22.12.0
     hooks:
       - id: black
+        name: 'black for asciidtype'
+        files: '^asciidtype/.*\.py'
+      - id: black
+        name: 'black for metadatadtype'
+        files: '^metadatadtype/.*\.py'
+      - id: black
+        name: 'black for mpfdtype'
+        files: '^mpfdtype/.*\.py'
+      - id: black
+        name: 'black for quaddtype'
+        files: '^quaddtype/.*\.py'
+      - id: black
+        name: 'black for stringdtype'
+        files: '^stringdtype/.*\.py'
+      - id: black
+        name: 'black for unytdtype'
+        files: '^unytdtype/.*\.py'
