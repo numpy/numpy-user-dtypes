@@ -246,8 +246,6 @@ stringdtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwds)
 static void
 stringdtype_dealloc(StringDTypeObject *self)
 {
-    // Need to deallocate all the memory allocated during setitem.
-
     PyArrayDescr_Type.tp_dealloc((PyObject *)self);
 }
 
