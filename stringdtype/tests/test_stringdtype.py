@@ -183,6 +183,20 @@ def test_sort(strings):
     np.testing.assert_array_equal(arr, arr_sorted)
 
 
+@pytest.mark.parametrize(
+    "strings",
+    [
+        ["A¢☃€ 😊", " A☃€¢😊", "☃€😊 A¢", "😊☃A¢ €"],
+        ["A¢☃€ 😊", "", " ", " "],
+        ["", "a", "😸", "ááðfáíóåéë"],
+    ],
+)
+def test_nonzero(strings):
+    arr = np.array(strings, dtype=StringDType())
+    is_nonzero = np.array([i for i, item in enumerate(arr) if len(item) != 0])
+    np.testing.assert_array_equal(arr.nonzero()[0], is_nonzero)
+
+
 def test_creation_functions():
     np.testing.assert_array_equal(
         np.zeros(3, dtype=StringDType()), ["", "", ""]
