@@ -242,3 +242,20 @@ def test_arrfuncs_empty(arrfunc, expected):
     arr = np.empty(10, dtype=StringDType())
     result = arrfunc(arr)
     np.testing.assert_array_equal(result, expected, strict=True)
+
+    
+@pytest.mark.parametrize(
+    ("string_list", "cast_answer", "any_answer", "all_answer"),
+    [
+        [["hello", "world"], [True, True], True, True],
+        [["", ""], [False, False], False, False],
+        [["hello", ""], [True, False], True, False],
+        [["", "world"], [False, True], True, False],
+    ],
+)
+def test_bool_cast(string_list, cast_answer, any_answer, all_answer):
+    sarr = np.array(string_list, dtype=StringDType())
+    np.testing.assert_array_equal(sarr.astype("bool"), cast_answer)
+
+    assert np.any(sarr) == any_answer
+    assert np.all(sarr) == all_answer

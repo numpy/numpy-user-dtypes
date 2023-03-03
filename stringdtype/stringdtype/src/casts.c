@@ -77,8 +77,6 @@ static PyType_Slot s2s_slots[] = {
 
 static char *s2s_name = "cast_StringDType_to_StringDType";
 
-static PyArray_DTypeMeta *s2s_dtypes[] = {NULL, NULL};
-
 // unicode to string
 
 static NPY_CASTING
@@ -374,6 +372,66 @@ static PyType_Slot s2u_slots[] = {
 
 static char *s2u_name = "cast_StringDType_to_Unicode";
 
+// string to bool
+
+static NPY_CASTING
+string_to_bool_resolve_descriptors(PyObject *NPY_UNUSED(self),
+                                   PyArray_DTypeMeta *NPY_UNUSED(dtypes[2]),
+                                   PyArray_Descr *given_descrs[2],
+                                   PyArray_Descr *loop_descrs[2],
+                                   npy_intp *NPY_UNUSED(view_offset))
+{
+    if (given_descrs[1] == NULL) {
+        loop_descrs[1] = PyArray_DescrNewFromType(NPY_BOOL);
+    }
+    else {
+        Py_INCREF(given_descrs[1]);
+        loop_descrs[1] = given_descrs[1];
+    }
+
+    Py_INCREF(given_descrs[0]);
+    loop_descrs[0] = given_descrs[0];
+
+    return NPY_UNSAFE_CASTING;
+}
+
+static int
+string_to_bool(PyArrayMethod_Context *context, char *const data[],
+               npy_intp const dimensions[], npy_intp const strides[],
+               NpyAuxData *NPY_UNUSED(auxdata))
+{
+    npy_intp N = dimensions[0];
+    char *in = data[0];
+    char *out = data[1];
+
+    npy_intp in_stride = strides[0];
+    npy_intp out_stride = strides[1];
+
+    ss *s = NULL;
+
+    while (N--) {
+        load_string(in, &s);
+        if (s->len == 0) {
+            *out = (npy_bool)0;
+        }
+        else {
+            *out = (npy_bool)1;
+        }
+
+        in += in_stride;
+        out += out_stride;
+    }
+
+    return 0;
+}
+
+static PyType_Slot s2b_slots[] = {
+        {NPY_METH_resolve_descriptors, &string_to_bool_resolve_descriptors},
+        {NPY_METH_strided_loop, &string_to_bool},
+        {0, NULL}};
+
+static char *s2b_name = "cast_StringDType_to_Bool";
+
 PyArrayMethod_Spec *
 get_cast_spec(const char *name, NPY_CASTING casting,
               NPY_ARRAYMETHOD_FLAGS flags, PyArray_DTypeMeta **dtypes,
@@ -406,6 +464,8 @@ get_dtypes(PyArray_DTypeMeta *dt1, PyArray_DTypeMeta *dt2)
 PyArrayMethod_Spec **
 get_casts(void)
 {
+    PyArray_DTypeMeta **s2s_dtypes = get_dtypes(NULL, NULL);
+
     PyArrayMethod_Spec *StringToStringCastSpec =
             get_cast_spec(s2s_name, NPY_NO_CASTING,
                           NPY_METH_SUPPORTS_UNALIGNED, s2s_dtypes, s2s_slots);
@@ -422,11 +482,18 @@ get_casts(void)
             s2u_name, NPY_SAFE_CASTING, NPY_METH_NO_FLOATINGPOINT_ERRORS,
             s2u_dtypes, s2u_slots);
 
-    PyArrayMethod_Spec **casts = malloc(4 * sizeof(PyArrayMethod_Spec *));
+    PyArray_DTypeMeta **s2b_dtypes = get_dtypes(NULL, &PyArray_BoolDType);
+
+    PyArrayMethod_Spec *StringToBoolCastSpec = get_cast_spec(
+            s2b_name, NPY_UNSAFE_CASTING, NPY_METH_NO_FLOATINGPOINT_ERRORS,
+            s2b_dtypes, s2b_slots);
+
+    PyArrayMethod_Spec **casts = malloc(5 * sizeof(PyArrayMethod_Spec *));
     casts[0] = StringToStringCastSpec;
     casts[1] = UnicodeToStringCastSpec;
     casts[2] = StringToUnicodeCastSpec;
-    casts[3] = NULL;
+    casts[3] = StringToBoolCastSpec;
+    casts[4] = NULL;
 
     return casts;
 }
