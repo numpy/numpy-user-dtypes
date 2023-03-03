@@ -12,6 +12,8 @@ gil_error(PyObject *type, const char *msg)
     PyGILState_Release(gstate);
 }
 
+// string to string
+
 static NPY_CASTING
 string_to_string_resolve_descriptors(PyObject *NPY_UNUSED(self),
                                      PyArray_DTypeMeta *NPY_UNUSED(dtypes[2]),
@@ -67,23 +69,17 @@ string_to_string(PyArrayMethod_Context *NPY_UNUSED(context),
     return 0;
 }
 
-static PyArray_DTypeMeta *s2s_dtypes[2] = {NULL, NULL};
-
 static PyType_Slot s2s_slots[] = {
         {NPY_METH_resolve_descriptors, &string_to_string_resolve_descriptors},
         {NPY_METH_strided_loop, &string_to_string},
         {NPY_METH_unaligned_strided_loop, &string_to_string},
         {0, NULL}};
 
-PyArrayMethod_Spec StringToStringCastSpec = {
-        .name = "cast_StringDType_to_StringDType",
-        .nin = 1,
-        .nout = 1,
-        .casting = NPY_NO_CASTING,
-        .flags = NPY_METH_SUPPORTS_UNALIGNED,
-        .dtypes = s2s_dtypes,
-        .slots = s2s_slots,
-};
+static char *s2s_name = "cast_StringDType_to_StringDType";
+
+static PyArray_DTypeMeta *s2s_dtypes[] = {NULL, NULL};
+
+// unicode to string
 
 static NPY_CASTING
 unicode_to_string_resolve_descriptors(PyObject *NPY_UNUSED(self),
@@ -261,6 +257,8 @@ static PyType_Slot u2s_slots[] = {
 
 static char *u2s_name = "cast_Unicode_to_StringDType";
 
+// string to unicode
+
 static NPY_CASTING
 string_to_unicode_resolve_descriptors(PyObject *NPY_UNUSED(self),
                                       PyArray_DTypeMeta *NPY_UNUSED(dtypes[2]),
@@ -376,41 +374,56 @@ static PyType_Slot s2u_slots[] = {
 
 static char *s2u_name = "cast_StringDType_to_Unicode";
 
+PyArrayMethod_Spec *
+get_cast_spec(const char *name, NPY_CASTING casting,
+              NPY_ARRAYMETHOD_FLAGS flags, PyArray_DTypeMeta **dtypes,
+              PyType_Slot *slots)
+{
+    PyArrayMethod_Spec *ret = malloc(sizeof(PyArrayMethod_Spec));
+
+    ret->name = name;
+    ret->nin = 1;
+    ret->nout = 1;
+    ret->casting = casting;
+    ret->flags = flags;
+    ret->dtypes = dtypes;
+    ret->slots = slots;
+
+    return ret;
+}
+
+PyArray_DTypeMeta **
+get_dtypes(PyArray_DTypeMeta *dt1, PyArray_DTypeMeta *dt2)
+{
+    PyArray_DTypeMeta **ret = malloc(2 * sizeof(PyArray_DTypeMeta *));
+
+    ret[0] = dt1;
+    ret[1] = dt2;
+
+    return ret;
+}
+
 PyArrayMethod_Spec **
 get_casts(void)
 {
-    PyArray_DTypeMeta **u2s_dtypes = malloc(2 * sizeof(PyArray_DTypeMeta *));
-    u2s_dtypes[0] = &PyArray_UnicodeDType;
-    u2s_dtypes[1] = NULL;
+    PyArrayMethod_Spec *StringToStringCastSpec =
+            get_cast_spec(s2s_name, NPY_NO_CASTING,
+                          NPY_METH_SUPPORTS_UNALIGNED, s2s_dtypes, s2s_slots);
 
-    PyArrayMethod_Spec *UnicodeToStringCastSpec =
-            malloc(sizeof(PyArrayMethod_Spec));
+    PyArray_DTypeMeta **u2s_dtypes = get_dtypes(&PyArray_UnicodeDType, NULL);
 
-    UnicodeToStringCastSpec->name = u2s_name;
-    UnicodeToStringCastSpec->nin = 1;
-    UnicodeToStringCastSpec->nout = 1;
-    UnicodeToStringCastSpec->casting = NPY_SAFE_CASTING;
-    UnicodeToStringCastSpec->flags = NPY_METH_NO_FLOATINGPOINT_ERRORS;
-    UnicodeToStringCastSpec->dtypes = u2s_dtypes;
-    UnicodeToStringCastSpec->slots = u2s_slots;
+    PyArrayMethod_Spec *UnicodeToStringCastSpec = get_cast_spec(
+            u2s_name, NPY_SAFE_CASTING, NPY_METH_NO_FLOATINGPOINT_ERRORS,
+            u2s_dtypes, u2s_slots);
 
-    PyArray_DTypeMeta **s2u_dtypes = malloc(2 * sizeof(PyArray_DTypeMeta *));
-    s2u_dtypes[0] = NULL;
-    s2u_dtypes[1] = &PyArray_UnicodeDType;
+    PyArray_DTypeMeta **s2u_dtypes = get_dtypes(NULL, &PyArray_UnicodeDType);
 
-    PyArrayMethod_Spec *StringToUnicodeCastSpec =
-            malloc(sizeof(PyArrayMethod_Spec));
-
-    StringToUnicodeCastSpec->name = s2u_name;
-    StringToUnicodeCastSpec->nin = 1;
-    StringToUnicodeCastSpec->nout = 1;
-    StringToUnicodeCastSpec->casting = NPY_SAFE_CASTING;
-    StringToUnicodeCastSpec->flags = NPY_METH_NO_FLOATINGPOINT_ERRORS;
-    StringToUnicodeCastSpec->dtypes = s2u_dtypes;
-    StringToUnicodeCastSpec->slots = s2u_slots;
+    PyArrayMethod_Spec *StringToUnicodeCastSpec = get_cast_spec(
+            s2u_name, NPY_SAFE_CASTING, NPY_METH_NO_FLOATINGPOINT_ERRORS,
+            s2u_dtypes, s2u_slots);
 
     PyArrayMethod_Spec **casts = malloc(4 * sizeof(PyArrayMethod_Spec *));
-    casts[0] = &StringToStringCastSpec;
+    casts[0] = StringToStringCastSpec;
     casts[1] = UnicodeToStringCastSpec;
     casts[2] = StringToUnicodeCastSpec;
     casts[3] = NULL;
