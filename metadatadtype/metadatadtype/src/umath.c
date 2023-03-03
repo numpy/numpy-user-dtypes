@@ -84,9 +84,7 @@ get_ufunc(const char *ufunc_name)
     }
     PyObject *ufunc = PyObject_GetAttrString(mod, ufunc_name);
     Py_DECREF(mod);
-    if (ufunc == NULL) {
-        return NULL;
-    }
+
     return ufunc;
 }
 
