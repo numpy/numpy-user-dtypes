@@ -51,7 +51,7 @@ PyInit__metadatadtype_main(void)
         goto error;
     }
 
-    if (init_multiply_ufunc() < 0) {
+    if (init_ufuncs() < 0) {
         goto error;
     }
 

@@ -37,6 +37,14 @@ def test_multiplication():
     assert str(res) == "[2.0 test 2.0 test 2.0 test]"
 
 
+def test_isnan():
+    dtype = MetadataDType("test")
+    num_scalar = MetadataScalar(1, dtype)
+    nan_scalar = MetadataScalar(np.nan, dtype)
+    arr = np.array([num_scalar, nan_scalar, nan_scalar])
+    np.testing.assert_array_equal(np.isnan(arr), np.array([False, True, True]))
+
+
 def test_cast_to_different_metadata():
     dtype = MetadataDType("test")
     scalar = MetadataScalar(1, dtype)

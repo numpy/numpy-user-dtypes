@@ -18,3 +18,9 @@ requires-python = ">=3.9.0"
 dependencies = [
     "numpy",
 ]
+
+[tool.meson-python.args]
+dist = []
+setup = ["-Ddebug=true", "-Doptimization=0"]
+compile = []
+install = []

@@ -81,15 +81,12 @@ new_metadatadtype_instance(PyObject *metadata)
     return new;
 }
 
-/*
- * This is used to determine the correct dtype to return when operations mix
- * dtypes (I think?). For now just return the first one.
- */
-static MetadataDTypeObject *
-common_instance(MetadataDTypeObject *dtype1, MetadataDTypeObject *dtype2)
+PyArray_Descr *
+common_instance(MetadataDTypeObject *dtype1,
+                MetadataDTypeObject *NPY_UNUSED(dtype2))
 {
     Py_INCREF(dtype1);
-    return dtype1;
+    return (PyArray_Descr *)dtype1;
 }
 
 static PyArray_DTypeMeta *

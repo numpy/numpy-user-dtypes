@@ -2,6 +2,6 @@
 #define _NPY_UFUNC_H
 
 int
-init_multiply_ufunc(void);
+init_ufuncs(void);
 
 #endif /*_NPY_UFUNC_H */
