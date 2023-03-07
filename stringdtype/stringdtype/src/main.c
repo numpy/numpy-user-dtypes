@@ -64,6 +64,8 @@ _memory_usage(PyObject *NPY_UNUSED(self), PyObject *obj)
 
     } while (iternext(iter));
 
+    NpyIter_Deallocate(iter);
+
     PyObject *ret = PyLong_FromSize_t(memory_usage);
 
     return ret;
