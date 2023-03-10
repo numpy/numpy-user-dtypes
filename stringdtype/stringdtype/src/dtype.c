@@ -179,11 +179,28 @@ nonzero(void *data, void *NPY_UNUSED(arr))
 // Implementation of PyArray_CompareFunc.
 // Compares unicode strings by their code points.
 int
-compare_strings(char **a, char **b, PyArrayObject *NPY_UNUSED(arr))
+compare(void *a, void *b, void *NPY_UNUSED(arr))
 {
-    ss *ss_a = (ss *)a;
-    ss *ss_b = (ss *)b;
+    ss *ss_a = NULL;
+    ss *ss_b = NULL;
+    load_string(a, &ss_a);
+    load_string(b, &ss_b);
     return strcmp(ss_a->buf, ss_b->buf);
+}
+
+// PyArray_ArgFunc
+// The max element is the one with the highest unicode code point.
+int
+argmax(void *data, npy_intp n, npy_intp *max_ind, void *arr)
+{
+    ss *dptr = (ss *)data;
+    *max_ind = 0;
+    for (int i = 1; i < n; i++) {
+        if (compare(&dptr[i], &dptr[*max_ind], arr) > 0) {
+            *max_ind = i;
+        }
+    }
+    return 0;
 }
 
 static StringDTypeObject *
@@ -232,8 +249,9 @@ static PyType_Slot StringDType_Slots[] = {
         {NPY_DT_setitem, &stringdtype_setitem},
         {NPY_DT_getitem, &stringdtype_getitem},
         {NPY_DT_ensure_canonical, &stringdtype_ensure_canonical},
-        {NPY_DT_PyArray_ArrFuncs_compare, &compare_strings},
         {NPY_DT_PyArray_ArrFuncs_nonzero, &nonzero},
+        {NPY_DT_PyArray_ArrFuncs_compare, &compare},
+        {NPY_DT_PyArray_ArrFuncs_argmax, &argmax},
         {NPY_DT_get_clear_loop, &stringdtype_get_clear_loop},
         {0, NULL}};
 
