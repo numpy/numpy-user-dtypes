@@ -409,11 +409,10 @@ init_string_dtype(void)
 
     StringDType.singleton = singleton;
 
-    free(StringDType_DTypeSpec.casts[1]->dtypes);
-    free(StringDType_DTypeSpec.casts[1]);
-    free(StringDType_DTypeSpec.casts[2]->dtypes);
-    free(StringDType_DTypeSpec.casts[2]);
-    free(StringDType_DTypeSpec.casts);
+    for (int i = 0; casts[i] != NULL; i++) {
+        free(casts[i]->dtypes);
+        free(casts[i]);
+    }
 
     return 0;
 }
