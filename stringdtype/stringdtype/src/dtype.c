@@ -409,9 +409,9 @@ init_string_dtype(void)
 
     StringDType.singleton = singleton;
 
-    for (int i = 0; i < 4; i++) {
-        free(StringDType_DTypeSpec.casts[i]->dtypes);
-        free(StringDType_DTypeSpec.casts[i]);
+    for (int i = 0; casts[i] != NULL; i++) {
+        free(casts[i]->dtypes);
+        free(casts[i]);
     }
 
     return 0;
