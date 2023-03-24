@@ -225,9 +225,10 @@ def test_is_numeric():
     ],
 )
 def test_argmax(strings):
-    """Test that argmax matches what python calculates as the argmax."""
+    """Test that argmax/argmin matches what python calculates."""
     arr = np.array(strings, dtype=StringDType())
     assert np.argmax(arr) == strings.index(max(strings))
+    assert np.argmin(arr) == strings.index(min(strings))
 
 
 @pytest.mark.parametrize(
@@ -236,6 +237,7 @@ def test_argmax(strings):
         [np.sort, np.empty(10, dtype=StringDType())],
         [np.nonzero, (np.array([], dtype=np.int64),)],
         [np.argmax, 0],
+        [np.argmin, 0],
     ],
 )
 def test_arrfuncs_empty(arrfunc, expected):
@@ -243,7 +245,7 @@ def test_arrfuncs_empty(arrfunc, expected):
     result = arrfunc(arr)
     np.testing.assert_array_equal(result, expected, strict=True)
 
-    
+
 @pytest.mark.parametrize(
     ("string_list", "cast_answer", "any_answer", "all_answer"),
     [
