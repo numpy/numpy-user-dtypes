@@ -203,6 +203,21 @@ argmax(void *data, npy_intp n, npy_intp *max_ind, void *arr)
     return 0;
 }
 
+// PyArray_ArgFunc
+// The min element is the one with the lowest unicode code point.
+int
+argmin(void *data, npy_intp n, npy_intp *min_ind, void *arr)
+{
+    ss *dptr = (ss *)data;
+    *min_ind = 0;
+    for (int i = 1; i < n; i++) {
+        if (compare(&dptr[i], &dptr[*min_ind], arr) < 0) {
+            *min_ind = i;
+        }
+    }
+    return 0;
+}
+
 static StringDTypeObject *
 stringdtype_ensure_canonical(StringDTypeObject *self)
 {
@@ -252,6 +267,7 @@ static PyType_Slot StringDType_Slots[] = {
         {NPY_DT_PyArray_ArrFuncs_nonzero, &nonzero},
         {NPY_DT_PyArray_ArrFuncs_compare, &compare},
         {NPY_DT_PyArray_ArrFuncs_argmax, &argmax},
+        {NPY_DT_PyArray_ArrFuncs_argmin, &argmin},
         {NPY_DT_get_clear_loop, &stringdtype_get_clear_loop},
         {0, NULL}};
 
