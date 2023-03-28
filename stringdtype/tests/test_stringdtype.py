@@ -261,3 +261,16 @@ def test_bool_cast(string_list, cast_answer, any_answer, all_answer):
 
     assert np.any(sarr) == any_answer
     assert np.all(sarr) == all_answer
+
+
+def test_take(string_list):
+    sarr = np.array(string_list, dtype=StringDType())
+    out = np.empty(len(string_list), dtype=StringDType())
+    res = sarr.take(np.arange(len(string_list)), out=out)
+    np.testing.assert_array_equal(sarr, res)
+    np.testing.assert_array_equal(res, out)
+
+    # make sure it also works for out that isn't empty
+    out[0] = "hello"
+    res = sarr.take(np.arange(len(string_list)), out=out)
+    np.testing.assert_array_equal(res, out)

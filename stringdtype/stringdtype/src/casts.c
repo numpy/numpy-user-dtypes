@@ -57,6 +57,7 @@ string_to_string(PyArrayMethod_Context *NPY_UNUSED(context),
     while (N--) {
         load_string(in, &s);
         os = (ss *)out;
+        ssfree(os);
         if (ssdup(s, os) < 0) {
             gil_error(PyExc_MemoryError, "ssdup failed");
             return -1;
