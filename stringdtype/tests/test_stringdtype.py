@@ -246,6 +246,16 @@ def test_arrfuncs_empty(arrfunc, expected):
     np.testing.assert_array_equal(result, expected, strict=True)
 
 
+def test_fillwithscalar(string_list):
+    """Test that ndarray.fill casts the fill value and fills the array."""
+    arr = np.array(string_list, dtype=StringDType())
+    arr.fill("testscalar")
+    np.testing.assert_array_equal(
+        arr,
+        np.array(["testscalar"] * len(arr), dtype=StringDType()),
+    )
+
+
 @pytest.mark.parametrize(
     ("string_list", "cast_answer", "any_answer", "all_answer"),
     [

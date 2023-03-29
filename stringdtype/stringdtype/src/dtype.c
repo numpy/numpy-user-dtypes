@@ -218,6 +218,19 @@ argmin(void *data, npy_intp n, npy_intp *min_ind, void *arr)
     return 0;
 }
 
+// PyArray_FillWithScalarFunc
+// Fill an array with a scalar value.
+int
+fillwithscalar(void *buffer, npy_intp length, void *value,
+               void *NPY_UNUSED(arr))
+{
+    ss *dptr = (ss *)buffer;
+    for (int i = 0; i < length; i++) {
+        dptr[i] = *(ss *)value;
+    }
+    return 0;
+}
+
 static StringDTypeObject *
 stringdtype_ensure_canonical(StringDTypeObject *self)
 {
@@ -268,6 +281,7 @@ static PyType_Slot StringDType_Slots[] = {
         {NPY_DT_PyArray_ArrFuncs_compare, &compare},
         {NPY_DT_PyArray_ArrFuncs_argmax, &argmax},
         {NPY_DT_PyArray_ArrFuncs_argmin, &argmin},
+        {NPY_DT_PyArray_ArrFuncs_fillwithscalar, &fillwithscalar},
         {NPY_DT_get_clear_loop, &stringdtype_get_clear_loop},
         {0, NULL}};
 
