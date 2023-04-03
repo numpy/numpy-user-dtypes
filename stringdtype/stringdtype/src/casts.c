@@ -213,6 +213,7 @@ unicode_to_string(PyArrayMethod_Context *context, char *const data[],
             return -1;
         }
         ss *out_ss = (ss *)out;
+        ssfree(out_ss);
         if (ssnewemptylen(out_num_bytes, out_ss) < 0) {
             gil_error(PyExc_MemoryError, "ssnewemptylen failed");
             return -1;

@@ -1,6 +1,7 @@
 import concurrent.futures
 import os
 import pickle
+import string
 import tempfile
 
 import numpy as np
@@ -81,7 +82,6 @@ def test_unicode_casts(string_list):
     np.testing.assert_array_equal(arr, expected)
 
     arr = np.array(string_list, dtype=StringDType())
-
     np.testing.assert_array_equal(
         arr.astype("U8"), np.array(string_list, dtype="U8")
     )
@@ -93,6 +93,17 @@ def test_unicode_casts(string_list):
         arr.astype("U3").astype(StringDType()),
         np.array([s[:3] for s in string_list], dtype=StringDType()),
     )
+
+
+def test_additional_unicode_cast(string_list):
+    RANDS_CHARS = np.array(
+        list(string.ascii_letters + string.digits), dtype=(np.str_, 1)
+    )
+    arr = np.random.choice(RANDS_CHARS, size=10 * 100_000, replace=True).view(
+        "U10"
+    )
+    np.testing.assert_array_equal(arr, arr.astype(StringDType()))
+    np.testing.assert_array_equal(arr, arr.astype(StringDType()).astype("U10"))
 
 
 def test_insert_scalar(string_list):
