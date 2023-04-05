@@ -14,6 +14,101 @@
 #include "umath.h"
 
 static int
+minmax_resolve_descriptors(struct PyArrayMethodObject_tag *NPY_UNUSED(method),
+                           PyArray_DTypeMeta *NPY_UNUSED(dtypes[]),
+                           PyArray_Descr *given_descrs[],
+                           PyArray_Descr *loop_descrs[],
+                           npy_intp *NPY_UNUSED(view_offset))
+{
+    Py_INCREF(given_descrs[0]);
+    loop_descrs[0] = given_descrs[0];
+    Py_INCREF(given_descrs[1]);
+    loop_descrs[1] = given_descrs[1];
+
+    StringDTypeObject *new = new_stringdtype_instance();
+    if (new == NULL) {
+        return -1;
+    }
+    loop_descrs[2] = (PyArray_Descr *)new;
+
+    return NPY_NO_CASTING;
+}
+
+static int
+maximum_strided_loop(PyArrayMethod_Context *NPY_UNUSED(context),
+                     char *const data[], npy_intp const dimensions[],
+                     npy_intp const strides[], NpyAuxData *NPY_UNUSED(auxdata))
+{
+    npy_intp N = dimensions[0];
+    char *in1 = data[0];
+    char *in2 = data[1];
+    char *out = data[2];
+    npy_intp in1_stride = strides[0];
+    npy_intp in2_stride = strides[1];
+    npy_intp out_stride = strides[2];
+
+    while (N--) {
+        if (compare(in1, in2, NULL) > 0) {
+            // Only copy *out* to *in1* if they point to different locations;
+            // for *arr.max()* they point to the same address.
+            if (in1 != out) {
+                ssfree((ss *)out);
+                if (ssdup((ss *)in1, (ss *)out) < 0) {
+                    return -1;
+                }
+            }
+        }
+        else {
+            ssfree((ss *)out);
+            if (ssdup((ss *)in2, (ss *)out) < 0) {
+                return -1;
+            }
+        }
+        in1 += in1_stride;
+        in2 += in2_stride;
+        out += out_stride;
+    }
+
+    return 0;
+}
+
+static int
+minimum_strided_loop(PyArrayMethod_Context *NPY_UNUSED(context),
+                     char *const data[], npy_intp const dimensions[],
+                     npy_intp const strides[], NpyAuxData *NPY_UNUSED(auxdata))
+{
+    npy_intp N = dimensions[0];
+    char *in1 = data[0];
+    char *in2 = data[1];
+    char *out = data[2];
+    npy_intp in1_stride = strides[0];
+    npy_intp in2_stride = strides[1];
+    npy_intp out_stride = strides[2];
+
+    while (N--) {
+        if (compare(in1, in2, NULL) < 0) {
+            if (in1 != out) {
+                ssfree((ss *)out);
+                if (ssdup((ss *)in1, (ss *)out) < 0) {
+                    return -1;
+                }
+            }
+        }
+        else {
+            ssfree((ss *)out);
+            if (ssdup((ss *)in2, (ss *)out) < 0) {
+                return -1;
+            }
+        }
+        in1 += in1_stride;
+        in2 += in2_stride;
+        out += out_stride;
+    }
+
+    return 0;
+}
+
+static int
 string_equal_strided_loop(PyArrayMethod_Context *NPY_UNUSED(context),
                           char *const data[], npy_intp const dimensions[],
                           npy_intp const strides[],
@@ -267,6 +362,19 @@ init_ufuncs(void)
                    &string_isnan_resolve_descriptors,
                    &string_isnan_strided_loop, "string_isnan", 1, 1,
                    NPY_NO_CASTING, 0) < 0) {
+        goto error;
+    }
+
+    PyArray_DTypeMeta *minmax_dtypes[] = {&StringDType, &StringDType,
+                                          &StringDType};
+    if (init_ufunc(numpy, "maximum", minmax_dtypes,
+                   &minmax_resolve_descriptors, &maximum_strided_loop,
+                   "string_maximum", 2, 1, NPY_NO_CASTING, 0) < 0) {
+        goto error;
+    }
+    if (init_ufunc(numpy, "minimum", minmax_dtypes,
+                   &minmax_resolve_descriptors, &minimum_strided_loop,
+                   "string_minimum", 2, 1, NPY_NO_CASTING, 0) < 0) {
         goto error;
     }
 

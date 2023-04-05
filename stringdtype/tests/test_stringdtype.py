@@ -12,7 +12,7 @@ from stringdtype import StringDType, StringScalar, _memory_usage
 
 @pytest.fixture
 def string_list():
-    return ["abc", "def", "ghi"]
+    return ["abc", "def", "ghi", "A¢☃€ 😊", "Abc", "DEF"]
 
 
 def test_scalar_creation():
@@ -44,13 +44,7 @@ def test_array_creation_utf8(data):
 
 
 def test_array_creation_scalars(string_list):
-    arr = np.array(
-        [
-            StringScalar("abc"),
-            StringScalar("def"),
-            StringScalar("ghi"),
-        ]
-    )
+    arr = np.array([StringScalar(s) for s in string_list])
     assert repr(arr) == repr(np.array(string_list, dtype=StringDType()))
 
 
@@ -69,29 +63,30 @@ def test_bad_scalars(data):
 
 
 @pytest.mark.parametrize(
-    ("string_list"),
+    ("strings"),
     [
         ["this", "is", "an", "array"],
         ["€", "", "😊"],
         ["A¢☃€ 😊", " A☃€¢😊", "☃€😊 A¢", "😊☃A¢ €"],
     ],
 )
-def test_unicode_casts(string_list):
-    arr = np.array(string_list, dtype=np.unicode_).astype(StringDType())
-    expected = np.array(string_list, dtype=StringDType())
+def test_unicode_casts(strings):
+    arr = np.array(strings, dtype=np.unicode_).astype(StringDType())
+    expected = np.array(strings, dtype=StringDType())
     np.testing.assert_array_equal(arr, expected)
 
-    arr = np.array(string_list, dtype=StringDType())
+    arr = np.array(strings, dtype=StringDType())
+
     np.testing.assert_array_equal(
-        arr.astype("U8"), np.array(string_list, dtype="U8")
+        arr.astype("U8"), np.array(strings, dtype="U8")
     )
     np.testing.assert_array_equal(arr.astype("U8").astype(StringDType()), arr)
     np.testing.assert_array_equal(
-        arr.astype("U3"), np.array(string_list, dtype="U3")
+        arr.astype("U3"), np.array(strings, dtype="U3")
     )
     np.testing.assert_array_equal(
         arr.astype("U3").astype(StringDType()),
-        np.array([s[:3] for s in string_list], dtype=StringDType()),
+        np.array([s[:3] for s in strings], dtype=StringDType()),
     )
 
 
@@ -107,10 +102,14 @@ def test_additional_unicode_cast(string_list):
 
 
 def test_insert_scalar(string_list):
+    """Test that inserting a scalar works."""
     dtype = StringDType()
     arr = np.array(string_list, dtype=dtype)
     arr[1] = StringScalar("what")
-    assert repr(arr) == repr(np.array(["abc", "what", "ghi"], dtype=dtype))
+    np.testing.assert_array_equal(
+        arr,
+        np.array(string_list[:1] + ["what"] + string_list[2:], dtype=dtype),
+    )
 
 
 def test_equality_promotion(string_list):
@@ -128,8 +127,8 @@ def test_isnan(string_list):
     )
 
 
-def test_memory_usage(string_list):
-    sarr = np.array(string_list, dtype=StringDType())
+def test_memory_usage():
+    sarr = np.array(["abc", "def", "ghi"], dtype=StringDType())
     # 4 bytes for each ASCII string buffer in string_list
     # (three characters and null terminator)
     # plus enough bytes for the size_t length
@@ -258,7 +257,7 @@ def test_arrfuncs_empty(arrfunc, expected):
 
 
 @pytest.mark.parametrize(
-    ("string_list", "cast_answer", "any_answer", "all_answer"),
+    ("strings", "cast_answer", "any_answer", "all_answer"),
     [
         [["hello", "world"], [True, True], True, True],
         [["", ""], [False, False], False, False],
@@ -266,8 +265,8 @@ def test_arrfuncs_empty(arrfunc, expected):
         [["", "world"], [False, True], True, False],
     ],
 )
-def test_bool_cast(string_list, cast_answer, any_answer, all_answer):
-    sarr = np.array(string_list, dtype=StringDType())
+def test_bool_cast(strings, cast_answer, any_answer, all_answer):
+    sarr = np.array(strings, dtype=StringDType())
     np.testing.assert_array_equal(sarr.astype("bool"), cast_answer)
 
     assert np.any(sarr) == any_answer
@@ -285,3 +284,18 @@ def test_take(string_list):
     out[0] = "hello"
     res = sarr.take(np.arange(len(string_list)), out=out)
     np.testing.assert_array_equal(res, out)
+
+
+@pytest.mark.parametrize(
+    "ufunc,func",
+    [
+        ("min", min),
+        ("max", max),
+    ],
+)
+def test_ufuncs_minmax(string_list, ufunc, func):
+    """Test that the min/max ufuncs match Python builtin min/max behavior."""
+    arr = np.array(string_list, dtype=StringDType())
+    np.testing.assert_array_equal(
+        getattr(arr, ufunc)(), np.array(func(string_list), dtype=StringDType())
+    )

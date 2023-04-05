@@ -52,13 +52,16 @@ string_to_string(PyArrayMethod_Context *NPY_UNUSED(context),
     npy_intp in_stride = strides[0];
     npy_intp out_stride = strides[1];
 
-    ss *s = NULL, *os = NULL;
+    ss *s = NULL;
 
     while (N--) {
-        load_string(in, &s);
-        os = (ss *)out;
-        ssfree(os);
-        if (ssdup(s, os) < 0) {
+        // *out* may be reallocated later; *in->buf* may point to a statically
+        // allocated empty ss struct, so we need to load the string into an
+        // intermediate buffer *s* to avoid the possibility of freeing static
+        // data later on.
+        load_string(in, (ss **)&s);
+        ssfree((ss *)out);
+        if (ssdup((ss *)s, (ss *)out) < 0) {
             gil_error(PyExc_MemoryError, "ssdup failed");
             return -1;
         }
