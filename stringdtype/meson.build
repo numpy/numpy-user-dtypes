@@ -30,12 +30,13 @@ srcs = [
   'stringdtype/src/static_string.h',
   'stringdtype/src/umath.c',
   'stringdtype/src/umath.h',
+  'stringdtype/src/scalar.h',
+  'stringdtype/src/scalar.c',
 ]
 
 py.install_sources(
   [
     'stringdtype/__init__.py',
-    'stringdtype/scalar.py'
   ],
   subdir: 'stringdtype'
 )

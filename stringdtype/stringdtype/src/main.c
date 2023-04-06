@@ -6,6 +6,7 @@
 #include "numpy/experimental_dtype_api.h"
 
 #include "dtype.h"
+#include "scalar.h"
 #include "static_string.h"
 #include "umath.h"
 
@@ -100,15 +101,7 @@ PyInit__main(void)
         return NULL;
     }
 
-    PyObject *mod = PyImport_ImportModule("stringdtype");
-    if (mod == NULL) {
-        goto error;
-    }
-    StringScalar_Type =
-            (PyTypeObject *)PyObject_GetAttrString(mod, "StringScalar");
-    Py_DECREF(mod);
-
-    if (StringScalar_Type == NULL) {
+    if (init_stringdtype_scalar() < 0) {
         goto error;
     }
 
@@ -116,7 +109,16 @@ PyInit__main(void)
         goto error;
     }
 
+    Py_INCREF((PyObject *)&StringDType);
     if (PyModule_AddObject(m, "StringDType", (PyObject *)&StringDType) < 0) {
+        Py_DECREF((PyObject *)&StringDType);
+        goto error;
+    }
+
+    Py_INCREF((PyObject *)&StringScalar_Type);
+    if (PyModule_AddObject(m, "StringScalar", (PyObject *)&StringScalar_Type) <
+        0) {
+        Py_DECREF((PyObject *)&StringScalar_Type);
         goto error;
     }
 
