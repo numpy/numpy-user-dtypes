@@ -2,7 +2,8 @@
 
 """
 
-from ._main import StringDType, StringScalar, _memory_usage
+from .scalar import StringScalar  # isort: skip
+from ._main import StringDType, _memory_usage
 
 __all__ = [
     "StringDType",

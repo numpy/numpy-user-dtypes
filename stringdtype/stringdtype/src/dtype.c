@@ -1,8 +1,9 @@
 #include "dtype.h"
 
 #include "casts.h"
-#include "scalar.h"
 #include "static_string.h"
+
+PyTypeObject *StringScalar_Type = NULL;
 
 /*
  * Internal helper to create new instances
@@ -63,7 +64,7 @@ static PyArray_Descr *
 string_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls),
                                          PyObject *obj)
 {
-    if (Py_TYPE(obj) != &StringScalar_Type) {
+    if (Py_TYPE(obj) != StringScalar_Type) {
         PyErr_SetString(PyExc_TypeError,
                         "Can only store StringScalar in a StringDType array.");
         return NULL;
@@ -83,7 +84,7 @@ get_value(PyObject *scalar)
     PyTypeObject *scalar_type = Py_TYPE(scalar);
     // FIXME: handle bytes too
     if ((scalar_type == &PyUnicode_Type) ||
-        (scalar_type == &StringScalar_Type)) {
+        (scalar_type == StringScalar_Type)) {
         // attempt to decode as UTF8
         ret_bytes = PyUnicode_AsUTF8String(scalar);
         if (ret_bytes == NULL) {
@@ -394,7 +395,7 @@ init_string_dtype(void)
     PyArrayMethod_Spec **casts = get_casts();
 
     PyArrayDTypeMeta_Spec StringDType_DTypeSpec = {
-            .typeobj = &StringScalar_Type,
+            .typeobj = StringScalar_Type,
             .slots = StringDType_Slots,
             .casts = casts,
     };

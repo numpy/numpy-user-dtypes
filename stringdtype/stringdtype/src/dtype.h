@@ -18,6 +18,7 @@ typedef struct {
 } StringDTypeObject;
 
 extern PyArray_DTypeMeta StringDType;
+extern PyTypeObject *StringScalar_Type;
 
 StringDTypeObject *
 new_stringdtype_instance(void);
