@@ -146,15 +146,18 @@ static PyObject *
 stringdtype_getitem(StringDTypeObject *NPY_UNUSED(descr), char **dataptr)
 {
     char *data;
+    size_t len;
 
     if (*dataptr == NULL) {
         data = "\0";
+        len = 0;
     }
     else {
         data = ((ss *)dataptr)->buf;
+        len = ((ss *)dataptr)->len;
     }
 
-    PyObject *val_obj = PyUnicode_FromString(data);
+    PyObject *val_obj = PyUnicode_FromStringAndSize(data, len);
 
     if (val_obj == NULL) {
         return NULL;
