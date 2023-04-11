@@ -104,6 +104,7 @@ PyInit__main(void)
     if (mod == NULL) {
         goto error;
     }
+
     StringScalar_Type =
             (PyTypeObject *)PyObject_GetAttrString(mod, "StringScalar");
     Py_DECREF(mod);
@@ -116,7 +117,9 @@ PyInit__main(void)
         goto error;
     }
 
+    Py_INCREF((PyObject *)&StringDType);
     if (PyModule_AddObject(m, "StringDType", (PyObject *)&StringDType) < 0) {
+        Py_DECREF((PyObject *)&StringDType);
         goto error;
     }
 
