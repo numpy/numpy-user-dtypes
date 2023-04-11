@@ -163,6 +163,17 @@ stringdtype_getitem(StringDTypeObject *NPY_UNUSED(descr), char **dataptr)
         return NULL;
     }
 
+    /*
+     * In principle we should return a StringScalar instance here, but
+     * creating a StringScalar via PyObject_CallFunctionObjArgs has
+     * approximately 4 times as much overhead than just returning a str
+     * here. This is due to Python overhead as well as copying the string
+     * buffer from val_obj to the StringScalar we'd like to return. In
+     * principle we could avoid this by making a C function like
+     * PyUnicode_FromStringAndSize that fills a StringScalar instead of a
+     * str. For now (4-11-23) we are punting on that with the expectation that
+     * eventually the scalar type for this dtype will be str.
+     */
     return val_obj;
 }
 
