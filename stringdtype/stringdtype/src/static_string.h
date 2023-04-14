@@ -34,13 +34,9 @@ ssdup(ss *in, ss *out);
 int
 ssnewemptylen(size_t num_bytes, ss *out);
 
-// Interpret the contents of buffer *data* as an ss struct and set *out* to
-// that struct. If *data* is NULL, set *out* to point to a statically
-// allocated, empty SS struct. Since this function may set *out* to point to
-// statically allocated data, do not ever free memory owned by an output of
-// this function. That means this function is most useful for read-only
-// applications.
-void
-load_string(char *data, ss **out);
+// Determine if *in* corresponds to a NULL ss struct (e.g. len is zero and buf
+// is NULL. Returns 1 if this is the case and zero otherwise. Cannot fail.
+int
+ss_isnull(ss *in);
 
 #endif /*_NPY_STATIC_STRING_H */

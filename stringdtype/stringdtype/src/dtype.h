@@ -12,6 +12,7 @@
 #include "numpy/arrayobject.h"
 #include "numpy/experimental_dtype_api.h"
 #include "numpy/ndarraytypes.h"
+#include "numpy/npy_math.h"
 
 typedef struct {
     PyArray_Descr base;
@@ -28,6 +29,10 @@ init_string_dtype(void);
 
 int
 compare(void *, void *, void *);
+
+int
+init_string_na_object(PyObject *mod);
+
 
 // from dtypemeta.h, not public in numpy
 #define NPY_DTYPE(descr) ((PyArray_DTypeMeta *)Py_TYPE(descr))

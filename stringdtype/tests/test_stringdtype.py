@@ -7,7 +7,7 @@ import tempfile
 import numpy as np
 import pytest
 
-from stringdtype import StringDType, StringScalar, _memory_usage
+from stringdtype import NA, StringDType, StringScalar, _memory_usage
 
 
 @pytest.fixture
@@ -121,9 +121,9 @@ def test_equality_promotion(string_list):
 
 
 def test_isnan(string_list):
-    sarr = np.array(string_list, dtype=StringDType())
+    sarr = np.array(string_list + [NA], dtype=StringDType())
     np.testing.assert_array_equal(
-        np.isnan(sarr), np.zeros_like(sarr, dtype=np.bool_)
+        np.isnan(sarr), np.array([0] * len(string_list) + [1], dtype=np.bool_)
     )
 
 
@@ -212,12 +212,11 @@ def test_creation_functions():
         np.zeros(3, dtype=StringDType()), ["", "", ""]
     )
 
-    np.testing.assert_array_equal(
-        np.empty(3, dtype=StringDType()), ["", "", ""]
-    )
+    assert np.zeros(3, dtype=StringDType())[0] == ""
 
-    # make sure getitem works too
-    assert np.empty(3, dtype=StringDType())[0] == ""
+    assert np.all(np.isnan(np.empty(3, dtype=StringDType())))
+
+    assert np.empty(3, dtype=StringDType())[0] is NA
 
 
 def test_is_numeric():
@@ -244,14 +243,14 @@ def test_argmax(strings):
 @pytest.mark.parametrize(
     "arrfunc,expected",
     [
-        [np.sort, np.empty(10, dtype=StringDType())],
+        [np.sort, np.zeros(10, dtype=StringDType())],
         [np.nonzero, (np.array([], dtype=np.int64),)],
         [np.argmax, 0],
         [np.argmin, 0],
     ],
 )
-def test_arrfuncs_empty(arrfunc, expected):
-    arr = np.empty(10, dtype=StringDType())
+def test_arrfuncs_zeros(arrfunc, expected):
+    arr = np.zeros(10, dtype=StringDType())
     result = arrfunc(arr)
     np.testing.assert_array_equal(result, expected, strict=True)
 
@@ -316,3 +315,14 @@ def test_ufunc_add(string_list, other_strings):
         np.add(arr1, arr2),
         np.array([a + b for a, b in zip(arr1, arr2)], dtype=StringDType()),
     )
+
+
+@pytest.mark.parametrize("na_val", [float("nan"), np.nan, NA])
+def test_create_with_na(na_val):
+    string_list = ["hello", na_val, "world"]
+    arr = np.array(string_list, dtype=StringDType())
+    assert (
+        repr(arr)
+        == "array(['hello', stringdtype.NA, 'world'], dtype=StringDType())"
+    )
+    assert arr[1] == NA and arr[1] is NA

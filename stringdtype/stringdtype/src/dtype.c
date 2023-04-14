@@ -4,6 +4,8 @@
 #include "static_string.h"
 
 PyTypeObject *StringScalar_Type = NULL;
+static PyTypeObject *StringNA_Type = NULL;
+static PyObject *NA_OBJ = NULL;
 
 /*
  * Internal helper to create new instances
@@ -80,14 +82,35 @@ string_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls),
 static PyObject *
 get_value(PyObject *scalar)
 {
-    PyObject *ret_bytes = NULL;
+    PyObject *ret = NULL;
     PyTypeObject *scalar_type = Py_TYPE(scalar);
     // FIXME: handle bytes too
     if ((scalar_type == &PyUnicode_Type) ||
         (scalar_type == StringScalar_Type)) {
         // attempt to decode as UTF8
-        ret_bytes = PyUnicode_AsUTF8String(scalar);
-        if (ret_bytes == NULL) {
+        ret = PyUnicode_AsUTF8String(scalar);
+        if (ret == NULL) {
+            PyErr_SetString(
+                    PyExc_TypeError,
+                    "Can only store UTF8 text in a StringDType array.");
+            return NULL;
+        }
+    }
+    else if (scalar_type == StringNA_Type) {
+        ret = scalar;
+        Py_INCREF(ret);
+    }
+    // store np.nan as NA
+    else if (scalar_type == &PyFloat_Type) {
+        double scalar_val = PyFloat_AsDouble(scalar);
+        if ((scalar_val == -1.0) && PyErr_Occurred()) {
+            return NULL;
+        }
+        if (npy_isnan(scalar_val)) {
+            ret = NA_OBJ;
+            Py_INCREF(ret);
+        }
+        else {
             PyErr_SetString(
                     PyExc_TypeError,
                     "Can only store UTF8 text in a StringDType array.");
@@ -99,7 +122,7 @@ get_value(PyObject *scalar)
                         "Can only store String text in a StringDType array.");
         return NULL;
     }
-    return ret_bytes;
+    return ret;
 }
 
 // Take a python object `obj` and insert it into the array of dtype `descr` at
@@ -109,58 +132,74 @@ stringdtype_setitem(StringDTypeObject *NPY_UNUSED(descr), PyObject *obj,
                     char **dataptr)
 {
     PyObject *val_obj = get_value(obj);
+
     if (val_obj == NULL) {
         return -1;
     }
 
-    char *val = NULL;
-    Py_ssize_t length = 0;
-    if (PyBytes_AsStringAndSize(val_obj, &val, &length) == -1) {
-        return -1;
-    }
+    ss *sdata = (ss *)dataptr;
 
     // free if dataptr holds preexisting string data,
     // ssfree does a NULL check
-    ssfree((ss *)dataptr);
+    ssfree(sdata);
 
-    // copies contents of val into item_val->buf
-    int res = ssnewlen(val, length, (ss *)dataptr);
+    // RichCompareBool short-circuits to a pointer comparison fast-path
+    // so no need to do pointer comparison first
+    int eq_res = PyObject_RichCompareBool(val_obj, NA_OBJ, Py_EQ);
 
-    // val_obj must stay alive until here to ensure *val* doesn't get
-    // deallocated
+    if (eq_res < 0) {
+        goto error;
+    }
+
+    if (eq_res == 1) {
+        sdata = NULL;
+    }
+    else {
+        char *val = NULL;
+        Py_ssize_t length = 0;
+        if (PyBytes_AsStringAndSize(val_obj, &val, &length) == -1) {
+            goto error;
+        }
+
+        // copies contents of val into item_val->buf
+        int res = ssnewlen(val, length, sdata);
+
+        if (res == -1) {
+            PyErr_NoMemory();
+            goto error;
+        }
+        else if (res == -2) {
+            // this should never happen
+            assert(0);
+            goto error;
+        }
+    }
+
     Py_DECREF(val_obj);
-
-    if (res == -1) {
-        PyErr_NoMemory();
-        return -1;
-    }
-    else if (res == -2) {
-        // this should never happen
-        assert(0);
-    }
-
     return 0;
+
+error:
+    Py_DECREF(val_obj);
+    return -1;
 }
 
 static PyObject *
 stringdtype_getitem(StringDTypeObject *NPY_UNUSED(descr), char **dataptr)
 {
-    char *data;
-    size_t len;
+    PyObject *val_obj = NULL;
+    ss *sdata = (ss *)dataptr;
 
-    if (*dataptr == NULL) {
-        data = "\0";
-        len = 0;
+    if (ss_isnull(sdata)) {
+        Py_INCREF(NA_OBJ);
+        val_obj = NA_OBJ;
     }
     else {
-        data = ((ss *)dataptr)->buf;
-        len = ((ss *)dataptr)->len;
-    }
-
-    PyObject *val_obj = PyUnicode_FromStringAndSize(data, len);
-
-    if (val_obj == NULL) {
-        return NULL;
+        char *data = sdata->buf;
+        size_t len = sdata->len;
+        val_obj = PyUnicode_FromStringAndSize(data, len);
+        if (val_obj == NULL) {
+            return NULL;
+        }
     }
 
     /*
@@ -190,10 +229,22 @@ nonzero(void *data, void *NPY_UNUSED(arr))
 int
 compare(void *a, void *b, void *NPY_UNUSED(arr))
 {
-    ss *ss_a = NULL;
-    ss *ss_b = NULL;
-    load_string(a, &ss_a);
-    load_string(b, &ss_b);
+    ss *ss_a = (ss *)a;
+    ss *ss_b = (ss *)b;
+    int a_is_null = ss_isnull(ss_a);
+    int b_is_null = ss_isnull(ss_b);
+    if (a_is_null || b_is_null) {
+        // numpy sorts NaNs to the end of the array
+        // pandas sorts NAs to the end as well
+        // so we follow that behavior here
+        if (!b_is_null) {
+            return 1;
+        }
+        else if (!a_is_null) {
+            return -1;
+        }
+        return 0;
+    }
     return strcmp(ss_a->buf, ss_b->buf);
 }
 
@@ -265,6 +316,21 @@ stringdtype_get_clear_loop(void *NPY_UNUSED(traverse_context),
     return 0;
 }
 
+static int
+stringdtype_fill_zero_value(PyArrayObject *arr)
+{
+    char *buf = PyArray_DATA(arr);
+    npy_intp sz = PyArray_SIZE(arr);
+    int elsize = PyArray_DESCR(arr)->elsize;
+
+    for (npy_intp i = 0; i < sz; i++) {
+        if (ssnewlen("", 0, (ss *)(buf + i * elsize)) < 0) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
 static PyType_Slot StringDType_Slots[] = {
         {NPY_DT_common_instance, &common_instance},
         {NPY_DT_common_dtype, &common_dtype},
@@ -278,6 +344,7 @@ static PyType_Slot StringDType_Slots[] = {
         {NPY_DT_PyArray_ArrFuncs_argmax, &argmax},
         {NPY_DT_PyArray_ArrFuncs_argmin, &argmin},
         {NPY_DT_get_clear_loop, &stringdtype_get_clear_loop},
+        {NPY_DT_fill_zero_value, &stringdtype_fill_zero_value},
         {0, NULL}};
 
 static PyObject *
@@ -439,5 +506,14 @@ init_string_dtype(void)
         free(casts[i]);
     }
 
+    return 0;
+}
+
+int
+init_string_na_object(PyObject *mod)
+{
+    NA_OBJ = PyObject_GetAttrString(mod, "NA");
+    StringNA_Type = Py_TYPE(NA_OBJ);
+    Py_INCREF(StringNA_Type);
     return 0;
 }

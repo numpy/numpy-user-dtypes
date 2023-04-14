@@ -142,10 +142,14 @@ string_equal_strided_loop(PyArrayMethod_Context *NPY_UNUSED(context),
     ss *s1 = NULL, *s2 = NULL;
 
     while (N--) {
-        load_string(in1, &s1);
-        load_string(in2, &s2);
-
-        if (s1->len == s2->len && strncmp(s1->buf, s2->buf, s1->len) == 0) {
+        s1 = (ss *)in1;
+        s2 = (ss *)in2;
+        if (ss_isnull(s1) || ss_isnull(s2)) {
+            // s1 or s2 is NA
+            *out = (npy_bool)0;
+        }
+        else if (s1->len == s2->len &&
+                 strncmp(s1->buf, s2->buf, s1->len) == 0) {
             *out = (npy_bool)1;
         }
         else {
@@ -183,14 +187,23 @@ string_isnan_strided_loop(PyArrayMethod_Context *NPY_UNUSED(context),
                           NpyAuxData *NPY_UNUSED(auxdata))
 {
     npy_intp N = dimensions[0];
+    char *in = data[0];
     npy_bool *out = (npy_bool *)data[1];
+    npy_intp in_stride = strides[0];
     npy_intp out_stride = strides[1];
 
-    while (N--) {
-        // we could represent missing data with a null pointer, but
-        // should isnan return True in that case?
-        *out = (npy_bool)0;
+    ss *s = NULL;
 
+    while (N--) {
+        s = (ss *)in;
+        if (ss_isnull(s)) {
+            *out = (npy_bool)1;
+        }
+        else {
+            *out = (npy_bool)0;
+        }
+
+        in += in_stride;
         out += out_stride;
     }
 

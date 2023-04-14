@@ -53,15 +53,13 @@ string_to_string(PyArrayMethod_Context *NPY_UNUSED(context),
     npy_intp out_stride = strides[1];
 
     ss *s = NULL;
+    ss *os = NULL;
 
     while (N--) {
-        // *out* may be reallocated later; *in->buf* may point to a statically
-        // allocated empty ss struct, so we need to load the string into an
-        // intermediate buffer *s* to avoid the possibility of freeing static
-        // data later on.
-        load_string(in, (ss **)&s);
-        ssfree((ss *)out);
-        if (ssdup((ss *)s, (ss *)out) < 0) {
+        s = (ss *)in;
+        os = (ss *)out;
+        ssfree(os);
+        if (ssdup(s, os) < 0) {
             gil_error(PyExc_MemoryError, "ssdup failed");
             return -1;
         }
@@ -338,9 +336,18 @@ string_to_unicode(PyArrayMethod_Context *context, char *const data[],
     ss *s = NULL;
 
     while (N--) {
-        load_string(in, &s);
-        unsigned char *this_string = (unsigned char *)(s->buf);
-        size_t n_bytes = s->len;
+        s = (ss *)in;
+        unsigned char *this_string = NULL;
+        size_t n_bytes;
+        if (ss_isnull(s)) {
+            // lossy but not much else we can do
+            this_string = (unsigned char *)"NA";
+            n_bytes = 3;
+        }
+        else {
+            this_string = (unsigned char *)(s->buf);
+            n_bytes = s->len;
+        }
         size_t tot_n_bytes = 0;
 
         for (int i = 0; i < max_out_size; i++) {
@@ -401,7 +408,7 @@ string_to_bool_resolve_descriptors(PyObject *NPY_UNUSED(self),
 }
 
 static int
-string_to_bool(PyArrayMethod_Context *context, char *const data[],
+string_to_bool(PyArrayMethod_Context *NPY_UNUSED(context), char *const data[],
                npy_intp const dimensions[], npy_intp const strides[],
                NpyAuxData *NPY_UNUSED(auxdata))
 {
@@ -415,8 +422,12 @@ string_to_bool(PyArrayMethod_Context *context, char *const data[],
     ss *s = NULL;
 
     while (N--) {
-        load_string(in, &s);
-        if (s->len == 0) {
+        s = (ss *)in;
+        if (ss_isnull(s)) {
+            // numpy treats NaN as truthy, following python
+            *out = (npy_bool)1;
+        }
+        else if (s->len == 0) {
             *out = (npy_bool)0;
         }
         else {
