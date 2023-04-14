@@ -299,3 +299,20 @@ def test_ufuncs_minmax(string_list, ufunc, func):
     np.testing.assert_array_equal(
         getattr(arr, ufunc)(), np.array(func(string_list), dtype=StringDType())
     )
+
+
+@pytest.mark.parametrize(
+    "other_strings",
+    [
+        ["abc", "def", "ghi", "🤣", "📵", "😰"],
+        ["🚜", "🙃", "😾", "😹", "🚠", "🚌"],
+        ["🥦", "¨", "⨯", "∰ ", "⨌ ", "⎶ "],
+    ],
+)
+def test_ufunc_add(string_list, other_strings):
+    arr1 = np.array(string_list, dtype=StringDType())
+    arr2 = np.array(other_strings, dtype=StringDType())
+    np.testing.assert_array_equal(
+        np.add(arr1, arr2),
+        np.array([a + b for a, b in zip(arr1, arr2)], dtype=StringDType()),
+    )

@@ -14,24 +14,41 @@
 #include "umath.h"
 
 static int
-minmax_resolve_descriptors(struct PyArrayMethodObject_tag *NPY_UNUSED(method),
-                           PyArray_DTypeMeta *NPY_UNUSED(dtypes[]),
-                           PyArray_Descr *given_descrs[],
-                           PyArray_Descr *loop_descrs[],
-                           npy_intp *NPY_UNUSED(view_offset))
+add_strided_loop(PyArrayMethod_Context *NPY_UNUSED(context),
+                 char *const data[], npy_intp const dimensions[],
+                 npy_intp const strides[], NpyAuxData *NPY_UNUSED(auxdata))
 {
-    Py_INCREF(given_descrs[0]);
-    loop_descrs[0] = given_descrs[0];
-    Py_INCREF(given_descrs[1]);
-    loop_descrs[1] = given_descrs[1];
+    npy_intp N = dimensions[0];
+    char *in1 = data[0];
+    char *in2 = data[1];
+    char *out = data[2];
+    npy_intp in1_stride = strides[0];
+    npy_intp in2_stride = strides[1];
+    npy_intp out_stride = strides[2];
 
-    StringDTypeObject *new = new_stringdtype_instance();
-    if (new == NULL) {
-        return -1;
+    ss *s1 = NULL, *s2 = NULL, *os = NULL;
+    int newlen = 0;
+
+    while (N--) {
+        s1 = (ss *)in1;
+        s2 = (ss *)in2;
+        os = (ss *)out;
+        newlen = s1->len + s2->len;
+
+        ssfree(os);
+        if (ssnewemptylen(newlen, os) < 0) {
+            return -1;
+        }
+
+        memcpy(os->buf, s1->buf, s1->len);
+        memcpy(os->buf + s1->len, s2->buf, s2->len);
+        os->buf[newlen] = '\0';
+
+        in1 += in1_stride;
+        in2 += in2_stride;
+        out += out_stride;
     }
-    loop_descrs[2] = (PyArray_Descr *)new;
-
-    return NPY_NO_CASTING;
+    return 0;
 }
 
 static int
@@ -259,6 +276,9 @@ default_ufunc_promoter(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
     return 0;
 }
 
+// Register a ufunc.
+//
+// Pass NULL for resolve_func to use the default_resolve_descriptors.
 int
 init_ufunc(PyObject *numpy, const char *ufunc_name, PyArray_DTypeMeta **dtypes,
            resolve_descriptors_function *resolve_func,
@@ -270,10 +290,6 @@ init_ufunc(PyObject *numpy, const char *ufunc_name, PyArray_DTypeMeta **dtypes,
         return -1;
     }
 
-    PyType_Slot slots[] = {{NPY_METH_resolve_descriptors, resolve_func},
-                           {NPY_METH_strided_loop, loop_func},
-                           {0, NULL}};
-
     PyArrayMethod_Spec spec = {
             .name = loop_name,
             .nin = nin,
@@ -281,8 +297,18 @@ init_ufunc(PyObject *numpy, const char *ufunc_name, PyArray_DTypeMeta **dtypes,
             .casting = casting,
             .flags = flags,
             .dtypes = dtypes,
-            .slots = slots,
     };
+
+    if (resolve_func == NULL) {
+        PyType_Slot slots[] = {{NPY_METH_strided_loop, loop_func}, {0, NULL}};
+        spec.slots = slots;
+    }
+    else {
+        PyType_Slot slots[] = {{NPY_METH_resolve_descriptors, resolve_func},
+                               {NPY_METH_strided_loop, loop_func},
+                               {0, NULL}};
+        spec.slots = slots;
+    }
 
     if (PyUFunc_AddLoopFromSpec(ufunc, &spec) < 0) {
         Py_DECREF(ufunc);
@@ -367,14 +393,21 @@ init_ufuncs(void)
 
     PyArray_DTypeMeta *minmax_dtypes[] = {&StringDType, &StringDType,
                                           &StringDType};
-    if (init_ufunc(numpy, "maximum", minmax_dtypes,
-                   &minmax_resolve_descriptors, &maximum_strided_loop,
-                   "string_maximum", 2, 1, NPY_NO_CASTING, 0) < 0) {
+    if (init_ufunc(numpy, "maximum", minmax_dtypes, NULL,
+                   &maximum_strided_loop, "string_maximum", 2, 1,
+                   NPY_NO_CASTING, 0) < 0) {
         goto error;
     }
-    if (init_ufunc(numpy, "minimum", minmax_dtypes,
-                   &minmax_resolve_descriptors, &minimum_strided_loop,
-                   "string_minimum", 2, 1, NPY_NO_CASTING, 0) < 0) {
+    if (init_ufunc(numpy, "minimum", minmax_dtypes, NULL,
+                   &minimum_strided_loop, "string_minimum", 2, 1,
+                   NPY_NO_CASTING, 0) < 0) {
+        goto error;
+    }
+
+    PyArray_DTypeMeta *add_types[] = {&StringDType, &StringDType,
+                                      &StringDType};
+    if (init_ufunc(numpy, "add", add_types, NULL, &add_strided_loop,
+                   "string_add", 2, 1, NPY_NO_CASTING, 0) < 0) {
         goto error;
     }
 
