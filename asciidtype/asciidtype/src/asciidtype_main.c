@@ -22,7 +22,7 @@ PyInit__asciidtype_main(void)
         return NULL;
     }
 
-    if (import_experimental_dtype_api(9) < 0) {
+    if (import_experimental_dtype_api(10) < 0) {
         return NULL;
     }
 
