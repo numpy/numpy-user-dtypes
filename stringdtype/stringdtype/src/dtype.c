@@ -317,17 +317,31 @@ stringdtype_get_clear_loop(void *NPY_UNUSED(traverse_context),
 }
 
 static int
-stringdtype_fill_zero_value(PyArrayObject *arr)
+stringdtype_fill_zero_loop(void *NPY_UNUSED(traverse_context),
+                           PyArray_Descr *NPY_UNUSED(descr), char *data,
+                           npy_intp size, npy_intp stride,
+                           NpyAuxData *NPY_UNUSED(auxdata))
 {
-    char *buf = PyArray_DATA(arr);
-    npy_intp sz = PyArray_SIZE(arr);
-    int elsize = PyArray_DESCR(arr)->elsize;
-
-    for (npy_intp i = 0; i < sz; i++) {
-        if (ssnewlen("", 0, (ss *)(buf + i * elsize)) < 0) {
+    while (size--) {
+        if (ssnewlen("", 0, (ss *)(data)) < 0) {
             return -1;
         }
+        data += stride;
     }
+    return 0;
+}
+
+static int
+stringdtype_get_fill_zero_loop(void *NPY_UNUSED(traverse_context),
+                               PyArray_Descr *NPY_UNUSED(descr),
+                               int NPY_UNUSED(aligned),
+                               npy_intp NPY_UNUSED(fixed_stride),
+                               traverse_loop_function **out_loop,
+                               NpyAuxData **NPY_UNUSED(out_auxdata),
+                               NPY_ARRAYMETHOD_FLAGS *flags)
+{
+    *flags = NPY_METH_NO_FLOATINGPOINT_ERRORS;
+    *out_loop = &stringdtype_fill_zero_loop;
     return 0;
 }
 
@@ -344,7 +358,7 @@ static PyType_Slot StringDType_Slots[] = {
         {NPY_DT_PyArray_ArrFuncs_argmax, &argmax},
         {NPY_DT_PyArray_ArrFuncs_argmin, &argmin},
         {NPY_DT_get_clear_loop, &stringdtype_get_clear_loop},
-        {NPY_DT_fill_zero_value, &stringdtype_fill_zero_value},
+        {NPY_DT_get_fill_zero_loop, &stringdtype_get_fill_zero_loop},
         {0, NULL}};
 
 static PyObject *
