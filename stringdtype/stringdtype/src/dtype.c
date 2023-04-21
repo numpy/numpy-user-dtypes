@@ -152,8 +152,8 @@ stringdtype_setitem(StringDTypeObject *NPY_UNUSED(descr), PyObject *obj,
     }
 
     if (eq_res == 1) {
-        // NULL is the representation of NA in the array buffer
-        sdata = NULL;
+        // do nothing, ssfree already NULLed the struct ssdata points to
+        // so it already contains a NA value
     }
     else {
         char *val = NULL;
