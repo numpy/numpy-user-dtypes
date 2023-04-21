@@ -185,12 +185,24 @@ def test_pickle(string_list):
 )
 def test_sort(strings):
     """Test that sorting matches python's internal sorting."""
-    arr = np.array(strings, dtype=StringDType())
-    arr_sorted = np.array(sorted(strings), dtype=StringDType())
 
-    np.random.default_rng().shuffle(arr)
-    arr.sort()
-    np.testing.assert_array_equal(arr, arr_sorted)
+    def test_sort(strings, arr_sorted):
+        arr = np.array(strings, dtype=StringDType())
+        np.random.default_rng().shuffle(arr)
+        arr.sort()
+        assert np.array_equal(arr, arr_sorted, equal_nan=True)
+
+    arr_sorted = np.array(sorted(strings), dtype=StringDType())
+    test_sort(strings, arr_sorted)
+
+    # make sure NAs get sorted to the end of the array
+    strings.insert(0, NA)
+    strings.insert(2, NA)
+    # can't use append because doing that with NA converts
+    # the result to object dtype
+    arr_sorted = np.array(arr_sorted.tolist() + [NA, NA], dtype=StringDType())
+
+    test_sort(strings, arr_sorted)
 
 
 @pytest.mark.parametrize(

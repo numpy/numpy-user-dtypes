@@ -152,6 +152,7 @@ stringdtype_setitem(StringDTypeObject *NPY_UNUSED(descr), PyObject *obj,
     }
 
     if (eq_res == 1) {
+        // NULL is the representation of NA in the array buffer
         sdata = NULL;
     }
     else {
@@ -233,17 +234,11 @@ compare(void *a, void *b, void *NPY_UNUSED(arr))
     ss *ss_b = (ss *)b;
     int a_is_null = ss_isnull(ss_a);
     int b_is_null = ss_isnull(ss_b);
-    if (a_is_null || b_is_null) {
-        // numpy sorts NaNs to the end of the array
-        // pandas sorts NAs to the end as well
-        // so we follow that behavior here
-        if (!b_is_null) {
-            return 1;
-        }
-        else if (!a_is_null) {
-            return -1;
-        }
-        return 0;
+    if (a_is_null) {
+        return 1;
+    }
+    else if (b_is_null) {
+        return -1;
     }
     return strcmp(ss_a->buf, ss_b->buf);
 }
