@@ -33,7 +33,8 @@ py.install_sources(
     'quaddtype/__init__.py',
     'quaddtype/quadscalar.py'
   ],
-  subdir: 'quaddtype'
+  subdir: 'quaddtype',
+  pure: false
 )
 
 py.extension_module(

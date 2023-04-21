@@ -91,7 +91,7 @@ PyInit__main(void)
     if (_import_array() < 0) {
         return NULL;
     }
-    if (import_experimental_dtype_api(9) < 0) {
+    if (import_experimental_dtype_api(10) < 0) {
         return NULL;
     }
 
@@ -114,6 +114,10 @@ PyInit__main(void)
     }
 
     if (init_string_dtype() < 0) {
+        goto error;
+    }
+
+    if (init_string_na_object(mod) < 0) {
         goto error;
     }
 

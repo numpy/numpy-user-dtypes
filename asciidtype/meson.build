@@ -35,7 +35,8 @@ py.install_sources(
     'asciidtype/__init__.py',
     'asciidtype/scalar.py'
   ],
-  subdir: 'asciidtype'
+  subdir: 'asciidtype',
+  pure: false
 )
 
 py.extension_module(

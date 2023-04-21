@@ -1,10 +1,17 @@
 #include "static_string.h"
 
+static ss EMPTY = {0, ""};
+
 int
 ssnewlen(const char *init, size_t len, ss *to_init)
 {
-    if ((to_init->buf != NULL) || (to_init->len != 0)) {
+    if ((to_init == NULL) || (to_init->buf != NULL) || (to_init->len != 0)) {
         return -2;
+    }
+
+    if (len == 0) {
+        to_init->len = 0;
+        to_init->buf = EMPTY.buf;
     }
 
     // one extra byte for null terminator
@@ -31,7 +38,9 @@ void
 ssfree(ss *str)
 {
     if (str->buf != NULL) {
-        free(str->buf);
+        if (str->buf != EMPTY.buf) {
+            free(str->buf);
+        }
         str->buf = NULL;
     }
     str->len = 0;
@@ -40,7 +49,14 @@ ssfree(ss *str)
 int
 ssdup(ss *in, ss *out)
 {
-    return ssnewlen(in->buf, in->len, out);
+    if (ss_isnull(in)) {
+        out->len = 0;
+        out->buf = NULL;
+        return 0;
+    }
+    else {
+        return ssnewlen(in->buf, in->len, out);
+    }
 }
 
 int
@@ -62,16 +78,11 @@ ssnewemptylen(size_t num_bytes, ss *out)
     return 0;
 }
 
-static ss EMPTY = {0, "\0"};
-
-void
-load_string(char *data, ss **out)
+int
+ss_isnull(ss *in)
 {
-    ss *ss_d = (ss *)data;
-    if (ss_d->len == 0) {
-        *out = &EMPTY;
+    if (in->len == 0 && in->buf == NULL) {
+        return 1;
     }
-    else {
-        *out = ss_d;
-    }
+    return 0;
 }

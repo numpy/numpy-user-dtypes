@@ -35,7 +35,8 @@ py.install_sources(
     'unytdtype/__init__.py',
     'unytdtype/scalar.py'
   ],
-  subdir: 'unytdtype'
+  subdir: 'unytdtype',
+  pure: false
 )
 
 py.extension_module(

@@ -7,7 +7,7 @@ repos:
         language: system
         require_serial: true
         entry: |
-          bash -c 'cd metadatadtype && mkdir -p build && pip install build meson-python patchelf wheel && python -m build --wheel --no-isolation -Cbuilddir=build';
+          bash -c 'cd metadatadtype && mkdir -p build && pip install build meson-python patchelf wheel && meson setup build && python -m build --wheel --no-isolation -Cbuilddir=build';
         fail_fast: false
       - id: generate-compilation-database-asciidtype
         name: Generate compilation database [asciidtype]
@@ -15,7 +15,7 @@ repos:
         language: system
         require_serial: true
         entry: |
-          bash -c 'cd asciidtype && mkdir -p build && pip install build meson-python patchelf wheel && python -m build --wheel --no-isolation -Cbuilddir=build';
+          bash -c 'cd asciidtype && mkdir -p build && pip install build meson-python patchelf wheel && meson setup build && python -m build --wheel --no-isolation -Cbuilddir=build';
         fail_fast: false
       - id: generate-compilation-database-quaddtype
         name: Generate compilation database [quaddtype]
@@ -23,7 +23,7 @@ repos:
         language: system
         require_serial: true
         entry: |
-          bash -c 'cd quaddtype && mkdir -p build && pip install build meson-python patchelf wheel && python -m build --wheel --no-isolation -Cbuilddir=build';
+          bash -c 'cd quaddtype && mkdir -p build && pip install build meson-python patchelf wheel && meson setup build && python -m build --wheel --no-isolation -Cbuilddir=build';
         fail_fast: false
       - id: generate-compilation-database-unytdtype
         name: Generate compilation database [unytdtype]
@@ -31,7 +31,7 @@ repos:
         language: system
         require_serial: true
         entry: |
-          bash -c 'cd unytdtype && mkdir -p build && pip install build meson-python patchelf wheel && python -m build --wheel --no-isolation -Cbuilddir=build';
+          bash -c 'cd unytdtype && mkdir -p build && pip install build meson-python patchelf wheel && meson setup build && python -m build --wheel --no-isolation -Cbuilddir=build';
         fail_fast: false
       - id: generate-compilation-database-stringdtype
         name: Generate compilation database [stringdtype]
@@ -39,7 +39,7 @@ repos:
         language: system
         require_serial: true
         entry: |
-          bash -c 'cd stringdtype && mkdir -p build && pip install build meson-python patchelf wheel && python -m build --wheel --no-isolation -Cbuilddir=build';
+          bash -c 'cd stringdtype && mkdir -p build && pip install build meson-python patchelf wheel && meson setup build && python -m build --wheel --no-isolation -Cbuilddir=build';
         fail_fast: false
   - repo: https://github.com/pocc/pre-commit-hooks
     rev: v1.3.5
