@@ -35,7 +35,8 @@ py.install_sources(
     'metadatadtype/__init__.py',
     'metadatadtype/scalar.py'
   ],
-  subdir: 'metadatadtype'
+  subdir: 'metadatadtype',
+  pure: false
 )
 
 py.extension_module(

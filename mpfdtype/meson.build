@@ -46,7 +46,8 @@ py.install_sources(
   [
     'mpfdtype/__init__.py',
   ],
-  subdir: 'mpfdtype'
+  subdir: 'mpfdtype',
+  pure: false
 )
 
 py.extension_module(

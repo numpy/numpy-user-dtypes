@@ -38,7 +38,8 @@ py.install_sources(
     'stringdtype/scalar.py',
     'stringdtype/missing.py',
   ],
-  subdir: 'stringdtype'
+  subdir: 'stringdtype',
+  pure: false
 )
 
 py.extension_module(
