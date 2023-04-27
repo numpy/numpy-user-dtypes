@@ -113,11 +113,11 @@ PyInit__main(void)
         goto error;
     }
 
-    if (init_string_dtype() < 0) {
+    if (init_string_na_object(mod) < 0) {
         goto error;
     }
 
-    if (init_string_na_object(mod) < 0) {
+    if (init_string_dtype() < 0) {
         goto error;
     }
 

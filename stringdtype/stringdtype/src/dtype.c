@@ -5,19 +5,21 @@
 
 PyTypeObject *StringScalar_Type = NULL;
 static PyTypeObject *StringNA_Type = NULL;
-static PyObject *NA_OBJ = NULL;
+PyObject *NA_OBJ = NULL;
 
 /*
  * Internal helper to create new instances
  */
 StringDTypeObject *
-new_stringdtype_instance(void)
+new_stringdtype_instance(PyObject *na_object)
 {
     StringDTypeObject *new = (StringDTypeObject *)PyArrayDescr_Type.tp_new(
             (PyTypeObject *)&StringDType, NULL, NULL);
     if (new == NULL) {
         return NULL;
     }
+    Py_INCREF(na_object);
+    new->na_object = na_object;
     new->base.elsize = sizeof(ss);
     new->base.alignment = _Alignof(ss);
     new->base.flags |= NPY_NEEDS_INIT;
@@ -72,7 +74,7 @@ string_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls),
         return NULL;
     }
 
-    PyArray_Descr *ret = (PyArray_Descr *)new_stringdtype_instance();
+    PyArray_Descr *ret = (PyArray_Descr *)new_stringdtype_instance(NA_OBJ);
     if (ret == NULL) {
         return NULL;
     }
@@ -80,7 +82,7 @@ string_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls),
 }
 
 static PyObject *
-get_value(PyObject *scalar)
+get_value(PyObject *scalar, PyObject *na_object)
 {
     PyObject *ret = NULL;
     PyTypeObject *scalar_type = Py_TYPE(scalar);
@@ -96,7 +98,7 @@ get_value(PyObject *scalar)
             return NULL;
         }
     }
-    else if (scalar_type == StringNA_Type) {
+    else if (scalar == na_object) {
         ret = scalar;
         Py_INCREF(ret);
     }
@@ -107,7 +109,7 @@ get_value(PyObject *scalar)
             return NULL;
         }
         if (npy_isnan(scalar_val)) {
-            ret = NA_OBJ;
+            ret = na_object;
             Py_INCREF(ret);
         }
         else {
@@ -128,10 +130,9 @@ get_value(PyObject *scalar)
 // Take a python object `obj` and insert it into the array of dtype `descr` at
 // the position given by dataptr.
 static int
-stringdtype_setitem(StringDTypeObject *NPY_UNUSED(descr), PyObject *obj,
-                    char **dataptr)
+stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
 {
-    PyObject *val_obj = get_value(obj);
+    PyObject *val_obj = get_value(obj, descr->na_object);
 
     if (val_obj == NULL) {
         return -1;
@@ -143,15 +144,9 @@ stringdtype_setitem(StringDTypeObject *NPY_UNUSED(descr), PyObject *obj,
     // ssfree does a NULL check
     ssfree(sdata);
 
-    // RichCompareBool short-circuits to a pointer comparison fast-path
-    // so no need to do pointer comparison first
-    int eq_res = PyObject_RichCompareBool(val_obj, NA_OBJ, Py_EQ);
-
-    if (eq_res < 0) {
-        goto error;
-    }
-
-    if (eq_res == 1) {
+    // setting NA *must* check pointer equality since NA types might not
+    // allow equality
+    if (val_obj == descr->na_object) {
         // do nothing, ssfree already NULLed the struct ssdata points to
         // so it already contains a NA value
     }
@@ -185,14 +180,14 @@ error:
 }
 
 static PyObject *
-stringdtype_getitem(StringDTypeObject *NPY_UNUSED(descr), char **dataptr)
+stringdtype_getitem(StringDTypeObject *descr, char **dataptr)
 {
     PyObject *val_obj = NULL;
     ss *sdata = (ss *)dataptr;
 
     if (ss_isnull(sdata)) {
-        Py_INCREF(NA_OBJ);
-        val_obj = NA_OBJ;
+        Py_INCREF(descr->na_object);
+        val_obj = descr->na_object;
     }
     else {
         char *data = sdata->buf;
@@ -359,28 +354,48 @@ static PyType_Slot StringDType_Slots[] = {
 static PyObject *
 stringdtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwds)
 {
-    static char *kwargs_strs[] = {"size", NULL};
+    static char *kwargs_strs[] = {"size", "na_object", NULL};
 
     long size = 0;
+    PyObject *na_object = NULL;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|l:StringDType", kwargs_strs,
-                                     &size)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|lO:StringDType",
+                                     kwargs_strs, &size, &na_object)) {
         return NULL;
     }
 
-    return (PyObject *)new_stringdtype_instance();
+    if (na_object == NULL) {
+        na_object = NA_OBJ;
+    }
+
+    Py_INCREF(na_object);
+
+    PyObject *ret = (PyObject *)new_stringdtype_instance(na_object);
+
+    Py_DECREF(na_object);
+
+    return ret;
 }
 
 static void
 stringdtype_dealloc(StringDTypeObject *self)
 {
+    Py_DECREF(self->na_object);
     PyArrayDescr_Type.tp_dealloc((PyObject *)self);
 }
 
 static PyObject *
-stringdtype_repr(StringDTypeObject *NPY_UNUSED(self))
+stringdtype_repr(StringDTypeObject *self)
 {
-    return PyUnicode_FromString("StringDType()");
+    PyObject *ret = NULL;
+    if (self->na_object != NA_OBJ) {
+        ret = PyUnicode_FromFormat("StringDType(na_object=%R)",
+                                   self->na_object);
+    }
+    else {
+        ret = PyUnicode_FromString("StringDType()");
+    }
+    return ret;
 }
 
 static int PICKLE_VERSION = 1;
@@ -485,6 +500,7 @@ init_string_dtype(void)
     PyArrayMethod_Spec **casts = get_casts();
 
     PyArrayDTypeMeta_Spec StringDType_DTypeSpec = {
+            .flags = NPY_DT_PARAMETRIC,
             .typeobj = StringScalar_Type,
             .slots = StringDType_Slots,
             .casts = casts,
