@@ -14,6 +14,62 @@
 #include "umath.h"
 
 static NPY_CASTING
+multiply_resolve_descriptors(struct PyArrayMethodObject_tag *NPY_UNUSED(method),
+                             PyArray_DTypeMeta *NPY_UNUSED(dtypes[]),
+                             PyArray_Descr *given_descrs[],
+                             PyArray_Descr *loop_descrs[],
+                             npy_intp *NPY_UNUSED(view_offset))
+{
+    Py_INCREF(given_descrs[0]);
+    loop_descrs[0] = given_descrs[0];
+    Py_INCREF(given_descrs[1]);
+    loop_descrs[1] = given_descrs[1];
+    Py_INCREF(given_descrs[0]);
+    loop_descrs[2] = given_descrs[0];
+
+    return NPY_NO_CASTING;
+}
+
+static int
+multiply_strided_loop(PyArrayMethod_Context *NPY_UNUSED(context),
+                      char *const data[], npy_intp const dimensions[],
+                      npy_intp const strides[],
+                      NpyAuxData *NPY_UNUSED(auxdata))
+{
+    npy_intp N = dimensions[0];
+    char *in1 = data[0];
+    char *in2 = data[1];
+    char *out = data[2];
+    npy_intp in1_stride = strides[0];
+    npy_intp in2_stride = strides[1];
+    npy_intp out_stride = strides[2];
+
+    ss *s1 = NULL, *os = NULL;
+
+    while (N--) {
+        s1 = (ss *)in1;
+        npy_int64 factor = *(npy_int64 *)in2;
+        os = (ss *)out;
+        npy_int64 newlen = (s1->len) * factor;
+
+        ssfree(os);
+        if (ssnewemptylen(newlen, os) < 0) {
+            return -1;
+        }
+
+        for (int i = 0; i < factor; i++) {
+            memcpy(os->buf + i * s1->len, s1->buf, s1->len);
+        }
+        os->buf[newlen] = '\0';
+
+        in1 += in1_stride;
+        in2 += in2_stride;
+        out += out_stride;
+    }
+    return 0;
+}
+
+static NPY_CASTING
 binary_resolve_descriptors(struct PyArrayMethodObject_tag *NPY_UNUSED(method),
                            PyArray_DTypeMeta *NPY_UNUSED(dtypes[]),
                            PyArray_Descr *given_descrs[],
@@ -730,6 +786,18 @@ init_ufuncs(void)
     if (init_ufunc(numpy, "add", binary_dtypes, binary_resolve_descriptors,
                    &add_strided_loop, "string_add", 2, 1, NPY_NO_CASTING,
                    0) < 0) {
+        goto error;
+    }
+
+    PyArray_DTypeMeta *multiply_types[] = {
+            (PyArray_DTypeMeta *)&StringDType,
+            &PyArray_Int64DType,
+            (PyArray_DTypeMeta *)&StringDType
+    };
+    
+    if (init_ufunc(numpy, "multiply", multiply_types,
+                   &multiply_resolve_descriptors, &multiply_strided_loop,
+                   "string_multiply", 2, 1, NPY_NO_CASTING, 0) < 0) {
         goto error;
     }
 
