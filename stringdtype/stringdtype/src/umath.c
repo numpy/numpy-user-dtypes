@@ -47,6 +47,47 @@ binary_resolve_descriptors(struct PyArrayMethodObject_tag *NPY_UNUSED(method),
 }
 
 static int
+multiply_strided_loop(PyArrayMethod_Context *NPY_UNUSED(context),
+                      char *const data[], npy_intp const dimensions[],
+                      npy_intp const strides[],
+                      NpyAuxData *NPY_UNUSED(auxdata))
+{
+    npy_intp N = dimensions[0];
+    char *in1 = data[0];
+    char *in2 = data[1];
+    char *out = data[2];
+    npy_intp in1_stride = strides[0];
+    npy_intp in2_stride = strides[1];
+    npy_intp out_stride = strides[2];
+
+    size_t factor;
+    ss *s1 = NULL, *os = NULL;
+    int newlen = 0;
+
+    while (N--) {
+        s1 = (ss *)in1;
+        factor = *(size_t *)in2;
+        os = (ss *)out;
+        newlen = (s1->len) * factor;
+
+        ssfree(os);
+        if (ssnewemptylen(newlen, os) < 0) {
+            return -1;
+        }
+
+        for (int i = 0; i < factor; i++) {
+            memcpy(os->buf + i * s1->len, s1->buf, s1->len);
+        }
+        os->buf[newlen] = '\0';
+
+        in1 += in1_stride;
+        in2 += in2_stride;
+        out += out_stride;
+    }
+    return 0;
+}
+
+static int
 add_strided_loop(PyArrayMethod_Context *NPY_UNUSED(context),
                  char *const data[], npy_intp const dimensions[],
                  npy_intp const strides[], NpyAuxData *NPY_UNUSED(auxdata))
@@ -449,6 +490,14 @@ init_ufuncs(void)
     if (init_ufunc(numpy, "add", add_types, &binary_resolve_descriptors,
                    &add_strided_loop, "string_add", 2, 1, NPY_NO_CASTING,
                    0) < 0) {
+        goto error;
+    }
+
+    PyArray_DTypeMeta *multiply_types[] = {&StringDType, &PyArray_Int64DType,
+                                           &StringDType};
+    if (init_ufunc(numpy, "multiply", multiply_types, NULL,
+                   &multiply_strided_loop, "string_multiply", 2, 1,
+                   NPY_NO_CASTING, 0) < 0) {
         goto error;
     }
 

@@ -304,7 +304,7 @@ def test_take(string_list):
         ("max", max),
     ],
 )
-def test_ufuncs_minmax(string_list, ufunc, func):
+def test_unary_ufuncs(string_list, ufunc, func):
     """Test that the min/max ufuncs match Python builtin min/max behavior."""
     arr = np.array(string_list, dtype=StringDType())
     np.testing.assert_array_equal(
@@ -313,19 +313,23 @@ def test_ufuncs_minmax(string_list, ufunc, func):
 
 
 @pytest.mark.parametrize(
-    "other_strings",
+    "ufunc,other,func",
     [
-        ["abc", "def", "ghi", "🤣", "📵", "😰"],
-        ["🚜", "🙃", "😾", "😹", "🚠", "🚌"],
-        ["🥦", "¨", "⨯", "∰ ", "⨌ ", "⎶ "],
+        ("add", StringScalar("asdf"), lambda arr, b: [x + b for x in arr]),
+        (
+            "add",
+            np.array(["a", "b", "c", "d", "e", "f"], dtype=StringDType()),
+            lambda arr1, arr2: [x + y for x, y in zip(arr1, arr2)],
+        ),
+        ("multiply", 3, lambda arr, b: [x * b for x in arr]),
     ],
 )
-def test_ufunc_add(string_list, other_strings):
-    arr1 = np.array(string_list, dtype=StringDType())
-    arr2 = np.array(other_strings, dtype=StringDType())
+def test_binary_ufuncs(string_list, ufunc, other, func):
+    """Test the two-argument ufuncs match python builtin behavior."""
+    arr = np.array(string_list, dtype=StringDType())
     np.testing.assert_array_equal(
-        np.add(arr1, arr2),
-        np.array([a + b for a, b in zip(arr1, arr2)], dtype=StringDType()),
+        getattr(np, ufunc)(arr, other),
+        np.array(func(string_list, other), dtype=StringDType()),
     )
 
 
