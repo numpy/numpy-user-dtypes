@@ -16,13 +16,15 @@
 
 typedef struct {
     PyArray_Descr base;
+    PyObject *na_object;
 } StringDTypeObject;
 
 extern PyArray_DTypeMeta StringDType;
 extern PyTypeObject *StringScalar_Type;
+extern PyObject *NA_OBJ;
 
 StringDTypeObject *
-new_stringdtype_instance(void);
+new_stringdtype_instance(PyObject *na_object);
 
 int
 init_string_dtype(void);
@@ -32,7 +34,6 @@ compare(void *, void *, void *);
 
 int
 init_string_na_object(PyObject *mod);
-
 
 // from dtypemeta.h, not public in numpy
 #define NPY_DTYPE(descr) ((PyArray_DTypeMeta *)Py_TYPE(descr))

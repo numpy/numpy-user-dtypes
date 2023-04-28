@@ -22,11 +22,8 @@ string_to_string_resolve_descriptors(PyObject *NPY_UNUSED(self),
                                      npy_intp *view_offset)
 {
     if (given_descrs[1] == NULL) {
-        StringDTypeObject *new = new_stringdtype_instance();
-        if (new == NULL) {
-            return (NPY_CASTING)-1;
-        }
-        loop_descrs[1] = (PyArray_Descr *)new;
+        Py_INCREF(given_descrs[0]);
+        loop_descrs[1] = given_descrs[0];
     }
     else {
         Py_INCREF(given_descrs[1]);
@@ -89,7 +86,7 @@ unicode_to_string_resolve_descriptors(PyObject *NPY_UNUSED(self),
                                       npy_intp *NPY_UNUSED(view_offset))
 {
     if (given_descrs[1] == NULL) {
-        StringDTypeObject *new = new_stringdtype_instance();
+        StringDTypeObject *new = new_stringdtype_instance(NA_OBJ);
         if (new == NULL) {
             return (NPY_CASTING)-1;
         }
