@@ -364,11 +364,13 @@ add_promoter(PyObject *numpy, const char *ufunc_name,
              PyArray_DTypeMeta **dtypes)
 {
     PyObject *ufunc = PyObject_GetAttrString(numpy, ufunc_name);
+
     if (ufunc == NULL) {
         return -1;
     }
 
     PyObject *DType_tuple = PyTuple_Pack(3, dtypes[0], dtypes[1], dtypes[2]);
+
     if (DType_tuple == NULL) {
         Py_DECREF(ufunc);
         return -1;
@@ -376,6 +378,12 @@ add_promoter(PyObject *numpy, const char *ufunc_name,
 
     PyObject *promoter_capsule = PyCapsule_New((void *)&default_ufunc_promoter,
                                                "numpy._ufunc_promoter", NULL);
+
+    if (promoter_capsule == NULL) {
+        Py_DECREF(ufunc);
+        Py_DECREF(DType_tuple);
+        return -1;
+    }
 
     if (PyUFunc_AddPromoter(ufunc, DType_tuple, promoter_capsule) < 0) {
         Py_DECREF(promoter_capsule);
