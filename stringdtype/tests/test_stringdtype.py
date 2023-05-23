@@ -142,12 +142,15 @@ def test_insert_scalar(dtype, scalar, string_list):
         )
 
 
-def test_equality_promotion(dtype, string_list):
+@pytest.mark.parametrize("o_dtype", [np.str_, object])
+def test_equality_promotion(string_list, dtype, o_dtype):
     sarr = np.array(string_list, dtype=dtype)
-    uarr = np.array(string_list, dtype=np.str_)
+    oarr = np.array(string_list, dtype=o_dtype)
 
-    np.testing.assert_array_equal(sarr, uarr)
-    np.testing.assert_array_equal(uarr, sarr)
+    np.testing.assert_array_equal(sarr, oarr)
+    np.testing.assert_array_equal(oarr, sarr)
+    assert not np.any(sarr != oarr)
+    assert not np.any(oarr != sarr)
 
 
 def test_isnan(dtype, string_list):
