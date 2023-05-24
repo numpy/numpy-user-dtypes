@@ -15,21 +15,19 @@
 
 static NPY_CASTING
 binary_resolve_descriptors(struct PyArrayMethodObject_tag *NPY_UNUSED(method),
-                           PyArray_DTypeMeta *NPY_UNUSED(dtypes[]),
+                           PyArray_DTypeMeta *dtypes[],
                            PyArray_Descr *given_descrs[],
                            PyArray_Descr *loop_descrs[],
                            npy_intp *NPY_UNUSED(view_offset))
 {
-    PyObject *na_obj1 = ((StringDTypeObject *)given_descrs[0])->na_object;
-    PyObject *na_obj2 = ((StringDTypeObject *)given_descrs[1])->na_object;
+    // technically incorrect to cast to StringDType if we have a
+    // PandasStringDType but they have the same layout so this should be fine.
+    PyObject *na_obj1 = PyDict_GetItemString(
+            ((PyTypeObject *)dtypes[0])->tp_dict, "na_object");
+    PyObject *na_obj2 = PyDict_GetItemString(
+            ((PyTypeObject *)dtypes[1])->tp_dict, "na_object");
 
-    int eq_res = PyObject_RichCompareBool(na_obj1, na_obj2, Py_EQ);
-
-    if (eq_res < 0) {
-        return (NPY_CASTING)-1;
-    }
-
-    if (eq_res != 1) {
+    if (na_obj1 != na_obj2) {
         PyErr_SetString(PyExc_TypeError,
                         "Can only do binary operations with identical "
                         "StringDType instances.");

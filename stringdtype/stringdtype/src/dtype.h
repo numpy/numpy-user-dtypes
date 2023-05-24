@@ -16,15 +16,14 @@
 
 typedef struct {
     PyArray_Descr base;
-    PyObject *na_object;
 } StringDTypeObject;
 
 extern PyArray_DTypeMeta StringDType;
 extern PyTypeObject *StringScalar_Type;
 extern PyObject *NA_OBJ;
 
-StringDTypeObject *
-new_stringdtype_instance(void);
+PyObject *
+new_stringdtype_instance(PyTypeObject *cls);
 
 int
 init_string_dtype(void);

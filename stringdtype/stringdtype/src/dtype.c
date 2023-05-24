@@ -10,19 +10,20 @@ PyObject *NA_OBJ = NULL;
 /*
  * Internal helper to create new instances
  */
-StringDTypeObject *
-new_stringdtype_instance(void)
+PyObject *
+new_stringdtype_instance(PyTypeObject *cls)
 {
-    StringDTypeObject *new = (StringDTypeObject *)PyArrayDescr_Type.tp_new(
-            (PyTypeObject *)&StringDType, NULL, NULL);
+    PyObject *new = PyArrayDescr_Type.tp_new((PyTypeObject *)cls, NULL, NULL);
     if (new == NULL) {
         return NULL;
     }
-    new->base.elsize = sizeof(ss);
-    new->base.alignment = _Alignof(ss);
-    new->base.flags |= NPY_NEEDS_INIT;
-    new->base.flags |= NPY_LIST_PICKLE;
-    new->base.flags |= NPY_ITEM_REFCOUNT;
+
+    PyArray_Descr *base = &((StringDTypeObject *)new)->base;
+    base->elsize = sizeof(ss);
+    base->alignment = _Alignof(ss);
+    base->flags |= NPY_NEEDS_INIT;
+    base->flags |= NPY_LIST_PICKLE;
+    base->flags |= NPY_ITEM_REFCOUNT;
 
     return new;
 }
@@ -63,8 +64,7 @@ common_dtype(PyArray_DTypeMeta *cls, PyArray_DTypeMeta *other)
 // For a given python object, this function returns a borrowed reference
 // to the dtype property of the array
 static PyArray_Descr *
-string_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls),
-                                         PyObject *obj)
+string_discover_descriptor_from_pyobject(PyTypeObject *cls, PyObject *obj)
 {
     if (Py_TYPE(obj) != StringScalar_Type) {
         PyErr_SetString(PyExc_TypeError,
@@ -72,7 +72,7 @@ string_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls),
         return NULL;
     }
 
-    PyArray_Descr *ret = (PyArray_Descr *)new_stringdtype_instance();
+    PyArray_Descr *ret = (PyArray_Descr *)new_stringdtype_instance(cls);
     if (ret == NULL) {
         return NULL;
     }
@@ -354,7 +354,7 @@ static PyType_Slot StringDType_Slots[] = {
         {0, NULL}};
 
 static PyObject *
-stringdtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwds)
+stringdtype_new(PyTypeObject *cls, PyObject *args, PyObject *kwds)
 {
     static char *kwargs_strs[] = {"size", NULL};
 
@@ -365,7 +365,7 @@ stringdtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwds)
         return NULL;
     }
 
-    PyObject *ret = (PyObject *)new_stringdtype_instance();
+    PyObject *ret = new_stringdtype_instance(cls);
 
     return ret;
 }
@@ -494,7 +494,6 @@ init_string_dtype(void)
     PyArrayMethod_Spec **casts = get_casts();
 
     PyArrayDTypeMeta_Spec StringDType_DTypeSpec = {
-            .flags = NPY_DT_PARAMETRIC,
             .typeobj = StringScalar_Type,
             .slots = StringDType_Slots,
             .casts = casts,
