@@ -24,7 +24,7 @@ extern PyTypeObject *StringScalar_Type;
 extern PyObject *NA_OBJ;
 
 StringDTypeObject *
-new_stringdtype_instance(PyObject *na_object);
+new_stringdtype_instance(void);
 
 int
 init_string_dtype(void);

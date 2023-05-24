@@ -338,14 +338,3 @@ def test_create_with_na(na_val):
         == "array(['hello', stringdtype.NA, 'world'], dtype=StringDType())"
     )
     assert arr[1] == NA and arr[1] is NA
-
-
-def test_custom_na():
-    dtype = StringDType(na_object=None)
-    string_list = ["hello", None, "world"]
-    arr = np.array(string_list, dtype=dtype)
-    assert (
-        repr(arr)
-        == "array(['hello', None, 'world'], dtype=StringDType(na_object=None))"
-    )
-    assert arr[1] is None

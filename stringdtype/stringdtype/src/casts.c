@@ -86,7 +86,7 @@ unicode_to_string_resolve_descriptors(PyObject *NPY_UNUSED(self),
                                       npy_intp *NPY_UNUSED(view_offset))
 {
     if (given_descrs[1] == NULL) {
-        StringDTypeObject *new = new_stringdtype_instance(NA_OBJ);
+        StringDTypeObject *new = new_stringdtype_instance();
         if (new == NULL) {
             return (NPY_CASTING)-1;
         }

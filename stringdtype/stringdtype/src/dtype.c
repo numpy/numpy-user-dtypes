@@ -11,15 +11,13 @@ PyObject *NA_OBJ = NULL;
  * Internal helper to create new instances
  */
 StringDTypeObject *
-new_stringdtype_instance(PyObject *na_object)
+new_stringdtype_instance(void)
 {
     StringDTypeObject *new = (StringDTypeObject *)PyArrayDescr_Type.tp_new(
             (PyTypeObject *)&StringDType, NULL, NULL);
     if (new == NULL) {
         return NULL;
     }
-    Py_INCREF(na_object);
-    new->na_object = na_object;
     new->base.elsize = sizeof(ss);
     new->base.alignment = _Alignof(ss);
     new->base.flags |= NPY_NEEDS_INIT;
@@ -74,7 +72,7 @@ string_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls),
         return NULL;
     }
 
-    PyArray_Descr *ret = (PyArray_Descr *)new_stringdtype_instance(NA_OBJ);
+    PyArray_Descr *ret = (PyArray_Descr *)new_stringdtype_instance();
     if (ret == NULL) {
         return NULL;
     }
@@ -132,7 +130,9 @@ get_value(PyObject *scalar, PyObject *na_object)
 static int
 stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
 {
-    PyObject *val_obj = get_value(obj, descr->na_object);
+    PyObject *na_object =
+            PyDict_GetItemString(Py_TYPE(descr)->tp_dict, "na_object");
+    PyObject *val_obj = get_value(obj, na_object);
 
     if (val_obj == NULL) {
         return -1;
@@ -146,7 +146,7 @@ stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
 
     // setting NA *must* check pointer equality since NA types might not
     // allow equality
-    if (val_obj == descr->na_object) {
+    if (val_obj == na_object) {
         // do nothing, ssfree already NULLed the struct ssdata points to
         // so it already contains a NA value
     }
@@ -186,8 +186,10 @@ stringdtype_getitem(StringDTypeObject *descr, char **dataptr)
     ss *sdata = (ss *)dataptr;
 
     if (ss_isnull(sdata)) {
-        Py_INCREF(descr->na_object);
-        val_obj = descr->na_object;
+        PyObject *na_object =
+                PyDict_GetItemString(Py_TYPE(descr)->tp_dict, "na_object");
+        Py_INCREF(na_object);
+        val_obj = na_object;
     }
     else {
         char *data = sdata->buf;
@@ -354,25 +356,16 @@ static PyType_Slot StringDType_Slots[] = {
 static PyObject *
 stringdtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwds)
 {
-    static char *kwargs_strs[] = {"size", "na_object", NULL};
+    static char *kwargs_strs[] = {"size", NULL};
 
     long size = 0;
-    PyObject *na_object = NULL;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|lO:StringDType",
-                                     kwargs_strs, &size, &na_object)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|l:StringDType", kwargs_strs,
+                                     &size)) {
         return NULL;
     }
 
-    if (na_object == NULL) {
-        na_object = NA_OBJ;
-    }
-
-    Py_INCREF(na_object);
-
-    PyObject *ret = (PyObject *)new_stringdtype_instance(na_object);
-
-    Py_DECREF(na_object);
+    PyObject *ret = (PyObject *)new_stringdtype_instance();
 
     return ret;
 }
@@ -380,7 +373,6 @@ stringdtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwds)
 static void
 stringdtype_dealloc(StringDTypeObject *self)
 {
-    Py_DECREF(self->na_object);
     PyArrayDescr_Type.tp_dealloc((PyObject *)self);
 }
 
@@ -388,9 +380,11 @@ static PyObject *
 stringdtype_repr(StringDTypeObject *self)
 {
     PyObject *ret = NULL;
-    if (self->na_object != NA_OBJ) {
-        ret = PyUnicode_FromFormat("StringDType(na_object=%R)",
-                                   self->na_object);
+    PyObject *na_object =
+            PyDict_GetItemString(Py_TYPE(self)->tp_dict, "na_object");
+
+    if (na_object != NA_OBJ) {
+        ret = PyUnicode_FromString("PandasStringDType()");
     }
     else {
         ret = PyUnicode_FromString("StringDType()");
@@ -471,7 +465,7 @@ static PyMethodDef StringDType_methods[] = {
                 METH_O,
                 "Unpickle an StringDType object",
         },
-        {NULL},
+        {NULL, NULL, 0, NULL},
 };
 
 /*
@@ -509,6 +503,9 @@ init_string_dtype(void)
     /* Loaded dynamically, so may need to be set here: */
     ((PyObject *)&StringDType)->ob_type = &PyArrayDTypeMeta_Type;
     ((PyTypeObject *)&StringDType)->tp_base = &PyArrayDescr_Type;
+    ((PyTypeObject *)&StringDType)->tp_dict = PyDict_New();
+    PyDict_SetItemString(((PyTypeObject *)&StringDType)->tp_dict, "na_object",
+                         NA_OBJ);
     if (PyType_Ready((PyTypeObject *)&StringDType) < 0) {
         return -1;
     }
