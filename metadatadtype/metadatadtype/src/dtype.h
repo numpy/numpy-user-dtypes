@@ -13,23 +13,31 @@
 #include "numpy/experimental_dtype_api.h"
 #include "numpy/ndarraytypes.h"
 
+// module state
+typedef struct {
+    PyArray_DTypeMeta *MetadataDType;
+    PyTypeObject *MetadataScalar_Type;
+} metadatadtype_state;
+
+// MetadataDType objects
+
+// Instance state
 typedef struct {
     PyArray_Descr base;
     PyObject *metadata;
 } MetadataDTypeObject;
 
-extern PyArray_DTypeMeta MetadataDType;
-extern PyTypeObject *MetadataScalar_Type;
-
 MetadataDTypeObject *
-new_metadatadtype_instance(PyObject *metadata);
+new_metadatadtype_instance(metadatadtype_state *state, PyObject *metadata);
 
 int
-init_metadata_dtype(void);
+init_metadata_dtype(PyObject *m);
 
 PyArray_Descr *
 common_instance(MetadataDTypeObject *dtype1,
                 MetadataDTypeObject *NPY_UNUSED(dtype2));
+
+extern struct PyModuleDef metadatadtype_module;
 
 // from numpy's dtypemeta.h, not publicly available
 #define NPY_DTYPE(descr) ((PyArray_DTypeMeta *)Py_TYPE(descr))
