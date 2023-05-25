@@ -19,7 +19,9 @@ typedef struct {
 } StringDTypeObject;
 
 extern PyArray_DTypeMeta StringDType;
+extern PyArray_DTypeMeta PandasStringDType;
 extern PyTypeObject *StringScalar_Type;
+extern PyTypeObject *PandasStringScalar_Type;
 extern PyObject *NA_OBJ;
 
 PyObject *

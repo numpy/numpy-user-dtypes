@@ -338,3 +338,15 @@ def test_create_with_na(na_val):
         == "array(['hello', stringdtype.NA, 'world'], dtype=StringDType())"
     )
     assert arr[1] == NA and arr[1] is NA
+
+
+def test_pandas_string_dtype():
+    pandas = pytest.importorskip("pandas")
+    from stringdtype import PandasStringDType
+
+    assert PandasStringDType.na_object is pandas.NA
+
+    string_list = ["hello", np.nan, "world"]
+    arr = np.array(string_list, dtype=PandasStringDType())
+
+    assert arr[1] is pandas.NA

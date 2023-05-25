@@ -4,6 +4,7 @@
 #include "static_string.h"
 
 PyTypeObject *StringScalar_Type = NULL;
+PyTypeObject *PandasStringScalar_Type = NULL;
 static PyTypeObject *StringNA_Type = NULL;
 PyObject *NA_OBJ = NULL;
 
@@ -488,6 +489,30 @@ PyArray_DTypeMeta StringDType = {
         /* rest, filled in during DTypeMeta initialization */
 };
 
+/*
+ * Ideally we don't need the copy/pasted type below and we allow the
+ * StringDType class to be initialized dynamically however, that requires that
+ * the class is a heap type, and that likely only works well with some changes
+ * in numpy in Python 3.12 or newer. In practice we really only need a version
+ * with a numpy-specific NA and a and a version that uses Pandas' NA object,
+ * so we just define PandasStringDType statically as well and live with a bit
+ * of copy/paste
+ */
+
+PyArray_DTypeMeta PandasStringDType = {
+        {{
+                PyVarObject_HEAD_INIT(NULL, 0).tp_name =
+                        "stringdtype.PandasStringDType",
+                .tp_basicsize = sizeof(StringDTypeObject),
+                .tp_new = stringdtype_new,
+                .tp_dealloc = (destructor)stringdtype_dealloc,
+                .tp_repr = (reprfunc)stringdtype_repr,
+                .tp_str = (reprfunc)stringdtype_repr,
+                .tp_methods = StringDType_methods,
+        }},
+        /* rest, filled in during DTypeMeta initialization */
+};
+
 int
 init_string_dtype(void)
 {
@@ -521,6 +546,51 @@ init_string_dtype(void)
     }
 
     StringDType.singleton = singleton;
+
+    /* and once again for PandasStringDType */
+
+    PyObject *mod = PyImport_ImportModule("pandas");
+
+    if (mod != NULL) {
+        PyArrayDTypeMeta_Spec PandasStringDType_DTypeSpec = {
+                .typeobj = PandasStringScalar_Type,
+                .slots = StringDType_Slots,
+                .casts = casts,
+        };
+
+        PyObject *pandas_na_obj = PyObject_GetAttrString(mod, "NA");
+
+        Py_DECREF(mod);
+
+        if (pandas_na_obj == NULL) {
+            return -1;
+        }
+
+        ((PyObject *)&PandasStringDType)->ob_type = &PyArrayDTypeMeta_Type;
+        ((PyTypeObject *)&PandasStringDType)->tp_base = &PyArrayDescr_Type;
+        ((PyTypeObject *)&PandasStringDType)->tp_dict = PyDict_New();
+        PyDict_SetItemString(((PyTypeObject *)&PandasStringDType)->tp_dict,
+                             "na_object", pandas_na_obj);
+        if (PyType_Ready((PyTypeObject *)&PandasStringDType) < 0) {
+            return -1;
+        }
+
+        if (PyArrayInitDTypeMeta_FromSpec(&PandasStringDType,
+                                          &PandasStringDType_DTypeSpec) < 0) {
+            return -1;
+        }
+
+        singleton = PyArray_GetDefaultDescr(&PandasStringDType);
+
+        if (singleton == NULL) {
+            return -1;
+        }
+
+        PandasStringDType.singleton = singleton;
+    }
+    else {
+        PandasStringDType = StringDType;
+    }
 
     for (int i = 0; casts[i] != NULL; i++) {
         free(casts[i]->dtypes);

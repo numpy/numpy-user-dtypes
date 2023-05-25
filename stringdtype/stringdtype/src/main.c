@@ -107,9 +107,17 @@ PyInit__main(void)
 
     StringScalar_Type =
             (PyTypeObject *)PyObject_GetAttrString(mod, "StringScalar");
-    Py_DECREF(mod);
 
     if (StringScalar_Type == NULL) {
+        goto error;
+    }
+
+    PandasStringScalar_Type =
+            (PyTypeObject *)PyObject_GetAttrString(mod, "PandasStringScalar");
+
+    Py_DECREF(mod);
+
+    if (PandasStringScalar_Type == NULL) {
         goto error;
     }
 
@@ -124,6 +132,13 @@ PyInit__main(void)
     Py_INCREF((PyObject *)&StringDType);
     if (PyModule_AddObject(m, "StringDType", (PyObject *)&StringDType) < 0) {
         Py_DECREF((PyObject *)&StringDType);
+        goto error;
+    }
+
+    Py_INCREF((PyObject *)&PandasStringDType);
+    if (PyModule_AddObject(m, "PandasStringDType",
+                           (PyObject *)&PandasStringDType) < 0) {
+        Py_DECREF((PyObject *)&PandasStringDType);
         goto error;
     }
 
