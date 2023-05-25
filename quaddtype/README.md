@@ -9,7 +9,7 @@ isolation so that the `quaddtype` can link against the experimental dtype API
 headers, which aren't in the latest releases of `numpy`:
 
 ```bash
-pip install -i https://pypi.anaconda.org/scipy-wheels-nightly/simple numpy
+pip install -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple numpy
 pip install . --no-build-isolation
 ```
 
