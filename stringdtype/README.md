@@ -17,7 +17,7 @@ It is important to have the latest development version of numpy installed.
 Nightly wheels work well for this purpose, and can be installed easily:
 
 ```bash
-$ pip install -i https://pypi.anaconda.org/scipy-wheels-nightly/simple numpy
+$ pip install -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple numpy
 ```
 
 Build with meson, create a wheel, and install it.

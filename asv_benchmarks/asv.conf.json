@@ -22,7 +22,7 @@
     // uninstalling the project. See asv.conf.json documentation.
     //
     "install_command": [
-      "pip install -i https://pypi.anaconda.org/scipy-wheels-nightly/simple numpy",
+      "pip install -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple numpy",
       "pip install meson-python patchelf wheel",
       "in-dir={conf_dir} pip install ../asciidtype/ --no-build-isolation",
       "in-dir={conf_dir} pip install ../stringdtype/ --no-build-isolation"
