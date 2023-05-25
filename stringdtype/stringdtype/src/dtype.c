@@ -600,6 +600,7 @@ init_string_dtype(void)
     }
     else {
         PandasStringDType = StringDType;
+        PyErr_Clear();
     }
 
     for (int i = 0; casts[i] != NULL; i++) {
