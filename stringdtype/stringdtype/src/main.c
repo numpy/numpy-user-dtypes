@@ -23,7 +23,7 @@ _memory_usage(PyObject *NPY_UNUSED(self), PyObject *obj)
     PyArray_Descr *descr = PyArray_DESCR(arr);
     PyArray_DTypeMeta *dtype = NPY_DTYPE(descr);
 
-    if (dtype != &StringDType) {
+    if (dtype != (PyArray_DTypeMeta *)&StringDType) {
         PyErr_SetString(PyExc_TypeError,
                         "can only be called with a StringDType array");
         return NULL;
