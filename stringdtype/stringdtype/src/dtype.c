@@ -7,6 +7,7 @@ PyTypeObject *StringScalar_Type = NULL;
 PyTypeObject *PandasStringScalar_Type = NULL;
 static PyTypeObject *StringNA_Type = NULL;
 PyObject *NA_OBJ = NULL;
+int PANDAS_AVAILABLE = 0;
 
 /*
  * Internal helper to create new instances
@@ -597,9 +598,9 @@ init_string_dtype(void)
         }
 
         PandasStringDType.base.singleton = singleton;
+        PANDAS_AVAILABLE = 1;
     }
     else {
-        PandasStringDType = StringDType;
         PyErr_Clear();
     }
 

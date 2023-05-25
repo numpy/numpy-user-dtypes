@@ -28,6 +28,7 @@ extern StringDType_type PandasStringDType;
 extern PyTypeObject *StringScalar_Type;
 extern PyTypeObject *PandasStringScalar_Type;
 extern PyObject *NA_OBJ;
+extern int PANDAS_AVAILABLE;
 
 PyObject *
 new_stringdtype_instance(PyTypeObject *cls);

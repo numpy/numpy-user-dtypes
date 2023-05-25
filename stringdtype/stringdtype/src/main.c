@@ -135,11 +135,13 @@ PyInit__main(void)
         goto error;
     }
 
-    Py_INCREF((PyObject *)&PandasStringDType);
-    if (PyModule_AddObject(m, "PandasStringDType",
-                           (PyObject *)&PandasStringDType) < 0) {
-        Py_DECREF((PyObject *)&PandasStringDType);
-        goto error;
+    if (PANDAS_AVAILABLE == 1) {
+        Py_INCREF((PyObject *)&PandasStringDType);
+        if (PyModule_AddObject(m, "PandasStringDType",
+                               (PyObject *)&PandasStringDType) < 0) {
+            Py_DECREF((PyObject *)&PandasStringDType);
+            goto error;
+        }
     }
 
     if (init_ufuncs() < 0) {

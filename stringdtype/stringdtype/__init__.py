@@ -4,7 +4,12 @@
 
 from .missing import NA  # isort: skip
 from .scalar import StringScalar, PandasStringScalar  # isort: skip
-from ._main import PandasStringDType, StringDType, _memory_usage
+from ._main import StringDType, _memory_usage
+
+try:
+    from ._main import PandasStringDType
+except ImportError:
+    PandasStringDType = None
 
 __all__ = [
     "NA",
@@ -14,7 +19,7 @@ __all__ = [
 ]
 
 # this happens when pandas isn't importable
-if StringDType is PandasStringDType:
+if PandasStringDType is None:
     del PandasStringDType
 else:
     __all__.extend("PandasStringDType")
