@@ -1,15 +1,8 @@
 #include <Python.h>
 
-#define PY_ARRAY_UNIQUE_SYMBOL metadatadtype_ARRAY_API
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
-#define NO_IMPORT_ARRAY
-#include "numpy/arrayobject.h"
-#include "numpy/experimental_dtype_api.h"
-#include "numpy/ndarraytypes.h"
-#include "numpy/ufuncobject.h"
+#include "umath.h"
 
 #include "dtype.h"
-#include "umath.h"
 
 static int
 translate_given_descrs(int nin, int nout,
@@ -103,10 +96,10 @@ add_wrapping_loop(const char *ufunc_name, PyArray_DTypeMeta **dtypes,
 }
 
 int
-init_ufuncs(void)
+init_ufuncs(PyArray_DTypeMeta *MetadataDType)
 {
-    PyArray_DTypeMeta *binary_orig_dtypes[3] = {&MetadataDType, &MetadataDType,
-                                                &MetadataDType};
+    PyArray_DTypeMeta *binary_orig_dtypes[3] = {MetadataDType, MetadataDType,
+                                                MetadataDType};
     PyArray_DTypeMeta *binary_wrapped_dtypes[3] = {
             &PyArray_DoubleDType, &PyArray_DoubleDType, &PyArray_DoubleDType};
     if (add_wrapping_loop("multiply", binary_orig_dtypes,
@@ -114,7 +107,7 @@ init_ufuncs(void)
         goto error;
     }
 
-    PyArray_DTypeMeta *unary_boolean_dtypes[2] = {&MetadataDType,
+    PyArray_DTypeMeta *unary_boolean_dtypes[2] = {MetadataDType,
                                                   &PyArray_BoolDType};
     PyArray_DTypeMeta *unary_boolean_wrapped_dtypes[2] = {&PyArray_DoubleDType,
                                                           &PyArray_BoolDType};
