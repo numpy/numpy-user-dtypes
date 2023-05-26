@@ -5,7 +5,11 @@ import string
 import tempfile
 
 import numpy as np
-import pandas
+
+try:
+    import pandas
+except ImportError:
+    pandas = None
 import pytest
 
 from stringdtype import (
@@ -22,16 +26,17 @@ def string_list():
     return ["abc", "def", "ghi", "A¢☃€ 😊", "Abc", "DEF"]
 
 
-@pytest.fixture(params=["StringDtype", "PandasStringDType"])
+@pytest.fixture(params=["StringDType", "PandasStringDType"])
 def dtype(request):
     if request.param == "StringDType":
         return StringDType()
-    try:
-        from stringdtype import PandasStringDType
+    elif request.param == "PandasStringDType":
+        try:
+            from stringdtype import PandasStringDType
 
-        return PandasStringDType()
-    except ImportError:
-        pytest.skip("cannot import pandas")
+            return PandasStringDType()
+        except ImportError:
+            pytest.skip("cannot import pandas")
 
 
 @pytest.fixture
@@ -361,9 +366,13 @@ def test_ufunc_add(dtype, string_list, other_strings):
     )
 
 
-@pytest.mark.parametrize("na_val", [float("nan"), np.nan, NA, pandas.NA])
+@pytest.mark.parametrize(
+    "na_val", [float("nan"), np.nan, NA, getattr(pandas, "NA", None)]
+)
 def test_create_with_na(dtype, na_val):
-    if dtype == StringDType() and na_val is pandas.NA:
+    if not hasattr(pandas, "NA") or (
+        dtype == StringDType() and na_val is pandas.NA
+    ):
         return
     if dtype != StringDType and na_val is NA:
         return
