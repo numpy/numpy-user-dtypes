@@ -63,32 +63,16 @@ common_dtype(PyArray_DTypeMeta *cls, PyArray_DTypeMeta *other)
     return (PyArray_DTypeMeta *)Py_NotImplemented;
 }
 
-// For a given python object, this function returns a borrowed reference
-// to the dtype property of the array
-static PyArray_Descr *
-string_discover_descriptor_from_pyobject(PyTypeObject *cls, PyObject *obj)
-{
-    if (Py_TYPE(obj) != StringScalar_Type) {
-        PyErr_SetString(PyExc_TypeError,
-                        "Can only store StringScalar in a StringDType array.");
-        return NULL;
-    }
-
-    PyArray_Descr *ret = (PyArray_Descr *)new_stringdtype_instance(cls);
-    if (ret == NULL) {
-        return NULL;
-    }
-    return ret;
-}
-
 static PyObject *
-get_value(PyObject *scalar, PyObject *na_object)
+get_value(PyObject *scalar, StringDType_type *cls)
 {
+    PyObject *na_object = cls->na_object;
     PyObject *ret = NULL;
+    PyTypeObject *expected_scalar_type = cls->base.scalar_type;
     PyTypeObject *scalar_type = Py_TYPE(scalar);
     // FIXME: handle bytes too
     if ((scalar_type == &PyUnicode_Type) ||
-        (scalar_type == StringScalar_Type)) {
+        (scalar_type == expected_scalar_type)) {
         // attempt to decode as UTF8
         ret = PyUnicode_AsUTF8String(scalar);
         if (ret == NULL) {
@@ -127,6 +111,23 @@ get_value(PyObject *scalar, PyObject *na_object)
     return ret;
 }
 
+// For a given python object, this function returns a borrowed reference
+// to the dtype property of the array
+static PyArray_Descr *
+string_discover_descriptor_from_pyobject(PyTypeObject *cls, PyObject *obj)
+{
+    PyObject *val = get_value(obj, (StringDType_type *)cls);
+    if (val == NULL) {
+        return NULL;
+    }
+
+    PyArray_Descr *ret = (PyArray_Descr *)new_stringdtype_instance(cls);
+    if (ret == NULL) {
+        return NULL;
+    }
+    return ret;
+}
+
 // Take a python object `obj` and insert it into the array of dtype `descr` at
 // the position given by dataptr.
 static int
@@ -134,7 +135,7 @@ stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
 {
     // borrow reference
     PyObject *na_object = ((StringDType_type *)Py_TYPE(descr))->na_object;
-    PyObject *val_obj = get_value(obj, na_object);
+    PyObject *val_obj = get_value(obj, (StringDType_type *)Py_TYPE(descr));
 
     if (val_obj == NULL) {
         return -1;
@@ -396,9 +397,10 @@ stringdtype_repr(StringDTypeObject *self)
 static int PICKLE_VERSION = 1;
 
 static PyObject *
-stringdtype__reduce__(StringDTypeObject *NPY_UNUSED(self))
+stringdtype__reduce__(StringDTypeObject *self)
 {
     PyObject *ret, *mod, *obj, *state;
+    StringDType_type *s_type = (StringDType_type *)Py_TYPE(self);
 
     ret = PyTuple_New(3);
     if (ret == NULL) {
@@ -411,7 +413,12 @@ stringdtype__reduce__(StringDTypeObject *NPY_UNUSED(self))
         return NULL;
     }
 
-    obj = PyObject_GetAttrString(mod, "StringDType");
+    if (s_type->na_object == NA_OBJ) {
+        obj = PyObject_GetAttrString(mod, "StringDType");
+    }
+    else {
+        obj = PyObject_GetAttrString(mod, "PandasStringDType");
+    }
     Py_DECREF(mod);
     if (obj == NULL) {
         Py_DECREF(ret);

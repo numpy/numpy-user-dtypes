@@ -11,6 +11,10 @@ build-backend = "mesonpy"
 [tool.black]
 line-length = 79
 
+[tool.isort]
+profile = "black"
+line_length = 79
+
 [project]
 name = "stringdtype"
 description = "A dtype for storing UTF-8 strings"
