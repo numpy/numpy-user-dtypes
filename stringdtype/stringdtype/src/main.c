@@ -23,7 +23,8 @@ _memory_usage(PyObject *NPY_UNUSED(self), PyObject *obj)
     PyArray_Descr *descr = PyArray_DESCR(arr);
     PyArray_DTypeMeta *dtype = NPY_DTYPE(descr);
 
-    if (dtype != &StringDType) {
+    if (dtype != (PyArray_DTypeMeta *)&StringDType &&
+        dtype != (PyArray_DTypeMeta *)&PandasStringDType) {
         PyErr_SetString(PyExc_TypeError,
                         "can only be called with a StringDType array");
         return NULL;
@@ -107,9 +108,17 @@ PyInit__main(void)
 
     StringScalar_Type =
             (PyTypeObject *)PyObject_GetAttrString(mod, "StringScalar");
-    Py_DECREF(mod);
 
     if (StringScalar_Type == NULL) {
+        goto error;
+    }
+
+    PandasStringScalar_Type =
+            (PyTypeObject *)PyObject_GetAttrString(mod, "PandasStringScalar");
+
+    Py_DECREF(mod);
+
+    if (PandasStringScalar_Type == NULL) {
         goto error;
     }
 
@@ -125,6 +134,15 @@ PyInit__main(void)
     if (PyModule_AddObject(m, "StringDType", (PyObject *)&StringDType) < 0) {
         Py_DECREF((PyObject *)&StringDType);
         goto error;
+    }
+
+    if (PANDAS_AVAILABLE == 1) {
+        Py_INCREF((PyObject *)&PandasStringDType);
+        if (PyModule_AddObject(m, "PandasStringDType",
+                               (PyObject *)&PandasStringDType) < 0) {
+            Py_DECREF((PyObject *)&PandasStringDType);
+            goto error;
+        }
     }
 
     if (init_ufuncs() < 0) {

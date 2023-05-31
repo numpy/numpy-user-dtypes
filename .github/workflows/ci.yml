@@ -19,7 +19,7 @@ jobs:
       - name: Install build and test dependencies
         run: |
           pip install -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple numpy
-          python -m pip install -U pip build pytest unyt wheel meson ninja meson-python patchelf
+          python -m pip install -U pip build pytest unyt wheel meson ninja meson-python patchelf pandas
       - name: Install asciidtype
         working-directory: asciidtype
         run: |
@@ -77,4 +77,6 @@ jobs:
       - name: Run stringdtype tests
         working-directory: stringdtype
         run: |
+          ASAN_OPTIONS=detect_leaks=false LD_PRELOAD=/usr/lib/gcc/x86_64-linux-gnu/11/libasan.so pytest -s -vvv --color=yes
+          pip uninstall -y pandas
           ASAN_OPTIONS=detect_leaks=false LD_PRELOAD=/usr/lib/gcc/x86_64-linux-gnu/11/libasan.so pytest -s -vvv --color=yes

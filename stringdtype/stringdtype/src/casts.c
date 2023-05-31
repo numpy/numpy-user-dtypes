@@ -80,17 +80,18 @@ static char *s2s_name = "cast_StringDType_to_StringDType";
 
 static NPY_CASTING
 unicode_to_string_resolve_descriptors(PyObject *NPY_UNUSED(self),
-                                      PyArray_DTypeMeta *NPY_UNUSED(dtypes[2]),
+                                      PyArray_DTypeMeta *dtypes[2],
                                       PyArray_Descr *given_descrs[2],
                                       PyArray_Descr *loop_descrs[2],
                                       npy_intp *NPY_UNUSED(view_offset))
 {
     if (given_descrs[1] == NULL) {
-        StringDTypeObject *new = new_stringdtype_instance(NA_OBJ);
+        PyArray_Descr *new = (PyArray_Descr *)new_stringdtype_instance(
+                (PyTypeObject *)dtypes[1]);
         if (new == NULL) {
             return (NPY_CASTING)-1;
         }
-        loop_descrs[1] = (PyArray_Descr *)new;
+        loop_descrs[1] = new;
     }
     else {
         Py_INCREF(given_descrs[1]);

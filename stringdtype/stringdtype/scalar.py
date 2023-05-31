@@ -1,5 +1,9 @@
-"""A scalar type needed by the dtype machinery."""
+"""Scalar types needed by the dtype machinery."""
 
 
 class StringScalar(str):
+    pass
+
+
+class PandasStringScalar(str):
     pass

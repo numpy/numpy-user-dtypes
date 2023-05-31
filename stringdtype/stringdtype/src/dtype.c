@@ -4,27 +4,28 @@
 #include "static_string.h"
 
 PyTypeObject *StringScalar_Type = NULL;
+PyTypeObject *PandasStringScalar_Type = NULL;
 static PyTypeObject *StringNA_Type = NULL;
 PyObject *NA_OBJ = NULL;
+int PANDAS_AVAILABLE = 0;
 
 /*
  * Internal helper to create new instances
  */
-StringDTypeObject *
-new_stringdtype_instance(PyObject *na_object)
+PyObject *
+new_stringdtype_instance(PyTypeObject *cls)
 {
-    StringDTypeObject *new = (StringDTypeObject *)PyArrayDescr_Type.tp_new(
-            (PyTypeObject *)&StringDType, NULL, NULL);
+    PyObject *new = PyArrayDescr_Type.tp_new((PyTypeObject *)cls, NULL, NULL);
     if (new == NULL) {
         return NULL;
     }
-    Py_INCREF(na_object);
-    new->na_object = na_object;
-    new->base.elsize = sizeof(ss);
-    new->base.alignment = _Alignof(ss);
-    new->base.flags |= NPY_NEEDS_INIT;
-    new->base.flags |= NPY_LIST_PICKLE;
-    new->base.flags |= NPY_ITEM_REFCOUNT;
+
+    PyArray_Descr *base = &((StringDTypeObject *)new)->base;
+    base->elsize = sizeof(ss);
+    base->alignment = _Alignof(ss);
+    base->flags |= NPY_NEEDS_INIT;
+    base->flags |= NPY_LIST_PICKLE;
+    base->flags |= NPY_ITEM_REFCOUNT;
 
     return new;
 }
@@ -62,33 +63,16 @@ common_dtype(PyArray_DTypeMeta *cls, PyArray_DTypeMeta *other)
     return (PyArray_DTypeMeta *)Py_NotImplemented;
 }
 
-// For a given python object, this function returns a borrowed reference
-// to the dtype property of the array
-static PyArray_Descr *
-string_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls),
-                                         PyObject *obj)
-{
-    if (Py_TYPE(obj) != StringScalar_Type) {
-        PyErr_SetString(PyExc_TypeError,
-                        "Can only store StringScalar in a StringDType array.");
-        return NULL;
-    }
-
-    PyArray_Descr *ret = (PyArray_Descr *)new_stringdtype_instance(NA_OBJ);
-    if (ret == NULL) {
-        return NULL;
-    }
-    return ret;
-}
-
 static PyObject *
-get_value(PyObject *scalar, PyObject *na_object)
+get_value(PyObject *scalar, StringDType_type *cls)
 {
+    PyObject *na_object = cls->na_object;
     PyObject *ret = NULL;
+    PyTypeObject *expected_scalar_type = cls->base.scalar_type;
     PyTypeObject *scalar_type = Py_TYPE(scalar);
     // FIXME: handle bytes too
     if ((scalar_type == &PyUnicode_Type) ||
-        (scalar_type == StringScalar_Type)) {
+        (scalar_type == expected_scalar_type)) {
         // attempt to decode as UTF8
         ret = PyUnicode_AsUTF8String(scalar);
         if (ret == NULL) {
@@ -127,12 +111,31 @@ get_value(PyObject *scalar, PyObject *na_object)
     return ret;
 }
 
+// For a given python object, this function returns a borrowed reference
+// to the dtype property of the array
+static PyArray_Descr *
+string_discover_descriptor_from_pyobject(PyTypeObject *cls, PyObject *obj)
+{
+    PyObject *val = get_value(obj, (StringDType_type *)cls);
+    if (val == NULL) {
+        return NULL;
+    }
+
+    PyArray_Descr *ret = (PyArray_Descr *)new_stringdtype_instance(cls);
+    if (ret == NULL) {
+        return NULL;
+    }
+    return ret;
+}
+
 // Take a python object `obj` and insert it into the array of dtype `descr` at
 // the position given by dataptr.
 static int
 stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
 {
-    PyObject *val_obj = get_value(obj, descr->na_object);
+    // borrow reference
+    PyObject *na_object = ((StringDType_type *)Py_TYPE(descr))->na_object;
+    PyObject *val_obj = get_value(obj, (StringDType_type *)Py_TYPE(descr));
 
     if (val_obj == NULL) {
         return -1;
@@ -146,7 +149,7 @@ stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
 
     // setting NA *must* check pointer equality since NA types might not
     // allow equality
-    if (val_obj == descr->na_object) {
+    if (val_obj == na_object) {
         // do nothing, ssfree already NULLed the struct ssdata points to
         // so it already contains a NA value
     }
@@ -186,8 +189,9 @@ stringdtype_getitem(StringDTypeObject *descr, char **dataptr)
     ss *sdata = (ss *)dataptr;
 
     if (ss_isnull(sdata)) {
-        Py_INCREF(descr->na_object);
-        val_obj = descr->na_object;
+        PyObject *na_object = ((StringDType_type *)Py_TYPE(descr))->na_object;
+        Py_INCREF(na_object);
+        val_obj = na_object;
     }
     else {
         char *data = sdata->buf;
@@ -352,27 +356,18 @@ static PyType_Slot StringDType_Slots[] = {
         {0, NULL}};
 
 static PyObject *
-stringdtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwds)
+stringdtype_new(PyTypeObject *cls, PyObject *args, PyObject *kwds)
 {
-    static char *kwargs_strs[] = {"size", "na_object", NULL};
+    static char *kwargs_strs[] = {"size", NULL};
 
     long size = 0;
-    PyObject *na_object = NULL;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|lO:StringDType",
-                                     kwargs_strs, &size, &na_object)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|l:StringDType", kwargs_strs,
+                                     &size)) {
         return NULL;
     }
 
-    if (na_object == NULL) {
-        na_object = NA_OBJ;
-    }
-
-    Py_INCREF(na_object);
-
-    PyObject *ret = (PyObject *)new_stringdtype_instance(na_object);
-
-    Py_DECREF(na_object);
+    PyObject *ret = new_stringdtype_instance(cls);
 
     return ret;
 }
@@ -380,7 +375,6 @@ stringdtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwds)
 static void
 stringdtype_dealloc(StringDTypeObject *self)
 {
-    Py_DECREF(self->na_object);
     PyArrayDescr_Type.tp_dealloc((PyObject *)self);
 }
 
@@ -388,9 +382,11 @@ static PyObject *
 stringdtype_repr(StringDTypeObject *self)
 {
     PyObject *ret = NULL;
-    if (self->na_object != NA_OBJ) {
-        ret = PyUnicode_FromFormat("StringDType(na_object=%R)",
-                                   self->na_object);
+    // borrow reference
+    PyObject *na_object = ((StringDType_type *)Py_TYPE(self))->na_object;
+
+    if (na_object != NA_OBJ) {
+        ret = PyUnicode_FromString("PandasStringDType()");
     }
     else {
         ret = PyUnicode_FromString("StringDType()");
@@ -401,9 +397,10 @@ stringdtype_repr(StringDTypeObject *self)
 static int PICKLE_VERSION = 1;
 
 static PyObject *
-stringdtype__reduce__(StringDTypeObject *NPY_UNUSED(self))
+stringdtype__reduce__(StringDTypeObject *self)
 {
     PyObject *ret, *mod, *obj, *state;
+    StringDType_type *s_type = (StringDType_type *)Py_TYPE(self);
 
     ret = PyTuple_New(3);
     if (ret == NULL) {
@@ -416,7 +413,12 @@ stringdtype__reduce__(StringDTypeObject *NPY_UNUSED(self))
         return NULL;
     }
 
-    obj = PyObject_GetAttrString(mod, "StringDType");
+    if (s_type->na_object == NA_OBJ) {
+        obj = PyObject_GetAttrString(mod, "StringDType");
+    }
+    else {
+        obj = PyObject_GetAttrString(mod, "PandasStringDType");
+    }
     Py_DECREF(mod);
     if (obj == NULL) {
         Py_DECREF(ret);
@@ -471,7 +473,7 @@ static PyMethodDef StringDType_methods[] = {
                 METH_O,
                 "Unpickle an StringDType object",
         },
-        {NULL},
+        {NULL, NULL, 0, NULL},
 };
 
 /*
@@ -480,8 +482,8 @@ static PyMethodDef StringDType_methods[] = {
  * PyArray_DTypeMeta, which is a larger struct than a typical type.
  * (This should get a bit nicer eventually with Python >3.11.)
  */
-PyArray_DTypeMeta StringDType = {
-        {{
+StringDType_type StringDType = {
+        {{{
                 PyVarObject_HEAD_INIT(NULL, 0).tp_name =
                         "stringdtype.StringDType",
                 .tp_basicsize = sizeof(StringDTypeObject),
@@ -490,7 +492,31 @@ PyArray_DTypeMeta StringDType = {
                 .tp_repr = (reprfunc)stringdtype_repr,
                 .tp_str = (reprfunc)stringdtype_repr,
                 .tp_methods = StringDType_methods,
-        }},
+        }}},
+        /* rest, filled in during DTypeMeta initialization */
+};
+
+/*
+ * Ideally we don't need the copy/pasted type below and we allow the
+ * StringDType class to be initialized dynamically however, that requires that
+ * the class is a heap type, and that likely only works well with some changes
+ * in numpy in Python 3.12 or newer. In practice we really only need a version
+ * with a numpy-specific NA and a and a version that uses Pandas' NA object,
+ * so we just define PandasStringDType statically as well and live with a bit
+ * of copy/paste
+ */
+
+StringDType_type PandasStringDType = {
+        {{{
+                PyVarObject_HEAD_INIT(NULL, 0).tp_name =
+                        "stringdtype.PandasStringDType",
+                .tp_basicsize = sizeof(StringDTypeObject),
+                .tp_new = stringdtype_new,
+                .tp_dealloc = (destructor)stringdtype_dealloc,
+                .tp_repr = (reprfunc)stringdtype_repr,
+                .tp_str = (reprfunc)stringdtype_repr,
+                .tp_methods = StringDType_methods,
+        }}},
         /* rest, filled in during DTypeMeta initialization */
 };
 
@@ -500,7 +526,6 @@ init_string_dtype(void)
     PyArrayMethod_Spec **casts = get_casts();
 
     PyArrayDTypeMeta_Spec StringDType_DTypeSpec = {
-            .flags = NPY_DT_PARAMETRIC,
             .typeobj = StringScalar_Type,
             .slots = StringDType_Slots,
             .casts = casts,
@@ -509,22 +534,82 @@ init_string_dtype(void)
     /* Loaded dynamically, so may need to be set here: */
     ((PyObject *)&StringDType)->ob_type = &PyArrayDTypeMeta_Type;
     ((PyTypeObject *)&StringDType)->tp_base = &PyArrayDescr_Type;
+    ((PyTypeObject *)&StringDType)->tp_dict = PyDict_New();
+    // set as C attribute for fast access
+    Py_INCREF(NA_OBJ);
+    StringDType.na_object = NA_OBJ;
+    // also add to tp_dict for easy python-level access
+    PyDict_SetItemString(((PyTypeObject *)&StringDType)->tp_dict, "na_object",
+                         NA_OBJ);
     if (PyType_Ready((PyTypeObject *)&StringDType) < 0) {
         return -1;
     }
 
-    if (PyArrayInitDTypeMeta_FromSpec(&StringDType, &StringDType_DTypeSpec) <
-        0) {
+    if (PyArrayInitDTypeMeta_FromSpec((PyArray_DTypeMeta *)&StringDType,
+                                      &StringDType_DTypeSpec) < 0) {
         return -1;
     }
 
-    PyArray_Descr *singleton = PyArray_GetDefaultDescr(&StringDType);
+    PyArray_Descr *singleton =
+            PyArray_GetDefaultDescr((PyArray_DTypeMeta *)&StringDType);
 
     if (singleton == NULL) {
         return -1;
     }
 
-    StringDType.singleton = singleton;
+    StringDType.base.singleton = singleton;
+
+    /* and once again for PandasStringDType */
+
+    PyObject *mod = PyImport_ImportModule("pandas");
+
+    if (mod != NULL) {
+        PyArrayDTypeMeta_Spec PandasStringDType_DTypeSpec = {
+                .typeobj = PandasStringScalar_Type,
+                .slots = StringDType_Slots,
+                .casts = casts,
+        };
+
+        PyObject *pandas_na_obj = PyObject_GetAttrString(mod, "NA");
+
+        Py_DECREF(mod);
+
+        if (pandas_na_obj == NULL) {
+            return -1;
+        }
+
+        ((PyObject *)&PandasStringDType)->ob_type = &PyArrayDTypeMeta_Type;
+        ((PyTypeObject *)&PandasStringDType)->tp_base = &PyArrayDescr_Type;
+        ((PyTypeObject *)&PandasStringDType)->tp_dict = PyDict_New();
+        // C attribute for fast access
+        Py_INCREF(pandas_na_obj);
+        PandasStringDType.na_object = pandas_na_obj;
+        // Add to tp_dict too for easy python-level access
+        PyDict_SetItemString(((PyTypeObject *)&PandasStringDType)->tp_dict,
+                             "na_object", pandas_na_obj);
+        if (PyType_Ready((PyTypeObject *)&PandasStringDType) < 0) {
+            return -1;
+        }
+
+        if (PyArrayInitDTypeMeta_FromSpec(
+                    (PyArray_DTypeMeta *)&PandasStringDType,
+                    &PandasStringDType_DTypeSpec) < 0) {
+            return -1;
+        }
+
+        singleton = PyArray_GetDefaultDescr(
+                (PyArray_DTypeMeta *)&PandasStringDType);
+
+        if (singleton == NULL) {
+            return -1;
+        }
+
+        PandasStringDType.base.singleton = singleton;
+        PANDAS_AVAILABLE = 1;
+    }
+    else {
+        PyErr_Clear();
+    }
 
     for (int i = 0; casts[i] != NULL; i++) {
         free(casts[i]->dtypes);
