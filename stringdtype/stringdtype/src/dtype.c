@@ -533,9 +533,8 @@ init_string_dtype(void)
         PANDAS_AVAILABLE = 1;
     }
 
-    PyArrayMethod_Spec **StringDType_casts = get_casts(
-            (PyArray_DTypeMeta *)&StringDType,
-            (PyArray_DTypeMeta *)&PandasStringDType, PANDAS_AVAILABLE);
+    PyArrayMethod_Spec **StringDType_casts =
+            get_casts((PyArray_DTypeMeta *)&StringDType, NULL);
 
     PyArrayDTypeMeta_Spec StringDType_DTypeSpec = {
             .typeobj = StringScalar_Type,
@@ -556,10 +555,6 @@ init_string_dtype(void)
     if (PyType_Ready((PyTypeObject *)&StringDType) < 0) {
         return -1;
     }
-
-    // Partially initialize PandasStringDType so cast setup succeeds
-    ((PyObject *)&PandasStringDType)->ob_type = &PyArrayDTypeMeta_Type;
-    ((PyTypeObject *)&PandasStringDType)->tp_base = &PyArrayDescr_Type;
 
     if (PyArrayInitDTypeMeta_FromSpec((PyArray_DTypeMeta *)&StringDType,
                                       &StringDType_DTypeSpec) < 0) {
@@ -585,7 +580,7 @@ init_string_dtype(void)
     if (PANDAS_AVAILABLE) {
         PyArrayMethod_Spec **PandasStringDType_casts =
                 get_casts((PyArray_DTypeMeta *)&PandasStringDType,
-                          (PyArray_DTypeMeta *)&StringDType, PANDAS_AVAILABLE);
+                          (PyArray_DTypeMeta *)&StringDType);
 
         PyArrayDTypeMeta_Spec PandasStringDType_DTypeSpec = {
                 .typeobj = PandasStringScalar_Type,
@@ -601,6 +596,8 @@ init_string_dtype(void)
             return -1;
         }
 
+        ((PyObject *)&PandasStringDType)->ob_type = &PyArrayDTypeMeta_Type;
+        ((PyTypeObject *)&PandasStringDType)->tp_base = &PyArrayDescr_Type;
         ((PyTypeObject *)&PandasStringDType)->tp_dict = PyDict_New();
         // C attribute for fast access
         Py_INCREF(pandas_na_obj);
