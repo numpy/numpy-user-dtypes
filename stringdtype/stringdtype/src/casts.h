@@ -11,7 +11,8 @@
 #include "numpy/ndarraytypes.h"
 
 PyArrayMethod_Spec **
-get_casts(void);
+get_casts(PyArray_DTypeMeta *this_dtype, PyArray_DTypeMeta *other_dtype,
+          int pandas_available);
 
 size_t
 utf8_char_to_ucs4_code(unsigned char *, Py_UCS4 *);

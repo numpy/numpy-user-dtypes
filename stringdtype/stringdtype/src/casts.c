@@ -75,6 +75,8 @@ static PyType_Slot s2s_slots[] = {
         {0, NULL}};
 
 static char *s2s_name = "cast_StringDType_to_StringDType";
+static char *s2p_name = "cast_StringDType_to_PandasStringDType";
+static char *p2s_name = "cast_PandasStringDType_to_StringDType";
 
 // unicode to string
 
@@ -476,38 +478,83 @@ get_dtypes(PyArray_DTypeMeta *dt1, PyArray_DTypeMeta *dt2)
 }
 
 PyArrayMethod_Spec **
-get_casts(void)
+get_casts(PyArray_DTypeMeta *this, PyArray_DTypeMeta *other,
+          int pandas_available)
 {
-    PyArray_DTypeMeta **s2s_dtypes = get_dtypes(NULL, NULL);
+    PyArray_DTypeMeta **s2s_dtypes = get_dtypes(this, this);
 
     PyArrayMethod_Spec *StringToStringCastSpec =
             get_cast_spec(s2s_name, NPY_NO_CASTING,
                           NPY_METH_SUPPORTS_UNALIGNED, s2s_dtypes, s2s_slots);
 
-    PyArray_DTypeMeta **u2s_dtypes = get_dtypes(&PyArray_UnicodeDType, NULL);
+    PyArrayMethod_Spec *ThisToOtherCastSpec = NULL;
+    PyArrayMethod_Spec *OtherToThisCastSpec = NULL;
+
+    if (pandas_available) {
+        char *t2o_name = NULL;
+        char *o2t_name = NULL;
+
+        if (this == (PyArray_DTypeMeta *)&StringDType) {
+            t2o_name = s2p_name;
+            o2t_name = p2s_name;
+        }
+        else {
+            t2o_name = p2s_name;
+            o2t_name = s2p_name;
+        }
+
+        PyArray_DTypeMeta **t2o_dtypes = get_dtypes(this, other);
+
+        ThisToOtherCastSpec = get_cast_spec(t2o_name, NPY_NO_CASTING,
+                                            NPY_METH_SUPPORTS_UNALIGNED,
+                                            t2o_dtypes, s2s_slots);
+
+        PyArray_DTypeMeta **o2t_dtypes = get_dtypes(other, this);
+
+        OtherToThisCastSpec = get_cast_spec(o2t_name, NPY_NO_CASTING,
+                                            NPY_METH_SUPPORTS_UNALIGNED,
+                                            o2t_dtypes, s2s_slots);
+    }
+
+    PyArray_DTypeMeta **u2s_dtypes = get_dtypes(&PyArray_UnicodeDType, this);
 
     PyArrayMethod_Spec *UnicodeToStringCastSpec = get_cast_spec(
             u2s_name, NPY_SAFE_CASTING, NPY_METH_NO_FLOATINGPOINT_ERRORS,
             u2s_dtypes, u2s_slots);
 
-    PyArray_DTypeMeta **s2u_dtypes = get_dtypes(NULL, &PyArray_UnicodeDType);
+    PyArray_DTypeMeta **s2u_dtypes = get_dtypes(this, &PyArray_UnicodeDType);
 
     PyArrayMethod_Spec *StringToUnicodeCastSpec = get_cast_spec(
             s2u_name, NPY_SAFE_CASTING, NPY_METH_NO_FLOATINGPOINT_ERRORS,
             s2u_dtypes, s2u_slots);
 
-    PyArray_DTypeMeta **s2b_dtypes = get_dtypes(NULL, &PyArray_BoolDType);
+    PyArray_DTypeMeta **s2b_dtypes = get_dtypes(this, &PyArray_BoolDType);
 
     PyArrayMethod_Spec *StringToBoolCastSpec = get_cast_spec(
             s2b_name, NPY_UNSAFE_CASTING, NPY_METH_NO_FLOATINGPOINT_ERRORS,
             s2b_dtypes, s2b_slots);
 
-    PyArrayMethod_Spec **casts = malloc(5 * sizeof(PyArrayMethod_Spec *));
+    PyArrayMethod_Spec **casts = NULL;
+
+    if (pandas_available) {
+        casts = malloc(7 * sizeof(PyArrayMethod_Spec *));
+    }
+    else {
+        casts = malloc(5 * sizeof(PyArrayMethod_Spec *));
+    }
+
     casts[0] = StringToStringCastSpec;
     casts[1] = UnicodeToStringCastSpec;
     casts[2] = StringToUnicodeCastSpec;
     casts[3] = StringToBoolCastSpec;
-    casts[4] = NULL;
+    if (pandas_available) {
+        casts[4] = ThisToOtherCastSpec;
+        casts[5] = OtherToThisCastSpec;
+        casts[6] = NULL;
+    }
+    else {
+        casts[4] = NULL;
+    }
 
     return casts;
 }
