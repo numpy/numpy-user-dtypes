@@ -523,12 +523,23 @@ StringDType_type PandasStringDType = {
 int
 init_string_dtype(void)
 {
-    PyArrayMethod_Spec **casts = get_casts();
+    PyObject *pandas_mod = PyImport_ImportModule("pandas");
+
+    if (pandas_mod == NULL) {
+        // clear ImportError
+        PyErr_Clear();
+    }
+    else {
+        PANDAS_AVAILABLE = 1;
+    }
+
+    PyArrayMethod_Spec **StringDType_casts =
+            get_casts((PyArray_DTypeMeta *)&StringDType, NULL);
 
     PyArrayDTypeMeta_Spec StringDType_DTypeSpec = {
             .typeobj = StringScalar_Type,
             .slots = StringDType_Slots,
-            .casts = casts,
+            .casts = StringDType_casts,
     };
 
     /* Loaded dynamically, so may need to be set here: */
@@ -559,20 +570,27 @@ init_string_dtype(void)
 
     StringDType.base.singleton = singleton;
 
+    for (int i = 0; StringDType_casts[i] != NULL; i++) {
+        free(StringDType_casts[i]->dtypes);
+        free(StringDType_casts[i]);
+    }
+
     /* and once again for PandasStringDType */
 
-    PyObject *mod = PyImport_ImportModule("pandas");
+    if (PANDAS_AVAILABLE) {
+        PyArrayMethod_Spec **PandasStringDType_casts =
+                get_casts((PyArray_DTypeMeta *)&PandasStringDType,
+                          (PyArray_DTypeMeta *)&StringDType);
 
-    if (mod != NULL) {
         PyArrayDTypeMeta_Spec PandasStringDType_DTypeSpec = {
                 .typeobj = PandasStringScalar_Type,
                 .slots = StringDType_Slots,
-                .casts = casts,
+                .casts = PandasStringDType_casts,
         };
 
-        PyObject *pandas_na_obj = PyObject_GetAttrString(mod, "NA");
+        PyObject *pandas_na_obj = PyObject_GetAttrString(pandas_mod, "NA");
 
-        Py_DECREF(mod);
+        Py_DECREF(pandas_mod);
 
         if (pandas_na_obj == NULL) {
             return -1;
@@ -605,15 +623,11 @@ init_string_dtype(void)
         }
 
         PandasStringDType.base.singleton = singleton;
-        PANDAS_AVAILABLE = 1;
-    }
-    else {
-        PyErr_Clear();
-    }
 
-    for (int i = 0; casts[i] != NULL; i++) {
-        free(casts[i]->dtypes);
-        free(casts[i]);
+        for (int i = 0; PandasStringDType_casts[i] != NULL; i++) {
+            free(PandasStringDType_casts[i]->dtypes);
+            free(PandasStringDType_casts[i]);
+        }
     }
 
     return 0;

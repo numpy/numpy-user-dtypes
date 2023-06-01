@@ -31,25 +31,18 @@ def dtype(request):
     if request.param == "StringDType":
         return StringDType()
     elif request.param == "PandasStringDType":
-        try:
-            from stringdtype import PandasStringDType
+        pytest.importorskip("pandas")
+        from stringdtype import PandasStringDType
 
-            return PandasStringDType()
-        except ImportError:
-            pytest.skip("cannot import pandas")
+        return PandasStringDType()
 
 
 @pytest.fixture
 def scalar(dtype):
     if dtype == StringDType():
         return StringScalar
-    try:
-        from stringdtype import PandasStringDType
-
-        del PandasStringDType
+    else:
         return PandasStringScalar
-    except ImportError:
-        pytest.skip("cannot import pandas")
 
 
 def test_scalar_creation(scalar):
@@ -77,6 +70,8 @@ def test_array_creation_utf8(dtype, data):
 
 
 def test_array_creation_scalars(string_list, scalar, dtype):
+    if not issubclass(scalar, dtype.type):
+        pytest.skip()
     arr = np.array([scalar(s) for s in string_list])
     assert repr(arr) == repr(np.array(string_list, dtype=dtype))
 
@@ -383,3 +378,25 @@ def test_create_with_na(dtype, na_val):
         == f"array(['hello', {dtype.na_object}, 'world'], dtype={dtype})"
     )
     assert arr[1] is dtype.na_object
+
+
+def test_pandas_to_numpy_cast(string_list):
+    pytest.importorskip("pandas")
+
+    from stringdtype import PandasStringDType
+
+    sarr = np.array(string_list, dtype=StringDType())
+
+    parr = sarr.astype(PandasStringDType())
+
+    np.testing.assert_array_equal(
+        parr, np.array(string_list, dtype=PandasStringDType())
+    )
+    np.testing.assert_array_equal(sarr, parr.astype(StringDType()))
+
+    # check that NA converts correctly too
+    sarr[1] = StringDType.na_object
+    parr = sarr.astype(PandasStringDType())
+
+    assert parr[1] is PandasStringDType.na_object
+    assert parr.astype(StringDType())[1] is StringDType.na_object
