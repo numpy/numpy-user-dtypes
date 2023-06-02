@@ -160,10 +160,12 @@ def test_comparison(string_list, dtype, op, o_dtype):
 
     # test that comparison operators work
     res = op(sarr, sarr)
+    ores = op(oarr, oarr)
     # test that promotion on the operator works as well
     orres = op(sarr, oarr)
     olres = op(oarr, sarr)
 
+    np.testing.assert_array_equal(res, ores)
     np.testing.assert_array_equal(res, orres)
     np.testing.assert_array_equal(res, olres)
 

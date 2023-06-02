@@ -228,10 +228,10 @@ string_greater_strided_loop(PyArrayMethod_Context *NPY_UNUSED(context),
         }
         else if (s1->len == s2->len &&
                  strncmp(s1->buf, s2->buf, s1->len) > 0) {
-            *out = (npy_bool)0;
+            *out = (npy_bool)1;
         }
         else {
-            *out = (npy_bool)1;
+            *out = (npy_bool)0;
         }
 
         in1 += in1_stride;
@@ -268,10 +268,10 @@ string_greater_equal_strided_loop(PyArrayMethod_Context *NPY_UNUSED(context),
         }
         else if (s1->len == s2->len &&
                  strncmp(s1->buf, s2->buf, s1->len) >= 0) {
-            *out = (npy_bool)0;
+            *out = (npy_bool)1;
         }
         else {
-            *out = (npy_bool)1;
+            *out = (npy_bool)0;
         }
 
         in1 += in1_stride;
@@ -307,10 +307,10 @@ string_less_strided_loop(PyArrayMethod_Context *NPY_UNUSED(context),
         }
         else if (s1->len == s2->len &&
                  strncmp(s1->buf, s2->buf, s1->len) < 0) {
-            *out = (npy_bool)0;
+            *out = (npy_bool)1;
         }
         else {
-            *out = (npy_bool)1;
+            *out = (npy_bool)0;
         }
 
         in1 += in1_stride;
@@ -346,10 +346,10 @@ string_less_equal_strided_loop(PyArrayMethod_Context *NPY_UNUSED(context),
         }
         else if (s1->len == s2->len &&
                  strncmp(s1->buf, s2->buf, s1->len) <= 0) {
-            *out = (npy_bool)0;
+            *out = (npy_bool)1;
         }
         else {
-            *out = (npy_bool)1;
+            *out = (npy_bool)0;
         }
 
         in1 += in1_stride;
