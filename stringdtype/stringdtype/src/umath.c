@@ -203,6 +203,163 @@ string_not_equal_strided_loop(PyArrayMethod_Context *NPY_UNUSED(context),
     return 0;
 }
 
+static int
+string_greater_strided_loop(PyArrayMethod_Context *NPY_UNUSED(context),
+                            char *const data[], npy_intp const dimensions[],
+                            npy_intp const strides[],
+                            NpyAuxData *NPY_UNUSED(auxdata))
+{
+    npy_intp N = dimensions[0];
+    char *in1 = data[0];
+    char *in2 = data[1];
+    npy_bool *out = (npy_bool *)data[2];
+    npy_intp in1_stride = strides[0];
+    npy_intp in2_stride = strides[1];
+    npy_intp out_stride = strides[2];
+
+    ss *s1 = NULL, *s2 = NULL;
+
+    while (N--) {
+        s1 = (ss *)in1;
+        s2 = (ss *)in2;
+        if (ss_isnull(s1) || ss_isnull(s2)) {
+            // s1 or s2 is NA
+            *out = (npy_bool)0;
+        }
+        else if (s1->len == s2->len &&
+                 strncmp(s1->buf, s2->buf, s1->len) > 0) {
+            *out = (npy_bool)0;
+        }
+        else {
+            *out = (npy_bool)1;
+        }
+
+        in1 += in1_stride;
+        in2 += in2_stride;
+        out += out_stride;
+    }
+
+    return 0;
+}
+
+static int
+string_greater_equal_strided_loop(PyArrayMethod_Context *NPY_UNUSED(context),
+                                  char *const data[],
+                                  npy_intp const dimensions[],
+                                  npy_intp const strides[],
+                                  NpyAuxData *NPY_UNUSED(auxdata))
+{
+    npy_intp N = dimensions[0];
+    char *in1 = data[0];
+    char *in2 = data[1];
+    npy_bool *out = (npy_bool *)data[2];
+    npy_intp in1_stride = strides[0];
+    npy_intp in2_stride = strides[1];
+    npy_intp out_stride = strides[2];
+
+    ss *s1 = NULL, *s2 = NULL;
+
+    while (N--) {
+        s1 = (ss *)in1;
+        s2 = (ss *)in2;
+        if (ss_isnull(s1) || ss_isnull(s2)) {
+            // s1 or s2 is NA
+            *out = (npy_bool)0;
+        }
+        else if (s1->len == s2->len &&
+                 strncmp(s1->buf, s2->buf, s1->len) >= 0) {
+            *out = (npy_bool)0;
+        }
+        else {
+            *out = (npy_bool)1;
+        }
+
+        in1 += in1_stride;
+        in2 += in2_stride;
+        out += out_stride;
+    }
+
+    return 0;
+}
+
+static int
+string_less_strided_loop(PyArrayMethod_Context *NPY_UNUSED(context),
+                         char *const data[], npy_intp const dimensions[],
+                         npy_intp const strides[],
+                         NpyAuxData *NPY_UNUSED(auxdata))
+{
+    npy_intp N = dimensions[0];
+    char *in1 = data[0];
+    char *in2 = data[1];
+    npy_bool *out = (npy_bool *)data[2];
+    npy_intp in1_stride = strides[0];
+    npy_intp in2_stride = strides[1];
+    npy_intp out_stride = strides[2];
+
+    ss *s1 = NULL, *s2 = NULL;
+
+    while (N--) {
+        s1 = (ss *)in1;
+        s2 = (ss *)in2;
+        if (ss_isnull(s1) || ss_isnull(s2)) {
+            // s1 or s2 is NA
+            *out = (npy_bool)0;
+        }
+        else if (s1->len == s2->len &&
+                 strncmp(s1->buf, s2->buf, s1->len) < 0) {
+            *out = (npy_bool)0;
+        }
+        else {
+            *out = (npy_bool)1;
+        }
+
+        in1 += in1_stride;
+        in2 += in2_stride;
+        out += out_stride;
+    }
+
+    return 0;
+}
+
+static int
+string_less_equal_strided_loop(PyArrayMethod_Context *NPY_UNUSED(context),
+                               char *const data[], npy_intp const dimensions[],
+                               npy_intp const strides[],
+                               NpyAuxData *NPY_UNUSED(auxdata))
+{
+    npy_intp N = dimensions[0];
+    char *in1 = data[0];
+    char *in2 = data[1];
+    npy_bool *out = (npy_bool *)data[2];
+    npy_intp in1_stride = strides[0];
+    npy_intp in2_stride = strides[1];
+    npy_intp out_stride = strides[2];
+
+    ss *s1 = NULL, *s2 = NULL;
+
+    while (N--) {
+        s1 = (ss *)in1;
+        s2 = (ss *)in2;
+        if (ss_isnull(s1) || ss_isnull(s2)) {
+            // s1 or s2 is NA
+            *out = (npy_bool)0;
+        }
+        else if (s1->len == s2->len &&
+                 strncmp(s1->buf, s2->buf, s1->len) <= 0) {
+            *out = (npy_bool)0;
+        }
+        else {
+            *out = (npy_bool)1;
+        }
+
+        in1 += in1_stride;
+        in2 += in2_stride;
+        out += out_stride;
+    }
+
+    return 0;
+}
+
 static NPY_CASTING
 string_comparison_resolve_descriptors(
         struct PyArrayMethodObject_tag *NPY_UNUSED(method),
@@ -330,7 +487,8 @@ string_ufunc_promoter(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
 }
 
 static int
-pandas_string_ufunc_promoter(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
+pandas_string_ufunc_promoter(PyUFuncObject *ufunc,
+                             PyArray_DTypeMeta *op_dtypes[],
                              PyArray_DTypeMeta *signature[],
                              PyArray_DTypeMeta *new_op_dtypes[])
 {
@@ -400,16 +558,15 @@ add_promoter(PyObject *numpy, const char *ufunc_name,
     }
 
     PyObject *promoter_capsule = NULL;
-    
+
     if (is_pandas == 0) {
         promoter_capsule = PyCapsule_New((void *)&string_ufunc_promoter,
-                                          "numpy._ufunc_promoter", NULL);
+                                         "numpy._ufunc_promoter", NULL);
     }
     else {
         promoter_capsule = PyCapsule_New((void *)&pandas_string_ufunc_promoter,
                                          "numpy._ufunc_promoter", NULL);
     }
-            
 
     if (promoter_capsule == NULL) {
         Py_DECREF(ufunc);
@@ -439,171 +596,134 @@ init_ufuncs(void)
         return -1;
     }
 
-    PyArray_DTypeMeta *comparison_dtypes[] = {(PyArray_DTypeMeta *)&StringDType,
-                                              (PyArray_DTypeMeta *)&StringDType,
-                                              &PyArray_BoolDType};
+    StringDType_type **dtype_classes = NULL;
+    int num_dtypes;
 
-    if (init_ufunc(numpy, "equal", comparison_dtypes,
-                   &string_comparison_resolve_descriptors,
-                   &string_equal_strided_loop, "string_equal", 2, 1,
-                   NPY_NO_CASTING, 0) < 0) {
-        goto error;
+    if (PANDAS_AVAILABLE) {
+        dtype_classes = malloc(sizeof(StringDType_type *) * 2);
+        dtype_classes[0] = &StringDType;
+        dtype_classes[1] = &PandasStringDType;
+        num_dtypes = 2;
+    }
+    else {
+        dtype_classes = malloc(sizeof(StringDType_type *) * 1);
+        dtype_classes[0] = &StringDType;
+        num_dtypes = 1;
     }
 
-    if (init_ufunc(numpy, "not_equal", comparison_dtypes,
-                   &string_comparison_resolve_descriptors,
-                   &string_not_equal_strided_loop, "string_not_equal", 2, 1,
-                   NPY_NO_CASTING, 0) < 0) {
-        goto error;
-    }
+    for (int di = 0; di < num_dtypes; di++) {
+        PyArray_DTypeMeta *comparison_dtypes[] = {
+                (PyArray_DTypeMeta *)dtype_classes[di],
+                (PyArray_DTypeMeta *)dtype_classes[di], &PyArray_BoolDType};
 
-    char *ufunc_names[2] = {"equal", "not_equal"};
-
-    for (int i = 0; i < 2; i++) {
-        if (add_promoter(numpy, ufunc_names[i], (PyArray_DTypeMeta *)&StringDType,
-                         &PyArray_UnicodeDType, &PyArray_BoolDType, 0) < 0) {
+        if (init_ufunc(numpy, "equal", comparison_dtypes,
+                       &string_comparison_resolve_descriptors,
+                       &string_equal_strided_loop, "string_equal", 2, 1,
+                       NPY_NO_CASTING, 0) < 0) {
             goto error;
         }
 
-        if (add_promoter(numpy, ufunc_names[i], &PyArray_UnicodeDType,
-                         (PyArray_DTypeMeta *)&StringDType, &PyArray_BoolDType, 0) < 0) {
+        if (init_ufunc(numpy, "not_equal", comparison_dtypes,
+                       &string_comparison_resolve_descriptors,
+                       &string_not_equal_strided_loop, "string_not_equal", 2,
+                       1, NPY_NO_CASTING, 0) < 0) {
             goto error;
         }
 
-        if (add_promoter(numpy, ufunc_names[i], &PyArray_ObjectDType,
-                         (PyArray_DTypeMeta *)&StringDType, &PyArray_BoolDType, 0) < 0) {
+        if (init_ufunc(numpy, "greater", comparison_dtypes,
+                       &string_comparison_resolve_descriptors,
+                       &string_greater_strided_loop, "string_greater", 2, 1,
+                       NPY_NO_CASTING, 0) < 0) {
             goto error;
         }
 
-        if (add_promoter(numpy, ufunc_names[i], (PyArray_DTypeMeta *)&StringDType,
-                         &PyArray_ObjectDType, &PyArray_BoolDType, 0) < 0) {
+        if (init_ufunc(numpy, "greater_equal", comparison_dtypes,
+                       &string_comparison_resolve_descriptors,
+                       &string_greater_equal_strided_loop,
+                       "string_greater_equal", 2, 1, NPY_NO_CASTING, 0) < 0) {
+            goto error;
+        }
+
+        if (init_ufunc(numpy, "less", comparison_dtypes,
+                       &string_comparison_resolve_descriptors,
+                       &string_less_strided_loop, "string_less", 2, 1,
+                       NPY_NO_CASTING, 0) < 0) {
+            goto error;
+        }
+
+        if (init_ufunc(numpy, "less_equal", comparison_dtypes,
+                       &string_comparison_resolve_descriptors,
+                       &string_less_equal_strided_loop, "string_less_equal", 2,
+                       1, NPY_NO_CASTING, 0) < 0) {
+            goto error;
+        }
+
+        static char *ufunc_names[6] = {"equal",   "not_equal",
+                                       "greater", "greater_equal",
+                                       "less",    "less_equal"};
+
+        for (int i = 0; i < 6; i++) {
+            if (add_promoter(numpy, ufunc_names[i],
+                             (PyArray_DTypeMeta *)dtype_classes[di],
+                             &PyArray_UnicodeDType, &PyArray_BoolDType,
+                             0) < 0) {
+                goto error;
+            }
+
+            if (add_promoter(numpy, ufunc_names[i], &PyArray_UnicodeDType,
+                             (PyArray_DTypeMeta *)dtype_classes[di],
+                             &PyArray_BoolDType, 0) < 0) {
+                goto error;
+            }
+
+            if (add_promoter(numpy, ufunc_names[i], &PyArray_ObjectDType,
+                             (PyArray_DTypeMeta *)dtype_classes[di],
+                             &PyArray_BoolDType, 0) < 0) {
+                goto error;
+            }
+
+            if (add_promoter(numpy, ufunc_names[i],
+                             (PyArray_DTypeMeta *)dtype_classes[di],
+                             &PyArray_ObjectDType, &PyArray_BoolDType,
+                             0) < 0) {
+                goto error;
+            }
+        }
+
+        PyArray_DTypeMeta *isnan_dtypes[] = {
+                (PyArray_DTypeMeta *)dtype_classes[di], &PyArray_BoolDType};
+
+        if (init_ufunc(numpy, "isnan", isnan_dtypes,
+                       &string_isnan_resolve_descriptors,
+                       &string_isnan_strided_loop, "string_isnan", 1, 1,
+                       NPY_NO_CASTING, 0) < 0) {
+            goto error;
+        }
+
+        PyArray_DTypeMeta *binary_dtypes[] = {
+                (PyArray_DTypeMeta *)dtype_classes[di],
+                (PyArray_DTypeMeta *)dtype_classes[di],
+                (PyArray_DTypeMeta *)dtype_classes[di],
+        };
+
+        if (init_ufunc(numpy, "maximum", binary_dtypes, NULL,
+                       &maximum_strided_loop, "string_maximum", 2, 1,
+                       NPY_NO_CASTING, 0) < 0) {
+            goto error;
+        }
+
+        if (init_ufunc(numpy, "minimum", binary_dtypes, NULL,
+                       &minimum_strided_loop, "string_minimum", 2, 1,
+                       NPY_NO_CASTING, 0) < 0) {
+            goto error;
+        }
+
+        if (init_ufunc(numpy, "add", binary_dtypes, NULL, &add_strided_loop,
+                       "string_add", 2, 1, NPY_NO_CASTING, 0) < 0) {
             goto error;
         }
     }
 
-    PyArray_DTypeMeta *isnan_dtypes[] = {(PyArray_DTypeMeta *)&StringDType,
-                                         &PyArray_BoolDType};
-
-    if (init_ufunc(numpy, "isnan", isnan_dtypes,
-                   &string_isnan_resolve_descriptors,
-                   &string_isnan_strided_loop, "string_isnan", 1, 1,
-                   NPY_NO_CASTING, 0) < 0) {
-        goto error;
-    }
-
-    PyArray_DTypeMeta *minmax_dtypes[] = {
-            (PyArray_DTypeMeta *)&StringDType,
-            (PyArray_DTypeMeta *)&StringDType,
-            (PyArray_DTypeMeta *)&StringDType,
-    };
-
-    if (init_ufunc(numpy, "maximum", minmax_dtypes, NULL,
-                   &maximum_strided_loop, "string_maximum", 2, 1,
-                   NPY_NO_CASTING, 0) < 0) {
-        goto error;
-    }
-    if (init_ufunc(numpy, "minimum", minmax_dtypes, NULL,
-                   &minimum_strided_loop, "string_minimum", 2, 1,
-                   NPY_NO_CASTING, 0) < 0) {
-        goto error;
-    }
-
-    PyArray_DTypeMeta *add_dtypes[] = {
-            (PyArray_DTypeMeta *)&StringDType,
-            (PyArray_DTypeMeta *)&StringDType,
-            (PyArray_DTypeMeta *)&StringDType,
-    };
-
-    if (init_ufunc(numpy, "add", add_dtypes, NULL, &add_strided_loop,
-                   "string_add", 2, 1, NPY_NO_CASTING, 0) < 0) {
-        goto error;
-    }
-
-    if (!PANDAS_AVAILABLE) {
-        goto finish;
-    }
-
-    PyArray_DTypeMeta *p_comparison_dtypes[] =
-            {(PyArray_DTypeMeta *)&PandasStringDType,
-             (PyArray_DTypeMeta *)&PandasStringDType,
-             &PyArray_BoolDType};
-
-    if (init_ufunc(numpy, "equal", p_comparison_dtypes,
-                   &string_comparison_resolve_descriptors,
-                   &string_equal_strided_loop, "string_equal", 2, 1,
-                   NPY_NO_CASTING, 0) < 0) {
-        goto error;
-    }
-
-    if (init_ufunc(numpy, "not_equal", p_comparison_dtypes,
-                   &string_comparison_resolve_descriptors,
-                   &string_not_equal_strided_loop, "string_not_equal", 2, 1,
-                   NPY_NO_CASTING, 0) < 0) {
-        goto error;
-    }
-
-    for (int i = 0; i < 2; i++) {
-        if (add_promoter(numpy, ufunc_names[i], (PyArray_DTypeMeta *)&PandasStringDType,
-                         &PyArray_UnicodeDType, &PyArray_BoolDType, 1) < 0) {
-            goto error;
-        }
-
-        if (add_promoter(numpy, ufunc_names[i], &PyArray_UnicodeDType,
-                         (PyArray_DTypeMeta *)&PandasStringDType, &PyArray_BoolDType, 1) < 0) {
-            goto error;
-        }
-
-        if (add_promoter(numpy, ufunc_names[i], &PyArray_ObjectDType,
-                         (PyArray_DTypeMeta *)&PandasStringDType, &PyArray_BoolDType, 1) < 0) {
-            goto error;
-        }
-
-        if (add_promoter(numpy, ufunc_names[i], (PyArray_DTypeMeta *)&PandasStringDType,
-                         &PyArray_ObjectDType, &PyArray_BoolDType, 1) < 0) {
-            goto error;
-        }
-    }
-
-    PyArray_DTypeMeta *p_isnan_dtypes[] = {
-            (PyArray_DTypeMeta *)&PandasStringDType, &PyArray_BoolDType};
-
-    if (init_ufunc(numpy, "isnan", p_isnan_dtypes,
-                   &string_isnan_resolve_descriptors,
-                   &string_isnan_strided_loop, "string_isnan", 1, 1,
-                   NPY_NO_CASTING, 0) < 0) {
-        goto error;
-    }
-
-    PyArray_DTypeMeta *p_minmax_dtypes[] = {
-            (PyArray_DTypeMeta *)&PandasStringDType,
-            (PyArray_DTypeMeta *)&PandasStringDType,
-            (PyArray_DTypeMeta *)&PandasStringDType,
-    };
-
-    if (init_ufunc(numpy, "maximum", p_minmax_dtypes, NULL,
-                   &maximum_strided_loop, "string_maximum", 2, 1,
-                   NPY_NO_CASTING, 0) < 0) {
-        goto error;
-    }
-
-    if (init_ufunc(numpy, "minimum", p_minmax_dtypes, NULL,
-                   &minimum_strided_loop, "string_minimum", 2, 1,
-                   NPY_NO_CASTING, 0) < 0) {
-        goto error;
-    }
-
-    PyArray_DTypeMeta *p_add_dtypes[] = {
-            (PyArray_DTypeMeta *)&PandasStringDType,
-            (PyArray_DTypeMeta *)&PandasStringDType,
-            (PyArray_DTypeMeta *)&PandasStringDType,
-    };
-
-    if (init_ufunc(numpy, "add", p_add_dtypes, NULL, &add_strided_loop,
-                   "string_add", 2, 1, NPY_NO_CASTING, 0) < 0) {
-        goto error;
-    }
-
-finish:
     Py_DECREF(numpy);
     return 0;
 

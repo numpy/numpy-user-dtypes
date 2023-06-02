@@ -142,15 +142,30 @@ def test_insert_scalar(dtype, scalar, string_list):
         )
 
 
+comparison_operators = [
+    np.equal,
+    np.not_equal,
+    np.greater,
+    np.greater_equal,
+    np.less,
+    np.less_equal,
+]
+
+
+@pytest.mark.parametrize("op", comparison_operators)
 @pytest.mark.parametrize("o_dtype", [np.str_, object])
-def test_equality_promotion(string_list, dtype, o_dtype):
+def test_comparison(string_list, dtype, op, o_dtype):
     sarr = np.array(string_list, dtype=dtype)
     oarr = np.array(string_list, dtype=o_dtype)
 
-    np.testing.assert_array_equal(sarr, oarr)
-    np.testing.assert_array_equal(oarr, sarr)
-    assert not np.any(sarr != oarr)
-    assert not np.any(oarr != sarr)
+    # test that comparison operators work
+    res = op(sarr, sarr)
+    # test that promotion on the operator works as well
+    orres = op(sarr, oarr)
+    olres = op(oarr, sarr)
+
+    np.testing.assert_array_equal(res, orres)
+    np.testing.assert_array_equal(res, olres)
 
 
 def test_isnan(dtype, string_list):
