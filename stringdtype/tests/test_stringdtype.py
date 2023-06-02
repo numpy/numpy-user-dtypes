@@ -154,20 +154,34 @@ comparison_operators = [
 
 @pytest.mark.parametrize("op", comparison_operators)
 @pytest.mark.parametrize("o_dtype", [np.str_, object])
-def test_comparison(string_list, dtype, op, o_dtype):
+def test_comparisons(string_list, dtype, op, o_dtype):
     sarr = np.array(string_list, dtype=dtype)
     oarr = np.array(string_list, dtype=o_dtype)
 
     # test that comparison operators work
     res = op(sarr, sarr)
     ores = op(oarr, oarr)
-    # test that promotion on the operator works as well
+    # test that promotion works as well
     orres = op(sarr, oarr)
     olres = op(oarr, sarr)
 
     np.testing.assert_array_equal(res, ores)
     np.testing.assert_array_equal(res, orres)
     np.testing.assert_array_equal(res, olres)
+
+    # test we get the correct answer for unequal length strings
+    sarr2 = np.array([s + "2" for s in string_list], dtype=dtype)
+    oarr2 = np.array([s + "2" for s in string_list], dtype=o_dtype)
+
+    res = op(sarr, sarr2)
+    ores = op(oarr, oarr2)
+
+    np.testing.assert_array_equal(res, ores)
+
+    res = op(sarr2, sarr)
+    ores = op(oarr2, oarr)
+
+    np.testing.assert_array_equal(res, ores)
 
 
 def test_isnan(dtype, string_list):

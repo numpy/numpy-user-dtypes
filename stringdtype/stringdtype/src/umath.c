@@ -226,8 +226,7 @@ string_greater_strided_loop(PyArrayMethod_Context *NPY_UNUSED(context),
             // s1 or s2 is NA
             *out = (npy_bool)0;
         }
-        else if (s1->len == s2->len &&
-                 strncmp(s1->buf, s2->buf, s1->len) > 0) {
+        else if (strcmp(s1->buf, s2->buf) > 0) {
             *out = (npy_bool)1;
         }
         else {
@@ -266,8 +265,7 @@ string_greater_equal_strided_loop(PyArrayMethod_Context *NPY_UNUSED(context),
             // s1 or s2 is NA
             *out = (npy_bool)0;
         }
-        else if (s1->len == s2->len &&
-                 strncmp(s1->buf, s2->buf, s1->len) >= 0) {
+        else if (strcmp(s1->buf, s2->buf) >= 0) {
             *out = (npy_bool)1;
         }
         else {
@@ -305,8 +303,7 @@ string_less_strided_loop(PyArrayMethod_Context *NPY_UNUSED(context),
             // s1 or s2 is NA
             *out = (npy_bool)0;
         }
-        else if (s1->len == s2->len &&
-                 strncmp(s1->buf, s2->buf, s1->len) < 0) {
+        else if (strcmp(s1->buf, s2->buf) < 0) {
             *out = (npy_bool)1;
         }
         else {
@@ -344,8 +341,7 @@ string_less_equal_strided_loop(PyArrayMethod_Context *NPY_UNUSED(context),
             // s1 or s2 is NA
             *out = (npy_bool)0;
         }
-        else if (s1->len == s2->len &&
-                 strncmp(s1->buf, s2->buf, s1->len) <= 0) {
+        else if (strcmp(s1->buf, s2->buf) <= 0) {
             *out = (npy_bool)1;
         }
         else {
