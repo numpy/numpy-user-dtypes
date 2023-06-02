@@ -39,7 +39,7 @@ def dtype(request):
 
 @pytest.fixture
 def scalar(dtype):
-    if dtype == StringDType():
+    if isinstance(dtype, StringDType):
         return StringScalar
     else:
         return PandasStringScalar
