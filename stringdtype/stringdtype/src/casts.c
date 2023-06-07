@@ -449,124 +449,6 @@ static PyType_Slot s2b_slots[] = {
 
 static char *s2b_name = "cast_StringDType_to_Bool";
 
-// object to string
-
-typedef struct {
-    NpyAuxData base;
-    PyArray_Descr *descr;
-    int move_references;
-} _object_to_string_auxdata;
-
-static void
-_object_to_string_auxdata_free(NpyAuxData *auxdata)
-{
-    _object_to_string_auxdata *data = (_object_to_string_auxdata *)auxdata;
-    Py_DECREF(data->descr);
-    PyMem_Free(data);
-}
-
-static NpyAuxData *
-_object_to_string_auxdata_clone(NpyAuxData *data)
-{
-    _object_to_string_auxdata *res = PyMem_Malloc(sizeof(*res));
-    if (res == NULL) {
-        return NULL;
-    }
-    memcpy(res, data, sizeof(*res));
-    Py_INCREF(res->descr);
-    return (NpyAuxData *)res;
-}
-
-static int
-object_to_string_strided_loop(PyArrayMethod_Context *NPY_UNUSED(context),
-                              char *const *args, const npy_intp *dimensions,
-                              const npy_intp *strides, NpyAuxData *auxdata)
-{
-    npy_intp N = dimensions[0];
-    char *src = args[0], *dst = args[1];
-    npy_intp src_stride = strides[0], dst_stride = strides[1];
-    _object_to_string_auxdata *data = (_object_to_string_auxdata *)auxdata;
-
-    PyObject *src_ref;
-
-    while (N > 0) {
-        memcpy(&src_ref, src, sizeof(src_ref));
-        if (stringdtype_setitem((StringDTypeObject *)(data->descr),
-                                src_ref ? src_ref : Py_None,
-                                (void *)dst) < 0) {
-            return -1;
-        }
-
-        if (data->move_references && src_ref != NULL) {
-            Py_DECREF(src_ref);
-            memset(src, 0, sizeof(src_ref));
-        }
-
-        N--;
-        dst += dst_stride;
-        src += src_stride;
-    }
-    return 0;
-}
-
-NPY_NO_EXPORT int
-object_to_string_get_loop(PyArrayMethod_Context *context,
-                          int NPY_UNUSED(aligned), int move_references,
-                          const npy_intp *NPY_UNUSED(strides),
-                          PyArrayMethod_StridedLoop **out_loop,
-                          NpyAuxData **out_transferdata,
-                          NPY_ARRAYMETHOD_FLAGS *flags)
-{
-    *flags = NPY_METH_REQUIRES_PYAPI;
-
-    /* NOTE: auxdata is only really necessary to flag `move_references` */
-    _object_to_string_auxdata *data = PyMem_Malloc(sizeof(*data));
-    if (data == NULL) {
-        return -1;
-    }
-    data->base.free = &_object_to_string_auxdata_free;
-    data->base.clone = &_object_to_string_auxdata_clone;
-
-    Py_INCREF(context->descriptors[1]);
-    data->descr = context->descriptors[1];
-    data->move_references = move_references;
-    *out_transferdata = (NpyAuxData *)data;
-    *out_loop = &object_to_string_strided_loop;
-    return 0;
-}
-
-static NPY_CASTING
-object_to_string_resolve_descriptors(PyArrayMethodObject *NPY_UNUSED(self),
-                                     PyArray_DTypeMeta *dtypes[2],
-                                     PyArray_Descr *given_descrs[2],
-                                     PyArray_Descr *loop_descrs[2],
-                                     npy_intp *NPY_UNUSED(view_offset))
-{
-    if (given_descrs[1] == NULL) {
-        loop_descrs[1] = (PyArray_Descr *)new_stringdtype_instance(
-                (PyTypeObject *)dtypes[1]);
-        if (loop_descrs[1] == NULL) {
-            return -1;
-        }
-    }
-    else {
-        Py_INCREF(given_descrs[1]);
-        loop_descrs[1] = given_descrs[1];
-    }
-
-    Py_INCREF(given_descrs[0]);
-    loop_descrs[0] = given_descrs[0];
-
-    return NPY_SAFE_CASTING;
-}
-
-static PyType_Slot o2s_slots[] = {
-        {NPY_METH_resolve_descriptors, &object_to_string_resolve_descriptors},
-        {_NPY_METH_get_loop, &object_to_string_get_loop},
-        {0, NULL}};
-
-static char *o2s_name = "cast_object_to_StringDType";
-
 PyArrayMethod_Spec *
 get_cast_spec(const char *name, NPY_CASTING casting,
               NPY_ARRAYMETHOD_FLAGS flags, PyArray_DTypeMeta **dtypes,
@@ -619,10 +501,10 @@ get_casts(PyArray_DTypeMeta *this, PyArray_DTypeMeta *other)
 
     int is_pandas = (this == (PyArray_DTypeMeta *)&PandasStringDType);
 
-    int num_casts = 6;
+    int num_casts = 5;
 
     if (is_pandas) {
-        num_casts = 8;
+        num_casts = 7;
 
         PyArray_DTypeMeta **t2o_dtypes = get_dtypes(this, other);
 
@@ -655,12 +537,6 @@ get_casts(PyArray_DTypeMeta *this, PyArray_DTypeMeta *other)
             s2b_name, NPY_UNSAFE_CASTING, NPY_METH_NO_FLOATINGPOINT_ERRORS,
             s2b_dtypes, s2b_slots);
 
-    PyArray_DTypeMeta **o2s_dtypes = get_dtypes(&PyArray_ObjectDType, this);
-
-    PyArrayMethod_Spec *ObjectToStringCastSpec =
-            get_cast_spec(o2s_name, NPY_SAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
-                          o2s_dtypes, o2s_slots);
-
     PyArrayMethod_Spec **casts = NULL;
 
     casts = malloc(num_casts * sizeof(PyArrayMethod_Spec *));
@@ -669,14 +545,13 @@ get_casts(PyArray_DTypeMeta *this, PyArray_DTypeMeta *other)
     casts[1] = UnicodeToStringCastSpec;
     casts[2] = StringToUnicodeCastSpec;
     casts[3] = StringToBoolCastSpec;
-    casts[4] = ObjectToStringCastSpec;
     if (is_pandas) {
-        casts[5] = ThisToOtherCastSpec;
-        casts[6] = OtherToThisCastSpec;
-        casts[7] = NULL;
+        casts[4] = ThisToOtherCastSpec;
+        casts[5] = OtherToThisCastSpec;
+        casts[6] = NULL;
     }
     else {
-        casts[5] = NULL;
+        casts[4] = NULL;
     }
 
     return casts;

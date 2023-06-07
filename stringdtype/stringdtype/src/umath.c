@@ -456,7 +456,7 @@ ufunc_promoter_internal(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
     }
     Py_XDECREF(common);
 
-    /* Otherwise, set all input operands to StringDType */
+    /* Otherwise, set all input operands to final_dtype */
     for (int i = 0; i < ufunc->nargs; i++) {
         PyArray_DTypeMeta *tmp = final_dtype;
         if (signature[i]) {
@@ -474,21 +474,32 @@ ufunc_promoter_internal(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
 }
 
 static int
-string_ufunc_promoter(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
-                      PyArray_DTypeMeta *signature[],
-                      PyArray_DTypeMeta *new_op_dtypes[])
+string_object_promoter(PyObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
+                       PyArray_DTypeMeta *signature[],
+                       PyArray_DTypeMeta *new_op_dtypes[])
 {
-    return ufunc_promoter_internal(ufunc, op_dtypes, signature, new_op_dtypes,
+    return ufunc_promoter_internal((PyUFuncObject *)ufunc, op_dtypes,
+                                   signature, new_op_dtypes,
+                                   (PyArray_DTypeMeta *)&PyArray_ObjectDType);
+}
+
+static int
+string_unicode_promoter(PyObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
+                        PyArray_DTypeMeta *signature[],
+                        PyArray_DTypeMeta *new_op_dtypes[])
+{
+    return ufunc_promoter_internal((PyUFuncObject *)ufunc, op_dtypes,
+                                   signature, new_op_dtypes,
                                    (PyArray_DTypeMeta *)&StringDType);
 }
 
 static int
-pandas_string_ufunc_promoter(PyUFuncObject *ufunc,
-                             PyArray_DTypeMeta *op_dtypes[],
-                             PyArray_DTypeMeta *signature[],
-                             PyArray_DTypeMeta *new_op_dtypes[])
+pandas_string_unicode_promoter(PyObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
+                               PyArray_DTypeMeta *signature[],
+                               PyArray_DTypeMeta *new_op_dtypes[])
 {
-    return ufunc_promoter_internal(ufunc, op_dtypes, signature, new_op_dtypes,
+    return ufunc_promoter_internal((PyUFuncObject *)ufunc, op_dtypes,
+                                   signature, new_op_dtypes,
                                    (PyArray_DTypeMeta *)&PandasStringDType);
 }
 
@@ -538,7 +549,7 @@ init_ufunc(PyObject *numpy, const char *ufunc_name, PyArray_DTypeMeta **dtypes,
 int
 add_promoter(PyObject *numpy, const char *ufunc_name,
              PyArray_DTypeMeta *ldtype, PyArray_DTypeMeta *rdtype,
-             PyArray_DTypeMeta *edtype, int is_pandas)
+             PyArray_DTypeMeta *edtype, promoter_function *promoter_impl)
 {
     PyObject *ufunc = PyObject_GetAttrString(numpy, ufunc_name);
 
@@ -553,16 +564,8 @@ add_promoter(PyObject *numpy, const char *ufunc_name,
         return -1;
     }
 
-    PyObject *promoter_capsule = NULL;
-
-    if (is_pandas == 0) {
-        promoter_capsule = PyCapsule_New((void *)&string_ufunc_promoter,
-                                         "numpy._ufunc_promoter", NULL);
-    }
-    else {
-        promoter_capsule = PyCapsule_New((void *)&pandas_string_ufunc_promoter,
-                                         "numpy._ufunc_promoter", NULL);
-    }
+    PyObject *promoter_capsule = PyCapsule_New((void *)promoter_impl,
+                                               "numpy._ufunc_promoter", NULL);
 
     if (promoter_capsule == NULL) {
         Py_DECREF(ufunc);
@@ -592,20 +595,30 @@ init_ufuncs(void)
         return -1;
     }
 
-    StringDType_type **dtype_classes = NULL;
     int num_dtypes;
 
     if (PANDAS_AVAILABLE) {
-        dtype_classes = malloc(sizeof(StringDType_type *) * 2);
-        dtype_classes[0] = &StringDType;
-        dtype_classes[1] = &PandasStringDType;
         num_dtypes = 2;
     }
     else {
-        dtype_classes = malloc(sizeof(StringDType_type *) * 1);
-        dtype_classes[0] = &StringDType;
         num_dtypes = 1;
     }
+
+    StringDType_type **dtype_classes =
+            malloc(sizeof(StringDType_type *) * num_dtypes);
+    promoter_function **unicode_promoters =
+            malloc(sizeof(promoter_function *) * num_dtypes);
+    dtype_classes[0] = &StringDType;
+    unicode_promoters[0] = &string_unicode_promoter;
+
+    if (PANDAS_AVAILABLE) {
+        dtype_classes[1] = &PandasStringDType;
+        unicode_promoters[1] = &pandas_string_unicode_promoter;
+    }
+
+    static char *comparison_ufunc_names[6] = {"equal",   "not_equal",
+                                              "greater", "greater_equal",
+                                              "less",    "less_equal"};
 
     for (int di = 0; di < num_dtypes; di++) {
         PyArray_DTypeMeta *comparison_dtypes[] = {
@@ -654,34 +667,32 @@ init_ufuncs(void)
             goto error;
         }
 
-        static char *ufunc_names[6] = {"equal",   "not_equal",
-                                       "greater", "greater_equal",
-                                       "less",    "less_equal"};
-
         for (int i = 0; i < 6; i++) {
-            if (add_promoter(numpy, ufunc_names[i],
+            if (add_promoter(numpy, comparison_ufunc_names[i],
                              (PyArray_DTypeMeta *)dtype_classes[di],
                              &PyArray_UnicodeDType, &PyArray_BoolDType,
-                             0) < 0) {
+                             unicode_promoters[di]) < 0) {
                 goto error;
             }
 
-            if (add_promoter(numpy, ufunc_names[i], &PyArray_UnicodeDType,
+            if (add_promoter(numpy, comparison_ufunc_names[i],
+                             &PyArray_UnicodeDType,
                              (PyArray_DTypeMeta *)dtype_classes[di],
-                             &PyArray_BoolDType, 0) < 0) {
+                             &PyArray_BoolDType, unicode_promoters[di]) < 0) {
                 goto error;
             }
 
-            if (add_promoter(numpy, ufunc_names[i], &PyArray_ObjectDType,
-                             (PyArray_DTypeMeta *)dtype_classes[di],
-                             &PyArray_BoolDType, 0) < 0) {
+            if (add_promoter(
+                        numpy, comparison_ufunc_names[i], &PyArray_ObjectDType,
+                        (PyArray_DTypeMeta *)dtype_classes[di],
+                        &PyArray_BoolDType, &string_object_promoter) < 0) {
                 goto error;
             }
 
-            if (add_promoter(numpy, ufunc_names[i],
+            if (add_promoter(numpy, comparison_ufunc_names[i],
                              (PyArray_DTypeMeta *)dtype_classes[di],
                              &PyArray_ObjectDType, &PyArray_BoolDType,
-                             0) < 0) {
+                             &string_object_promoter) < 0) {
                 goto error;
             }
         }
@@ -720,10 +731,36 @@ init_ufuncs(void)
         }
     }
 
+    // add promoters for all ufuncs so comparison operations mixing StringDType
+    // and PandasStringDType work correctly.
+
+    if (PANDAS_AVAILABLE) {
+        for (int i = 0; i < 6; i++) {
+            if (add_promoter(numpy, comparison_ufunc_names[i],
+                             (PyArray_DTypeMeta *)&StringDType,
+                             (PyArray_DTypeMeta *)&PandasStringDType,
+                             &PyArray_BoolDType,
+                             string_unicode_promoter) < 0) {
+                goto error;
+            }
+
+            if (add_promoter(numpy, comparison_ufunc_names[i],
+                             (PyArray_DTypeMeta *)&PandasStringDType,
+                             (PyArray_DTypeMeta *)&StringDType,
+                             &PyArray_BoolDType,
+                             string_unicode_promoter) < 0) {
+                goto error;
+            }
+        }
+    }
+    free(dtype_classes);
+    free(unicode_promoters);
     Py_DECREF(numpy);
     return 0;
 
 error:
+    free(dtype_classes);
+    free(unicode_promoters);
     Py_DECREF(numpy);
     return -1;
 }
