@@ -39,7 +39,7 @@ def dtype(request):
 
 @pytest.fixture
 def scalar(dtype):
-    if dtype == StringDType():
+    if isinstance(dtype, StringDType):
         return StringScalar
     else:
         return PandasStringScalar
@@ -142,12 +142,54 @@ def test_insert_scalar(dtype, scalar, string_list):
         )
 
 
-def test_equality_promotion(dtype, string_list):
-    sarr = np.array(string_list, dtype=dtype)
-    uarr = np.array(string_list, dtype=np.str_)
+comparison_operators = [
+    np.equal,
+    np.not_equal,
+    np.greater,
+    np.greater_equal,
+    np.less,
+    np.less_equal,
+]
 
-    np.testing.assert_array_equal(sarr, uarr)
-    np.testing.assert_array_equal(uarr, sarr)
+
+@pytest.mark.parametrize("op", comparison_operators)
+@pytest.mark.parametrize("o_dtype", [np.str_, object, StringDType()])
+def test_comparisons(string_list, dtype, op, o_dtype):
+    sarr = np.array(string_list, dtype=dtype)
+    oarr = np.array(string_list, dtype=o_dtype)
+
+    # test that comparison operators work
+    res = op(sarr, sarr)
+    ores = op(oarr, oarr)
+    # test that promotion works as well
+    orres = op(sarr, oarr)
+    olres = op(oarr, sarr)
+
+    np.testing.assert_array_equal(res, ores)
+    np.testing.assert_array_equal(res, orres)
+    np.testing.assert_array_equal(res, olres)
+
+    # test we get the correct answer for unequal length strings
+    sarr2 = np.array([s + "2" for s in string_list], dtype=dtype)
+    oarr2 = np.array([s + "2" for s in string_list], dtype=o_dtype)
+
+    res = op(sarr, sarr2)
+    ores = op(oarr, oarr2)
+    olres = op(oarr, sarr2)
+    orres = op(sarr, oarr2)
+
+    np.testing.assert_array_equal(res, ores)
+    np.testing.assert_array_equal(res, olres)
+    np.testing.assert_array_equal(res, orres)
+
+    res = op(sarr2, sarr)
+    ores = op(oarr2, oarr)
+    olres = op(oarr2, sarr)
+    orres = op(sarr2, oarr)
+
+    np.testing.assert_array_equal(res, ores)
+    np.testing.assert_array_equal(res, olres)
+    np.testing.assert_array_equal(res, orres)
 
 
 def test_isnan(dtype, string_list):

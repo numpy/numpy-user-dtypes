@@ -42,6 +42,9 @@ compare(void *, void *, void *);
 int
 init_string_na_object(PyObject *mod);
 
+int
+stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr);
+
 // from dtypemeta.h, not public in numpy
 #define NPY_DTYPE(descr) ((PyArray_DTypeMeta *)Py_TYPE(descr))
 

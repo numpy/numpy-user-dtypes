@@ -130,7 +130,7 @@ string_discover_descriptor_from_pyobject(PyTypeObject *cls, PyObject *obj)
 
 // Take a python object `obj` and insert it into the array of dtype `descr` at
 // the position given by dataptr.
-static int
+int
 stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
 {
     // borrow reference
