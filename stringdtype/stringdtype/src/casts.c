@@ -449,6 +449,80 @@ static PyType_Slot s2b_slots[] = {
 
 static char *s2b_name = "cast_StringDType_to_Bool";
 
+// bool to string
+
+static NPY_CASTING
+bool_to_string_resolve_descriptors(PyObject *NPY_UNUSED(self),
+                                   PyArray_DTypeMeta *dtypes[2],
+                                   PyArray_Descr *given_descrs[2],
+                                   PyArray_Descr *loop_descrs[2],
+                                   npy_intp *NPY_UNUSED(view_offset))
+{
+    if (given_descrs[1] == NULL) {
+        PyArray_Descr *new = (PyArray_Descr *)new_stringdtype_instance(
+                (PyTypeObject *)dtypes[1]);
+        if (new == NULL) {
+            return (NPY_CASTING)-1;
+        }
+        loop_descrs[1] = new;
+    }
+    else {
+        Py_INCREF(given_descrs[1]);
+        loop_descrs[1] = given_descrs[1];
+    }
+
+    Py_INCREF(given_descrs[0]);
+    loop_descrs[0] = given_descrs[0];
+
+    return NPY_SAFE_CASTING;
+}
+
+static int
+bool_to_string(PyArrayMethod_Context *NPY_UNUSED(context), char *const data[],
+               npy_intp const dimensions[], npy_intp const strides[],
+               NpyAuxData *NPY_UNUSED(auxdata))
+{
+    npy_intp N = dimensions[0];
+    char *in = data[0];
+    char *out = data[1];
+
+    npy_intp in_stride = strides[0];
+    npy_intp out_stride = strides[1];
+
+    while (N--) {
+        ss *out_ss = (ss *)out;
+        ssfree(out_ss);
+        if ((npy_bool)(*in) == 1) {
+            if (ssnewlen("True", 4, out_ss) < 0) {
+                gil_error(PyExc_MemoryError, "ssnewlen failed");
+                return -1;
+            }
+        }
+        else if ((npy_bool)(*in) == 0) {
+            if (ssnewlen("False", 5, out_ss) < 0) {
+                gil_error(PyExc_MemoryError, "ssnewlen failed");
+                return -1;
+            }
+        }
+        else {
+            gil_error(PyExc_RuntimeError,
+                      "invalid value encountered in bool to string cast");
+            return -1;
+        }
+        in += in_stride;
+        out += out_stride;
+    }
+
+    return 0;
+}
+
+static PyType_Slot b2s_slots[] = {
+        {NPY_METH_resolve_descriptors, &bool_to_string_resolve_descriptors},
+        {NPY_METH_strided_loop, &bool_to_string},
+        {0, NULL}};
+
+static char *b2s_name = "cast_Bool_to_StringDType";
+
 PyArrayMethod_Spec *
 get_cast_spec(const char *name, NPY_CASTING casting,
               NPY_ARRAYMETHOD_FLAGS flags, PyArray_DTypeMeta **dtypes,
@@ -501,10 +575,10 @@ get_casts(PyArray_DTypeMeta *this, PyArray_DTypeMeta *other)
 
     int is_pandas = (this == (PyArray_DTypeMeta *)&PandasStringDType);
 
-    int num_casts = 5;
+    int num_casts = 6;
 
     if (is_pandas) {
-        num_casts = 7;
+        num_casts += 2;
 
         PyArray_DTypeMeta **t2o_dtypes = get_dtypes(this, other);
 
@@ -537,6 +611,12 @@ get_casts(PyArray_DTypeMeta *this, PyArray_DTypeMeta *other)
             s2b_name, NPY_UNSAFE_CASTING, NPY_METH_NO_FLOATINGPOINT_ERRORS,
             s2b_dtypes, s2b_slots);
 
+    PyArray_DTypeMeta **b2s_dtypes = get_dtypes(&PyArray_BoolDType, this);
+
+    PyArrayMethod_Spec *BoolToStringCastSpec = get_cast_spec(
+            b2s_name, NPY_SAFE_CASTING, NPY_METH_NO_FLOATINGPOINT_ERRORS,
+            b2s_dtypes, b2s_slots);
+
     PyArrayMethod_Spec **casts = NULL;
 
     casts = malloc(num_casts * sizeof(PyArrayMethod_Spec *));
@@ -545,13 +625,14 @@ get_casts(PyArray_DTypeMeta *this, PyArray_DTypeMeta *other)
     casts[1] = UnicodeToStringCastSpec;
     casts[2] = StringToUnicodeCastSpec;
     casts[3] = StringToBoolCastSpec;
+    casts[4] = BoolToStringCastSpec;
     if (is_pandas) {
-        casts[4] = ThisToOtherCastSpec;
-        casts[5] = OtherToThisCastSpec;
-        casts[6] = NULL;
+        casts[5] = ThisToOtherCastSpec;
+        casts[6] = OtherToThisCastSpec;
+        casts[7] = NULL;
     }
     else {
-        casts[4] = NULL;
+        casts[5] = NULL;
     }
 
     return casts;

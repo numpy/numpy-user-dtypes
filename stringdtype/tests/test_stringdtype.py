@@ -350,12 +350,28 @@ def test_arrfuncs_zeros(dtype, arrfunc, expected):
         [["", "world"], [False, True], True, False],
     ],
 )
-def test_bool_cast(dtype, strings, cast_answer, any_answer, all_answer):
+def test_cast_to_bool(dtype, strings, cast_answer, any_answer, all_answer):
     sarr = np.array(strings, dtype=dtype)
     np.testing.assert_array_equal(sarr.astype("bool"), cast_answer)
 
     assert np.any(sarr) == any_answer
     assert np.all(sarr) == all_answer
+
+
+@pytest.mark.parametrize(
+    ("strings", "cast_answer"),
+    [
+        [[True, True], ["True", "True"]],
+        [[False, False], ["False", "False"]],
+        [[True, False], ["True", "False"]],
+        [[False, True], ["False", "True"]],
+    ],
+)
+def test_cast_from_bool(dtype, strings, cast_answer):
+    barr = np.array(strings, dtype=bool)
+    np.testing.assert_array_equal(
+        barr.astype(dtype), np.array(cast_answer, dtype=dtype)
+    )
 
 
 def test_take(dtype, string_list):
