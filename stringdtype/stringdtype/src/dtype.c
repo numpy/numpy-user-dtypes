@@ -63,52 +63,32 @@ common_dtype(PyArray_DTypeMeta *cls, PyArray_DTypeMeta *other)
     return (PyArray_DTypeMeta *)Py_NotImplemented;
 }
 
+// returns a new reference to the string "value" of
+// `scalar`. If scalar is not already a string, __str__
+// is called to convert it to a string. If the scalar
+// is the na_object for the dtype class, return
+// a new reference to the na_object.
+
 static PyObject *
 get_value(PyObject *scalar, StringDType_type *cls)
 {
-    PyObject *na_object = cls->na_object;
-    PyObject *ret = NULL;
     PyTypeObject *expected_scalar_type = cls->base.scalar_type;
     PyTypeObject *scalar_type = Py_TYPE(scalar);
-    // FIXME: handle bytes too
-    if ((scalar_type == &PyUnicode_Type) ||
-        (scalar_type == expected_scalar_type)) {
-        // attempt to decode as UTF8
-        ret = PyUnicode_AsUTF8String(scalar);
-        if (ret == NULL) {
-            PyErr_SetString(
-                    PyExc_TypeError,
-                    "Can only store UTF8 text in a StringDType array.");
+    if (scalar == cls->na_object) {
+        Py_INCREF(scalar);
+        return scalar;
+    }
+    else if (!((scalar_type == &PyUnicode_Type) ||
+               (scalar_type == expected_scalar_type))) {
+        // attempt to coerce to str
+        scalar = PyObject_Str(scalar);
+        if (scalar == NULL) {
+            // __str__ raised an exception
             return NULL;
         }
     }
-    else if (scalar == na_object) {
-        ret = scalar;
-        Py_INCREF(ret);
-    }
-    // store np.nan as NA
-    else if (scalar_type == &PyFloat_Type) {
-        double scalar_val = PyFloat_AsDouble(scalar);
-        if ((scalar_val == -1.0) && PyErr_Occurred()) {
-            return NULL;
-        }
-        if (npy_isnan(scalar_val)) {
-            ret = na_object;
-            Py_INCREF(ret);
-        }
-        else {
-            PyErr_SetString(
-                    PyExc_TypeError,
-                    "Can only store UTF8 text in a StringDType array.");
-            return NULL;
-        }
-    }
-    else {
-        PyErr_SetString(PyExc_TypeError,
-                        "Can only store String text in a StringDType array.");
-        return NULL;
-    }
-    return ret;
+    // attempt to decode as UTF8
+    return PyUnicode_AsUTF8String(scalar);
 }
 
 // For a given python object, this function returns a borrowed reference

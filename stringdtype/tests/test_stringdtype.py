@@ -13,7 +13,6 @@ except ImportError:
 import pytest
 
 from stringdtype import (
-    NA,
     PandasStringScalar,
     StringDType,
     StringScalar,
@@ -80,14 +79,15 @@ def test_array_creation_scalars(string_list, scalar, dtype):
     "data",
     [
         [1, 2, 3],
-        [None, None, None],
         [b"abc", b"def", b"ghi"],
         [object, object, object],
     ],
 )
-def test_bad_scalars(data):
-    with pytest.raises(TypeError):
-        np.array(data, dtype=StringDType())
+def test_scalars_string_conversion(data):
+    np.testing.assert_array_equal(
+        np.array(data, dtype=StringDType()),
+        np.array([str(d) for d in data], dtype=StringDType()),
+    )
 
 
 @pytest.mark.parametrize(
@@ -403,16 +403,8 @@ def test_ufunc_add(dtype, string_list, other_strings):
     )
 
 
-@pytest.mark.parametrize(
-    "na_val", [float("nan"), np.nan, NA, getattr(pandas, "NA", None)]
-)
-def test_create_with_na(dtype, na_val):
-    if not hasattr(pandas, "NA") or (
-        dtype == StringDType() and na_val is pandas.NA
-    ):
-        return
-    if dtype != StringDType and na_val is NA:
-        return
+def test_create_with_na(dtype):
+    na_val = dtype.na_object
     string_list = ["hello", na_val, "world"]
     arr = np.array(string_list, dtype=dtype)
     assert (
