@@ -81,7 +81,7 @@ get_value(PyObject *scalar, StringDType_type *cls)
     else if (!((scalar_type == &PyUnicode_Type) ||
                (scalar_type == expected_scalar_type))) {
         // attempt to coerce to str
-        scalar = PyObject_CallOneArg((PyObject *)&PyUnicode_Type, scalar);
+        scalar = PyObject_Str(scalar);
         if (scalar == NULL) {
             // __str__ raised an exception
             return NULL;
