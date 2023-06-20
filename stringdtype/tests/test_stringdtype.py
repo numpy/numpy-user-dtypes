@@ -387,6 +387,12 @@ def test_integer_casts(dtype, bitsize, signed):
     ainp = np.array(inp, dtype=idtype)
     np.testing.assert_array_equal(ainp, ainp.astype(dtype).astype(idtype))
 
+    with pytest.raises(TypeError):
+        ainp.astype(dtype, casting="safe")
+
+    with pytest.raises(TypeError):
+        ainp.astype(dtype).astype(idtype, casting="safe")
+
     oob = [str(2**bitsize), str(-(2**bitsize))]
     with pytest.raises(OverflowError):
         np.array(oob, dtype=dtype).astype(idtype)
