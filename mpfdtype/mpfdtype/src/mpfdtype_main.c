@@ -22,7 +22,7 @@ PyInit__mpfdtype_main(void)
     if (_import_array() < 0) {
         return NULL;
     }
-    if (import_experimental_dtype_api(11) < 0) {
+    if (import_experimental_dtype_api(12) < 0) {
         return NULL;
     }
 
