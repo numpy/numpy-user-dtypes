@@ -677,6 +677,38 @@ uint_to_string(unsigned long long in, char *out)
                                                                             \
     static char *shortname##2s_name = "cast_" #typename "_to_StringDType";
 
+#define INT_DTYPES_AND_CAST_SPEC(shortname, typename)                        \
+    PyArray_DTypeMeta **s2##shortname##_dtypes =                             \
+            get_dtypes(this, &PyArray_##typename##DType);                    \
+                                                                             \
+    PyArrayMethod_Spec *StringTo##typename##CastSpec =                       \
+            get_cast_spec(s2##shortname##_name, NPY_UNSAFE_CASTING,          \
+                          NPY_METH_REQUIRES_PYAPI, s2##shortname##_dtypes,   \
+                          s2##shortname##_slots);                            \
+                                                                             \
+    PyArray_DTypeMeta **shortname##2s_dtypes =                               \
+            get_dtypes(&PyArray_##typename##DType, this);                    \
+                                                                             \
+    PyArrayMethod_Spec *typename##ToStringCastSpec = get_cast_spec(          \
+            shortname##2s_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI, \
+            shortname##2s_dtypes, shortname##2s_slots);                      \
+                                                                             \
+    PyArray_DTypeMeta **s2u##shortname##_dtypes =                            \
+            get_dtypes(this, &PyArray_U##typename##DType);                   \
+                                                                             \
+    PyArrayMethod_Spec *StringToU##typename##CastSpec =                      \
+            get_cast_spec(s2u##shortname##_name, NPY_UNSAFE_CASTING,         \
+                          NPY_METH_REQUIRES_PYAPI, s2u##shortname##_dtypes,  \
+                          s2u##shortname##_slots);                           \
+                                                                             \
+    PyArray_DTypeMeta **u##shortname##2s_dtypes =                            \
+            get_dtypes(&PyArray_U##typename##DType, this);                   \
+                                                                             \
+    PyArrayMethod_Spec *U##typename##ToStringCastSpec =                      \
+            get_cast_spec(u##shortname##2s_name, NPY_UNSAFE_CASTING,         \
+                          NPY_METH_REQUIRES_PYAPI, u##shortname##2s_dtypes,  \
+                          u##shortname##2s_slots);
+
 STRING_TO_INT(int8, int, i8, NPY_INT8, lli, npy_longlong)
 INT_TO_STRING(int8, int, i8, long long)
 
@@ -844,211 +876,22 @@ get_casts(PyArray_DTypeMeta *this, PyArray_DTypeMeta *other)
             b2s_name, NPY_SAFE_CASTING, NPY_METH_NO_FLOATINGPOINT_ERRORS,
             b2s_dtypes, b2s_slots);
 
-    PyArray_DTypeMeta **s2i8_dtypes = get_dtypes(this, &PyArray_Int8DType);
-
-    PyArrayMethod_Spec *StringToInt8CastSpec =
-            get_cast_spec(s2i8_name, NPY_UNSAFE_CASTING,
-                          NPY_METH_REQUIRES_PYAPI, s2i8_dtypes, s2i8_slots);
-
-    PyArray_DTypeMeta **i82s_dtypes = get_dtypes(&PyArray_Int8DType, this);
-
-    PyArrayMethod_Spec *Int8ToStringCastSpec =
-            get_cast_spec(i82s_name, NPY_UNSAFE_CASTING,
-                          NPY_METH_REQUIRES_PYAPI, i82s_dtypes, i82s_slots);
-
-    PyArray_DTypeMeta **s2ui8_dtypes = get_dtypes(this, &PyArray_UInt8DType);
-
-    PyArrayMethod_Spec *StringToUInt8CastSpec =
-            get_cast_spec(s2ui8_name, NPY_UNSAFE_CASTING,
-                          NPY_METH_REQUIRES_PYAPI, s2ui8_dtypes, s2ui8_slots);
-
-    PyArray_DTypeMeta **ui82s_dtypes = get_dtypes(&PyArray_UInt8DType, this);
-
-    PyArrayMethod_Spec *UInt8ToStringCastSpec =
-            get_cast_spec(ui82s_name, NPY_UNSAFE_CASTING,
-                          NPY_METH_REQUIRES_PYAPI, ui82s_dtypes, ui82s_slots);
-
-    PyArray_DTypeMeta **s2i16_dtypes = get_dtypes(this, &PyArray_Int16DType);
-
-    PyArrayMethod_Spec *StringToInt16CastSpec =
-            get_cast_spec(s2i16_name, NPY_UNSAFE_CASTING,
-                          NPY_METH_REQUIRES_PYAPI, s2i16_dtypes, s2i16_slots);
-
-    PyArray_DTypeMeta **i162s_dtypes = get_dtypes(&PyArray_Int16DType, this);
-
-    PyArrayMethod_Spec *Int16ToStringCastSpec =
-            get_cast_spec(i162s_name, NPY_UNSAFE_CASTING,
-                          NPY_METH_REQUIRES_PYAPI, i162s_dtypes, i162s_slots);
-
-    PyArray_DTypeMeta **s2ui16_dtypes = get_dtypes(this, &PyArray_UInt16DType);
-
-    PyArrayMethod_Spec *StringToUInt16CastSpec = get_cast_spec(
-            s2ui16_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
-            s2ui16_dtypes, s2ui16_slots);
-
-    PyArray_DTypeMeta **ui162s_dtypes = get_dtypes(&PyArray_UInt16DType, this);
-
-    PyArrayMethod_Spec *UInt16ToStringCastSpec = get_cast_spec(
-            ui162s_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
-            ui162s_dtypes, ui162s_slots);
-
-    PyArray_DTypeMeta **s2i32_dtypes = get_dtypes(this, &PyArray_Int32DType);
-
-    PyArrayMethod_Spec *StringToInt32CastSpec =
-            get_cast_spec(s2i32_name, NPY_UNSAFE_CASTING,
-                          NPY_METH_REQUIRES_PYAPI, s2i32_dtypes, s2i32_slots);
-
-    PyArray_DTypeMeta **i322s_dtypes = get_dtypes(&PyArray_Int32DType, this);
-
-    PyArrayMethod_Spec *Int32ToStringCastSpec =
-            get_cast_spec(i322s_name, NPY_UNSAFE_CASTING,
-                          NPY_METH_REQUIRES_PYAPI, i322s_dtypes, i322s_slots);
-
-    PyArray_DTypeMeta **s2ui32_dtypes = get_dtypes(this, &PyArray_UInt32DType);
-
-    PyArrayMethod_Spec *StringToUInt32CastSpec = get_cast_spec(
-            s2ui32_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
-            s2ui32_dtypes, s2ui32_slots);
-
-    PyArray_DTypeMeta **ui322s_dtypes = get_dtypes(&PyArray_UInt32DType, this);
-
-    PyArrayMethod_Spec *UInt32ToStringCastSpec = get_cast_spec(
-            ui322s_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
-            ui322s_dtypes, ui322s_slots);
-
-    PyArray_DTypeMeta **s2i64_dtypes = get_dtypes(this, &PyArray_Int64DType);
-
-    PyArrayMethod_Spec *StringToInt64CastSpec =
-            get_cast_spec(s2i64_name, NPY_UNSAFE_CASTING,
-                          NPY_METH_REQUIRES_PYAPI, s2i64_dtypes, s2i64_slots);
-
-    PyArray_DTypeMeta **i642s_dtypes = get_dtypes(&PyArray_Int64DType, this);
-
-    PyArrayMethod_Spec *Int64ToStringCastSpec =
-            get_cast_spec(i642s_name, NPY_UNSAFE_CASTING,
-                          NPY_METH_REQUIRES_PYAPI, i642s_dtypes, i642s_slots);
-
+    INT_DTYPES_AND_CAST_SPEC(i8, Int8)
+    INT_DTYPES_AND_CAST_SPEC(i16, Int16)
+    INT_DTYPES_AND_CAST_SPEC(i32, Int32)
+    INT_DTYPES_AND_CAST_SPEC(i64, Int64)
 #if NPY_SIZEOF_BYTE == NPY_SIZEOF_SHORT
-    PyArray_DTypeMeta **s2byte_dtypes = get_dtypes(this, &PyArray_ByteDType);
-
-    PyArrayMethod_Spec *StringToByteCastSpec = get_cast_spec(
-            s2byte_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
-            s2byte_dtypes, s2byte_slots);
-
-    PyArray_DTypeMeta **byte2s_dtypes = get_dtypes(&PyArray_ByteDType, this);
-
-    PyArrayMethod_Spec *ByteToStringCastSpec = get_cast_spec(
-            byte2s_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
-            byte2s_dtypes, byte2s_slots);
-
-    PyArray_DTypeMeta **s2ubyte_dtypes = get_dtypes(this, &PyArray_UByteDType);
-
-    PyArrayMethod_Spec *StringToUByteCastSpec = get_cast_spec(
-            s2ubyte_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
-            s2ubyte_dtypes, s2ubyte_slots);
-
-    PyArray_DTypeMeta **ubyte2s_dtypes = get_dtypes(&PyArray_UByteDType, this);
-
-    PyArrayMethod_Spec *UByteToStringCastSpec = get_cast_spec(
-            ubyte2s_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
-            ubyte2s_dtypes, ubyte2s_slots);
+    INT_DTYPES_AND_CAST_SPEC(byte, Byte)
 #endif
-
 #if NPY_SIZEOF_SHORT == NPY_SIZEOF_INT
-    PyArray_DTypeMeta **s2short_dtypes = get_dtypes(this, &PyArray_ShortDType);
-
-    PyArrayMethod_Spec *StringToShortCastSpec = get_cast_spec(
-            s2short_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
-            s2short_dtypes, s2short_slots);
-
-    PyArray_DTypeMeta **short2s_dtypes = get_dtypes(&PyArray_ShortDType, this);
-
-    PyArrayMethod_Spec *ShortToStringCastSpec = get_cast_spec(
-            short2s_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
-            short2s_dtypes, short2s_slots);
-
-    PyArray_DTypeMeta **s2ushort_dtypes =
-            get_dtypes(this, &PyArray_UShortDType);
-
-    PyArrayMethod_Spec *StringToUShortCastSpec = get_cast_spec(
-            s2ushort_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
-            s2ushort_dtypes, s2ushort_slots);
-
-    PyArray_DTypeMeta **ushort2s_dtypes =
-            get_dtypes(&PyArray_UShortDType, this);
-
-    PyArrayMethod_Spec *UShortToStringCastSpec = get_cast_spec(
-            ushort2s_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
-            ushort2s_dtypes, ushort2s_slots);
+    INT_DTYPES_AND_CAST_SPEC(short, Short)
 #endif
-
 #if NPY_SIZEOF_INT == NPY_SIZEOF_LONG
-    PyArray_DTypeMeta **s2int_dtypes = get_dtypes(this, &PyArray_IntDType);
-
-    PyArrayMethod_Spec *StringToIntCastSpec =
-            get_cast_spec(s2int_name, NPY_UNSAFE_CASTING,
-                          NPY_METH_REQUIRES_PYAPI, s2int_dtypes, s2int_slots);
-
-    PyArray_DTypeMeta **int2s_dtypes = get_dtypes(&PyArray_IntDType, this);
-
-    PyArrayMethod_Spec *IntToStringCastSpec =
-            get_cast_spec(int2s_name, NPY_UNSAFE_CASTING,
-                          NPY_METH_REQUIRES_PYAPI, int2s_dtypes, int2s_slots);
-
-    PyArray_DTypeMeta **s2uint_dtypes = get_dtypes(this, &PyArray_UIntDType);
-
-    PyArrayMethod_Spec *StringToUIntCastSpec = get_cast_spec(
-            s2uint_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
-            s2uint_dtypes, s2uint_slots);
-
-    PyArray_DTypeMeta **uint2s_dtypes = get_dtypes(&PyArray_UIntDType, this);
-
-    PyArrayMethod_Spec *UIntToStringCastSpec = get_cast_spec(
-            uint2s_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
-            uint2s_dtypes, uint2s_slots);
+    INT_DTYPES_AND_CAST_SPEC(int, Int)
 #endif
-
 #if NPY_SIZEOF_LONGLONG == NPY_SIZEOF_LONG
-    PyArray_DTypeMeta **s2longlong_dtypes =
-            get_dtypes(this, &PyArray_LongLongDType);
-
-    PyArrayMethod_Spec *StringToLongLongCastSpec = get_cast_spec(
-            s2longlong_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
-            s2longlong_dtypes, s2longlong_slots);
-
-    PyArray_DTypeMeta **longlong2s_dtypes =
-            get_dtypes(&PyArray_LongLongDType, this);
-
-    PyArrayMethod_Spec *LongLongToStringCastSpec = get_cast_spec(
-            longlong2s_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
-            longlong2s_dtypes, longlong2s_slots);
-
-    PyArray_DTypeMeta **s2ulonglong_dtypes =
-            get_dtypes(this, &PyArray_ULongLongDType);
-
-    PyArrayMethod_Spec *StringToULongLongCastSpec = get_cast_spec(
-            s2ulonglong_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
-            s2ulonglong_dtypes, s2ulonglong_slots);
-
-    PyArray_DTypeMeta **ulonglong2s_dtypes =
-            get_dtypes(&PyArray_ULongLongDType, this);
-
-    PyArrayMethod_Spec *ULongLongToStringCastSpec = get_cast_spec(
-            ulonglong2s_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
-            ulonglong2s_dtypes, ulonglong2s_slots);
+    INT_DTYPES_AND_CAST_SPEC(longlong, LongLong)
 #endif
-
-    PyArray_DTypeMeta **s2ui64_dtypes = get_dtypes(this, &PyArray_UInt64DType);
-
-    PyArrayMethod_Spec *StringToUInt64CastSpec = get_cast_spec(
-            s2ui64_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
-            s2ui64_dtypes, s2ui64_slots);
-
-    PyArray_DTypeMeta **ui642s_dtypes = get_dtypes(&PyArray_UInt64DType, this);
-
-    PyArrayMethod_Spec *UInt64ToStringCastSpec = get_cast_spec(
-            ui642s_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
-            ui642s_dtypes, ui642s_slots);
 
     PyArrayMethod_Spec **casts = NULL;
 
