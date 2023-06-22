@@ -689,6 +689,42 @@ INT_TO_STRING(int32, int, i32, long long)
 STRING_TO_INT(int64, int, i64, NPY_INT64, lli, npy_longlong)
 INT_TO_STRING(int64, int, i64, long long)
 
+#if NPY_SIZEOF_BYTE == NPY_SIZEOF_SHORT
+// byte doesn't have a bitsized alias
+STRING_TO_INT(byte, int, byte, NPY_BYTE, lli, npy_byte)
+INT_TO_STRING(byte, int, byte, long long)
+
+STRING_TO_INT(ubyte, uint, ubyte, NPY_UBYTE, llu, npy_ubyte)
+INT_TO_STRING(ubyte, uint, ubyte, unsigned long long)
+#endif
+
+#if NPY_SIZEOF_SHORT == NPY_SIZEOF_INT
+// short doesn't have a bitsized alias
+STRING_TO_INT(short, int, short, NPY_SHORT, lli, npy_short)
+INT_TO_STRING(short, int, short, long long)
+
+STRING_TO_INT(ushort, uint, ushort, NPY_USHORT, llu, npy_ushort)
+INT_TO_STRING(ushort, uint, ushort, unsigned long long)
+#endif
+
+#if NPY_SIZEOF_INT == NPY_SIZEOF_LONG
+// int doesn't have a bitsized alias
+STRING_TO_INT(int, int, int, NPY_INT, lli, npy_int)
+INT_TO_STRING(int, int, int, long long)
+
+STRING_TO_INT(uint, uint, uint, NPY_UINT, llu, npy_uint)
+INT_TO_STRING(uint, uint, uint, unsigned long long)
+#endif
+
+#if NPY_SIZEOF_LONGLONG == NPY_SIZEOF_LONG
+// long long doesn't have a bitsized alias
+STRING_TO_INT(longlong, int, longlong, NPY_LONGLONG, lli, npy_longlong)
+INT_TO_STRING(longlong, int, longlong, long long)
+
+STRING_TO_INT(ulonglong, uint, ulonglong, NPY_ULONGLONG, llu, npy_ulonglong)
+INT_TO_STRING(ulonglong, uint, ulonglong, unsigned long long)
+#endif
+
 STRING_TO_INT(uint8, uint, ui8, NPY_UINT8, llu, npy_ulonglong)
 INT_TO_STRING(uint8, uint, ui8, unsigned long long)
 
@@ -754,6 +790,19 @@ get_casts(PyArray_DTypeMeta *this, PyArray_DTypeMeta *other)
     int is_pandas = (this == (PyArray_DTypeMeta *)&PandasStringDType);
 
     int num_casts = 21;
+
+#if NPY_SIZEOF_BYTE == NPY_SIZEOF_SHORT
+    num_casts += 4;
+#endif
+#if NPY_SIZEOF_SHORT == NPY_SIZEOF_INT
+    num_casts += 4;
+#endif
+#if NPY_SIZEOF_INT == NPY_SIZEOF_LONG
+    num_casts += 4;
+#endif
+#if NPY_SIZEOF_LONGLONG == NPY_SIZEOF_LONG
+    num_casts += 4;
+#endif
 
     if (is_pandas) {
         num_casts += 2;
@@ -879,6 +928,116 @@ get_casts(PyArray_DTypeMeta *this, PyArray_DTypeMeta *other)
             get_cast_spec(i642s_name, NPY_UNSAFE_CASTING,
                           NPY_METH_REQUIRES_PYAPI, i642s_dtypes, i642s_slots);
 
+#if NPY_SIZEOF_BYTE == NPY_SIZEOF_SHORT
+    PyArray_DTypeMeta **s2byte_dtypes = get_dtypes(this, &PyArray_ByteDType);
+
+    PyArrayMethod_Spec *StringToByteCastSpec = get_cast_spec(
+            s2byte_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
+            s2byte_dtypes, s2byte_slots);
+
+    PyArray_DTypeMeta **byte2s_dtypes = get_dtypes(&PyArray_ByteDType, this);
+
+    PyArrayMethod_Spec *ByteToStringCastSpec = get_cast_spec(
+            byte2s_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
+            byte2s_dtypes, byte2s_slots);
+
+    PyArray_DTypeMeta **s2ubyte_dtypes = get_dtypes(this, &PyArray_UByteDType);
+
+    PyArrayMethod_Spec *StringToUByteCastSpec = get_cast_spec(
+            s2ubyte_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
+            s2ubyte_dtypes, s2ubyte_slots);
+
+    PyArray_DTypeMeta **ubyte2s_dtypes = get_dtypes(&PyArray_UByteDType, this);
+
+    PyArrayMethod_Spec *UByteToStringCastSpec = get_cast_spec(
+            ubyte2s_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
+            ubyte2s_dtypes, ubyte2s_slots);
+#endif
+
+#if NPY_SIZEOF_SHORT == NPY_SIZEOF_INT
+    PyArray_DTypeMeta **s2short_dtypes = get_dtypes(this, &PyArray_ShortDType);
+
+    PyArrayMethod_Spec *StringToShortCastSpec = get_cast_spec(
+            s2short_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
+            s2short_dtypes, s2short_slots);
+
+    PyArray_DTypeMeta **short2s_dtypes = get_dtypes(&PyArray_ShortDType, this);
+
+    PyArrayMethod_Spec *ShortToStringCastSpec = get_cast_spec(
+            short2s_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
+            short2s_dtypes, short2s_slots);
+
+    PyArray_DTypeMeta **s2ushort_dtypes =
+            get_dtypes(this, &PyArray_UShortDType);
+
+    PyArrayMethod_Spec *StringToUShortCastSpec = get_cast_spec(
+            s2ushort_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
+            s2ushort_dtypes, s2ushort_slots);
+
+    PyArray_DTypeMeta **ushort2s_dtypes =
+            get_dtypes(&PyArray_UShortDType, this);
+
+    PyArrayMethod_Spec *UShortToStringCastSpec = get_cast_spec(
+            ushort2s_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
+            ushort2s_dtypes, ushort2s_slots);
+#endif
+
+#if NPY_SIZEOF_INT == NPY_SIZEOF_LONG
+    PyArray_DTypeMeta **s2int_dtypes = get_dtypes(this, &PyArray_IntDType);
+
+    PyArrayMethod_Spec *StringToIntCastSpec =
+            get_cast_spec(s2int_name, NPY_UNSAFE_CASTING,
+                          NPY_METH_REQUIRES_PYAPI, s2int_dtypes, s2int_slots);
+
+    PyArray_DTypeMeta **int2s_dtypes = get_dtypes(&PyArray_IntDType, this);
+
+    PyArrayMethod_Spec *IntToStringCastSpec =
+            get_cast_spec(int2s_name, NPY_UNSAFE_CASTING,
+                          NPY_METH_REQUIRES_PYAPI, int2s_dtypes, int2s_slots);
+
+    PyArray_DTypeMeta **s2uint_dtypes = get_dtypes(this, &PyArray_UIntDType);
+
+    PyArrayMethod_Spec *StringToUIntCastSpec = get_cast_spec(
+            s2uint_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
+            s2uint_dtypes, s2uint_slots);
+
+    PyArray_DTypeMeta **uint2s_dtypes = get_dtypes(&PyArray_UIntDType, this);
+
+    PyArrayMethod_Spec *UIntToStringCastSpec = get_cast_spec(
+            uint2s_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
+            uint2s_dtypes, uint2s_slots);
+#endif
+
+#if NPY_SIZEOF_LONGLONG == NPY_SIZEOF_LONG
+    PyArray_DTypeMeta **s2longlong_dtypes =
+            get_dtypes(this, &PyArray_LongLongDType);
+
+    PyArrayMethod_Spec *StringToLongLongCastSpec = get_cast_spec(
+            s2longlong_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
+            s2longlong_dtypes, s2longlong_slots);
+
+    PyArray_DTypeMeta **longlong2s_dtypes =
+            get_dtypes(&PyArray_LongLongDType, this);
+
+    PyArrayMethod_Spec *LongLongToStringCastSpec = get_cast_spec(
+            longlong2s_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
+            longlong2s_dtypes, longlong2s_slots);
+
+    PyArray_DTypeMeta **s2ulonglong_dtypes =
+            get_dtypes(this, &PyArray_ULongLongDType);
+
+    PyArrayMethod_Spec *StringToULongLongCastSpec = get_cast_spec(
+            s2ulonglong_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
+            s2ulonglong_dtypes, s2ulonglong_slots);
+
+    PyArray_DTypeMeta **ulonglong2s_dtypes =
+            get_dtypes(&PyArray_ULongLongDType, this);
+
+    PyArrayMethod_Spec *ULongLongToStringCastSpec = get_cast_spec(
+            ulonglong2s_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI,
+            ulonglong2s_dtypes, ulonglong2s_slots);
+#endif
+
     PyArray_DTypeMeta **s2ui64_dtypes = get_dtypes(this, &PyArray_UInt64DType);
 
     PyArrayMethod_Spec *StringToUInt64CastSpec = get_cast_spec(
@@ -895,37 +1054,64 @@ get_casts(PyArray_DTypeMeta *this, PyArray_DTypeMeta *other)
 
     casts = malloc((num_casts + 1) * sizeof(PyArrayMethod_Spec *));
 
-    casts[0] = ThisToThisCastSpec;
-    casts[1] = UnicodeToStringCastSpec;
-    casts[2] = StringToUnicodeCastSpec;
-    casts[3] = StringToBoolCastSpec;
-    casts[4] = BoolToStringCastSpec;
-    casts[5] = StringToInt8CastSpec;
-    casts[6] = Int8ToStringCastSpec;
-    casts[7] = StringToInt16CastSpec;
-    casts[8] = Int16ToStringCastSpec;
-    casts[9] = StringToInt32CastSpec;
-    casts[10] = Int32ToStringCastSpec;
-    casts[11] = StringToInt64CastSpec;
-    casts[12] = Int64ToStringCastSpec;
-    casts[13] = StringToUInt8CastSpec;
-    casts[14] = UInt8ToStringCastSpec;
-    casts[15] = StringToUInt16CastSpec;
-    casts[16] = UInt16ToStringCastSpec;
-    casts[17] = StringToUInt32CastSpec;
-    casts[18] = UInt32ToStringCastSpec;
-    casts[19] = StringToUInt64CastSpec;
-    casts[20] = UInt64ToStringCastSpec;
+    int cast_i = 0;
+
+    casts[cast_i++] = ThisToThisCastSpec;
+    casts[cast_i++] = UnicodeToStringCastSpec;
+    casts[cast_i++] = StringToUnicodeCastSpec;
+    casts[cast_i++] = StringToBoolCastSpec;
+    casts[cast_i++] = BoolToStringCastSpec;
+    casts[cast_i++] = StringToInt8CastSpec;
+    casts[cast_i++] = Int8ToStringCastSpec;
+    casts[cast_i++] = StringToInt16CastSpec;
+    casts[cast_i++] = Int16ToStringCastSpec;
+    casts[cast_i++] = StringToInt32CastSpec;
+    casts[cast_i++] = Int32ToStringCastSpec;
+    casts[cast_i++] = StringToInt64CastSpec;
+    casts[cast_i++] = Int64ToStringCastSpec;
+    casts[cast_i++] = StringToUInt8CastSpec;
+    casts[cast_i++] = UInt8ToStringCastSpec;
+    casts[cast_i++] = StringToUInt16CastSpec;
+    casts[cast_i++] = UInt16ToStringCastSpec;
+    casts[cast_i++] = StringToUInt32CastSpec;
+    casts[cast_i++] = UInt32ToStringCastSpec;
+    casts[cast_i++] = StringToUInt64CastSpec;
+    casts[cast_i++] = UInt64ToStringCastSpec;
+#if NPY_SIZEOF_BYTE == NPY_SIZEOF_SHORT
+    casts[cast_i++] = StringToByteCastSpec;
+    casts[cast_i++] = ByteToStringCastSpec;
+    casts[cast_i++] = StringToUByteCastSpec;
+    casts[cast_i++] = UByteToStringCastSpec;
+#endif
+#if NPY_SIZEOF_SHORT == NPY_SIZEOF_INT
+    casts[cast_i++] = StringToShortCastSpec;
+    casts[cast_i++] = ShortToStringCastSpec;
+    casts[cast_i++] = StringToUShortCastSpec;
+    casts[cast_i++] = UShortToStringCastSpec;
+#endif
+#if NPY_SIZEOF_INT == NPY_SIZEOF_LONG
+    casts[cast_i++] = StringToIntCastSpec;
+    casts[cast_i++] = IntToStringCastSpec;
+    casts[cast_i++] = StringToUIntCastSpec;
+    casts[cast_i++] = UIntToStringCastSpec;
+#endif
+#if NPY_SIZEOF_LONGLONG == NPY_SIZEOF_LONG
+    casts[cast_i++] = StringToLongLongCastSpec;
+    casts[cast_i++] = LongLongToStringCastSpec;
+    casts[cast_i++] = StringToULongLongCastSpec;
+    casts[cast_i++] = ULongLongToStringCastSpec;
+#endif
     if (is_pandas) {
-        casts[21] = ThisToOtherCastSpec;
-        casts[22] = OtherToThisCastSpec;
-        casts[23] = NULL;
+        casts[cast_i++] = ThisToOtherCastSpec;
+        casts[cast_i++] = OtherToThisCastSpec;
+        casts[cast_i++] = NULL;
     }
     else {
-        casts[21] = NULL;
+        casts[cast_i++] = NULL;
     }
 
     assert(casts[num_casts] == NULL);
+    assert(cast_i == num_casts + 1);
 
     return casts;
 }
