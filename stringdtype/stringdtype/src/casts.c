@@ -12,6 +12,34 @@ gil_error(PyObject *type, const char *msg)
     PyGILState_Release(gstate);
 }
 
+#define ANY_TO_STRING_RESOLVE_DESCRIPTORS(safety)                           \
+    static NPY_CASTING any_to_string_##safety##_resolve_descriptors(        \
+            PyObject *NPY_UNUSED(self), PyArray_DTypeMeta *dtypes[2],       \
+            PyArray_Descr *given_descrs[2], PyArray_Descr *loop_descrs[2],  \
+            npy_intp *NPY_UNUSED(view_offset))                              \
+    {                                                                       \
+        if (given_descrs[1] == NULL) {                                      \
+            PyArray_Descr *new = (PyArray_Descr *)new_stringdtype_instance( \
+                    (PyTypeObject *)dtypes[1]);                             \
+            if (new == NULL) {                                              \
+                return (NPY_CASTING)-1;                                     \
+            }                                                               \
+            loop_descrs[1] = new;                                           \
+        }                                                                   \
+        else {                                                              \
+            Py_INCREF(given_descrs[1]);                                     \
+            loop_descrs[1] = given_descrs[1];                               \
+        }                                                                   \
+                                                                            \
+        Py_INCREF(given_descrs[0]);                                         \
+        loop_descrs[0] = given_descrs[0];                                   \
+                                                                            \
+        return NPY_##safety##_CASTING;                                      \
+    }
+
+ANY_TO_STRING_RESOLVE_DESCRIPTORS(SAFE)
+ANY_TO_STRING_RESOLVE_DESCRIPTORS(UNSAFE)
+
 // string to string
 
 static NPY_CASTING
@@ -80,32 +108,6 @@ static char *s2p_name = "cast_StringDType_to_PandasStringDType";
 static char *p2s_name = "cast_PandasStringDType_to_StringDType";
 
 // unicode to string
-
-static NPY_CASTING
-unicode_to_string_resolve_descriptors(PyObject *NPY_UNUSED(self),
-                                      PyArray_DTypeMeta *dtypes[2],
-                                      PyArray_Descr *given_descrs[2],
-                                      PyArray_Descr *loop_descrs[2],
-                                      npy_intp *NPY_UNUSED(view_offset))
-{
-    if (given_descrs[1] == NULL) {
-        PyArray_Descr *new = (PyArray_Descr *)new_stringdtype_instance(
-                (PyTypeObject *)dtypes[1]);
-        if (new == NULL) {
-            return (NPY_CASTING)-1;
-        }
-        loop_descrs[1] = new;
-    }
-    else {
-        Py_INCREF(given_descrs[1]);
-        loop_descrs[1] = given_descrs[1];
-    }
-
-    Py_INCREF(given_descrs[0]);
-    loop_descrs[0] = given_descrs[0];
-
-    return NPY_SAFE_CASTING;
-}
 
 // Find the number of bytes, *utf8_bytes*, needed to store the string
 // represented by *codepoints* in UTF-8. The array of *codepoints* is
@@ -252,10 +254,10 @@ unicode_to_string(PyArrayMethod_Context *context, char *const data[],
     return 0;
 }
 
-static PyType_Slot u2s_slots[] = {
-        {NPY_METH_resolve_descriptors, &unicode_to_string_resolve_descriptors},
-        {NPY_METH_strided_loop, &unicode_to_string},
-        {0, NULL}};
+static PyType_Slot u2s_slots[] = {{NPY_METH_resolve_descriptors,
+                                   &any_to_string_SAFE_resolve_descriptors},
+                                  {NPY_METH_strided_loop, &unicode_to_string},
+                                  {0, NULL}};
 
 static char *u2s_name = "cast_Unicode_to_StringDType";
 
@@ -451,32 +453,6 @@ static char *s2b_name = "cast_StringDType_to_Bool";
 
 // bool to string
 
-static NPY_CASTING
-bool_to_string_resolve_descriptors(PyObject *NPY_UNUSED(self),
-                                   PyArray_DTypeMeta *dtypes[2],
-                                   PyArray_Descr *given_descrs[2],
-                                   PyArray_Descr *loop_descrs[2],
-                                   npy_intp *NPY_UNUSED(view_offset))
-{
-    if (given_descrs[1] == NULL) {
-        PyArray_Descr *new = (PyArray_Descr *)new_stringdtype_instance(
-                (PyTypeObject *)dtypes[1]);
-        if (new == NULL) {
-            return (NPY_CASTING)-1;
-        }
-        loop_descrs[1] = new;
-    }
-    else {
-        Py_INCREF(given_descrs[1]);
-        loop_descrs[1] = given_descrs[1];
-    }
-
-    Py_INCREF(given_descrs[0]);
-    loop_descrs[0] = given_descrs[0];
-
-    return NPY_SAFE_CASTING;
-}
-
 static int
 bool_to_string(PyArrayMethod_Context *NPY_UNUSED(context), char *const data[],
                npy_intp const dimensions[], npy_intp const strides[],
@@ -516,10 +492,10 @@ bool_to_string(PyArrayMethod_Context *NPY_UNUSED(context), char *const data[],
     return 0;
 }
 
-static PyType_Slot b2s_slots[] = {
-        {NPY_METH_resolve_descriptors, &bool_to_string_resolve_descriptors},
-        {NPY_METH_strided_loop, &bool_to_string},
-        {0, NULL}};
+static PyType_Slot b2s_slots[] = {{NPY_METH_resolve_descriptors,
+                                   &any_to_string_SAFE_resolve_descriptors},
+                                  {NPY_METH_strided_loop, &bool_to_string},
+                                  {0, NULL}};
 
 static char *b2s_name = "cast_Bool_to_StringDType";
 
@@ -603,32 +579,6 @@ uint_to_string(unsigned long long in, char *out)
 {
     PyObject *pylong_val = PyLong_FromUnsignedLongLong(in);
     return pylong_to_string(pylong_val, out);
-}
-
-static NPY_CASTING
-int_to_string_resolve_descriptors(PyObject *NPY_UNUSED(self),
-                                  PyArray_DTypeMeta *dtypes[2],
-                                  PyArray_Descr *given_descrs[2],
-                                  PyArray_Descr *loop_descrs[2],
-                                  npy_intp *NPY_UNUSED(view_offset))
-{
-    if (given_descrs[1] == NULL) {
-        PyArray_Descr *new = (PyArray_Descr *)new_stringdtype_instance(
-                (PyTypeObject *)dtypes[1]);
-        if (new == NULL) {
-            return (NPY_CASTING)-1;
-        }
-        loop_descrs[1] = new;
-    }
-    else {
-        Py_INCREF(given_descrs[1]);
-        loop_descrs[1] = given_descrs[1];
-    }
-
-    Py_INCREF(given_descrs[0]);
-    loop_descrs[0] = given_descrs[0];
-
-    return NPY_UNSAFE_CASTING;
 }
 
 #define STRING_TO_INT(typename, typekind, shortname, numpy_tag, printf_code, \
@@ -721,7 +671,7 @@ int_to_string_resolve_descriptors(PyObject *NPY_UNUSED(self),
                                                                             \
     static PyType_Slot shortname##2s_slots [] = {                           \
             {NPY_METH_resolve_descriptors,                                  \
-             &int_to_string_resolve_descriptors},                           \
+             &any_to_string_UNSAFE_resolve_descriptors},                    \
             {NPY_METH_strided_loop, &typename##_to_string},                 \
             {0, NULL}};                                                     \
                                                                             \
