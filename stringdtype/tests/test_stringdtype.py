@@ -350,12 +350,52 @@ def test_arrfuncs_zeros(dtype, arrfunc, expected):
         [["", "world"], [False, True], True, False],
     ],
 )
-def test_bool_cast(dtype, strings, cast_answer, any_answer, all_answer):
+def test_cast_to_bool(dtype, strings, cast_answer, any_answer, all_answer):
     sarr = np.array(strings, dtype=dtype)
     np.testing.assert_array_equal(sarr.astype("bool"), cast_answer)
 
     assert np.any(sarr) == any_answer
     assert np.all(sarr) == all_answer
+
+
+@pytest.mark.parametrize(
+    ("strings", "cast_answer"),
+    [
+        [[True, True], ["True", "True"]],
+        [[False, False], ["False", "False"]],
+        [[True, False], ["True", "False"]],
+        [[False, True], ["False", "True"]],
+    ],
+)
+def test_cast_from_bool(dtype, strings, cast_answer):
+    barr = np.array(strings, dtype=bool)
+    np.testing.assert_array_equal(
+        barr.astype(dtype), np.array(cast_answer, dtype=dtype)
+    )
+
+
+@pytest.mark.parametrize("bitsize", [8, 16, 32, 64])
+@pytest.mark.parametrize("signed", [True, False])
+def test_integer_casts(dtype, bitsize, signed):
+    idtype = f"int{bitsize}"
+    if signed:
+        inp = [-(2**p - 1) for p in reversed(range(bitsize - 1))]
+        inp += [2**p - 1 for p in range(1, bitsize - 1)]
+    else:
+        idtype = "u" + idtype
+        inp = [2**p - 1 for p in range(bitsize)]
+    ainp = np.array(inp, dtype=idtype)
+    np.testing.assert_array_equal(ainp, ainp.astype(dtype).astype(idtype))
+
+    with pytest.raises(TypeError):
+        ainp.astype(dtype, casting="safe")
+
+    with pytest.raises(TypeError):
+        ainp.astype(dtype).astype(idtype, casting="safe")
+
+    oob = [str(2**bitsize), str(-(2**bitsize))]
+    with pytest.raises(OverflowError):
+        np.array(oob, dtype=dtype).astype(idtype)
 
 
 def test_take(dtype, string_list):
