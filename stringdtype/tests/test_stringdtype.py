@@ -376,7 +376,7 @@ def test_cast_from_bool(dtype, strings, cast_answer):
 
 @pytest.mark.parametrize("bitsize", [8, 16, 32, 64])
 @pytest.mark.parametrize("signed", [True, False])
-def test_integer_casts(dtype, bitsize, signed):
+def test_sized_integer_casts(dtype, bitsize, signed):
     idtype = f"int{bitsize}"
     if signed:
         inp = [-(2**p - 1) for p in reversed(range(bitsize - 1))]
@@ -396,6 +396,16 @@ def test_integer_casts(dtype, bitsize, signed):
     oob = [str(2**bitsize), str(-(2**bitsize))]
     with pytest.raises(OverflowError):
         np.array(oob, dtype=dtype).astype(idtype)
+
+
+@pytest.mark.parametrize("typename", ["byte", "short", "int", "longlong"])
+@pytest.mark.parametrize("signed", ["", "u"])
+def test_unsized_integer_casts(dtype, typename, signed):
+    idtype = f"{signed}{typename}"
+
+    inp = [1, 2, 3, 4]
+    ainp = np.array(inp, dtype=idtype)
+    np.testing.assert_array_equal(ainp, ainp.astype(dtype).astype(idtype))
 
 
 def test_take(dtype, string_list):
