@@ -583,8 +583,8 @@ uint_to_string(unsigned long long in, char *out)
     return pylong_to_string(pylong_val, out);
 }
 
-#define STRING_TO_INT(typename, typekind, shortname, numpy_tag, printf_code, \
-                      npy_longtype)                                          \
+#define STRING_INT_CASTS(typename, typekind, shortname, numpy_tag,           \
+                         printf_code, npy_longtype, longtype)                \
     static NPY_CASTING string_to_##typename##_resolve_descriptors(           \
             PyObject *NPY_UNUSED(self),                                      \
             PyArray_DTypeMeta *NPY_UNUSED(dtypes[2]),                        \
@@ -645,38 +645,37 @@ uint_to_string(unsigned long long in, char *out)
             {NPY_METH_strided_loop, &string_to_##typename},                  \
             {0, NULL}};                                                      \
                                                                              \
-    static char *s2##shortname##_name = "cast_StringDType_to_" #typename;
-
-#define INT_TO_STRING(typename, typekind, shortname, longtype)              \
-    static int typename##_to_string(                                        \
-            PyArrayMethod_Context *NPY_UNUSED(context), char *const data[], \
-            npy_intp const dimensions[], npy_intp const strides[],          \
-            NpyAuxData *NPY_UNUSED(auxdata))                                \
-    {                                                                       \
-        npy_intp N = dimensions[0];                                         \
-        npy_##typename *in = (npy_##typename *)data[0];                     \
-        char *out = data[1];                                                \
-                                                                            \
-        npy_intp in_stride = strides[0] / sizeof(npy_##typename);           \
-        npy_intp out_stride = strides[1];                                   \
-                                                                            \
-        while (N--) {                                                       \
-            if (typekind##_to_string((longtype)*in, out) != 0) {            \
-                return -1;                                                  \
-            }                                                               \
-            in += in_stride;                                                \
-            out += out_stride;                                              \
-        }                                                                   \
-                                                                            \
-        return 0;                                                           \
-    }                                                                       \
-                                                                            \
-    static PyType_Slot shortname##2s_slots [] = {                           \
-            {NPY_METH_resolve_descriptors,                                  \
-             &any_to_string_UNSAFE_resolve_descriptors},                    \
-            {NPY_METH_strided_loop, &typename##_to_string},                 \
-            {0, NULL}};                                                     \
-                                                                            \
+    static char *s2##shortname##_name = "cast_StringDType_to_" #typename;    \
+                                                                             \
+    static int typename##_to_string(                                         \
+            PyArrayMethod_Context *NPY_UNUSED(context), char *const data[],  \
+            npy_intp const dimensions[], npy_intp const strides[],           \
+            NpyAuxData *NPY_UNUSED(auxdata))                                 \
+    {                                                                        \
+        npy_intp N = dimensions[0];                                          \
+        npy_##typename *in = (npy_##typename *)data[0];                      \
+        char *out = data[1];                                                 \
+                                                                             \
+        npy_intp in_stride = strides[0] / sizeof(npy_##typename);            \
+        npy_intp out_stride = strides[1];                                    \
+                                                                             \
+        while (N--) {                                                        \
+            if (typekind##_to_string((longtype)*in, out) != 0) {             \
+                return -1;                                                   \
+            }                                                                \
+            in += in_stride;                                                 \
+            out += out_stride;                                               \
+        }                                                                    \
+                                                                             \
+        return 0;                                                            \
+    }                                                                        \
+                                                                             \
+    static PyType_Slot shortname##2s_slots [] = {                            \
+            {NPY_METH_resolve_descriptors,                                   \
+             &any_to_string_UNSAFE_resolve_descriptors},                     \
+            {NPY_METH_strided_loop, &typename##_to_string},                  \
+            {0, NULL}};                                                      \
+                                                                             \
     static char *shortname##2s_name = "cast_" #typename "_to_StringDType";
 
 #define INT_DTYPES_AND_CAST_SPEC(shortname, typename)                        \
@@ -695,65 +694,44 @@ uint_to_string(unsigned long long in, char *out)
             shortname##2s_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI, \
             shortname##2s_dtypes, shortname##2s_slots);
 
-STRING_TO_INT(int8, int, i8, NPY_INT8, lli, npy_longlong)
-INT_TO_STRING(int8, int, i8, long long)
+STRING_INT_CASTS(int8, int, i8, NPY_INT8, lli, npy_longlong, long long)
+STRING_INT_CASTS(int16, int, i16, NPY_INT16, lli, npy_longlong, long long)
+STRING_INT_CASTS(int32, int, i32, NPY_INT32, lli, npy_longlong, long long)
+STRING_INT_CASTS(int64, int, i64, NPY_INT64, lli, npy_longlong, long long)
 
-STRING_TO_INT(int16, int, i16, NPY_INT16, lli, npy_longlong)
-INT_TO_STRING(int16, int, i16, long long)
-
-STRING_TO_INT(int32, int, i32, NPY_INT32, lli, npy_longlong)
-INT_TO_STRING(int32, int, i32, long long)
-
-STRING_TO_INT(int64, int, i64, NPY_INT64, lli, npy_longlong)
-INT_TO_STRING(int64, int, i64, long long)
+STRING_INT_CASTS(uint8, uint, u8, NPY_UINT8, llu, npy_ulonglong,
+                 unsigned long long)
+STRING_INT_CASTS(uint16, uint, u16, NPY_UINT16, llu, npy_ulonglong,
+                 unsigned long long)
+STRING_INT_CASTS(uint32, uint, u32, NPY_UINT32, llu, npy_ulonglong,
+                 unsigned long long)
+STRING_INT_CASTS(uint64, uint, u64, NPY_UINT64, llu, npy_ulonglong,
+                 unsigned long long)
 
 #if NPY_SIZEOF_BYTE == NPY_SIZEOF_SHORT
 // byte doesn't have a bitsized alias
-STRING_TO_INT(byte, int, byte, NPY_BYTE, lli, npy_byte)
-INT_TO_STRING(byte, int, byte, long long)
-
-STRING_TO_INT(ubyte, uint, ubyte, NPY_UBYTE, llu, npy_ubyte)
-INT_TO_STRING(ubyte, uint, ubyte, unsigned long long)
+STRING_INT_CASTS(byte, int, byte, NPY_BYTE, lli, npy_longlong, long long)
+STRING_INT_CASTS(ubyte, uint, ubyte, NPY_UBYTE, llu, npy_ulonglong,
+                 unsigned long long)
 #endif
-
 #if NPY_SIZEOF_SHORT == NPY_SIZEOF_INT
 // short doesn't have a bitsized alias
-STRING_TO_INT(short, int, short, NPY_SHORT, lli, npy_short)
-INT_TO_STRING(short, int, short, long long)
-
-STRING_TO_INT(ushort, uint, ushort, NPY_USHORT, llu, npy_ushort)
-INT_TO_STRING(ushort, uint, ushort, unsigned long long)
+STRING_INT_CASTS(short, int, short, NPY_SHORT, lli, npy_longlong, long long)
+STRING_INT_CASTS(ushort, uint, ushort, NPY_USHORT, llu, npy_ulonglong,
+                 unsigned long long)
 #endif
-
 #if NPY_SIZEOF_INT == NPY_SIZEOF_LONG
 // int doesn't have a bitsized alias
-STRING_TO_INT(int, int, int, NPY_INT, lli, npy_int)
-INT_TO_STRING(int, int, int, long long)
-
-STRING_TO_INT(uint, uint, uint, NPY_UINT, llu, npy_uint)
-INT_TO_STRING(uint, uint, uint, unsigned long long)
+STRING_INT_CASTS(int, int, int, NPY_INT, lli, npy_longlong, long long)
+STRING_INT_CASTS(uint, uint, uint, NPY_UINT, llu, npy_longlong, long long)
 #endif
-
 #if NPY_SIZEOF_LONGLONG == NPY_SIZEOF_LONG
 // long long doesn't have a bitsized alias
-STRING_TO_INT(longlong, int, longlong, NPY_LONGLONG, lli, npy_longlong)
-INT_TO_STRING(longlong, int, longlong, long long)
-
-STRING_TO_INT(ulonglong, uint, ulonglong, NPY_ULONGLONG, llu, npy_ulonglong)
-INT_TO_STRING(ulonglong, uint, ulonglong, unsigned long long)
+STRING_INT_CASTS(longlong, int, longlong, NPY_LONGLONG, lli, npy_longlong,
+                 long long)
+STRING_INT_CASTS(ulonglong, uint, ulonglong, NPY_ULONGLONG, llu, npy_ulonglong,
+                 unsigned long long)
 #endif
-
-STRING_TO_INT(uint8, uint, u8, NPY_UINT8, llu, npy_ulonglong)
-INT_TO_STRING(uint8, uint, u8, unsigned long long)
-
-STRING_TO_INT(uint16, uint, u16, NPY_UINT16, llu, npy_ulonglong)
-INT_TO_STRING(uint16, uint, u16, unsigned long long)
-
-STRING_TO_INT(uint32, uint, u32, NPY_UINT32, llu, npy_ulonglong)
-INT_TO_STRING(uint32, uint, u32, unsigned long long)
-
-STRING_TO_INT(uint64, uint, u64, NPY_UINT64, llu, npy_ulonglong)
-INT_TO_STRING(uint64, uint, u64, unsigned long long)
 
 PyArrayMethod_Spec *
 get_cast_spec(const char *name, NPY_CASTING casting,
