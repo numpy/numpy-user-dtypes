@@ -499,6 +499,8 @@ static PyType_Slot b2s_slots[] = {{NPY_METH_resolve_descriptors,
 
 static char *b2s_name = "cast_Bool_to_StringDType";
 
+// casts between string and (u)int dtypes
+
 static PyObject *
 string_to_pylong(char *in)
 {
@@ -691,23 +693,7 @@ uint_to_string(unsigned long long in, char *out)
                                                                              \
     PyArrayMethod_Spec *typename##ToStringCastSpec = get_cast_spec(          \
             shortname##2s_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI, \
-            shortname##2s_dtypes, shortname##2s_slots);                      \
-                                                                             \
-    PyArray_DTypeMeta **s2u##shortname##_dtypes =                            \
-            get_dtypes(this, &PyArray_U##typename##DType);                   \
-                                                                             \
-    PyArrayMethod_Spec *StringToU##typename##CastSpec =                      \
-            get_cast_spec(s2u##shortname##_name, NPY_UNSAFE_CASTING,         \
-                          NPY_METH_REQUIRES_PYAPI, s2u##shortname##_dtypes,  \
-                          s2u##shortname##_slots);                           \
-                                                                             \
-    PyArray_DTypeMeta **u##shortname##2s_dtypes =                            \
-            get_dtypes(&PyArray_U##typename##DType, this);                   \
-                                                                             \
-    PyArrayMethod_Spec *U##typename##ToStringCastSpec =                      \
-            get_cast_spec(u##shortname##2s_name, NPY_UNSAFE_CASTING,         \
-                          NPY_METH_REQUIRES_PYAPI, u##shortname##2s_dtypes,  \
-                          u##shortname##2s_slots);
+            shortname##2s_dtypes, shortname##2s_slots);
 
 STRING_TO_INT(int8, int, i8, NPY_INT8, lli, npy_longlong)
 INT_TO_STRING(int8, int, i8, long long)
@@ -757,17 +743,17 @@ STRING_TO_INT(ulonglong, uint, ulonglong, NPY_ULONGLONG, llu, npy_ulonglong)
 INT_TO_STRING(ulonglong, uint, ulonglong, unsigned long long)
 #endif
 
-STRING_TO_INT(uint8, uint, ui8, NPY_UINT8, llu, npy_ulonglong)
-INT_TO_STRING(uint8, uint, ui8, unsigned long long)
+STRING_TO_INT(uint8, uint, u8, NPY_UINT8, llu, npy_ulonglong)
+INT_TO_STRING(uint8, uint, u8, unsigned long long)
 
-STRING_TO_INT(uint16, uint, ui16, NPY_UINT16, llu, npy_ulonglong)
-INT_TO_STRING(uint16, uint, ui16, unsigned long long)
+STRING_TO_INT(uint16, uint, u16, NPY_UINT16, llu, npy_ulonglong)
+INT_TO_STRING(uint16, uint, u16, unsigned long long)
 
-STRING_TO_INT(uint32, uint, ui32, NPY_UINT32, llu, npy_ulonglong)
-INT_TO_STRING(uint32, uint, ui32, unsigned long long)
+STRING_TO_INT(uint32, uint, u32, NPY_UINT32, llu, npy_ulonglong)
+INT_TO_STRING(uint32, uint, u32, unsigned long long)
 
-STRING_TO_INT(uint64, uint, ui64, NPY_UINT64, llu, npy_ulonglong)
-INT_TO_STRING(uint64, uint, ui64, unsigned long long)
+STRING_TO_INT(uint64, uint, u64, NPY_UINT64, llu, npy_ulonglong)
+INT_TO_STRING(uint64, uint, u64, unsigned long long)
 
 PyArrayMethod_Spec *
 get_cast_spec(const char *name, NPY_CASTING casting,
@@ -880,17 +866,25 @@ get_casts(PyArray_DTypeMeta *this, PyArray_DTypeMeta *other)
     INT_DTYPES_AND_CAST_SPEC(i16, Int16)
     INT_DTYPES_AND_CAST_SPEC(i32, Int32)
     INT_DTYPES_AND_CAST_SPEC(i64, Int64)
+    INT_DTYPES_AND_CAST_SPEC(u8, UInt8)
+    INT_DTYPES_AND_CAST_SPEC(u16, UInt16)
+    INT_DTYPES_AND_CAST_SPEC(u32, UInt32)
+    INT_DTYPES_AND_CAST_SPEC(u64, UInt64)
 #if NPY_SIZEOF_BYTE == NPY_SIZEOF_SHORT
     INT_DTYPES_AND_CAST_SPEC(byte, Byte)
+    INT_DTYPES_AND_CAST_SPEC(ubyte, UByte)
 #endif
 #if NPY_SIZEOF_SHORT == NPY_SIZEOF_INT
     INT_DTYPES_AND_CAST_SPEC(short, Short)
+    INT_DTYPES_AND_CAST_SPEC(ushort, UShort)
 #endif
 #if NPY_SIZEOF_INT == NPY_SIZEOF_LONG
     INT_DTYPES_AND_CAST_SPEC(int, Int)
+    INT_DTYPES_AND_CAST_SPEC(uint, UInt)
 #endif
 #if NPY_SIZEOF_LONGLONG == NPY_SIZEOF_LONG
     INT_DTYPES_AND_CAST_SPEC(longlong, LongLong)
+    INT_DTYPES_AND_CAST_SPEC(ulonglong, ULongLong)
 #endif
 
     PyArrayMethod_Spec **casts = NULL;
