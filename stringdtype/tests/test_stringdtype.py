@@ -408,6 +408,25 @@ def test_unsized_integer_casts(dtype, typename, signed):
     np.testing.assert_array_equal(ainp, ainp.astype(dtype).astype(idtype))
 
 
+@pytest.mark.parametrize("typename", ["float64", "float32", "float16"])
+def test_float_casts(dtype, typename):
+    inp = [1.1, 2.8, -3.2, 2.7e4]
+    ainp = np.array(inp, dtype=typename)
+    np.testing.assert_array_equal(ainp, ainp.astype(dtype).astype(typename))
+
+    fi = np.finfo(typename)
+
+    inp = [1e-324, fi.smallest_subnormal, -1e-324, -fi.smallest_subnormal]
+    eres = [0, fi.smallest_subnormal, -0, -fi.smallest_subnormal]
+    res = np.array(inp, dtype=typename).astype(dtype).astype(typename)
+    np.testing.assert_array_equal(eres, res)
+
+    inp = [2e308, fi.max, -2e308, fi.min]
+    eres = [np.inf, fi.max, -np.inf, fi.min]
+    res = np.array(inp, dtype=typename).astype(dtype).astype(typename)
+    np.testing.assert_array_equal(eres, res)
+
+
 def test_take(dtype, string_list):
     sarr = np.array(string_list, dtype=dtype)
     out = np.empty(len(string_list), dtype=dtype)

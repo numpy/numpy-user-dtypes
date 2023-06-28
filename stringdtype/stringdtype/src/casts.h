@@ -8,6 +8,7 @@
 #define NO_IMPORT_ARRAY
 #include "numpy/arrayobject.h"
 #include "numpy/experimental_dtype_api.h"
+#include "numpy/halffloat.h"
 #include "numpy/ndarraytypes.h"
 
 PyArrayMethod_Spec **

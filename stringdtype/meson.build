@@ -14,6 +14,13 @@ incdir_numpy = run_command(py,
   check: true
 ).stdout().strip()
 
+cc = meson.get_compiler('c')
+
+npymath_path = incdir_numpy / '..' / 'lib'
+npymath_lib = cc.find_library('npymath', dirs: npymath_path)
+inc_np = include_directories(incdir_numpy)
+np_dep = declare_dependency(include_directories: inc_np)
+
 includes = include_directories(
   [
     incdir_numpy,
@@ -47,5 +54,6 @@ py.extension_module(
   srcs,
   install: true,
   subdir: 'stringdtype',
-  include_directories: includes
+  include_directories: includes,
+  dependencies: [np_dep, npymath_lib]
 )
