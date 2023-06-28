@@ -779,12 +779,10 @@ string_to_pyfloat(char *in)
             npy_##typename fval = (double_to_float)(dval);                   \
                                                                              \
             if (NPY_UNLIKELY(isinf_name(fval) && !(npy_isinf(dval)))) {      \
-                /* we need to somehow use numpy's floating point error */    \
-                /* handling, which supports lots more functionality but */   \
-                /* isn't exposed in the C API */                             \
-                PyErr_SetString(PyExc_FloatingPointError,                    \
-                                "overflow encountered in cast");             \
-                return -1;                                                   \
+                if (PyUFunc_GiveFloatingpointErrors("cast",                  \
+                                                    NPY_FPE_OVERFLOW) < 0) { \
+                    return -1;                                               \
+                }                                                            \
             }                                                                \
                                                                              \
             *out = fval;                                                     \
