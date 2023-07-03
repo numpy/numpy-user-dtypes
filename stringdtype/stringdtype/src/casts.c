@@ -904,6 +904,18 @@ STRING_TO_FLOAT_RESOLVE_DESCRIPTORS(float16, HALF)
 STRING_TO_FLOAT_CAST(float16, f16, npy_half_isinf, npy_double_to_half)
 FLOAT_TO_STRING_CAST(float16, f16, npy_half_to_double)
 
+// TODO: longdouble
+//        punting on this one because numpy's C routines for handling
+//        longdouble are not public (specifically NumPyOS_ascii_strtold)
+//        also this type is kinda niche and is not needed by pandas
+//
+//       cfloat, cdouble, and clongdouble
+//        not hard to do in principle but not needed by pandas.
+//
+//       datetime
+//        numpy's utilities for parsing a string into a datetime
+//        are not public (specifically parse_iso_8601_datetime).
+
 PyArrayMethod_Spec *
 get_cast_spec(const char *name, NPY_CASTING casting,
               NPY_ARRAYMETHOD_FLAGS flags, PyArray_DTypeMeta **dtypes,
