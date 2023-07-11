@@ -12,29 +12,30 @@ gil_error(PyObject *type, const char *msg)
     PyGILState_Release(gstate);
 }
 
-#define ANY_TO_STRING_RESOLVE_DESCRIPTORS(safety)                           \
-    static NPY_CASTING any_to_string_##safety##_resolve_descriptors(        \
-            PyObject *NPY_UNUSED(self), PyArray_DTypeMeta *dtypes[2],       \
-            PyArray_Descr *given_descrs[2], PyArray_Descr *loop_descrs[2],  \
-            npy_intp *NPY_UNUSED(view_offset))                              \
-    {                                                                       \
-        if (given_descrs[1] == NULL) {                                      \
-            PyArray_Descr *new = (PyArray_Descr *)new_stringdtype_instance( \
-                    (PyTypeObject *)dtypes[1]);                             \
-            if (new == NULL) {                                              \
-                return (NPY_CASTING)-1;                                     \
-            }                                                               \
-            loop_descrs[1] = new;                                           \
-        }                                                                   \
-        else {                                                              \
-            Py_INCREF(given_descrs[1]);                                     \
-            loop_descrs[1] = given_descrs[1];                               \
-        }                                                                   \
-                                                                            \
-        Py_INCREF(given_descrs[0]);                                         \
-        loop_descrs[0] = given_descrs[0];                                   \
-                                                                            \
-        return NPY_##safety##_CASTING;                                      \
+#define ANY_TO_STRING_RESOLVE_DESCRIPTORS(safety)                          \
+    static NPY_CASTING any_to_string_##safety##_resolve_descriptors(       \
+            PyObject *NPY_UNUSED(self),                                    \
+            PyArray_DTypeMeta *NPY_UNUSED(dtypes[2]),                      \
+            PyArray_Descr *given_descrs[2], PyArray_Descr *loop_descrs[2], \
+            npy_intp *NPY_UNUSED(view_offset))                             \
+    {                                                                      \
+        if (given_descrs[1] == NULL) {                                     \
+            PyArray_Descr *new =                                           \
+                    (PyArray_Descr *)new_stringdtype_instance(NA_OBJ);     \
+            if (new == NULL) {                                             \
+                return (NPY_CASTING)-1;                                    \
+            }                                                              \
+            loop_descrs[1] = new;                                          \
+        }                                                                  \
+        else {                                                             \
+            Py_INCREF(given_descrs[1]);                                    \
+            loop_descrs[1] = given_descrs[1];                              \
+        }                                                                  \
+                                                                           \
+        Py_INCREF(given_descrs[0]);                                        \
+        loop_descrs[0] = given_descrs[0];                                  \
+                                                                           \
+        return NPY_##safety##_CASTING;                                     \
     }
 
 ANY_TO_STRING_RESOLVE_DESCRIPTORS(SAFE)
@@ -83,10 +84,12 @@ string_to_string(PyArrayMethod_Context *NPY_UNUSED(context),
     while (N--) {
         s = (ss *)in;
         os = (ss *)out;
-        ssfree(os);
-        if (ssdup(s, os) < 0) {
-            gil_error(PyExc_MemoryError, "ssdup failed");
-            return -1;
+        if (in != out) {
+            ssfree(os);
+            if (ssdup(s, os) < 0) {
+                gil_error(PyExc_MemoryError, "ssdup failed");
+                return -1;
+            }
         }
 
         in += in_stride;
@@ -103,9 +106,6 @@ static PyType_Slot s2s_slots[] = {
         {0, NULL}};
 
 static char *s2s_name = "cast_StringDType_to_StringDType";
-static char *p2p_name = "cast_PandasStringDType_to_PandasStringDType";
-static char *s2p_name = "cast_StringDType_to_PandasStringDType";
-static char *p2s_name = "cast_PandasStringDType_to_StringDType";
 
 // unicode to string
 
@@ -535,6 +535,9 @@ static npy_longlong
 string_to_int(char *in, npy_longlong *value)
 {
     PyObject *pylong_value = string_to_pylong(in);
+    if (pylong_value == NULL) {
+        return -1;
+    }
     *value = PyLong_AsLongLong(pylong_value);
     if (*value == -1 && PyErr_Occurred()) {
         Py_DECREF(pylong_value);
@@ -683,16 +686,16 @@ uint_to_string(unsigned long long in, char *out)
     static char *shortname##2s_name = "cast_" #typename "_to_StringDType";
 
 #define DTYPES_AND_CAST_SPEC(shortname, typename)                            \
-    PyArray_DTypeMeta **s2##shortname##_dtypes =                             \
-            get_dtypes(this, &PyArray_##typename##DType);                    \
+    PyArray_DTypeMeta **s2##shortname##_dtypes = get_dtypes(                 \
+            (PyArray_DTypeMeta *)&StringDType, &PyArray_##typename##DType);  \
                                                                              \
     PyArrayMethod_Spec *StringTo##typename##CastSpec =                       \
             get_cast_spec(s2##shortname##_name, NPY_UNSAFE_CASTING,          \
                           NPY_METH_REQUIRES_PYAPI, s2##shortname##_dtypes,   \
                           s2##shortname##_slots);                            \
                                                                              \
-    PyArray_DTypeMeta **shortname##2s_dtypes =                               \
-            get_dtypes(&PyArray_##typename##DType, this);                    \
+    PyArray_DTypeMeta **shortname##2s_dtypes = get_dtypes(                   \
+            &PyArray_##typename##DType, (PyArray_DTypeMeta *)&StringDType);  \
                                                                              \
     PyArrayMethod_Spec *typename##ToStringCastSpec = get_cast_spec(          \
             shortname##2s_name, NPY_UNSAFE_CASTING, NPY_METH_REQUIRES_PYAPI, \
@@ -946,27 +949,17 @@ get_dtypes(PyArray_DTypeMeta *dt1, PyArray_DTypeMeta *dt2)
 }
 
 PyArrayMethod_Spec **
-get_casts(PyArray_DTypeMeta *this, PyArray_DTypeMeta *other)
+get_casts()
 {
-    char *t2t_name = NULL;
+    char *t2t_name = s2s_name;
 
-    if (this == (PyArray_DTypeMeta *)&StringDType) {
-        t2t_name = s2s_name;
-    }
-    else {
-        t2t_name = p2p_name;
-    }
-
-    PyArray_DTypeMeta **t2t_dtypes = get_dtypes(this, this);
+    PyArray_DTypeMeta **t2t_dtypes =
+            get_dtypes((PyArray_DTypeMeta *)&StringDType,
+                       (PyArray_DTypeMeta *)&StringDType);
 
     PyArrayMethod_Spec *ThisToThisCastSpec =
             get_cast_spec(t2t_name, NPY_NO_CASTING,
                           NPY_METH_SUPPORTS_UNALIGNED, t2t_dtypes, s2s_slots);
-
-    PyArrayMethod_Spec *ThisToOtherCastSpec = NULL;
-    PyArrayMethod_Spec *OtherToThisCastSpec = NULL;
-
-    int is_pandas = (this == (PyArray_DTypeMeta *)&PandasStringDType);
 
     int num_casts = 27;
 
@@ -983,41 +976,29 @@ get_casts(PyArray_DTypeMeta *this, PyArray_DTypeMeta *other)
     num_casts += 4;
 #endif
 
-    if (is_pandas) {
-        num_casts += 2;
-
-        PyArray_DTypeMeta **t2o_dtypes = get_dtypes(this, other);
-
-        ThisToOtherCastSpec = get_cast_spec(p2s_name, NPY_NO_CASTING,
-                                            NPY_METH_SUPPORTS_UNALIGNED,
-                                            t2o_dtypes, s2s_slots);
-
-        PyArray_DTypeMeta **o2t_dtypes = get_dtypes(other, this);
-
-        OtherToThisCastSpec = get_cast_spec(s2p_name, NPY_NO_CASTING,
-                                            NPY_METH_SUPPORTS_UNALIGNED,
-                                            o2t_dtypes, s2s_slots);
-    }
-
-    PyArray_DTypeMeta **u2s_dtypes = get_dtypes(&PyArray_UnicodeDType, this);
+    PyArray_DTypeMeta **u2s_dtypes = get_dtypes(
+            &PyArray_UnicodeDType, (PyArray_DTypeMeta *)&StringDType);
 
     PyArrayMethod_Spec *UnicodeToStringCastSpec = get_cast_spec(
             u2s_name, NPY_SAFE_CASTING, NPY_METH_NO_FLOATINGPOINT_ERRORS,
             u2s_dtypes, u2s_slots);
 
-    PyArray_DTypeMeta **s2u_dtypes = get_dtypes(this, &PyArray_UnicodeDType);
+    PyArray_DTypeMeta **s2u_dtypes = get_dtypes(
+            (PyArray_DTypeMeta *)&StringDType, &PyArray_UnicodeDType);
 
     PyArrayMethod_Spec *StringToUnicodeCastSpec = get_cast_spec(
             s2u_name, NPY_SAFE_CASTING, NPY_METH_NO_FLOATINGPOINT_ERRORS,
             s2u_dtypes, s2u_slots);
 
-    PyArray_DTypeMeta **s2b_dtypes = get_dtypes(this, &PyArray_BoolDType);
+    PyArray_DTypeMeta **s2b_dtypes =
+            get_dtypes((PyArray_DTypeMeta *)&StringDType, &PyArray_BoolDType);
 
     PyArrayMethod_Spec *StringToBoolCastSpec = get_cast_spec(
             s2b_name, NPY_UNSAFE_CASTING, NPY_METH_NO_FLOATINGPOINT_ERRORS,
             s2b_dtypes, s2b_slots);
 
-    PyArray_DTypeMeta **b2s_dtypes = get_dtypes(&PyArray_BoolDType, this);
+    PyArray_DTypeMeta **b2s_dtypes =
+            get_dtypes(&PyArray_BoolDType, (PyArray_DTypeMeta *)&StringDType);
 
     PyArrayMethod_Spec *BoolToStringCastSpec = get_cast_spec(
             b2s_name, NPY_SAFE_CASTING, NPY_METH_NO_FLOATINGPOINT_ERRORS,
@@ -1108,14 +1089,7 @@ get_casts(PyArray_DTypeMeta *this, PyArray_DTypeMeta *other)
     casts[cast_i++] = FloatToStringCastSpec;
     casts[cast_i++] = StringToHalfCastSpec;
     casts[cast_i++] = HalfToStringCastSpec;
-    if (is_pandas) {
-        casts[cast_i++] = ThisToOtherCastSpec;
-        casts[cast_i++] = OtherToThisCastSpec;
-        casts[cast_i++] = NULL;
-    }
-    else {
-        casts[cast_i++] = NULL;
-    }
+    casts[cast_i++] = NULL;
 
     assert(casts[num_casts] == NULL);
     assert(cast_i == num_casts + 1);

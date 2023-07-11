@@ -35,6 +35,6 @@ per-file-ignores = {"__init__.py" = ["F401"]}
 
 [tool.meson-python.args]
 dist = []
-setup = ["-Dbuildtype=debug"]
+setup = ["-Dbuildtype=debug", "-Db_ndebug=false"]
 compile = []
 install = []

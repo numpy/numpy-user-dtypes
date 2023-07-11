@@ -3,7 +3,3 @@
 
 class StringScalar(str):
     pass
-
-
-class PandasStringScalar(str):
-    pass

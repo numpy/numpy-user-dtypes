@@ -16,11 +16,11 @@
 
 typedef struct {
     PyArray_Descr base;
+    PyObject *na_object;
 } StringDTypeObject;
 
 typedef struct {
     PyArray_DTypeMeta base;
-    PyObject *na_object;
 } StringDType_type;
 
 extern StringDType_type StringDType;
@@ -31,7 +31,7 @@ extern PyObject *NA_OBJ;
 extern int PANDAS_AVAILABLE;
 
 PyObject *
-new_stringdtype_instance(PyTypeObject *cls);
+new_stringdtype_instance(PyObject *na_object);
 
 int
 init_string_dtype(void);
