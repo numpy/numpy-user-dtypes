@@ -5,7 +5,11 @@ import string
 import tempfile
 
 import numpy as np
-import pandas as pd
+
+try:
+    from pandas import NA as pd_NA
+except ImportError:
+    pd_NA = None
 import pytest
 
 from stringdtype import NA, StringDType, StringScalar, _memory_usage
@@ -16,8 +20,14 @@ def string_list():
     return ["abc", "def", "ghi", "A¢☃€ 😊", "Abc", "DEF"]
 
 
+pd_param = pytest.param(
+    pd_NA,
+    marks=pytest.mark.skipif(pd_NA is None, reason="pandas is not installed"),
+)
+
+
 @pytest.fixture(
-    params=[None, NA, pd.NA], ids=["None", "stringdtype.NA", "pandas.NA"]
+    params=[None, NA, pd_param], ids=["None", "stringdtype.NA", "pandas.NA"]
 )
 def dtype(request):
     return StringDType(na_object=request.param)
