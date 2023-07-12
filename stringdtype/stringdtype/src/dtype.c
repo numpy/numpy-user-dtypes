@@ -454,7 +454,8 @@ static PyMethodDef StringDType_methods[] = {
 
 static PyMemberDef StringDType_members[] = {
         {"na_object", T_OBJECT_EX, offsetof(StringDTypeObject, na_object),
-         READONLY, "the unit"},
+         READONLY,
+         "The missing value object associated with the dtype instance"},
         {NULL, 0, 0, 0, NULL},
 };
 
