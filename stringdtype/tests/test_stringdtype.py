@@ -7,17 +7,12 @@ import tempfile
 import numpy as np
 
 try:
-    import pandas
+    from pandas import NA as pd_NA
 except ImportError:
-    pandas = None
+    pd_NA = None
 import pytest
 
-from stringdtype import (
-    PandasStringScalar,
-    StringDType,
-    StringScalar,
-    _memory_usage,
-)
+from stringdtype import NA, StringDType, StringScalar, _memory_usage
 
 
 @pytest.fixture
@@ -25,33 +20,34 @@ def string_list():
     return ["abc", "def", "ghi", "A¢☃€ 😊", "Abc", "DEF"]
 
 
-@pytest.fixture(params=["StringDType", "PandasStringDType"])
+pd_param = pytest.param(
+    pd_NA,
+    marks=pytest.mark.skipif(pd_NA is None, reason="pandas is not installed"),
+)
+
+
+@pytest.fixture(
+    params=[None, NA, pd_param], ids=["None", "stringdtype.NA", "pandas.NA"]
+)
 def dtype(request):
-    if request.param == "StringDType":
-        return StringDType()
-    elif request.param == "PandasStringDType":
-        pytest.importorskip("pandas")
-        from stringdtype import PandasStringDType
-
-        return PandasStringDType()
+    return StringDType(na_object=request.param)
 
 
-@pytest.fixture
-def scalar(dtype):
-    if isinstance(dtype, StringDType):
-        return StringScalar
-    else:
-        return PandasStringScalar
-
-
-def test_scalar_creation(scalar):
-    assert str(scalar("abc")) == "abc"
+def test_scalar_creation():
+    assert str(StringScalar("abc")) == "abc"
 
 
 def test_dtype_equality(dtype):
     assert dtype == dtype
     assert dtype != np.dtype("U")
     assert dtype != np.dtype("U8")
+
+
+def test_dtype_repr(dtype):
+    if dtype.na_object is NA:
+        assert repr(dtype) == "StringDType()"
+    else:
+        assert repr(dtype) == f"StringDType(na_object={dtype.na_object})"
 
 
 @pytest.mark.parametrize(
@@ -68,11 +64,9 @@ def test_array_creation_utf8(dtype, data):
     assert repr(arr) == f"array({str(data)}, dtype={dtype})"
 
 
-def test_array_creation_scalars(string_list, scalar, dtype):
-    if not issubclass(scalar, dtype.type):
-        pytest.skip()
-    arr = np.array([scalar(s) for s in string_list])
-    assert repr(arr) == repr(np.array(string_list, dtype=dtype))
+def test_array_creation_scalars(string_list):
+    arr = np.array([StringScalar(s) for s in string_list])
+    assert repr(arr) == repr(np.array(string_list, dtype=StringDType()))
 
 
 @pytest.mark.parametrize(
@@ -118,7 +112,7 @@ def test_unicode_casts(dtype, strings):
     )
 
 
-def test_additional_unicode_cast(dtype, string_list):
+def test_additional_unicode_cast(dtype):
     RANDS_CHARS = np.array(
         list(string.ascii_letters + string.digits), dtype=(np.str_, 1)
     )
@@ -129,10 +123,10 @@ def test_additional_unicode_cast(dtype, string_list):
     np.testing.assert_array_equal(arr, arr.astype(dtype).astype("U10"))
 
 
-def test_insert_scalar(dtype, scalar, string_list):
+def test_insert_scalar(dtype, string_list):
     """Test that inserting a scalar works."""
     arr = np.array(string_list, dtype=dtype)
-    for scalar_instance in ["what", scalar("what")]:
+    for scalar_instance in ["what", StringScalar("what")]:
         arr[1] = scalar_instance
         np.testing.assert_array_equal(
             arr,
@@ -481,25 +475,3 @@ def test_create_with_na(dtype):
         == f"array(['hello', {dtype.na_object}, 'world'], dtype={dtype})"
     )
     assert arr[1] is dtype.na_object
-
-
-def test_pandas_to_numpy_cast(string_list):
-    pytest.importorskip("pandas")
-
-    from stringdtype import PandasStringDType
-
-    sarr = np.array(string_list, dtype=StringDType())
-
-    parr = sarr.astype(PandasStringDType())
-
-    np.testing.assert_array_equal(
-        parr, np.array(string_list, dtype=PandasStringDType())
-    )
-    np.testing.assert_array_equal(sarr, parr.astype(StringDType()))
-
-    # check that NA converts correctly too
-    sarr[1] = StringDType.na_object
-    parr = sarr.astype(PandasStringDType())
-
-    assert parr[1] is PandasStringDType.na_object
-    assert parr.astype(StringDType())[1] is StringDType.na_object
