@@ -14,60 +14,121 @@
 #include "umath.h"
 
 static NPY_CASTING
-multiply_resolve_descriptors(struct PyArrayMethodObject_tag *NPY_UNUSED(method),
-                             PyArray_DTypeMeta *NPY_UNUSED(dtypes[]),
-                             PyArray_Descr *given_descrs[],
-                             PyArray_Descr *loop_descrs[],
-                             npy_intp *NPY_UNUSED(view_offset))
+multiply_resolve_descriptors(
+        struct PyArrayMethodObject_tag *NPY_UNUSED(method),
+        PyArray_DTypeMeta *dtypes[], PyArray_Descr *given_descrs[],
+        PyArray_Descr *loop_descrs[], npy_intp *NPY_UNUSED(view_offset))
 {
-    Py_INCREF(given_descrs[0]);
-    loop_descrs[0] = given_descrs[0];
-    Py_INCREF(given_descrs[1]);
-    loop_descrs[1] = given_descrs[1];
-    Py_INCREF(given_descrs[0]);
-    loop_descrs[2] = given_descrs[0];
+    PyArray_Descr *ldescr = given_descrs[0];
+    PyArray_Descr *rdescr = given_descrs[1];
+    Py_INCREF(ldescr);
+    loop_descrs[0] = ldescr;
+    Py_INCREF(rdescr);
+    loop_descrs[1] = rdescr;
+
+    PyArray_Descr *odescr = NULL;
+
+    if (dtypes[0] == (PyArray_DTypeMeta *)&StringDType) {
+        odescr = ldescr;
+    }
+    else {
+        odescr = rdescr;
+    }
+
+    loop_descrs[2] = (PyArray_Descr *)new_stringdtype_instance(
+            ((StringDTypeObject *)odescr)->na_object);
 
     return NPY_NO_CASTING;
 }
 
-static int
-multiply_strided_loop(PyArrayMethod_Context *NPY_UNUSED(context),
-                      char *const data[], npy_intp const dimensions[],
-                      npy_intp const strides[],
-                      NpyAuxData *NPY_UNUSED(auxdata))
-{
-    npy_intp N = dimensions[0];
-    char *in1 = data[0];
-    char *in2 = data[1];
-    char *out = data[2];
-    npy_intp in1_stride = strides[0];
-    npy_intp in2_stride = strides[1];
-    npy_intp out_stride = strides[2];
-
-    ss *s1 = NULL, *os = NULL;
-
-    while (N--) {
-        s1 = (ss *)in1;
-        npy_int64 factor = *(npy_int64 *)in2;
-        os = (ss *)out;
-        npy_int64 newlen = (s1->len) * factor;
-
-        ssfree(os);
-        if (ssnewemptylen(newlen, os) < 0) {
-            return -1;
-        }
-
-        for (int i = 0; i < factor; i++) {
-            memcpy(os->buf + i * s1->len, s1->buf, s1->len);
-        }
-        os->buf[newlen] = '\0';
-
-        in1 += in1_stride;
-        in2 += in2_stride;
-        out += out_stride;
+#define MULTIPLY_IMPL(shortname)                                            \
+    static int multiply_loop_core_##shortname(                              \
+            npy_intp N, char *sin, char *iin, char *out, npy_intp s_stride, \
+            npy_intp i_stride, npy_intp o_stride)                           \
+    {                                                                       \
+        ss *is = NULL, *os = NULL;                                          \
+                                                                            \
+        while (N--) {                                                       \
+            is = (ss *)sin;                                                 \
+            npy_##shortname factor = *(npy_##shortname *)iin;               \
+            os = (ss *)out;                                                 \
+            size_t newlen = (size_t)((is->len) * factor);                   \
+                                                                            \
+            ssfree(os);                                                     \
+            if (ssnewemptylen(newlen, os) < 0) {                            \
+                return -1;                                                  \
+            }                                                               \
+                                                                            \
+            for (size_t i = 0; i < (size_t)factor; i++) {                   \
+                memcpy(os->buf + i * is->len, is->buf, is->len);            \
+            }                                                               \
+            os->buf[newlen] = '\0';                                         \
+                                                                            \
+            sin += s_stride;                                                \
+            iin += i_stride;                                                \
+            out += o_stride;                                                \
+        }                                                                   \
+        return 0;                                                           \
+    }                                                                       \
+                                                                            \
+    static int multiply_right_##shortname##_strided_loop(                   \
+            PyArrayMethod_Context *NPY_UNUSED(context), char *const data[], \
+            npy_intp const dimensions[], npy_intp const strides[],          \
+            NpyAuxData *NPY_UNUSED(auxdata))                                \
+    {                                                                       \
+        npy_intp N = dimensions[0];                                         \
+        char *in1 = data[0];                                                \
+        char *in2 = data[1];                                                \
+        char *out = data[2];                                                \
+        npy_intp in1_stride = strides[0];                                   \
+        npy_intp in2_stride = strides[1];                                   \
+        npy_intp out_stride = strides[2];                                   \
+                                                                            \
+        return multiply_loop_core_##shortname(N, in1, in2, out, in1_stride, \
+                                              in2_stride, out_stride);      \
+    }                                                                       \
+                                                                            \
+    static int multiply_left_##shortname##_strided_loop(                    \
+            PyArrayMethod_Context *NPY_UNUSED(context), char *const data[], \
+            npy_intp const dimensions[], npy_intp const strides[],          \
+            NpyAuxData *NPY_UNUSED(auxdata))                                \
+    {                                                                       \
+        npy_intp N = dimensions[0];                                         \
+        char *in1 = data[0];                                                \
+        char *in2 = data[1];                                                \
+        char *out = data[2];                                                \
+        npy_intp in1_stride = strides[0];                                   \
+        npy_intp in2_stride = strides[1];                                   \
+        npy_intp out_stride = strides[2];                                   \
+                                                                            \
+        return multiply_loop_core_##shortname(N, in2, in1, out, in2_stride, \
+                                              in1_stride, out_stride);      \
     }
-    return 0;
-}
+
+MULTIPLY_IMPL(int8);
+MULTIPLY_IMPL(int16);
+MULTIPLY_IMPL(int32);
+MULTIPLY_IMPL(int64);
+MULTIPLY_IMPL(uint8);
+MULTIPLY_IMPL(uint16);
+MULTIPLY_IMPL(uint32);
+MULTIPLY_IMPL(uint64);
+#if NPY_SIZEOF_BYTE == NPY_SIZEOF_SHORT
+MULTIPLY_IMPL(byte);
+MULTIPLY_IMPL(ubyte);
+#endif
+#if NPY_SIZEOF_SHORT == NPY_SIZEOF_INT
+MULTIPLY_IMPL(short);
+MULTIPLY_IMPL(ushort);
+#endif
+#if NPY_SIZEOF_INT == NPY_SIZEOF_LONG
+MULTIPLY_IMPL(long);
+MULTIPLY_IMPL(ulong);
+#endif
+#if NPY_SIZEOF_LONGLONG == NPY_SIZEOF_LONG
+MULTIPLY_IMPL(longlong);
+MULTIPLY_IMPL(ulonglong);
+#endif
 
 static NPY_CASTING
 binary_resolve_descriptors(struct PyArrayMethodObject_tag *NPY_UNUSED(method),
@@ -667,6 +728,29 @@ add_promoter(PyObject *numpy, const char *ufunc_name,
     return 0;
 }
 
+#define INIT_MULTIPLY(typename, shortname)                                 \
+    PyArray_DTypeMeta *multiply_right_##shortname##_types[] = {            \
+            (PyArray_DTypeMeta *)&StringDType, &PyArray_##typename##DType, \
+            (PyArray_DTypeMeta *)&StringDType};                            \
+                                                                           \
+    if (init_ufunc(numpy, "multiply", multiply_right_##shortname##_types,  \
+                   &multiply_resolve_descriptors,                          \
+                   &multiply_right_##shortname##_strided_loop,             \
+                   "string_multiply", 2, 1, NPY_NO_CASTING, 0) < 0) {      \
+        goto error;                                                        \
+    }                                                                      \
+                                                                           \
+    PyArray_DTypeMeta *multiply_left_##shortname##_types[] = {             \
+            &PyArray_##typename##DType, (PyArray_DTypeMeta *)&StringDType, \
+            (PyArray_DTypeMeta *)&StringDType};                            \
+                                                                           \
+    if (init_ufunc(numpy, "multiply", multiply_left_##shortname##_types,   \
+                   &multiply_resolve_descriptors,                          \
+                   &multiply_left_##shortname##_strided_loop,              \
+                   "string_multiply", 2, 1, NPY_NO_CASTING, 0) < 0) {      \
+        goto error;                                                        \
+    }
+
 int
 init_ufuncs(void)
 {
@@ -789,17 +873,30 @@ init_ufuncs(void)
         goto error;
     }
 
-    PyArray_DTypeMeta *multiply_types[] = {
-            (PyArray_DTypeMeta *)&StringDType,
-            &PyArray_Int64DType,
-            (PyArray_DTypeMeta *)&StringDType
-    };
-    
-    if (init_ufunc(numpy, "multiply", multiply_types,
-                   &multiply_resolve_descriptors, &multiply_strided_loop,
-                   "string_multiply", 2, 1, NPY_NO_CASTING, 0) < 0) {
-        goto error;
-    }
+    INIT_MULTIPLY(Int8, int8);
+    INIT_MULTIPLY(Int16, int16);
+    INIT_MULTIPLY(Int32, int32);
+    INIT_MULTIPLY(Int64, int64);
+    INIT_MULTIPLY(UInt8, uint8);
+    INIT_MULTIPLY(UInt16, uint16);
+    INIT_MULTIPLY(UInt32, uint32);
+    INIT_MULTIPLY(UInt64, uint64);
+#if NPY_SIZEOF_BYTE == NPY_SIZEOF_SHORT
+    INIT_MULTIPLY(Byte, byte);
+    INIT_MULTIPLY(UByte, ubyte);
+#endif
+#if NPY_SIZEOF_SHORT == NPY_SIZEOF_INT
+    INIT_MULTIPLY(Short, short);
+    INIT_MULTIPLY(UShort, ushort);
+#endif
+#if NPY_SIZEOF_INT == NPY_SIZEOF_LONG
+    INIT_MULTIPLY(Long, long);
+    INIT_MULTIPLY(ULong, ulong);
+#endif
+#if NPY_SIZEOF_LONGLONG == NPY_SIZEOF_LONG
+    INIT_MULTIPLY(LongLong, longlong);
+    INIT_MULTIPLY(ULongLong, ulonglong);
+#endif
 
     Py_DECREF(numpy);
     return 0;

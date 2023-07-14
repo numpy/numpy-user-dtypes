@@ -450,24 +450,60 @@ def test_ufuncs_minmax(dtype, string_list, ufunc, func):
 
 
 @pytest.mark.parametrize(
-    "ufunc,other,func",
+    "other_strings",
     [
-        ("add", "asdf", lambda arr, b: [x + b for x in arr]),
-        (
-            "add",
-            np.array(["a", "b", "c", "d", "e", "f"], dtype=StringDType()),
-            lambda arr1, arr2: [x + y for x, y in zip(arr1, arr2)],
-        ),
-        ("multiply", 3, lambda arr, b: [x * b for x in arr]),
+        ["abc", "def", "ghi", "🤣", "📵", "😰"],
+        ["🚜", "🙃", "😾", "😹", "🚠", "🚌"],
+        ["🥦", "¨", "⨯", "∰ ", "⨌ ", "⎶ "],
     ],
 )
-def test_binary_ufuncs(dtype, string_list, ufunc, other, func):
+def test_ufunc_add(dtype, string_list, other_strings):
+    arr1 = np.array(string_list, dtype=dtype)
+    arr2 = np.array(other_strings, dtype=dtype)
+    np.testing.assert_array_equal(
+        np.add(arr1, arr2),
+        np.array([a + b for a, b in zip(arr1, arr2)], dtype=dtype),
+    )
+
+
+@pytest.mark.parametrize("other", [2, [2, 1, 3, 4, 1, 3]])
+@pytest.mark.parametrize(
+    "other_dtype",
+    [
+        "int8",
+        "int16",
+        "int32",
+        "int64",
+        "uint8",
+        "uint16",
+        "uint32",
+        "uint64",
+        "short",
+        "int",
+        "intp",
+        "long",
+        "longlong",
+        "ushort",
+        "uint",
+        "uintp",
+        "ulong",
+        "ulonglong",
+    ],
+)
+def test_ufunc_multiply(dtype, string_list, other, other_dtype):
     """Test the two-argument ufuncs match python builtin behavior."""
     arr = np.array(string_list, dtype=StringDType())
-    np.testing.assert_array_equal(
-        getattr(np, ufunc)(arr, other),
-        np.array(func(string_list, other), dtype=StringDType()),
-    )
+    other_dtype = np.dtype(other_dtype)
+    try:
+        len(other)
+        result = [s * o for s, o in zip(string_list, other)]
+        other = np.array(other, dtype=other_dtype)
+    except TypeError:
+        other = other_dtype.type(other)
+        result = [s * other for s in string_list]
+
+    np.testing.assert_array_equal(arr * other, result)
+    np.testing.assert_array_equal(other * arr, result)
 
 
 def test_create_with_na(dtype):
