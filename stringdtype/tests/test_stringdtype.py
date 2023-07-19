@@ -466,6 +466,46 @@ def test_ufunc_add(dtype, string_list, other_strings):
     )
 
 
+@pytest.mark.parametrize("other", [2, [2, 1, 3, 4, 1, 3]])
+@pytest.mark.parametrize(
+    "other_dtype",
+    [
+        "int8",
+        "int16",
+        "int32",
+        "int64",
+        "uint8",
+        "uint16",
+        "uint32",
+        "uint64",
+        "short",
+        "int",
+        "intp",
+        "long",
+        "longlong",
+        "ushort",
+        "uint",
+        "uintp",
+        "ulong",
+        "ulonglong",
+    ],
+)
+def test_ufunc_multiply(dtype, string_list, other, other_dtype):
+    """Test the two-argument ufuncs match python builtin behavior."""
+    arr = np.array(string_list, dtype=StringDType())
+    other_dtype = np.dtype(other_dtype)
+    try:
+        len(other)
+        result = [s * o for s, o in zip(string_list, other)]
+        other = np.array(other, dtype=other_dtype)
+    except TypeError:
+        other = other_dtype.type(other)
+        result = [s * other for s in string_list]
+
+    np.testing.assert_array_equal(arr * other, result)
+    np.testing.assert_array_equal(other * arr, result)
+
+
 def test_create_with_na(dtype):
     na_val = dtype.na_object
     string_list = ["hello", na_val, "world"]
