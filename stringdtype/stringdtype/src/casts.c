@@ -826,39 +826,39 @@ string_to_pyfloat(char *in)
         return NPY_UNSAFE_CASTING;                                         \
     }
 
-#define FLOAT_TO_STRING_CAST(typename, shortname, float_to_double)          \
-    static int typename##_to_string(                                        \
-            PyArrayMethod_Context *NPY_UNUSED(context), char *const data[], \
-            npy_intp const dimensions[], npy_intp const strides[],          \
-            NpyAuxData *NPY_UNUSED(auxdata))                                \
-    {                                                                       \
-        npy_intp N = dimensions[0];                                         \
-        npy_##typename *in = (npy_##typename *)data[0];                     \
-        char *out = data[1];                                                \
-                                                                            \
-        npy_intp in_stride = strides[0] / sizeof(npy_##typename);           \
-        npy_intp out_stride = strides[1];                                   \
-                                                                            \
-        while (N--) {                                                       \
-            PyObject *pyfloat_val =                                         \
-                    PyFloat_FromDouble((float_to_double)(*in));             \
-            if (pyobj_to_string(pyfloat_val, out) == -1) {                  \
-                return -1;                                                  \
-            }                                                               \
-                                                                            \
-            in += in_stride;                                                \
-            out += out_stride;                                              \
-        }                                                                   \
-                                                                            \
-        return 0;                                                           \
-    }                                                                       \
-                                                                            \
-    static PyType_Slot shortname##2s_slots [] = {                           \
-            {NPY_METH_resolve_descriptors,                                  \
-             &any_to_string_UNSAFE_resolve_descriptors},                    \
-            {NPY_METH_strided_loop, &typename##_to_string},                 \
-            {0, NULL}};                                                     \
-                                                                            \
+#define FLOAT_TO_STRING_CAST(typename, shortname, float_to_double)        \
+    static int typename##_to_string(                                      \
+            PyArrayMethod_Context *context, char *const data[],           \
+            npy_intp const dimensions[], npy_intp const strides[],        \
+            NpyAuxData *NPY_UNUSED(auxdata))                              \
+    {                                                                     \
+        npy_intp N = dimensions[0];                                       \
+        npy_##typename *in = (npy_##typename *)data[0];                   \
+        char *out = data[1];                                              \
+        PyArray_Descr *float_descr = context->descriptors[0];             \
+                                                                          \
+        npy_intp in_stride = strides[0] / sizeof(npy_##typename);         \
+        npy_intp out_stride = strides[1];                                 \
+                                                                          \
+        while (N--) {                                                     \
+            PyObject *scalar_val = PyArray_Scalar(in, float_descr, NULL); \
+            if (pyobj_to_string(scalar_val, out) == -1) {                 \
+                return -1;                                                \
+            }                                                             \
+                                                                          \
+            in += in_stride;                                              \
+            out += out_stride;                                            \
+        }                                                                 \
+                                                                          \
+        return 0;                                                         \
+    }                                                                     \
+                                                                          \
+    static PyType_Slot shortname##2s_slots [] = {                         \
+            {NPY_METH_resolve_descriptors,                                \
+             &any_to_string_UNSAFE_resolve_descriptors},                  \
+            {NPY_METH_strided_loop, &typename##_to_string},               \
+            {0, NULL}};                                                   \
+                                                                          \
     static char *shortname##2s_name = "cast_" #typename "_to_StringDType";
 
 STRING_TO_FLOAT_RESOLVE_DESCRIPTORS(float64, DOUBLE)

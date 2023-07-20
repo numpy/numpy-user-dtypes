@@ -420,6 +420,12 @@ def test_float_casts(dtype, typename):
     res = np.array(inp, dtype=typename).astype(dtype).astype(typename)
     np.testing.assert_array_equal(eres, res)
 
+    inp = [0.1]
+    sres = np.array(inp, dtype=typename).astype(dtype)
+    res = sres.astype(typename)
+    np.testing.assert_array_equal(np.array(inp, dtype=typename), res)
+    assert sres[0] == "0.1"
+
 
 def test_take(dtype, string_list):
     sarr = np.array(string_list, dtype=dtype)
