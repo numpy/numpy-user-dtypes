@@ -1012,23 +1012,25 @@ datetime_to_string(PyArrayMethod_Context *context, char *const data[],
             /* convert to NA */
             out_ss = NULL;
         }
-        if (NpyDatetime_ConvertDatetime64ToDatetimeStruct(dt_meta, *in, &dts) <
-            0) {
-            return -1;
-        }
+        else {
+            if (NpyDatetime_ConvertDatetime64ToDatetimeStruct(dt_meta, *in,
+                                                              &dts) < 0) {
+                return -1;
+            }
 
-        // zero out buffer
-        memset(datetime_buf, 0, NPY_DATETIME_MAX_ISO8601_STRLEN);
+            // zero out buffer
+            memset(datetime_buf, 0, NPY_DATETIME_MAX_ISO8601_STRLEN);
 
-        if (NpyDatetime_MakeISO8601Datetime(
-                    &dts, datetime_buf, NPY_DATETIME_MAX_ISO8601_STRLEN, 0, 0,
-                    dt_meta->base, -1, NPY_UNSAFE_CASTING) < 0) {
-            return -1;
-        }
+            if (NpyDatetime_MakeISO8601Datetime(
+                        &dts, datetime_buf, NPY_DATETIME_MAX_ISO8601_STRLEN, 0,
+                        0, dt_meta->base, -1, NPY_UNSAFE_CASTING) < 0) {
+                return -1;
+            }
 
-        if (ssnewlen(datetime_buf, strlen(datetime_buf), out_ss) < 0) {
-            PyErr_SetString(PyExc_MemoryError, "ssnewlen failed");
-            return -1;
+            if (ssnewlen(datetime_buf, strlen(datetime_buf), out_ss) < 0) {
+                PyErr_SetString(PyExc_MemoryError, "ssnewlen failed");
+                return -1;
+            }
         }
 
         in += in_stride;

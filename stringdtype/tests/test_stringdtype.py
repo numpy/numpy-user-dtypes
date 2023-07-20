@@ -523,13 +523,21 @@ def test_datetime_cast(dtype):
             np.datetime64("1923-04-14T12:43:12"),
             np.datetime64("1994-06-21T14:43:15"),
             np.datetime64("2001-10-15T04:10:32"),
+            np.datetime64("NaT"),
             np.datetime64("1995-11-25T16:02:16"),
             np.datetime64("2005-01-04T03:14:12"),
             np.datetime64("2041-12-03T14:05:03"),
         ]
     )
     sa = a.astype(dtype)
+    assert sa[3] is dtype.na_object
+
     ra = sa.astype(a.dtype)
+    assert np.isnat(ra[3])
 
     np.testing.assert_array_equal(a, ra)
+
+    # don't worry about comparing how NaT is converted
+    sa = np.delete(sa, 3)
+    a = np.delete(a, 3)
     np.testing.assert_array_equal(sa, a.astype("U"))
