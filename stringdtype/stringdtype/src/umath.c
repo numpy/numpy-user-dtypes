@@ -26,17 +26,17 @@ multiply_resolve_descriptors(
     Py_INCREF(rdescr);
     loop_descrs[1] = rdescr;
 
-    PyArray_Descr *odescr = NULL;
+    StringDTypeObject *odescr = NULL;
 
     if (dtypes[0] == (PyArray_DTypeMeta *)&StringDType) {
-        odescr = ldescr;
+        odescr = (StringDTypeObject *)ldescr;
     }
     else {
-        odescr = rdescr;
+        odescr = (StringDTypeObject *)rdescr;
     }
 
     loop_descrs[2] = (PyArray_Descr *)new_stringdtype_instance(
-            ((StringDTypeObject *)odescr)->na_object);
+            odescr->na_object, odescr->coerce);
 
     return NPY_NO_CASTING;
 }
