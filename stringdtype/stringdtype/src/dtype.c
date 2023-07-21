@@ -483,9 +483,8 @@ static PyMemberDef StringDType_members[] = {
 static PyObject *
 StringDType_richcompare(PyObject *self, PyObject *other, int op)
 {
-    // this isn't very friendly to subclasses
     if (!((op == Py_EQ) || (op == Py_NE)) ||
-        (Py_TYPE(other) != (PyTypeObject *)&StringDType)) {
+        (Py_TYPE(other) != Py_TYPE(self))) {
         Py_INCREF(Py_NotImplemented);
         return Py_NotImplemented;
     }
