@@ -487,6 +487,7 @@ StringDType_richcompare(PyObject *self, PyObject *other, int op)
     PyTypeObject *otype = Py_TYPE(other);
 
     if (stype != otype) {
+        Py_INCREF(Py_NotImplemented);
         return Py_NotImplemented;
     }
 
@@ -508,6 +509,7 @@ StringDType_richcompare(PyObject *self, PyObject *other, int op)
         return Py_True;
     }
 
+    Py_INCREF(Py_NotImplemented);
     return Py_NotImplemented;
 }
 
