@@ -1,7 +1,8 @@
 #include <Python.h>
 
 #define PY_ARRAY_UNIQUE_SYMBOL stringdtype_ARRAY_API
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
+#define NPY_TARGET_VERSION NPY_2_0_API_VERSION
 #include "numpy/arrayobject.h"
 #include "numpy/experimental_dtype_api.h"
 
@@ -88,9 +89,8 @@ static struct PyModuleDef moduledef = {
 PyMODINIT_FUNC
 PyInit__main(void)
 {
-    if (_import_array() < 0) {
-        return NULL;
-    }
+    import_array();
+
     if (import_experimental_dtype_api(13) < 0) {
         return NULL;
     }

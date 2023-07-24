@@ -907,6 +907,147 @@ STRING_TO_FLOAT_RESOLVE_DESCRIPTORS(float16, HALF)
 STRING_TO_FLOAT_CAST(float16, f16, npy_half_isinf, npy_double_to_half)
 FLOAT_TO_STRING_CAST(float16, f16, npy_half_to_double)
 
+// string to datetime
+
+static NPY_CASTING
+string_to_datetime_resolve_descriptors(
+        PyObject *NPY_UNUSED(self), PyArray_DTypeMeta *NPY_UNUSED(dtypes[2]),
+        PyArray_Descr *given_descrs[2], PyArray_Descr *loop_descrs[2],
+        npy_intp *NPY_UNUSED(view_offset))
+{
+    if (given_descrs[1] == NULL) {
+        PyErr_SetString(PyExc_TypeError,
+                        "Casting from StringDType to datetimes without a unit "
+                        "is not currently supported");
+        return (NPY_CASTING)-1;
+    }
+    else {
+        Py_INCREF(given_descrs[1]);
+        loop_descrs[1] = given_descrs[1];
+    }
+
+    Py_INCREF(given_descrs[0]);
+    loop_descrs[0] = given_descrs[0];
+
+    return NPY_UNSAFE_CASTING;
+}
+
+static int
+string_to_datetime(PyArrayMethod_Context *context, char *const data[],
+                   npy_intp const dimensions[], npy_intp const strides[],
+                   NpyAuxData *NPY_UNUSED(auxdata))
+{
+    npy_intp N = dimensions[0];
+    char *in = data[0];
+    npy_datetime *out = (npy_datetime *)data[1];
+
+    npy_intp in_stride = strides[0];
+    npy_intp out_stride = strides[1] / sizeof(npy_datetime);
+
+    ss *s = NULL;
+    npy_datetimestruct dts;
+    NPY_DATETIMEUNIT in_unit = -1;
+    PyArray_DatetimeMetaData in_meta = {0, 1};
+    npy_bool out_special;
+
+    PyArray_Descr *dt_descr = context->descriptors[1];
+    PyArray_DatetimeMetaData *dt_meta =
+            &(((PyArray_DatetimeDTypeMetaData *)dt_descr->c_metadata)->meta);
+
+    while (N--) {
+        s = (ss *)in;
+        if (ss_isnull(s)) {
+            *out = NPY_DATETIME_NAT;
+        }
+        if (NpyDatetime_ParseISO8601Datetime(
+                    (const char *)s->buf, s->len, in_unit, NPY_UNSAFE_CASTING,
+                    &dts, &in_meta.base, &out_special) < 0) {
+            return -1;
+        }
+        if (NpyDatetime_ConvertDatetimeStructToDatetime64(dt_meta, &dts, out) <
+            0) {
+            return -1;
+        }
+
+        in += in_stride;
+        out += out_stride;
+    }
+
+    return 0;
+}
+
+static PyType_Slot s2dt_slots[] = {
+        {NPY_METH_resolve_descriptors,
+         &string_to_datetime_resolve_descriptors},
+        {NPY_METH_strided_loop, &string_to_datetime},
+        {0, NULL}};
+
+static char *s2dt_name = "cast_StringDType_to_Datetime";
+
+// datetime to string
+
+static int
+datetime_to_string(PyArrayMethod_Context *context, char *const data[],
+                   npy_intp const dimensions[], npy_intp const strides[],
+                   NpyAuxData *NPY_UNUSED(auxdata))
+{
+    npy_intp N = dimensions[0];
+    npy_datetime *in = (npy_datetime *)data[0];
+    char *out = data[1];
+
+    npy_intp in_stride = strides[0] / sizeof(npy_datetime);
+    npy_intp out_stride = strides[1];
+
+    npy_datetimestruct dts;
+    PyArray_Descr *dt_descr = context->descriptors[0];
+    PyArray_DatetimeMetaData *dt_meta =
+            &(((PyArray_DatetimeDTypeMetaData *)dt_descr->c_metadata)->meta);
+    // buffer passed to numpy to build datetime string
+    char datetime_buf[NPY_DATETIME_MAX_ISO8601_STRLEN];
+
+    while (N--) {
+        ss *out_ss = (ss *)out;
+        ssfree(out_ss);
+        if (*in == NPY_DATETIME_NAT) {
+            /* convert to NA */
+            out_ss = NULL;
+        }
+        else {
+            if (NpyDatetime_ConvertDatetime64ToDatetimeStruct(dt_meta, *in,
+                                                              &dts) < 0) {
+                return -1;
+            }
+
+            // zero out buffer
+            memset(datetime_buf, 0, NPY_DATETIME_MAX_ISO8601_STRLEN);
+
+            if (NpyDatetime_MakeISO8601Datetime(
+                        &dts, datetime_buf, NPY_DATETIME_MAX_ISO8601_STRLEN, 0,
+                        0, dt_meta->base, -1, NPY_UNSAFE_CASTING) < 0) {
+                return -1;
+            }
+
+            if (ssnewlen(datetime_buf, strlen(datetime_buf), out_ss) < 0) {
+                PyErr_SetString(PyExc_MemoryError, "ssnewlen failed");
+                return -1;
+            }
+        }
+
+        in += in_stride;
+        out += out_stride;
+    }
+
+    return 0;
+}
+
+static PyType_Slot dt2s_slots[] = {
+        {NPY_METH_resolve_descriptors,
+         &any_to_string_UNSAFE_resolve_descriptors},
+        {NPY_METH_strided_loop, &datetime_to_string},
+        {0, NULL}};
+
+static char *dt2s_name = "cast_Datetime_to_StringDType";
+
 // TODO: longdouble
 //        punting on this one because numpy's C routines for handling
 //        longdouble are not public (specifically NumPyOS_ascii_strtold)
@@ -914,10 +1055,6 @@ FLOAT_TO_STRING_CAST(float16, f16, npy_half_to_double)
 //
 //       cfloat, cdouble, and clongdouble
 //        not hard to do in principle but not needed by pandas.
-//
-//       datetime
-//        numpy's utilities for parsing a string into a datetime
-//        are not public (specifically parse_iso_8601_datetime).
 
 PyArrayMethod_Spec *
 get_cast_spec(const char *name, NPY_CASTING casting,
@@ -961,7 +1098,7 @@ get_casts()
             get_cast_spec(t2t_name, NPY_NO_CASTING,
                           NPY_METH_SUPPORTS_UNALIGNED, t2t_dtypes, s2s_slots);
 
-    int num_casts = 27;
+    int num_casts = 29;
 
 #if NPY_SIZEOF_BYTE == NPY_SIZEOF_SHORT
     num_casts += 4;
@@ -1033,6 +1170,22 @@ get_casts()
     DTYPES_AND_CAST_SPEC(f32, Float)
     DTYPES_AND_CAST_SPEC(f16, Half)
 
+    PyArray_DTypeMeta **s2dt_dtypes = get_dtypes(
+            (PyArray_DTypeMeta *)&StringDType, &PyArray_DatetimeDType);
+
+    PyArrayMethod_Spec *StringToDatetimeCastSpec = get_cast_spec(
+            s2dt_name, NPY_UNSAFE_CASTING,
+            NPY_METH_NO_FLOATINGPOINT_ERRORS | NPY_METH_REQUIRES_PYAPI,
+            s2dt_dtypes, s2dt_slots);
+
+    PyArray_DTypeMeta **dt2s_dtypes = get_dtypes(
+            &PyArray_DatetimeDType, (PyArray_DTypeMeta *)&StringDType);
+
+    PyArrayMethod_Spec *DatetimeToStringCastSpec = get_cast_spec(
+            dt2s_name, NPY_UNSAFE_CASTING,
+            NPY_METH_NO_FLOATINGPOINT_ERRORS | NPY_METH_REQUIRES_PYAPI,
+            dt2s_dtypes, dt2s_slots);
+
     PyArrayMethod_Spec **casts =
             malloc((num_casts + 1) * sizeof(PyArrayMethod_Spec *));
 
@@ -1089,6 +1242,8 @@ get_casts()
     casts[cast_i++] = FloatToStringCastSpec;
     casts[cast_i++] = StringToHalfCastSpec;
     casts[cast_i++] = HalfToStringCastSpec;
+    casts[cast_i++] = StringToDatetimeCastSpec;
+    casts[cast_i++] = DatetimeToStringCastSpec;
     casts[cast_i++] = NULL;
 
     assert(casts[num_casts] == NULL);
