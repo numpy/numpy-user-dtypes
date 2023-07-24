@@ -11,7 +11,7 @@ PyObject *NA_OBJ = NULL;
  * Internal helper to create new instances
  */
 PyObject *
-new_stringdtype_instance(PyObject *na_object)
+new_stringdtype_instance(PyObject *na_object, int coerce)
 {
     PyObject *new =
             PyArrayDescr_Type.tp_new((PyTypeObject *)&StringDType, NULL, NULL);
@@ -22,6 +22,7 @@ new_stringdtype_instance(PyObject *na_object)
 
     Py_INCREF(na_object);
     ((StringDTypeObject *)new)->na_object = na_object;
+    ((StringDTypeObject *)new)->coerce = coerce;
 
     PyArray_Descr *base = (PyArray_Descr *)new;
     base->elsize = sizeof(ss);
@@ -67,22 +68,31 @@ common_dtype(PyArray_DTypeMeta *cls, PyArray_DTypeMeta *other)
 }
 
 // returns a new reference to the string "value" of
-// `scalar`. If scalar is not already a string, __str__
-// is called to convert it to a string. If the scalar
-// is the na_object for the dtype class, return
-// a new reference to the na_object.
+// `scalar`. If scalar is not already a string and
+// coerce is nonzero, __str__ is called to convert it
+// to a string. If coerce is zero, raises an error for
+// non-string or non-NA input. If the scalar is the
+// na_object for the dtype class, return a new
+// reference to the na_object.
 
 static PyObject *
-get_value(PyObject *scalar)
+get_value(PyObject *scalar, int coerce)
 {
     PyTypeObject *scalar_type = Py_TYPE(scalar);
     if (!((scalar_type == &PyUnicode_Type) ||
           (scalar_type == StringScalar_Type))) {
-        // attempt to coerce to str
-        scalar = PyObject_Str(scalar);
-        if (scalar == NULL) {
-            // __str__ raised an exception
+        if (coerce == 0) {
+            PyErr_SetString(PyExc_ValueError,
+                            "StringDType only allows string data");
             return NULL;
+        }
+        else {
+            // attempt to coerce to str
+            scalar = PyObject_Str(scalar);
+            if (scalar == NULL) {
+                // __str__ raised an exception
+                return NULL;
+            }
         }
     }
     // attempt to decode as UTF8
@@ -93,12 +103,12 @@ static PyArray_Descr *
 string_discover_descriptor_from_pyobject(PyTypeObject *NPY_UNUSED(cls),
                                          PyObject *obj)
 {
-    PyObject *val = get_value(obj);
+    PyObject *val = get_value(obj, 1);
     if (val == NULL) {
         return NULL;
     }
 
-    PyArray_Descr *ret = (PyArray_Descr *)new_stringdtype_instance(NA_OBJ);
+    PyArray_Descr *ret = (PyArray_Descr *)new_stringdtype_instance(NA_OBJ, 1);
     if (ret == NULL) {
         return NULL;
     }
@@ -126,7 +136,7 @@ stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
         // so it already contains a NA value
     }
     else {
-        PyObject *val_obj = get_value(obj);
+        PyObject *val_obj = get_value(obj, descr->coerce);
 
         if (val_obj == NULL) {
             return -1;
@@ -334,13 +344,15 @@ static PyType_Slot StringDType_Slots[] = {
 static PyObject *
 stringdtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwds)
 {
-    static char *kwargs_strs[] = {"size", "na_object", NULL};
+    static char *kwargs_strs[] = {"size", "na_object", "coerce", NULL};
 
     long size = 0;
     PyObject *na_object = NULL;
+    int coerce = 1;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|lO:StringDType",
-                                     kwargs_strs, &size, &na_object)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|lOp:StringDType",
+                                     kwargs_strs, &size, &na_object,
+                                     &coerce)) {
         return NULL;
     }
 
@@ -348,7 +360,7 @@ stringdtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwds)
         na_object = NA_OBJ;
     }
 
-    PyObject *ret = new_stringdtype_instance(na_object);
+    PyObject *ret = new_stringdtype_instance(na_object, coerce);
 
     return ret;
 }
@@ -365,11 +377,18 @@ stringdtype_repr(StringDTypeObject *self)
     PyObject *ret = NULL;
     // borrow reference
     PyObject *na_object = self->na_object;
+    int coerce = self->coerce;
 
     // TODO: handle non-default NA
-    if (na_object != NA_OBJ) {
-        ret = PyUnicode_FromFormat("StringDType(na_object=%R)",
-                                   self->na_object);
+    if (na_object != NA_OBJ && coerce == 0) {
+        ret = PyUnicode_FromFormat("StringDType(na_object=%R, coerce=False)",
+                                   na_object);
+    }
+    else if (na_object != NA_OBJ) {
+        ret = PyUnicode_FromFormat("StringDType(na_object=%R)", na_object);
+    }
+    else if (coerce == 0) {
+        ret = PyUnicode_FromFormat("StringDType(coerce=False)", coerce);
     }
     else {
         ret = PyUnicode_FromString("StringDType()");
@@ -378,7 +397,7 @@ stringdtype_repr(StringDTypeObject *self)
     return ret;
 }
 
-static int PICKLE_VERSION = 1;
+static int PICKLE_VERSION = 2;
 
 static PyObject *
 stringdtype__reduce__(StringDTypeObject *self)
@@ -405,9 +424,9 @@ stringdtype__reduce__(StringDTypeObject *self)
 
     PyTuple_SET_ITEM(ret, 0, obj);
 
-    PyTuple_SET_ITEM(
-            ret, 1,
-            Py_BuildValue("(NO)", PyLong_FromLong(0), self->na_object));
+    PyTuple_SET_ITEM(ret, 1,
+                     Py_BuildValue("(NOi)", PyLong_FromLong(0),
+                                   self->na_object, self->coerce));
 
     PyTuple_SET_ITEM(ret, 2, Py_BuildValue("(l)", PICKLE_VERSION));
 
@@ -456,8 +475,38 @@ static PyMemberDef StringDType_members[] = {
         {"na_object", T_OBJECT_EX, offsetof(StringDTypeObject, na_object),
          READONLY,
          "The missing value object associated with the dtype instance"},
+        {"coerce", T_INT, offsetof(StringDTypeObject, coerce), READONLY,
+         "Controls hether non-string values should be coerced to string"},
         {NULL, 0, 0, 0, NULL},
 };
+
+static PyObject *
+StringDType_richcompare(PyObject *self, PyObject *other, int op)
+{
+    if (!((op == Py_EQ) || (op == Py_NE)) ||
+        (Py_TYPE(other) != Py_TYPE(self))) {
+        Py_INCREF(Py_NotImplemented);
+        return Py_NotImplemented;
+    }
+
+    // we know both are instances of StringDType so this is safe
+    StringDTypeObject *sself = (StringDTypeObject *)self;
+    StringDTypeObject *sother = (StringDTypeObject *)other;
+
+    int eq = (sself->na_object == sother->na_object) &&
+             (sself->coerce == sother->coerce);
+
+    PyObject *ret = Py_NotImplemented;
+    if ((op == Py_EQ && eq) || (op == Py_NE && !eq)) {
+        ret = Py_True;
+    }
+    else {
+        ret = Py_False;
+    }
+
+    Py_INCREF(ret);
+    return ret;
+}
 
 /*
  * This is the basic things that you need to create a Python Type/Class in C.
@@ -476,6 +525,7 @@ StringDType_type StringDType = {
                 .tp_str = (reprfunc)stringdtype_repr,
                 .tp_methods = StringDType_methods,
                 .tp_members = StringDType_members,
+                .tp_richcompare = StringDType_richcompare,
         }}},
         /* rest, filled in during DTypeMeta initialization */
 };

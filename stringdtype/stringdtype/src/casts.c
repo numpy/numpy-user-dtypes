@@ -21,7 +21,7 @@ gil_error(PyObject *type, const char *msg)
     {                                                                      \
         if (given_descrs[1] == NULL) {                                     \
             PyArray_Descr *new =                                           \
-                    (PyArray_Descr *)new_stringdtype_instance(NA_OBJ);     \
+                    (PyArray_Descr *)new_stringdtype_instance(NA_OBJ, 0);  \
             if (new == NULL) {                                             \
                 return (NPY_CASTING)-1;                                    \
             }                                                              \

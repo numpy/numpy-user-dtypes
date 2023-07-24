@@ -26,11 +26,35 @@ pd_param = pytest.param(
 )
 
 
+@pytest.fixture(params=[True, False])
+def coerce(request):
+    return request.param
+
+
 @pytest.fixture(
     params=[None, NA, pd_param], ids=["None", "stringdtype.NA", "pandas.NA"]
 )
-def dtype(request):
-    return StringDType(na_object=request.param)
+def na_object(request):
+    return request.param
+
+
+@pytest.fixture()
+def dtype(na_object, coerce):
+    return StringDType(na_object=na_object, coerce=coerce)
+
+
+def test_dtype_creation():
+    dt = StringDType()
+    assert dt.na_object is NA and dt.coerce == 1
+
+    dt = StringDType(na_object=None)
+    assert dt.na_object is None and dt.coerce == 1
+
+    dt = StringDType(coerce=False)
+    assert dt.na_object is NA and dt.coerce == 0
+
+    dt = StringDType(na_object=None, coerce=False)
+    assert dt.na_object is None and dt.coerce == 0
 
 
 def test_scalar_creation():
@@ -44,10 +68,17 @@ def test_dtype_equality(dtype):
 
 
 def test_dtype_repr(dtype):
-    if dtype.na_object is NA:
+    if dtype.na_object is NA and dtype.coerce == 1:
         assert repr(dtype) == "StringDType()"
-    else:
+    elif dtype.coerce == 1:
         assert repr(dtype) == f"StringDType(na_object={dtype.na_object})"
+    elif dtype.na_object is NA:
+        assert repr(dtype) == "StringDType(coerce=False)"
+    else:
+        assert (
+            repr(dtype)
+            == f"StringDType(na_object={dtype.na_object}, coerce=False)"
+        )
 
 
 @pytest.mark.parametrize(
@@ -61,12 +92,17 @@ def test_dtype_repr(dtype):
 )
 def test_array_creation_utf8(dtype, data):
     arr = np.array(data, dtype=dtype)
-    assert repr(arr) == f"array({str(data)}, dtype={dtype})"
+    assert str(arr) == "[" + " ".join(["'" + str(d) + "'" for d in data]) + "]"
+    assert arr.dtype == dtype
 
 
 def test_array_creation_scalars(string_list):
     arr = np.array([StringScalar(s) for s in string_list])
-    assert repr(arr) == repr(np.array(string_list, dtype=StringDType()))
+    assert (
+        str(arr)
+        == "[" + " ".join(["'" + str(s) + "'" for s in string_list]) + "]"
+    )
+    assert arr.dtype == StringDType()
 
 
 @pytest.mark.parametrize(
@@ -77,11 +113,15 @@ def test_array_creation_scalars(string_list):
         [object, object, object],
     ],
 )
-def test_scalars_string_conversion(data):
-    np.testing.assert_array_equal(
-        np.array(data, dtype=StringDType()),
-        np.array([str(d) for d in data], dtype=StringDType()),
-    )
+def test_scalars_string_conversion(data, dtype):
+    if dtype.coerce != 0:
+        np.testing.assert_array_equal(
+            np.array(data, dtype=dtype),
+            np.array([str(d) for d in data], dtype=dtype),
+        )
+    else:
+        with pytest.raises(ValueError):
+            np.array(data, dtype=dtype)
 
 
 @pytest.mark.parametrize(
@@ -516,10 +556,7 @@ def test_create_with_na(dtype):
     na_val = dtype.na_object
     string_list = ["hello", na_val, "world"]
     arr = np.array(string_list, dtype=dtype)
-    assert (
-        repr(arr)
-        == f"array(['hello', {dtype.na_object}, 'world'], dtype={dtype})"
-    )
+    assert str(arr) == "[" + " ".join([repr(s) for s in string_list]) + "]"
     assert arr[1] is dtype.na_object
 
 
