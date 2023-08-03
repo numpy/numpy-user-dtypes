@@ -12,7 +12,7 @@ except ImportError:
     pd_NA = None
 import pytest
 
-from stringdtype import NA, StringDType, StringScalar, _memory_usage
+from stringdtype import StringDType, StringScalar, _memory_usage
 
 
 @pytest.fixture
@@ -32,7 +32,7 @@ def coerce(request):
 
 
 @pytest.fixture(
-    params=[None, NA, pd_param], ids=["None", "stringdtype.NA", "pandas.NA"]
+    params=["unset", None, pd_param], ids=["unset", "None", "pandas.NA"]
 )
 def na_object(request):
     return request.param
@@ -40,18 +40,21 @@ def na_object(request):
 
 @pytest.fixture()
 def dtype(na_object, coerce):
-    return StringDType(na_object=na_object, coerce=coerce)
+    if na_object is pd_NA or na_object != "unset":
+        return StringDType(na_object=na_object, coerce=coerce)
+    else:
+        return StringDType(coerce=coerce)
 
 
 def test_dtype_creation():
     dt = StringDType()
-    assert dt.na_object is NA and dt.coerce == 1
+    assert not hasattr(dt, "na_object") and dt.coerce == 1
 
     dt = StringDType(na_object=None)
     assert dt.na_object is None and dt.coerce == 1
 
     dt = StringDType(coerce=False)
-    assert dt.na_object is NA and dt.coerce == 0
+    assert not hasattr(dt, "na_object") and dt.coerce == 0
 
     dt = StringDType(na_object=None, coerce=False)
     assert dt.na_object is None and dt.coerce == 0
@@ -68,11 +71,11 @@ def test_dtype_equality(dtype):
 
 
 def test_dtype_repr(dtype):
-    if dtype.na_object is NA and dtype.coerce == 1:
+    if not hasattr(dtype, "na_object") and dtype.coerce == 1:
         assert repr(dtype) == "StringDType()"
     elif dtype.coerce == 1:
         assert repr(dtype) == f"StringDType(na_object={dtype.na_object})"
-    elif dtype.na_object is NA:
+    elif not hasattr(dtype, "na_object"):
         assert repr(dtype) == "StringDType(coerce=False)"
     else:
         assert (
@@ -227,6 +230,8 @@ def test_comparisons(string_list, dtype, op, o_dtype):
 
 
 def test_isnan(dtype, string_list):
+    if not hasattr(dtype, "na_object"):
+        pytest.skip("no na support")
     sarr = np.array(string_list + [dtype.na_object], dtype=dtype)
     np.testing.assert_array_equal(
         np.isnan(sarr), np.array([0] * len(string_list) + [1], dtype=np.bool_)
@@ -301,6 +306,9 @@ def test_sort(dtype, strings):
     arr_sorted = np.array(sorted(strings), dtype=dtype)
     test_sort(strings, arr_sorted)
 
+    if not hasattr(dtype, "na_object"):
+        return
+
     # make sure NAs get sorted to the end of the array
     strings.insert(0, dtype.na_object)
     strings.insert(2, dtype.na_object)
@@ -332,9 +340,12 @@ def test_creation_functions(dtype):
 
     assert np.zeros(3, dtype=dtype)[0] == ""
 
-    assert np.all(np.isnan(np.empty(3, dtype=dtype)))
-
-    assert np.empty(3, dtype=dtype)[0] is dtype.na_object
+    if hasattr(dtype, "na_object"):
+        assert np.all(np.isnan(np.empty(3, dtype=dtype)))
+        assert np.empty(3, dtype=dtype)[0] is dtype.na_object
+    else:
+        np.testing.assert_array_equal(np.empty(3, dtype=dtype), ["", "", ""])
+        assert np.empty(3, dtype=dtype)[0] == ""
 
 
 def test_is_numeric(dtype):
@@ -506,10 +517,22 @@ def test_ufuncs_minmax(dtype, string_list, ufunc, func):
 def test_ufunc_add(dtype, string_list, other_strings):
     arr1 = np.array(string_list, dtype=dtype)
     arr2 = np.array(other_strings, dtype=dtype)
+    result = np.array([a + b for a, b in zip(arr1, arr2)], dtype=dtype)
     np.testing.assert_array_equal(
         np.add(arr1, arr2),
-        np.array([a + b for a, b in zip(arr1, arr2)], dtype=dtype),
+        result,
     )
+
+    if not hasattr(dtype, "na_object"):
+        return
+
+    arr1 = np.array([dtype.na_object] + string_list, dtype=dtype)
+    arr2 = np.array(other_strings + [dtype.na_object], dtype=dtype)
+
+    res = np.add(arr1, arr2)
+
+    np.testing.assert_array_equal(res[1:-1], arr1[1:-1] + arr2[1:-1])
+    assert res[0] is dtype.na_object and res[-1] is dtype.na_object
 
 
 @pytest.mark.parametrize("other", [2, [2, 1, 3, 4, 1, 3]])
@@ -538,7 +561,7 @@ def test_ufunc_add(dtype, string_list, other_strings):
 )
 def test_ufunc_multiply(dtype, string_list, other, other_dtype):
     """Test the two-argument ufuncs match python builtin behavior."""
-    arr = np.array(string_list, dtype=StringDType())
+    arr = np.array(string_list, dtype=dtype)
     other_dtype = np.dtype(other_dtype)
     try:
         len(other)
@@ -551,8 +574,25 @@ def test_ufunc_multiply(dtype, string_list, other, other_dtype):
     np.testing.assert_array_equal(arr * other, result)
     np.testing.assert_array_equal(other * arr, result)
 
+    if not hasattr(dtype, "na_object"):
+        return
+
+    arr = np.array(string_list + [dtype.na_object], dtype=dtype)
+
+    try:
+        len(other)
+        other = np.append(other, 3).astype(other_dtype)
+    except TypeError:
+        pass
+
+    for res in [arr * other, other * arr]:
+        np.testing.assert_array_equal(res[:-1], result)
+        assert res[-1] is dtype.na_object
+
 
 def test_create_with_na(dtype):
+    if not hasattr(dtype, "na_object"):
+        pytest.skip("does not have an na object")
     na_val = dtype.na_object
     string_list = ["hello", na_val, "world"]
     arr = np.array(string_list, dtype=dtype)
@@ -572,15 +612,24 @@ def test_datetime_cast(dtype):
             np.datetime64("2041-12-03T14:05:03"),
         ]
     )
-    sa = a.astype(dtype)
-    assert sa[3] is dtype.na_object
 
+    has_na = hasattr(dtype, "na_object")
+
+    if not has_na:
+        a = np.delete(a, 3)
+
+    sa = a.astype(dtype)
     ra = sa.astype(a.dtype)
-    assert np.isnat(ra[3])
+
+    if has_na:
+        assert sa[3] is dtype.na_object
+        assert np.isnat(ra[3])
 
     np.testing.assert_array_equal(a, ra)
 
-    # don't worry about comparing how NaT is converted
-    sa = np.delete(sa, 3)
-    a = np.delete(a, 3)
+    if has_na:
+        # don't worry about comparing how NaT is converted
+        sa = np.delete(sa, 3)
+        a = np.delete(a, 3)
+
     np.testing.assert_array_equal(sa, a.astype("U"))

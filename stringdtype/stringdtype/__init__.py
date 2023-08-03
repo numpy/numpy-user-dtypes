@@ -2,7 +2,6 @@
 
 """
 
-from .missing import NA  # isort: skip
 from .scalar import StringScalar  # isort: skip
 from ._main import StringDType, _memory_usage
 

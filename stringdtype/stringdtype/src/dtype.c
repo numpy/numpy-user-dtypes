@@ -4,8 +4,6 @@
 #include "static_string.h"
 
 PyTypeObject *StringScalar_Type = NULL;
-static PyTypeObject *StringNA_Type = NULL;
-PyObject *NA_OBJ = NULL;
 
 /*
  * Internal helper to create new instances
@@ -20,7 +18,7 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
         return NULL;
     }
 
-    Py_INCREF(na_object);
+    Py_XINCREF(na_object);
     ((StringDTypeObject *)new)->na_object = na_object;
     ((StringDTypeObject *)new)->coerce = coerce;
 
@@ -108,7 +106,7 @@ string_discover_descriptor_from_pyobject(PyTypeObject *NPY_UNUSED(cls),
         return NULL;
     }
 
-    PyArray_Descr *ret = (PyArray_Descr *)new_stringdtype_instance(NA_OBJ, 1);
+    PyArray_Descr *ret = (PyArray_Descr *)new_stringdtype_instance(NULL, 1);
     if (ret == NULL) {
         return NULL;
     }
@@ -131,7 +129,7 @@ stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
 
     // setting NA *must* check pointer equality since NA types might not
     // allow equality
-    if (obj == na_object) {
+    if (na_object != NULL && obj == na_object) {
         // do nothing, ssfree already NULLed the struct ssdata points to
         // so it already contains a NA value
     }
@@ -173,11 +171,17 @@ stringdtype_getitem(StringDTypeObject *descr, char **dataptr)
 {
     PyObject *val_obj = NULL;
     ss *sdata = (ss *)dataptr;
+    int hasnull = descr->na_object != NULL;
 
     if (ss_isnull(sdata)) {
-        PyObject *na_object = descr->na_object;
-        Py_INCREF(na_object);
-        val_obj = na_object;
+        if (hasnull) {
+            PyObject *na_object = descr->na_object;
+            Py_INCREF(na_object);
+            val_obj = na_object;
+        }
+        else {
+            val_obj = PyUnicode_FromStringAndSize("", 0);
+        }
     }
     else {
         char *data = sdata->buf;
@@ -213,17 +217,37 @@ nonzero(void *data, void *NPY_UNUSED(arr))
 // Implementation of PyArray_CompareFunc.
 // Compares unicode strings by their code points.
 int
-compare(void *a, void *b, void *NPY_UNUSED(arr))
+compare(void *a, void *b, void *arr)
 {
-    ss *ss_a = (ss *)a;
-    ss *ss_b = (ss *)b;
+    StringDTypeObject *descr = (StringDTypeObject *)PyArray_DESCR(arr);
+    return _compare(a, b, descr);
+}
+
+int
+_compare(void *a, void *b, StringDTypeObject *descr)
+{
+    int hasnull = descr->na_object != NULL;
+    const ss *ss_a = (ss *)a;
+    const ss *ss_b = (ss *)b;
     int a_is_null = ss_isnull(ss_a);
     int b_is_null = ss_isnull(ss_b);
-    if (a_is_null) {
-        return 1;
-    }
-    else if (b_is_null) {
-        return -1;
+    if (NPY_UNLIKELY(a_is_null || b_is_null)) {
+        if (hasnull) {
+            if (a_is_null) {
+                return 1;
+            }
+            else if (b_is_null) {
+                return -1;
+            }
+        }
+        else {
+            if (a_is_null) {
+                ss_a = &EMPTY_STRING;
+            }
+            if (b_is_null) {
+                ss_b = &EMPTY_STRING;
+            }
+        }
     }
     return strcmp(ss_a->buf, ss_b->buf);
 }
@@ -344,20 +368,16 @@ static PyType_Slot StringDType_Slots[] = {
 static PyObject *
 stringdtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwds)
 {
-    static char *kwargs_strs[] = {"size", "na_object", "coerce", NULL};
+    static char *kwargs_strs[] = {"size", "coerce", "na_object", NULL};
 
     long size = 0;
     PyObject *na_object = NULL;
     int coerce = 1;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|lOp:StringDType",
-                                     kwargs_strs, &size, &na_object,
-                                     &coerce)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|lpO:StringDType",
+                                     kwargs_strs, &size, &coerce,
+                                     &na_object)) {
         return NULL;
-    }
-
-    if (na_object == NULL) {
-        na_object = NA_OBJ;
     }
 
     PyObject *ret = new_stringdtype_instance(na_object, coerce);
@@ -379,12 +399,11 @@ stringdtype_repr(StringDTypeObject *self)
     PyObject *na_object = self->na_object;
     int coerce = self->coerce;
 
-    // TODO: handle non-default NA
-    if (na_object != NA_OBJ && coerce == 0) {
+    if (na_object != NULL && coerce == 0) {
         ret = PyUnicode_FromFormat("StringDType(na_object=%R, coerce=False)",
                                    na_object);
     }
-    else if (na_object != NA_OBJ) {
+    else if (na_object != NULL) {
         ret = PyUnicode_FromFormat("StringDType(na_object=%R)", na_object);
     }
     else if (coerce == 0) {
@@ -424,9 +443,16 @@ stringdtype__reduce__(StringDTypeObject *self)
 
     PyTuple_SET_ITEM(ret, 0, obj);
 
-    PyTuple_SET_ITEM(ret, 1,
-                     Py_BuildValue("(NOi)", PyLong_FromLong(0),
-                                   self->na_object, self->coerce));
+    if (self->na_object != NULL) {
+        PyTuple_SET_ITEM(ret, 1,
+                         Py_BuildValue("(NiO)", PyLong_FromLong(0),
+                                       self->coerce, self->na_object));
+    }
+    else {
+        PyTuple_SET_ITEM(
+                ret, 1,
+                Py_BuildValue("(Ni)", PyLong_FromLong(0), self->coerce));
+    }
 
     PyTuple_SET_ITEM(ret, 2, Py_BuildValue("(l)", PICKLE_VERSION));
 
@@ -571,11 +597,11 @@ init_string_dtype(void)
     return 0;
 }
 
-int
-init_string_na_object(PyObject *mod)
+void
+gil_error(PyObject *type, const char *msg)
 {
-    NA_OBJ = PyObject_GetAttrString(mod, "NA");
-    StringNA_Type = Py_TYPE(NA_OBJ);
-    Py_INCREF(StringNA_Type);
-    return 0;
+    PyGILState_STATE gstate;
+    gstate = PyGILState_Ensure();
+    PyErr_SetString(type, msg);
+    PyGILState_Release(gstate);
 }
