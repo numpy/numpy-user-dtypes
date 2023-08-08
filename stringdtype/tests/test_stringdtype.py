@@ -32,7 +32,8 @@ def coerce(request):
 
 
 @pytest.fixture(
-    params=["unset", None, pd_param], ids=["unset", "None", "pandas.NA"]
+    params=["unset", None, pd_param, np.nan, float("nan")],
+    ids=["unset", "None", "pandas.NA", "np.nan", "float('nan')"],
 )
 def na_object(request):
     return request.param
@@ -40,6 +41,7 @@ def na_object(request):
 
 @pytest.fixture()
 def dtype(na_object, coerce):
+    # explicit is check for pd_NA because != with pd_NA returns pd_NA
     if na_object is pd_NA or na_object != "unset":
         return StringDType(na_object=na_object, coerce=coerce)
     else:

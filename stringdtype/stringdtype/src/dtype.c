@@ -519,8 +519,39 @@ StringDType_richcompare(PyObject *self, PyObject *other, int op)
     StringDTypeObject *sself = (StringDTypeObject *)self;
     StringDTypeObject *sother = (StringDTypeObject *)other;
 
-    int eq = (sself->na_object == sother->na_object) &&
-             (sself->coerce == sother->coerce);
+    int eq;
+    PyObject *sna = sself->na_object;
+    PyObject *ona = sother->na_object;
+
+    if (sself->coerce != sother->coerce) {
+        eq = 0;
+    }
+    else if (sna == ona) {
+        // pointer equality catches pandas.NA and other NA singletons
+        eq = 1;
+    }
+    else {
+        // nan check catches np.nan and float('nan')
+        double sna_float = PyFloat_AsDouble(sna);
+        if (sna_float == -1.0 && PyErr_Occurred()) {
+            return NULL;
+        }
+        double ona_float = PyFloat_AsDouble(ona);
+        if (ona_float == -1.0 && PyErr_Occurred()) {
+            return NULL;
+        }
+        if (npy_isnan(sna_float) && npy_isnan(ona_float)) {
+            eq = 1;
+        }
+
+        // finally check if a python equals comparison returns True
+        else if (PyObject_RichCompareBool(sna, ona, Py_EQ) == 1) {
+            eq = 1;
+        }
+        else {
+            eq = 0;
+        }
+    }
 
     PyObject *ret = Py_NotImplemented;
     if ((op == Py_EQ && eq) || (op == Py_NE && !eq)) {
