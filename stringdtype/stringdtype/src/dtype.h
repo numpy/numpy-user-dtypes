@@ -6,6 +6,8 @@
 #include "structmember.h"
 // clang-format on
 
+#include "static_string.h"
+
 #define PY_ARRAY_UNIQUE_SYMBOL stringdtype_ARRAY_API
 #define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
 #define NPY_TARGET_VERSION NPY_2_0_API_VERSION
@@ -21,6 +23,9 @@ typedef struct {
     PyArray_Descr base;
     PyObject *na_object;
     int coerce;
+    int has_nan_na;
+    int has_string_na;
+    ss default_string;
 } StringDTypeObject;
 
 typedef struct {

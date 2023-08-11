@@ -20,6 +20,38 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
 
     Py_XINCREF(na_object);
     ((StringDTypeObject *)new)->na_object = na_object;
+    int hasnull = na_object != NULL;
+    int has_nan_na = 0;
+    int has_string_na = 0;
+    ss default_string = EMPTY_STRING;
+    if (hasnull) {
+        double na_float = PyFloat_AsDouble(na_object);
+        if (na_float == -1.0 && PyErr_Occurred()) {
+            // not a float, still treat as nan if PyObject_IsTrue raises
+            // (e.g. pandas.NA)
+            PyErr_Clear();
+            int is_truthy = PyObject_IsTrue(na_object);
+            if (is_truthy == -1) {
+                PyErr_Clear();
+                has_nan_na = 1;
+            }
+        }
+        else if (npy_isnan(na_float)) {
+            has_nan_na = 1;
+        }
+
+        if (PyUnicode_Check(na_object)) {
+            has_string_na = 1;
+            Py_ssize_t size = 0;
+            const char *buf = PyUnicode_AsUTF8AndSize(na_object, &size);
+            default_string.len = size;
+            // discards const, how to avoid?
+            default_string.buf = (char *)buf;
+        }
+    }
+    ((StringDTypeObject *)new)->has_nan_na = has_nan_na;
+    ((StringDTypeObject *)new)->has_string_na = has_string_na;
+    ((StringDTypeObject *)new)->default_string = default_string;
     ((StringDTypeObject *)new)->coerce = coerce;
 
     PyArray_Descr *base = (PyArray_Descr *)new;
@@ -28,6 +60,9 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
     base->flags |= NPY_NEEDS_INIT;
     base->flags |= NPY_LIST_PICKLE;
     base->flags |= NPY_ITEM_REFCOUNT;
+    if (hasnull && !(has_string_na && has_nan_na)) {
+        base->flags |= NPY_NEEDS_PYAPI;
+    }
 
     return new;
 }
@@ -227,25 +262,43 @@ int
 _compare(void *a, void *b, StringDTypeObject *descr)
 {
     int hasnull = descr->na_object != NULL;
+    int has_string_na = descr->has_string_na;
+    int has_nan_na = descr->has_nan_na;
+    if (hasnull && !(has_string_na && has_nan_na)) {
+        // check if an error occured already to avoid setting an error again
+        if (PyErr_Occurred()) {
+            return 0;
+        }
+    }
+    const ss *default_string = &descr->default_string;
     const ss *ss_a = (ss *)a;
     const ss *ss_b = (ss *)b;
     int a_is_null = ss_isnull(ss_a);
     int b_is_null = ss_isnull(ss_b);
     if (NPY_UNLIKELY(a_is_null || b_is_null)) {
-        if (hasnull) {
-            if (a_is_null) {
-                return 1;
+        if (hasnull && !has_string_na) {
+            if (has_nan_na) {
+                if (a_is_null) {
+                    return 1;
+                }
+                else if (b_is_null) {
+                    return -1;
+                }
             }
-            else if (b_is_null) {
-                return -1;
+            else {
+                // we must hold the GIL in this branch
+                PyErr_SetString(
+                        PyExc_ValueError,
+                        "Cannot compare null this is not a nan-like value");
+                return 0;
             }
         }
         else {
             if (a_is_null) {
-                ss_a = &EMPTY_STRING;
+                ss_a = default_string;
             }
             if (b_is_null) {
-                ss_b = &EMPTY_STRING;
+                ss_b = default_string;
             }
         }
     }
@@ -349,6 +402,94 @@ stringdtype_get_fill_zero_loop(void *NPY_UNUSED(traverse_context),
     return 0;
 }
 
+static int
+stringdtype_is_known_scalar_type(PyArray_DTypeMeta *NPY_UNUSED(cls),
+                                 PyTypeObject *pytype)
+{
+    if (pytype == &PyFloat_Type) {
+        return 1;
+    }
+    if (pytype == &PyLong_Type) {
+        return 1;
+    }
+    if (pytype == &PyBool_Type) {
+        return 1;
+    }
+    if (pytype == &PyComplex_Type) {
+        return 1;
+    }
+    if (pytype == &PyUnicode_Type) {
+        return 1;
+    }
+    if (pytype == &PyBytes_Type) {
+        return 1;
+    }
+    if (pytype == &PyBoolArrType_Type) {
+        return 1;
+    }
+    if (pytype == &PyByteArrType_Type) {
+        return 1;
+    }
+    if (pytype == &PyShortArrType_Type) {
+        return 1;
+    }
+    if (pytype == &PyIntArrType_Type) {
+        return 1;
+    }
+    if (pytype == &PyLongArrType_Type) {
+        return 1;
+    }
+    if (pytype == &PyLongLongArrType_Type) {
+        return 1;
+    }
+    if (pytype == &PyUByteArrType_Type) {
+        return 1;
+    }
+    if (pytype == &PyUShortArrType_Type) {
+        return 1;
+    }
+    if (pytype == &PyUIntArrType_Type) {
+        return 1;
+    }
+    if (pytype == &PyULongArrType_Type) {
+        return 1;
+    }
+    if (pytype == &PyULongLongArrType_Type) {
+        return 1;
+    }
+    if (pytype == &PyHalfArrType_Type) {
+        return 1;
+    }
+    if (pytype == &PyFloatArrType_Type) {
+        return 1;
+    }
+    if (pytype == &PyDoubleArrType_Type) {
+        return 1;
+    }
+    if (pytype == &PyLongDoubleArrType_Type) {
+        return 1;
+    }
+    if (pytype == &PyCFloatArrType_Type) {
+        return 1;
+    }
+    if (pytype == &PyCDoubleArrType_Type) {
+        return 1;
+    }
+    if (pytype == &PyCLongDoubleArrType_Type) {
+        return 1;
+    }
+    if (pytype == &PyIntpArrType_Type) {
+        return 1;
+    }
+    if (pytype == &PyUIntpArrType_Type) {
+        return 1;
+    }
+    if (pytype == &PyDatetimeArrType_Type) {
+        return 1;
+    }
+    return 0;
+}
+
 static PyType_Slot StringDType_Slots[] = {
         {NPY_DT_common_instance, &common_instance},
         {NPY_DT_common_dtype, &common_dtype},
@@ -363,6 +504,7 @@ static PyType_Slot StringDType_Slots[] = {
         {NPY_DT_PyArray_ArrFuncs_argmin, &argmin},
         {NPY_DT_get_clear_loop, &stringdtype_get_clear_loop},
         {NPY_DT_get_fill_zero_loop, &stringdtype_get_fill_zero_loop},
+        {_NPY_DT_is_known_scalar_type, &stringdtype_is_known_scalar_type},
         {0, NULL}};
 
 static PyObject *
@@ -530,7 +672,7 @@ StringDType_richcompare(PyObject *self, PyObject *other, int op)
         // pointer equality catches pandas.NA and other NA singletons
         eq = 1;
     }
-    else {
+    else if (PyFloat_Check(sna) && PyFloat_Check(ona)) {
         // nan check catches np.nan and float('nan')
         double sna_float = PyFloat_AsDouble(sna);
         if (sna_float == -1.0 && PyErr_Occurred()) {
@@ -543,13 +685,12 @@ StringDType_richcompare(PyObject *self, PyObject *other, int op)
         if (npy_isnan(sna_float) && npy_isnan(ona_float)) {
             eq = 1;
         }
-
+    }
+    else {
         // finally check if a python equals comparison returns True
-        else if (PyObject_RichCompareBool(sna, ona, Py_EQ) == 1) {
-            eq = 1;
-        }
-        else {
-            eq = 0;
+        eq = PyObject_RichCompareBool(sna, ona, Py_EQ);
+        if (eq == -1) {
+            return NULL;
         }
     }
 

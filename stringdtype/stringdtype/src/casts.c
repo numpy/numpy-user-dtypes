@@ -360,6 +360,10 @@ string_to_unicode(PyArrayMethod_Context *context, char *const data[],
                   npy_intp const dimensions[], npy_intp const strides[],
                   NpyAuxData *auxdata)
 {
+    StringDTypeObject *descr = (StringDTypeObject *)context->descriptors[0];
+    int has_null = descr->na_object != NULL;
+    int has_string_na = descr->has_string_na;
+    ss default_string = descr->default_string;
     npy_intp N = dimensions[0];
     char *in = data[0];
     Py_UCS4 *out = (Py_UCS4 *)data[1];
@@ -376,9 +380,15 @@ string_to_unicode(PyArrayMethod_Context *context, char *const data[],
         unsigned char *this_string = NULL;
         size_t n_bytes;
         if (ss_isnull(s)) {
-            // lossy but not much else we can do
-            this_string = (unsigned char *)((s2u_auxdata *)auxdata)->na_name;
-            n_bytes = ((s2u_auxdata *)auxdata)->len;
+            if (has_null && !has_string_na) {
+                // lossy but not much else we can do
+                this_string =
+                        (unsigned char *)((s2u_auxdata *)auxdata)->na_name;
+                n_bytes = ((s2u_auxdata *)auxdata)->len;
+            }
+            else {
+                this_string = (unsigned char *)(default_string.buf);
+            }
         }
         else {
             this_string = (unsigned char *)(s->buf);
@@ -470,8 +480,11 @@ string_to_bool(PyArrayMethod_Context *context, char *const data[],
                npy_intp const dimensions[], npy_intp const strides[],
                NpyAuxData *NPY_UNUSED(auxdata))
 {
-    int hasnull = (((StringDTypeObject *)context->descriptors[0])->na_object !=
-                   NULL);
+    StringDTypeObject *descr = (StringDTypeObject *)context->descriptors[0];
+    int has_null = descr->na_object != NULL;
+    int has_string_na = descr->has_string_na;
+    ss default_string = descr->default_string;
+
     npy_intp N = dimensions[0];
     char *in = data[0];
     char *out = data[1];
@@ -484,13 +497,12 @@ string_to_bool(PyArrayMethod_Context *context, char *const data[],
     while (N--) {
         s = (ss *)in;
         if (ss_isnull(s)) {
-            if (hasnull) {
+            if (has_null && !has_string_na) {
                 // numpy treats NaN as truthy, following python
                 *out = (npy_bool)1;
             }
             else {
-                // empty string is falsey
-                *out = (npy_bool)0;
+                *out = (npy_bool)(default_string.len == 0);
             }
         }
         else if (s->len == 0) {
@@ -1016,8 +1028,11 @@ string_to_datetime(PyArrayMethod_Context *context, char *const data[],
                    npy_intp const dimensions[], npy_intp const strides[],
                    NpyAuxData *NPY_UNUSED(auxdata))
 {
-    int hasnull = (((StringDTypeObject *)context->descriptors[0])->na_object !=
-                   NULL);
+    StringDTypeObject *descr = (StringDTypeObject *)context->descriptors[0];
+    int has_null = descr->na_object != NULL;
+    int has_string_na = descr->has_string_na;
+    ss default_string = descr->default_string;
+
     npy_intp N = dimensions[0];
     char *in = data[0];
     npy_datetime *out = (npy_datetime *)data[1];
@@ -1038,11 +1053,11 @@ string_to_datetime(PyArrayMethod_Context *context, char *const data[],
     while (N--) {
         s = (ss *)in;
         if (ss_isnull(s)) {
-            if (hasnull) {
+            if (has_null && !has_string_na) {
                 *out = NPY_DATETIME_NAT;
                 goto next_step;
             }
-            s = &EMPTY_STRING;
+            s = &default_string;
         }
         if (NpyDatetime_ParseISO8601Datetime(
                     (const char *)s->buf, s->len, in_unit, NPY_UNSAFE_CASTING,
