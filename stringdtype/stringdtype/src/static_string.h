@@ -9,6 +9,8 @@ typedef struct ss {
     char *buf;
 } ss;
 
+extern const ss EMPTY_STRING;
+
 // Allocates a new buffer for *to_init*, filling with the copied contents of
 // *init* and sets *to_init->len* to *len*. Returns -1 if malloc fails and -2
 // if *to_init* is not empty. Returns 0 on success.
@@ -24,7 +26,7 @@ ssfree(ss *str);
 // *out*. Returns -1 if malloc fails and -2 if *out* is not empty. Returns 0 on
 // success.
 int
-ssdup(ss *in, ss *out);
+ssdup(const ss *in, ss *out);
 
 // Allocates a new string buffer for *out* with enough capacity to store
 // *num_bytes* of text. The actual allocation is num_bytes + 1 bytes, to
@@ -37,6 +39,6 @@ ssnewemptylen(size_t num_bytes, ss *out);
 // Determine if *in* corresponds to a NULL ss struct (e.g. len is zero and buf
 // is NULL. Returns 1 if this is the case and zero otherwise. Cannot fail.
 int
-ss_isnull(ss *in);
+ss_isnull(const ss *in);
 
 #endif /*_NPY_STATIC_STRING_H */

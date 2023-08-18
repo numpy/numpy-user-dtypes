@@ -114,10 +114,6 @@ PyInit__main(void)
 
     Py_DECREF(mod);
 
-    if (init_string_na_object(mod) < 0) {
-        goto error;
-    }
-
     if (init_string_dtype() < 0) {
         goto error;
     }

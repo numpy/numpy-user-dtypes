@@ -1,6 +1,6 @@
 #include "static_string.h"
 
-static ss EMPTY = {0, ""};
+const ss EMPTY_STRING = {0, ""};
 
 int
 ssnewlen(const char *init, size_t len, ss *to_init)
@@ -11,7 +11,7 @@ ssnewlen(const char *init, size_t len, ss *to_init)
 
     if (len == 0) {
         to_init->len = 0;
-        to_init->buf = EMPTY.buf;
+        to_init->buf = EMPTY_STRING.buf;
     }
 
     // one extra byte for null terminator
@@ -38,7 +38,7 @@ void
 ssfree(ss *str)
 {
     if (str->buf != NULL) {
-        if (str->buf != EMPTY.buf) {
+        if (str->buf != EMPTY_STRING.buf) {
             free(str->buf);
         }
         str->buf = NULL;
@@ -47,7 +47,7 @@ ssfree(ss *str)
 }
 
 int
-ssdup(ss *in, ss *out)
+ssdup(const ss *in, ss *out)
 {
     if (ss_isnull(in)) {
         out->len = 0;
@@ -79,7 +79,7 @@ ssnewemptylen(size_t num_bytes, ss *out)
 }
 
 int
-ss_isnull(ss *in)
+ss_isnull(const ss *in)
 {
     if (in->len == 0 && in->buf == NULL) {
         return 1;

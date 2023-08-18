@@ -43,7 +43,6 @@ py.install_sources(
   [
     'stringdtype/__init__.py',
     'stringdtype/scalar.py',
-    'stringdtype/missing.py',
   ],
   subdir: 'stringdtype',
   pure: false
