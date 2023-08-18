@@ -707,14 +707,15 @@ StringDType_richcompare(PyObject *self, PyObject *other, int op)
 }
 
 static Py_hash_t
-StringDType_hash(StringDTypeObject *self)
+StringDType_hash(PyObject *self)
 {
+    StringDTypeObject *sself = (StringDTypeObject *)self;
     PyObject *hash_tup = NULL;
-    if (self->na_object != NULL) {
-        hash_tup = Py_BuildValue("(iO)", self->coerce, self->na_object);
+    if (sself->na_object != NULL) {
+        hash_tup = Py_BuildValue("(iO)", sself->coerce, sself->na_object);
     }
     else {
-        hash_tup = Py_BuildValue("(i)", self->coerce);
+        hash_tup = Py_BuildValue("(i)", sself->coerce);
     }
 
     Py_hash_t ret = PyObject_Hash(hash_tup);
