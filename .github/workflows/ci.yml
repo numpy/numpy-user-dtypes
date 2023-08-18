@@ -19,7 +19,8 @@ jobs:
       - name: Install build and test dependencies
         run: |
           pip install -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple numpy
-          python -m pip install -U pip build pytest unyt wheel meson ninja meson-python patchelf pandas
+          pip install -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple pandas
+          python -m pip install -U pip build pytest unyt wheel meson ninja meson-python patchelf
       - name: Install asciidtype
         working-directory: asciidtype
         run: |
