@@ -18,8 +18,8 @@ jobs:
           python-version: "3.10"
       - name: Install build and test dependencies
         run: |
-          pip install -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple numpy
-          pip install -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple pandas
+          pip install --pre --extra-index https://pypi.anaconda.org/scipy-wheels-nightly/simple numpy
+          pip install --pre --extra-index https://pypi.anaconda.org/scipy-wheels-nightly/simple pandas
           python -m pip install -U pip build pytest unyt wheel meson ninja meson-python patchelf
       - name: Install asciidtype
         working-directory: asciidtype
