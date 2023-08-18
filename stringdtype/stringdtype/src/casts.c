@@ -388,6 +388,7 @@ string_to_unicode(PyArrayMethod_Context *context, char *const data[],
             }
             else {
                 this_string = (unsigned char *)(default_string.buf);
+                n_bytes = default_string.len;
             }
         }
         else {

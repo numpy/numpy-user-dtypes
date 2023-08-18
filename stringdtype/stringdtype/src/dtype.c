@@ -661,7 +661,7 @@ StringDType_richcompare(PyObject *self, PyObject *other, int op)
     StringDTypeObject *sself = (StringDTypeObject *)self;
     StringDTypeObject *sother = (StringDTypeObject *)other;
 
-    int eq;
+    int eq = 0;
     PyObject *sna = sself->na_object;
     PyObject *ona = sother->na_object;
 
@@ -706,6 +706,22 @@ StringDType_richcompare(PyObject *self, PyObject *other, int op)
     return ret;
 }
 
+static Py_hash_t
+StringDType_hash(StringDTypeObject *self)
+{
+    PyObject *hash_tup = NULL;
+    if (self->na_object != NULL) {
+        hash_tup = Py_BuildValue("(iO)", self->coerce, self->na_object);
+    }
+    else {
+        hash_tup = Py_BuildValue("(i)", self->coerce);
+    }
+
+    Py_hash_t ret = PyObject_Hash(hash_tup);
+    Py_DECREF(hash_tup);
+    return ret;
+}
+
 /*
  * This is the basic things that you need to create a Python Type/Class in C.
  * However, there is a slight difference here because we create a
@@ -724,6 +740,7 @@ StringDType_type StringDType = {
                 .tp_methods = StringDType_methods,
                 .tp_members = StringDType_members,
                 .tp_richcompare = StringDType_richcompare,
+                .tp_hash = StringDType_hash,
         }}},
         /* rest, filled in during DTypeMeta initialization */
 };
