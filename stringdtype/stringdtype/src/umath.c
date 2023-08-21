@@ -871,17 +871,22 @@ init_ufunc(PyObject *numpy, const char *ufunc_name, PyArray_DTypeMeta **dtypes,
             .casting = casting,
             .flags = flags,
             .dtypes = dtypes,
+            .slots = NULL,
     };
 
+    PyType_Slot resolve_slots[] = {
+            {NPY_METH_resolve_descriptors, resolve_func},
+            {NPY_METH_strided_loop, loop_func},
+            {0, NULL}};
+
+    PyType_Slot strided_slots[] = {{NPY_METH_strided_loop, loop_func},
+                                   {0, NULL}};
+
     if (resolve_func == NULL) {
-        PyType_Slot slots[] = {{NPY_METH_strided_loop, loop_func}, {0, NULL}};
-        spec.slots = slots;
+        spec.slots = strided_slots;
     }
     else {
-        PyType_Slot slots[] = {{NPY_METH_resolve_descriptors, resolve_func},
-                               {NPY_METH_strided_loop, loop_func},
-                               {0, NULL}};
-        spec.slots = slots;
+        spec.slots = resolve_slots;
     }
 
     if (PyUFunc_AddLoopFromSpec(ufunc, &spec) < 0) {
