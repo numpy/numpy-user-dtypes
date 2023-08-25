@@ -76,7 +76,6 @@ multiply_resolve_descriptors(
             for (size_t i = 0; i < (size_t)factor; i++) {                    \
                 memcpy(os->buf + i * is->len, is->buf, is->len);             \
             }                                                                \
-            os->buf[newlen] = '\0';                                          \
                                                                              \
             sin += s_stride;                                                 \
             iin += i_stride;                                                 \
@@ -246,7 +245,6 @@ add_strided_loop(PyArrayMethod_Context *context, char *const data[],
 
         memcpy(os->buf, s1->buf, s1->len);
         memcpy(os->buf + s1->len, s2->buf, s2->len);
-        os->buf[newlen] = '\0';
 
     next_step:
         in1 += in1_stride;
@@ -508,7 +506,7 @@ string_greater_strided_loop(PyArrayMethod_Context *context, char *const data[],
                 }
             }
         }
-        if (strcmp(s1->buf, s2->buf) > 0) {
+        if (sscmp(s1, s2) > 0) {
             *out = (npy_bool)1;
         }
         else {
@@ -571,7 +569,7 @@ string_greater_equal_strided_loop(PyArrayMethod_Context *context,
                 }
             }
         }
-        if (strcmp(s1->buf, s2->buf) >= 0) {
+        if (sscmp(s1, s2) >= 0) {
             *out = (npy_bool)1;
         }
         else {
@@ -632,7 +630,7 @@ string_less_strided_loop(PyArrayMethod_Context *context, char *const data[],
                 }
             }
         }
-        if (strcmp(s1->buf, s2->buf) < 0) {
+        if (sscmp(s1, s2) < 0) {
             *out = (npy_bool)1;
         }
         else {
@@ -694,7 +692,7 @@ string_less_equal_strided_loop(PyArrayMethod_Context *context,
                 }
             }
         }
-        if (strcmp(s1->buf, s2->buf) <= 0) {
+        if (sscmp(s1, s2) <= 0) {
             *out = (npy_bool)1;
         }
         else {

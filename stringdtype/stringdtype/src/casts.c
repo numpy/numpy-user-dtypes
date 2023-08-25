@@ -235,9 +235,6 @@ unicode_to_string(PyArrayMethod_Context *context, char *const data[],
         // reset out_buf to the beginning of the string
         out_buf -= out_num_bytes;
 
-        // pad string with null character
-        out_buf[out_num_bytes] = '\0';
-
         in += in_stride;
         out += out_stride;
     }
@@ -287,8 +284,12 @@ string_to_unicode_resolve_descriptors(PyObject *NPY_UNUSED(self),
 // bytes. Does not do any validation or error checking: assumes *c* is valid
 // utf-8
 size_t
-utf8_char_to_ucs4_code(unsigned char *c, Py_UCS4 *code)
+utf8_char_to_ucs4_code(unsigned char *c, size_t len, Py_UCS4 *code)
 {
+    if (len == 0) {
+        *code = (Py_UCS4)0;
+        return 0;
+    }
     if (c[0] <= 0x7F) {
         // 0zzzzzzz -> 0zzzzzzz
         *code = (Py_UCS4)(c[0]);
@@ -402,7 +403,8 @@ string_to_unicode(PyArrayMethod_Context *context, char *const data[],
 
             // get code point for character this_string is currently pointing
             // too
-            size_t num_bytes = utf8_char_to_ucs4_code(this_string, &code);
+            size_t num_bytes =
+                    utf8_char_to_ucs4_code(this_string, n_bytes, &code);
 
             // move to next character
             this_string += num_bytes;
@@ -590,8 +592,14 @@ string_to_pylong(char *in, int hasnull)
         }
         s = &EMPTY_STRING;
     }
+    PyObject *val_obj = PyUnicode_FromStringAndSize(s->buf, s->len);
+    if (val_obj == NULL) {
+        return NULL;
+    }
     // interpret as an integer in base 10
-    return PyLong_FromString(s->buf, NULL, 10);
+    PyObject *pylong_value = PyLong_FromUnicodeObject(val_obj, 10);
+    Py_DECREF(val_obj);
+    return pylong_value;
 }
 
 static npy_longlong
