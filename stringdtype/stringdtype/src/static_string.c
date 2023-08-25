@@ -107,13 +107,3 @@ ss_isnull(const ss *in)
     }
     return 0;
 }
-
-const char *
-ss_data(const ss *in, const char *default_str)
-{
-    if (ss_isnull(in)) {
-        return default_str;
-    }
-
-    return in->buf;
-}
