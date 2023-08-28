@@ -41,4 +41,9 @@ ssnewemptylen(size_t num_bytes, ss *out);
 int
 ss_isnull(const ss *in);
 
+// Compare two strings. Has the same sematics as strcmp passed null-terminated
+// C strings with the content of *s1* and *s2*.
+int
+sscmp(const ss *s1, const ss *s2);
+
 #endif /*_NPY_STATIC_STRING_H */

@@ -1,6 +1,8 @@
 #include "static_string.h"
 
-const ss EMPTY_STRING = {0, ""};
+// defined this way so it has an in-memory representation that is distinct
+// from NULL, allowing us to use NULL to represent a sentinel value
+const ss EMPTY_STRING = {0, "\0"};
 
 int
 ssnewlen(const char *init, size_t len, ss *to_init)
@@ -10,12 +12,11 @@ ssnewlen(const char *init, size_t len, ss *to_init)
     }
 
     if (len == 0) {
-        to_init->len = 0;
-        to_init->buf = EMPTY_STRING.buf;
+        *to_init = EMPTY_STRING;
+        return 0;
     }
 
-    // one extra byte for null terminator
-    char *ret_buf = (char *)malloc(sizeof(char) * (len + 1));
+    char *ret_buf = (char *)malloc(sizeof(char) * len);
 
     if (ret_buf == NULL) {
         return -1;
@@ -23,11 +24,7 @@ ssnewlen(const char *init, size_t len, ss *to_init)
 
     to_init->len = len;
 
-    if (len > 0) {
-        memcpy(ret_buf, init, len);
-    }
-
-    ret_buf[len] = '\0';
+    memcpy(ret_buf, init, len);
 
     to_init->buf = ret_buf;
 
@@ -37,10 +34,8 @@ ssnewlen(const char *init, size_t len, ss *to_init)
 void
 ssfree(ss *str)
 {
-    if (str->buf != NULL) {
-        if (str->buf != EMPTY_STRING.buf) {
-            free(str->buf);
-        }
+    if (str->buf != NULL && str->buf != EMPTY_STRING.buf) {
+        free(str->buf);
         str->buf = NULL;
     }
     str->len = 0;
@@ -66,16 +61,42 @@ ssnewemptylen(size_t num_bytes, ss *out)
         return -2;
     }
 
-    char *buf = (char *)malloc(sizeof(char) * (num_bytes + 1));
+    out->len = num_bytes;
+
+    if (num_bytes == 0) {
+        *out = EMPTY_STRING;
+        return 0;
+    }
+
+    char *buf = (char *)malloc(sizeof(char) * num_bytes);
 
     if (buf == NULL) {
         return -1;
     }
 
     out->buf = buf;
-    out->len = num_bytes;
 
     return 0;
+}
+
+// same semantics as strcmp
+int
+sscmp(const ss *s1, const ss *s2)
+{
+    size_t minlen = s1->len < s2->len ? s1->len : s2->len;
+
+    int cmp = strncmp(s1->buf, s2->buf, minlen);
+
+    if (cmp == 0) {
+        if (s1->len > minlen) {
+            return 1;
+        }
+        if (s2->len > minlen) {
+            return -1;
+        }
+    }
+
+    return cmp;
 }
 
 int

@@ -25,21 +25,7 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
     int has_string_na = 0;
     ss default_string = EMPTY_STRING;
     if (hasnull) {
-        double na_float = PyFloat_AsDouble(na_object);
-        if (na_float == -1.0 && PyErr_Occurred()) {
-            // not a float, still treat as nan if PyObject_IsTrue raises
-            // (e.g. pandas.NA)
-            PyErr_Clear();
-            int is_truthy = PyObject_IsTrue(na_object);
-            if (is_truthy == -1) {
-                PyErr_Clear();
-                has_nan_na = 1;
-            }
-        }
-        else if (npy_isnan(na_float)) {
-            has_nan_na = 1;
-        }
-
+        // first check for a string
         if (PyUnicode_Check(na_object)) {
             has_string_na = 1;
             Py_ssize_t size = 0;
@@ -47,6 +33,25 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
             default_string.len = size;
             // discards const, how to avoid?
             default_string.buf = (char *)buf;
+        }
+        else {
+            // treat as nan-like if != comparison returns a object whose truth
+            // value raises an error (pd.NA) or a truthy value (e.g. a
+            // NaN-like object)
+            PyObject *eq = PyObject_RichCompare(na_object, na_object, Py_NE);
+            if (eq == NULL) {
+                Py_DECREF(new);
+                return NULL;
+            }
+            int is_truthy = PyObject_IsTrue(na_object);
+            if (is_truthy == -1) {
+                PyErr_Clear();
+                has_nan_na = 1;
+            }
+            else if (is_truthy == 1) {
+                has_nan_na = 1;
+            }
+            Py_DECREF(eq);
         }
     }
     ((StringDTypeObject *)new)->has_nan_na = has_nan_na;
@@ -60,6 +65,9 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
     base->flags |= NPY_NEEDS_INIT;
     base->flags |= NPY_LIST_PICKLE;
     base->flags |= NPY_ITEM_REFCOUNT;
+    // this is only because of error propagation in sorting, once this dtype
+    // lives inside numpy we can relax this and patch the sorting code
+    // directly.
     if (hasnull && !(has_string_na && has_nan_na)) {
         base->flags |= NPY_NEEDS_PYAPI;
     }
@@ -302,7 +310,7 @@ _compare(void *a, void *b, StringDTypeObject *descr)
             }
         }
     }
-    return strcmp(ss_a->buf, ss_b->buf);
+    return sscmp(ss_a, ss_b);
 }
 
 // PyArray_ArgFunc
