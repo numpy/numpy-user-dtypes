@@ -1171,7 +1171,7 @@ get_cast_spec(const char *name, NPY_CASTING casting,
               NPY_ARRAYMETHOD_FLAGS flags, PyArray_DTypeMeta **dtypes,
               PyType_Slot *slots)
 {
-    PyArrayMethod_Spec *ret = malloc(sizeof(PyArrayMethod_Spec));
+    PyArrayMethod_Spec *ret = PyMem_Malloc(sizeof(PyArrayMethod_Spec));
 
     ret->name = name;
     ret->nin = 1;
@@ -1187,7 +1187,7 @@ get_cast_spec(const char *name, NPY_CASTING casting,
 PyArray_DTypeMeta **
 get_dtypes(PyArray_DTypeMeta *dt1, PyArray_DTypeMeta *dt2)
 {
-    PyArray_DTypeMeta **ret = malloc(2 * sizeof(PyArray_DTypeMeta *));
+    PyArray_DTypeMeta **ret = PyMem_Malloc(2 * sizeof(PyArray_DTypeMeta *));
 
     ret[0] = dt1;
     ret[1] = dt2;
@@ -1297,7 +1297,7 @@ get_casts()
             dt2s_dtypes, dt2s_slots);
 
     PyArrayMethod_Spec **casts =
-            malloc((num_casts + 1) * sizeof(PyArrayMethod_Spec *));
+            PyMem_Malloc((num_casts + 1) * sizeof(PyArrayMethod_Spec *));
 
     int cast_i = 0;
 
