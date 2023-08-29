@@ -145,7 +145,7 @@ def test_scalars_string_conversion(data, dtype):
     ],
 )
 def test_unicode_casts(dtype, strings):
-    arr = np.array(strings, dtype=np.unicode_).astype(dtype)
+    arr = np.array(strings, dtype=np.str_).astype(dtype)
     expected = np.array(strings, dtype=dtype)
     np.testing.assert_array_equal(arr, expected)
 
