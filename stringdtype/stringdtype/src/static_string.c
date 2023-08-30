@@ -2,9 +2,11 @@
 
 #include "static_string.h"
 
-// defined this way so it has an in-memory representation that is distinct
-// from NULL, allowing us to use NULL to represent a sentinel value
+// defined this way so EMPTY_STRING has an in-memory representation that is
+// distinct from a zero-filled struct, allowing us to use a NULL_STRING
+// to represent a sentinel value
 const ss EMPTY_STRING = {0, "\0"};
+const ss NULL_STRING = {0, NULL};
 
 int
 ssnewlen(const char *init, size_t len, ss *to_init)

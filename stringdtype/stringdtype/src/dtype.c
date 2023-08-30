@@ -20,6 +20,7 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
 
     Py_XINCREF(na_object);
     ((StringDTypeObject *)new)->na_object = na_object;
+    ss na_name = NULL_STRING;
     int hasnull = na_object != NULL;
     int has_nan_na = 0;
     int has_string_na = 0;
@@ -30,9 +31,19 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
             has_string_na = 1;
             Py_ssize_t size = 0;
             const char *buf = PyUnicode_AsUTF8AndSize(na_object, &size);
-            default_string.len = size;
-            // discards const, how to avoid?
-            default_string.buf = (char *)buf;
+            default_string = NULL_STRING;
+            int res = ssnewlen(buf, (size_t)size, &default_string);
+            if (res == -1) {
+                PyErr_NoMemory();
+                Py_DECREF(new);
+                return NULL;
+            }
+            else if (res == -2) {
+                // this should never happen
+                assert(0);
+                Py_DECREF(new);
+                return NULL;
+            }
         }
         else {
             // treat as nan-like if != comparison returns a object whose truth
@@ -53,10 +64,32 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
             }
             Py_DECREF(eq);
         }
+        PyObject *na_pystr = PyObject_Str(na_object);
+        if (na_pystr == NULL) {
+            Py_DECREF(new);
+            return NULL;
+        }
+
+        Py_ssize_t size = 0;
+        const char *utf8_ptr = PyUnicode_AsUTF8AndSize(na_pystr, &size);
+        int res = ssnewlen(utf8_ptr, (size_t)size, &na_name);
+        if (res == -1) {
+            PyErr_NoMemory();
+            Py_DECREF(new);
+            return NULL;
+        }
+        else if (res == -2) {
+            // this should never happen
+            assert(0);
+            Py_DECREF(new);
+            return NULL;
+        }
+        Py_DECREF(na_pystr);
     }
     ((StringDTypeObject *)new)->has_nan_na = has_nan_na;
     ((StringDTypeObject *)new)->has_string_na = has_string_na;
     ((StringDTypeObject *)new)->default_string = default_string;
+    ((StringDTypeObject *)new)->na_name = na_name;
     ((StringDTypeObject *)new)->coerce = coerce;
 
     PyArray_Descr *base = (PyArray_Descr *)new;
@@ -538,6 +571,9 @@ stringdtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwds)
 static void
 stringdtype_dealloc(StringDTypeObject *self)
 {
+    Py_XDECREF(self->na_object);
+    ssfree(&self->default_string);
+    ssfree(&self->na_name);
     PyArrayDescr_Type.tp_dealloc((PyObject *)self);
 }
 

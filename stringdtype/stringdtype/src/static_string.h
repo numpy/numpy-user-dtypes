@@ -9,7 +9,11 @@ typedef struct ss {
     char *buf;
 } ss;
 
+// represents the empty string and can be passed safely to ss API functions
 extern const ss EMPTY_STRING;
+// represents a sentinel value, *CANNOT* be passed safely to ss API functions,
+// use ss_isnull to check if a value is null before working with it.
+extern const ss NULL_STRING;
 
 // Allocates a new buffer for *to_init*, filling with the copied contents of
 // *init* and sets *to_init->len* to *len*. Returns -1 if malloc fails and -2

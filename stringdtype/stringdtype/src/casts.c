@@ -314,52 +314,10 @@ utf8_char_to_ucs4_code(unsigned char *c, size_t len, Py_UCS4 *code)
     }
 }
 
-typedef struct s2u_auxdata {
-    NpyAuxData base;
-    char *na_name;
-    size_t len;
-} s2u_auxdata;
-
-static void
-s2u_auxdata_free(s2u_auxdata *s2u_auxdata)
-{
-    PyMem_Free(s2u_auxdata->na_name);
-    PyMem_Free(s2u_auxdata);
-}
-
-static s2u_auxdata *
-get_s2u_auxdata(PyArray_Descr *from_dt)
-{
-    s2u_auxdata *res = PyMem_Calloc(1, sizeof(s2u_auxdata));
-    res->base.free = (void *)s2u_auxdata_free;
-
-    PyObject *na_pystr =
-            PyObject_Str(((StringDTypeObject *)from_dt)->na_object);
-
-    if (na_pystr == NULL) {
-        NPY_AUXDATA_FREE((NpyAuxData *)res);
-        return NULL;
-    }
-
-    Py_ssize_t size = 0;
-
-    const char *utf8_ptr = PyUnicode_AsUTF8AndSize(na_pystr, &size);
-
-    res->na_name = PyMem_Malloc((size_t)size);
-
-    memcpy(res->na_name, utf8_ptr, (size_t)size);
-
-    Py_DECREF(na_pystr);
-
-    res->len = (size_t)size;
-
-    return res;
-}
-
 static int
 string_to_unicode(PyArrayMethod_Context *context, char *const data[],
                   npy_intp const dimensions[], npy_intp const strides[],
-                  NpyAuxData *auxdata)
+                  NpyAuxData *NPY_UNUSED(auxdata))
 {
     StringDTypeObject *descr = (StringDTypeObject *)context->descriptors[0];
     int has_null = descr->na_object != NULL;
@@ -383,9 +341,8 @@ string_to_unicode(PyArrayMethod_Context *context, char *const data[],
         if (ss_isnull(s)) {
             if (has_null && !has_string_na) {
                 // lossy but not much else we can do
-                this_string =
-                        (unsigned char *)((s2u_auxdata *)auxdata)->na_name;
-                n_bytes = ((s2u_auxdata *)auxdata)->len;
+                this_string = (unsigned char *)descr->na_name.buf;
+                n_bytes = descr->na_name.len;
             }
             else {
                 this_string = (unsigned char *)(default_string.buf);
@@ -426,31 +383,9 @@ string_to_unicode(PyArrayMethod_Context *context, char *const data[],
     return 0;
 }
 
-static int
-string_to_unicode_get_loop(PyArrayMethod_Context *context, int aligned,
-                           int NPY_UNUSED(move_references),
-                           const npy_intp *strides,
-                           PyArrayMethod_StridedLoop **out_loop,
-                           NpyAuxData **out_transferdata,
-                           NPY_ARRAYMETHOD_FLAGS *flags)
-{
-    s2u_auxdata *s2u_auxdata = get_s2u_auxdata(context->descriptors[0]);
-
-    if (s2u_auxdata == NULL) {
-        return -1;
-    }
-    *out_transferdata = (NpyAuxData *)s2u_auxdata;
-
-    *out_loop = (PyArrayMethod_StridedLoop *)string_to_unicode;
-
-    *flags = NPY_METH_NO_FLOATINGPOINT_ERRORS;
-
-    return 0;
-}
-
 static PyType_Slot s2u_slots[] = {
         {NPY_METH_resolve_descriptors, &string_to_unicode_resolve_descriptors},
-        {_NPY_METH_get_loop, &string_to_unicode_get_loop},
+        {NPY_METH_strided_loop, &string_to_unicode},
         {0, NULL}};
 
 static char *s2u_name = "cast_StringDType_to_Unicode";

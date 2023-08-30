@@ -26,6 +26,7 @@ typedef struct {
     int has_nan_na;
     int has_string_na;
     ss default_string;
+    ss na_name;
 } StringDTypeObject;
 
 typedef struct {
