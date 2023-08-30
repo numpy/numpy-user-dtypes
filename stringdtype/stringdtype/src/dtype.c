@@ -788,9 +788,11 @@ init_string_dtype(void)
     StringDType.base.singleton = singleton;
 
     for (int i = 0; StringDType_casts[i] != NULL; i++) {
-        free(StringDType_casts[i]->dtypes);
-        free(StringDType_casts[i]);
+        PyMem_Free(StringDType_casts[i]->dtypes);
+        PyMem_Free(StringDType_casts[i]);
     }
+
+    PyMem_Free(StringDType_casts);
 
     return 0;
 }

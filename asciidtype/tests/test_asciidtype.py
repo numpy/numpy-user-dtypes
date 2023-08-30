@@ -157,7 +157,7 @@ def test_casting_safety():
 def test_unicode_to_ascii_to_unicode():
     arr = np.array(["hello", "this", "is", "an", "array"])
     ascii_arr = arr.astype(ASCIIDType(5))
-    for dtype in ["U5", np.unicode_, np.str_]:
+    for dtype in ["U5", np.str_]:
         round_trip_arr = ascii_arr.astype(dtype)
         np.testing.assert_array_equal(arr, round_trip_arr)
 

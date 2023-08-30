@@ -1,3 +1,5 @@
+#include "Python.h"
+
 #include "static_string.h"
 
 // defined this way so it has an in-memory representation that is distinct
@@ -16,7 +18,7 @@ ssnewlen(const char *init, size_t len, ss *to_init)
         return 0;
     }
 
-    char *ret_buf = (char *)malloc(sizeof(char) * len);
+    char *ret_buf = (char *)PyMem_RawMalloc(sizeof(char) * len);
 
     if (ret_buf == NULL) {
         return -1;
@@ -35,7 +37,7 @@ void
 ssfree(ss *str)
 {
     if (str->buf != NULL && str->buf != EMPTY_STRING.buf) {
-        free(str->buf);
+        PyMem_RawFree(str->buf);
         str->buf = NULL;
     }
     str->len = 0;
@@ -68,7 +70,7 @@ ssnewemptylen(size_t num_bytes, ss *out)
         return 0;
     }
 
-    char *buf = (char *)malloc(sizeof(char) * num_bytes);
+    char *buf = (char *)PyMem_RawMalloc(sizeof(char) * num_bytes);
 
     if (buf == NULL) {
         return -1;

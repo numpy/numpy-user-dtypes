@@ -14,7 +14,7 @@ def string_array():
 
 @pytest.fixture
 def unicode_array():
-    return np.array(TEST_DATA, dtype=np.unicode_)
+    return np.array(TEST_DATA, dtype=np.str_)
 
 
 UNARY_FUNCTIONS = [

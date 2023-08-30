@@ -22,9 +22,10 @@ ssnewlen(const char *init, size_t len, ss *to_init);
 void
 ssfree(ss *str);
 
-// copies the contents out *in* into *out*. Allocates a new string buffer for
-// *out*. Returns -1 if malloc fails and -2 if *out* is not empty. Returns 0 on
-// success.
+// Copies the contents of *in* into *out*. Allocates a new string buffer for
+// *out* and assumes that *out* is uninitialized. Returns -1 if malloc fails
+// and -2 if *out* is not initialized. ssfree *must* be called before this is
+// called if *in* points to an existing string. Returns 0 on success.
 int
 ssdup(const ss *in, ss *out);
 
