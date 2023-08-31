@@ -20,11 +20,11 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
 
     Py_XINCREF(na_object);
     ((StringDTypeObject *)new)->na_object = na_object;
-    ss na_name = NULL_STRING;
+    npy_static_string na_name = NULL_STRING;
     int hasnull = na_object != NULL;
     int has_nan_na = 0;
     int has_string_na = 0;
-    ss default_string = EMPTY_STRING;
+    npy_static_string default_string = EMPTY_STRING;
     if (hasnull) {
         // first check for a string
         if (PyUnicode_Check(na_object)) {
@@ -32,7 +32,7 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
             Py_ssize_t size = 0;
             const char *buf = PyUnicode_AsUTF8AndSize(na_object, &size);
             default_string = NULL_STRING;
-            int res = ssnewlen(buf, (size_t)size, &default_string);
+            int res = npy_string_newlen(buf, (size_t)size, &default_string);
             if (res == -1) {
                 PyErr_NoMemory();
                 Py_DECREF(new);
@@ -72,7 +72,7 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
 
         Py_ssize_t size = 0;
         const char *utf8_ptr = PyUnicode_AsUTF8AndSize(na_pystr, &size);
-        int res = ssnewlen(utf8_ptr, (size_t)size, &na_name);
+        int res = npy_string_newlen(utf8_ptr, (size_t)size, &na_name);
         if (res == -1) {
             PyErr_NoMemory();
             Py_DECREF(new);
@@ -93,8 +93,8 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
     ((StringDTypeObject *)new)->coerce = coerce;
 
     PyArray_Descr *base = (PyArray_Descr *)new;
-    base->elsize = sizeof(ss);
-    base->alignment = _Alignof(ss);
+    base->elsize = sizeof(npy_static_string);
+    base->alignment = _Alignof(npy_static_string);
     base->flags |= NPY_NEEDS_INIT;
     base->flags |= NPY_LIST_PICKLE;
     base->flags |= NPY_ITEM_REFCOUNT;
@@ -194,11 +194,11 @@ string_discover_descriptor_from_pyobject(PyTypeObject *NPY_UNUSED(cls),
 int
 stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
 {
-    ss *sdata = (ss *)dataptr;
+    npy_static_string *sdata = (npy_static_string *)dataptr;
 
     // free if dataptr holds preexisting string data,
-    // ssfree does a NULL check
-    ssfree(sdata);
+    // npy_string_free does a NULL check
+    npy_string_free(sdata);
 
     // borrow reference
     PyObject *na_object = descr->na_object;
@@ -206,8 +206,8 @@ stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
     // setting NA *must* check pointer equality since NA types might not
     // allow equality
     if (na_object != NULL && obj == na_object) {
-        // do nothing, ssfree already NULLed the struct ssdata points to
-        // so it already contains a NA value
+        // do nothing, npy_string_free already NULLed the struct ssdata points
+        // to so it already contains a NA value
     }
     else {
         PyObject *val_obj = get_value(obj, descr->coerce);
@@ -224,7 +224,7 @@ stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
         }
 
         // copies contents of val into item_val->buf
-        int res = ssnewlen(val, length, sdata);
+        int res = npy_string_newlen(val, length, sdata);
 
         if (res == -1) {
             PyErr_NoMemory();
@@ -246,10 +246,10 @@ static PyObject *
 stringdtype_getitem(StringDTypeObject *descr, char **dataptr)
 {
     PyObject *val_obj = NULL;
-    ss *sdata = (ss *)dataptr;
+    npy_static_string *sdata = (npy_static_string *)dataptr;
     int hasnull = descr->na_object != NULL;
 
-    if (ss_isnull(sdata)) {
+    if (npy_string_isnull(sdata)) {
         if (hasnull) {
             PyObject *na_object = descr->na_object;
             Py_INCREF(na_object);
@@ -287,7 +287,7 @@ stringdtype_getitem(StringDTypeObject *descr, char **dataptr)
 npy_bool
 nonzero(void *data, void *NPY_UNUSED(arr))
 {
-    return ((ss *)data)->len != 0;
+    return ((npy_static_string *)data)->len != 0;
 }
 
 // Implementation of PyArray_CompareFunc.
@@ -311,11 +311,11 @@ _compare(void *a, void *b, StringDTypeObject *descr)
             return 0;
         }
     }
-    const ss *default_string = &descr->default_string;
-    const ss *ss_a = (ss *)a;
-    const ss *ss_b = (ss *)b;
-    int a_is_null = ss_isnull(ss_a);
-    int b_is_null = ss_isnull(ss_b);
+    const npy_static_string *default_string = &descr->default_string;
+    const npy_static_string *ss_a = (npy_static_string *)a;
+    const npy_static_string *ss_b = (npy_static_string *)b;
+    int a_is_null = npy_string_isnull(ss_a);
+    int b_is_null = npy_string_isnull(ss_b);
     if (NPY_UNLIKELY(a_is_null || b_is_null)) {
         if (hasnull && !has_string_na) {
             if (has_nan_na) {
@@ -343,7 +343,7 @@ _compare(void *a, void *b, StringDTypeObject *descr)
             }
         }
     }
-    return sscmp(ss_a, ss_b);
+    return npy_string_cmp(ss_a, ss_b);
 }
 
 // PyArray_ArgFunc
@@ -351,7 +351,7 @@ _compare(void *a, void *b, StringDTypeObject *descr)
 int
 argmax(void *data, npy_intp n, npy_intp *max_ind, void *arr)
 {
-    ss *dptr = (ss *)data;
+    npy_static_string *dptr = (npy_static_string *)data;
     *max_ind = 0;
     for (int i = 1; i < n; i++) {
         if (compare(&dptr[i], &dptr[*max_ind], arr) > 0) {
@@ -366,7 +366,7 @@ argmax(void *data, npy_intp n, npy_intp *max_ind, void *arr)
 int
 argmin(void *data, npy_intp n, npy_intp *min_ind, void *arr)
 {
-    ss *dptr = (ss *)data;
+    npy_static_string *dptr = (npy_static_string *)data;
     *min_ind = 0;
     for (int i = 1; i < n; i++) {
         if (compare(&dptr[i], &dptr[*min_ind], arr) < 0) {
@@ -391,8 +391,8 @@ stringdtype_clear_loop(void *NPY_UNUSED(traverse_context),
 {
     while (size--) {
         if (data != NULL) {
-            ssfree((ss *)data);
-            memset(data, 0, sizeof(ss));
+            npy_string_free((npy_static_string *)data);
+            memset(data, 0, sizeof(npy_static_string));
         }
         data += stride;
     }
@@ -421,7 +421,7 @@ stringdtype_fill_zero_loop(void *NPY_UNUSED(traverse_context),
                            NpyAuxData *NPY_UNUSED(auxdata))
 {
     while (size--) {
-        if (ssnewlen("", 0, (ss *)(data)) < 0) {
+        if (npy_string_newlen("", 0, (npy_static_string *)(data)) < 0) {
             return -1;
         }
         data += stride;
@@ -572,8 +572,8 @@ static void
 stringdtype_dealloc(StringDTypeObject *self)
 {
     Py_XDECREF(self->na_object);
-    ssfree(&self->default_string);
-    ssfree(&self->na_name);
+    npy_string_free(&self->default_string);
+    npy_string_free(&self->na_name);
     PyArrayDescr_Type.tp_dealloc((PyObject *)self);
 }
 

@@ -58,8 +58,7 @@ _memory_usage(PyObject *NPY_UNUSED(self), PyObject *obj)
         npy_intp count = *innersizeptr;
 
         while (count--) {
-            // +1 byte for the null terminator
-            memory_usage += ((ss *)in)->len + 1;
+            memory_usage += ((npy_static_string *)in)->len;
             in += stride;
         }
 

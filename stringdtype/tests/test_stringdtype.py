@@ -260,11 +260,10 @@ def test_isnan(dtype, string_list):
 
 def test_memory_usage(dtype):
     sarr = np.array(["abc", "def", "ghi"], dtype=dtype)
-    # 4 bytes for each ASCII string buffer in string_list
-    # (three characters and null terminator)
+    # 3 bytes for each ASCII string buffer in string_list
     # plus enough bytes for the size_t length
     # plus enough bytes for the pointer in the array buffer
-    assert _memory_usage(sarr) == (4 + 2 * np.dtype(np.uintp).itemsize) * 3
+    assert _memory_usage(sarr) == (3 + 2 * np.dtype(np.uintp).itemsize) * 3
     with pytest.raises(TypeError):
         _memory_usage("hello")
     with pytest.raises(TypeError):

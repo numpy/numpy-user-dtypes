@@ -69,16 +69,16 @@ string_to_string(PyArrayMethod_Context *NPY_UNUSED(context),
     npy_intp in_stride = strides[0];
     npy_intp out_stride = strides[1];
 
-    const ss *s = NULL;
-    ss *os = NULL;
+    const npy_static_string *s = NULL;
+    npy_static_string *os = NULL;
 
     while (N--) {
-        s = (ss *)in;
-        os = (ss *)out;
+        s = (npy_static_string *)in;
+        os = (npy_static_string *)out;
         if (in != out) {
-            ssfree(os);
-            if (ssdup(s, os) < 0) {
-                gil_error(PyExc_MemoryError, "ssdup failed");
+            npy_string_free(os);
+            if (npy_string_dup(s, os) < 0) {
+                gil_error(PyExc_MemoryError, "npy_string_dup failed");
                 return -1;
             }
         }
@@ -207,10 +207,10 @@ unicode_to_string(PyArrayMethod_Context *context, char *const data[],
             gil_error(PyExc_TypeError, "Invalid unicode code point found");
             return -1;
         }
-        ss *out_ss = (ss *)out;
-        ssfree(out_ss);
-        if (ssnewemptylen(out_num_bytes, out_ss) < 0) {
-            gil_error(PyExc_MemoryError, "ssnewemptylen failed");
+        npy_static_string *out_ss = (npy_static_string *)out;
+        npy_string_free(out_ss);
+        if (npy_string_newemptylen(out_num_bytes, out_ss) < 0) {
+            gil_error(PyExc_MemoryError, "npy_string_newemptylen failed");
             return -1;
         }
         char *out_buf = out_ss->buf;
@@ -322,7 +322,7 @@ string_to_unicode(PyArrayMethod_Context *context, char *const data[],
     StringDTypeObject *descr = (StringDTypeObject *)context->descriptors[0];
     int has_null = descr->na_object != NULL;
     int has_string_na = descr->has_string_na;
-    ss default_string = descr->default_string;
+    npy_static_string default_string = descr->default_string;
     npy_intp N = dimensions[0];
     char *in = data[0];
     Py_UCS4 *out = (Py_UCS4 *)data[1];
@@ -332,13 +332,13 @@ string_to_unicode(PyArrayMethod_Context *context, char *const data[],
     // max number of 4 byte UCS4 characters that can fit in the output
     long max_out_size = (context->descriptors[1]->elsize) / 4;
 
-    const ss *s = NULL;
+    const npy_static_string *s = NULL;
 
     while (N--) {
-        s = (ss *)in;
+        s = (npy_static_string *)in;
         unsigned char *this_string = NULL;
         size_t n_bytes;
-        if (ss_isnull(s)) {
+        if (npy_string_isnull(s)) {
             if (has_null && !has_string_na) {
                 // lossy but not much else we can do
                 this_string = (unsigned char *)descr->na_name.buf;
@@ -421,7 +421,7 @@ string_to_bool(PyArrayMethod_Context *context, char *const data[],
     StringDTypeObject *descr = (StringDTypeObject *)context->descriptors[0];
     int has_null = descr->na_object != NULL;
     int has_string_na = descr->has_string_na;
-    ss default_string = descr->default_string;
+    npy_static_string default_string = descr->default_string;
 
     npy_intp N = dimensions[0];
     char *in = data[0];
@@ -430,11 +430,11 @@ string_to_bool(PyArrayMethod_Context *context, char *const data[],
     npy_intp in_stride = strides[0];
     npy_intp out_stride = strides[1];
 
-    const ss *s = NULL;
+    const npy_static_string *s = NULL;
 
     while (N--) {
-        s = (ss *)in;
-        if (ss_isnull(s)) {
+        s = (npy_static_string *)in;
+        if (npy_string_isnull(s)) {
             if (has_null && !has_string_na) {
                 // numpy treats NaN as truthy, following python
                 *out = (npy_bool)1;
@@ -479,17 +479,17 @@ bool_to_string(PyArrayMethod_Context *NPY_UNUSED(context), char *const data[],
     npy_intp out_stride = strides[1];
 
     while (N--) {
-        ss *out_ss = (ss *)out;
-        ssfree(out_ss);
+        npy_static_string *out_ss = (npy_static_string *)out;
+        npy_string_free(out_ss);
         if ((npy_bool)(*in) == 1) {
-            if (ssnewlen("True", 4, out_ss) < 0) {
-                gil_error(PyExc_MemoryError, "ssnewlen failed");
+            if (npy_string_newlen("True", 4, out_ss) < 0) {
+                gil_error(PyExc_MemoryError, "npy_string_newlen failed");
                 return -1;
             }
         }
         else if ((npy_bool)(*in) == 0) {
-            if (ssnewlen("False", 5, out_ss) < 0) {
-                gil_error(PyExc_MemoryError, "ssnewlen failed");
+            if (npy_string_newlen("False", 5, out_ss) < 0) {
+                gil_error(PyExc_MemoryError, "npy_string_newlen failed");
                 return -1;
             }
         }
@@ -517,8 +517,8 @@ static char *b2s_name = "cast_Bool_to_StringDType";
 static PyObject *
 string_to_pylong(char *in, int hasnull)
 {
-    const ss *s = (ss *)in;
-    if (ss_isnull(s)) {
+    const npy_static_string *s = (npy_static_string *)in;
+    if (npy_string_isnull(s)) {
         if (hasnull) {
             PyErr_SetString(PyExc_ValueError,
                             "Arrays with missing data cannot be converted to "
@@ -585,10 +585,10 @@ pyobj_to_string(PyObject *obj, char *out)
     if (cstr_val == NULL) {
         return -1;
     }
-    ss *out_ss = (ss *)out;
-    ssfree(out_ss);
-    if (ssnewlen(cstr_val, length, out_ss) < 0) {
-        PyErr_SetString(PyExc_MemoryError, "ssnewlen failed");
+    npy_static_string *out_ss = (npy_static_string *)out;
+    npy_string_free(out_ss);
+    if (npy_string_newlen(cstr_val, length, out_ss) < 0) {
+        PyErr_SetString(PyExc_MemoryError, "npy_string_newlen failed");
         Py_DECREF(pystr_val);
         return -1;
     }
@@ -769,8 +769,8 @@ STRING_INT_CASTS(ulonglong, uint, ulonglong, NPY_ULONGLONG, llu, npy_ulonglong,
 static PyObject *
 string_to_pyfloat(char *in, int hasnull)
 {
-    const ss *s = (ss *)in;
-    if (ss_isnull(s)) {
+    const npy_static_string *s = (npy_static_string *)in;
+    if (npy_string_isnull(s)) {
         if (hasnull) {
             PyErr_SetString(PyExc_ValueError,
                             "Arrays with missing data cannot be converted to "
@@ -975,7 +975,7 @@ string_to_datetime(PyArrayMethod_Context *context, char *const data[],
     StringDTypeObject *descr = (StringDTypeObject *)context->descriptors[0];
     int has_null = descr->na_object != NULL;
     int has_string_na = descr->has_string_na;
-    ss default_string = descr->default_string;
+    npy_static_string default_string = descr->default_string;
 
     npy_intp N = dimensions[0];
     char *in = data[0];
@@ -984,7 +984,7 @@ string_to_datetime(PyArrayMethod_Context *context, char *const data[],
     npy_intp in_stride = strides[0];
     npy_intp out_stride = strides[1] / sizeof(npy_datetime);
 
-    const ss *s = NULL;
+    const npy_static_string *s = NULL;
     npy_datetimestruct dts;
     NPY_DATETIMEUNIT in_unit = -1;
     PyArray_DatetimeMetaData in_meta = {0, 1};
@@ -995,8 +995,8 @@ string_to_datetime(PyArrayMethod_Context *context, char *const data[],
             &(((PyArray_DatetimeDTypeMetaData *)dt_descr->c_metadata)->meta);
 
     while (N--) {
-        s = (ss *)in;
-        if (ss_isnull(s)) {
+        s = (npy_static_string *)in;
+        if (npy_string_isnull(s)) {
             if (has_null && !has_string_na) {
                 *out = NPY_DATETIME_NAT;
                 goto next_step;
@@ -1051,8 +1051,8 @@ datetime_to_string(PyArrayMethod_Context *context, char *const data[],
     char datetime_buf[NPY_DATETIME_MAX_ISO8601_STRLEN];
 
     while (N--) {
-        ss *out_ss = (ss *)out;
-        ssfree(out_ss);
+        npy_static_string *out_ss = (npy_static_string *)out;
+        npy_string_free(out_ss);
         if (*in == NPY_DATETIME_NAT) {
             /* convert to NA */
             out_ss = NULL;
@@ -1072,8 +1072,9 @@ datetime_to_string(PyArrayMethod_Context *context, char *const data[],
                 return -1;
             }
 
-            if (ssnewlen(datetime_buf, strlen(datetime_buf), out_ss) < 0) {
-                PyErr_SetString(PyExc_MemoryError, "ssnewlen failed");
+            if (npy_string_newlen(datetime_buf, strlen(datetime_buf), out_ss) <
+                0) {
+                PyErr_SetString(PyExc_MemoryError, "npy_string_newlen failed");
                 return -1;
             }
         }

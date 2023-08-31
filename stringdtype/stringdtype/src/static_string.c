@@ -5,11 +5,11 @@
 // defined this way so EMPTY_STRING has an in-memory representation that is
 // distinct from a zero-filled struct, allowing us to use a NULL_STRING
 // to represent a sentinel value
-const ss EMPTY_STRING = {0, "\0"};
-const ss NULL_STRING = {0, NULL};
+const npy_static_string EMPTY_STRING = {0, "\0"};
+const npy_static_string NULL_STRING = {0, NULL};
 
 int
-ssnewlen(const char *init, size_t len, ss *to_init)
+npy_string_newlen(const char *init, size_t len, npy_static_string *to_init)
 {
     if ((to_init == NULL) || (to_init->buf != NULL) || (to_init->len != 0)) {
         return -2;
@@ -36,7 +36,7 @@ ssnewlen(const char *init, size_t len, ss *to_init)
 }
 
 void
-ssfree(ss *str)
+npy_string_free(npy_static_string *str)
 {
     if (str->buf != NULL && str->buf != EMPTY_STRING.buf) {
         PyMem_RawFree(str->buf);
@@ -46,20 +46,20 @@ ssfree(ss *str)
 }
 
 int
-ssdup(const ss *in, ss *out)
+npy_string_dup(const npy_static_string *in, npy_static_string *out)
 {
-    if (ss_isnull(in)) {
+    if (npy_string_isnull(in)) {
         out->len = 0;
         out->buf = NULL;
         return 0;
     }
     else {
-        return ssnewlen(in->buf, in->len, out);
+        return npy_string_newlen(in->buf, in->len, out);
     }
 }
 
 int
-ssnewemptylen(size_t num_bytes, ss *out)
+npy_string_newemptylen(size_t num_bytes, npy_static_string *out)
 {
     if (out->len != 0 || out->buf != NULL) {
         return -2;
@@ -83,9 +83,8 @@ ssnewemptylen(size_t num_bytes, ss *out)
     return 0;
 }
 
-// same semantics as strcmp
 int
-sscmp(const ss *s1, const ss *s2)
+npy_string_cmp(const npy_static_string *s1, const npy_static_string *s2)
 {
     size_t minlen = s1->len < s2->len ? s1->len : s2->len;
 
@@ -104,7 +103,7 @@ sscmp(const ss *s1, const ss *s2)
 }
 
 int
-ss_isnull(const ss *in)
+npy_string_isnull(const npy_static_string *in)
 {
     if (in->len == 0 && in->buf == NULL) {
         return 1;
