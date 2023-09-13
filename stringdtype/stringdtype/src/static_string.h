@@ -5,7 +5,7 @@
 #include "string.h"
 
 typedef struct npy_static_string {
-    size_t len;
+    size_t size;
     char *buf;
 } npy_static_string;
 
@@ -18,10 +18,11 @@ extern const npy_static_string EMPTY_STRING;
 extern const npy_static_string NULL_STRING;
 
 // Allocates a new buffer for *to_init*, filling with the copied contents of
-// *init* and sets *to_init->len* to *len*. Returns -1 if malloc fails and -2
-// if *to_init* is not empty. Returns 0 on success.
+// the first *size*entries in *init*, which must be valid and initialized
+// beforehand, and sets *to_init->size* to *size*. Returns -1 if malloc fails
+// and -2 if *to_init* is not NULL. Returns 0 on success.
 int
-npy_string_newlen(const char *init, size_t len, npy_static_string *to_init);
+npy_string_newsize(const char *init, size_t size, npy_static_string *to_init);
 
 // Sets len to 0 and if str->buf is not already NULL, frees it and sets it to
 // NULL. Cannot fail.
@@ -36,12 +37,11 @@ int
 npy_string_dup(const npy_static_string *in, npy_static_string *out);
 
 // Allocates a new string buffer for *out* with enough capacity to store
-// *num_bytes* of text. The actual allocation is num_bytes + 1 bytes, to
-// account for the null terminator. Does not do any initialization, the caller
-// must initialize and null-terminate the string buffer. Returns -1 if malloc
-// fails and -2 if *out* is not empty. Returns 0 on success.
+// *size* bytes of text. Does not do any initialization, the caller must
+// initialize the string buffer. Returns -1 if malloc fails and -2 if *out* is
+// not NULL. Returns 0 on success.
 int
-npy_string_newemptylen(size_t num_bytes, npy_static_string *out);
+npy_string_newemptysize(size_t size, npy_static_string *out);
 
 // Determine if *in* corresponds to a NULL npy_static_string struct (e.g. len
 // is zero and buf is NULL. Returns 1 if this is the case and zero otherwise.

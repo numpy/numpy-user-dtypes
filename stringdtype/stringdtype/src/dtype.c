@@ -32,7 +32,7 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
             Py_ssize_t size = 0;
             const char *buf = PyUnicode_AsUTF8AndSize(na_object, &size);
             default_string = NULL_STRING;
-            int res = npy_string_newlen(buf, (size_t)size, &default_string);
+            int res = npy_string_newsize(buf, (size_t)size, &default_string);
             if (res == -1) {
                 PyErr_NoMemory();
                 Py_DECREF(new);
@@ -72,7 +72,7 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
 
         Py_ssize_t size = 0;
         const char *utf8_ptr = PyUnicode_AsUTF8AndSize(na_pystr, &size);
-        int res = npy_string_newlen(utf8_ptr, (size_t)size, &na_name);
+        int res = npy_string_newsize(utf8_ptr, (size_t)size, &na_name);
         if (res == -1) {
             PyErr_NoMemory();
             Py_DECREF(new);
@@ -224,7 +224,7 @@ stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
         }
 
         // copies contents of val into item_val->buf
-        int res = npy_string_newlen(val, length, sdata);
+        int res = npy_string_newsize(val, length, sdata);
 
         if (res == -1) {
             PyErr_NoMemory();
@@ -261,8 +261,8 @@ stringdtype_getitem(StringDTypeObject *descr, char **dataptr)
     }
     else {
         char *data = sdata->buf;
-        size_t len = sdata->len;
-        val_obj = PyUnicode_FromStringAndSize(data, len);
+        size_t size = sdata->size;
+        val_obj = PyUnicode_FromStringAndSize(data, size);
         if (val_obj == NULL) {
             return NULL;
         }
@@ -287,7 +287,7 @@ stringdtype_getitem(StringDTypeObject *descr, char **dataptr)
 npy_bool
 nonzero(void *data, void *NPY_UNUSED(arr))
 {
-    return ((npy_static_string *)data)->len != 0;
+    return ((npy_static_string *)data)->size != 0;
 }
 
 // Implementation of PyArray_CompareFunc.
@@ -421,7 +421,7 @@ stringdtype_fill_zero_loop(void *NPY_UNUSED(traverse_context),
                            NpyAuxData *NPY_UNUSED(auxdata))
 {
     while (size--) {
-        if (npy_string_newlen("", 0, (npy_static_string *)(data)) < 0) {
+        if (npy_string_newsize("", 0, (npy_static_string *)(data)) < 0) {
             return -1;
         }
         data += stride;

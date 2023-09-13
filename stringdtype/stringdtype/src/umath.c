@@ -67,16 +67,16 @@ multiply_resolve_descriptors(
                 }                                                             \
             }                                                                 \
             npy_##shortname factor = *(npy_##shortname *)iin;                 \
-            size_t newlen = (size_t)((is->len) * factor);                     \
+            size_t newsize = (size_t)((is->size) * factor);                   \
                                                                               \
-            if (npy_string_newemptylen(newlen, os) < 0) {                     \
+            if (npy_string_newemptysize(newsize, os) < 0) {                   \
                 gil_error(PyExc_MemoryError,                                  \
-                          "npy_string_newemptylen failed");                   \
+                          "npy_string_newemptysize failed");                  \
                 return -1;                                                    \
             }                                                                 \
                                                                               \
             for (size_t i = 0; i < (size_t)factor; i++) {                     \
-                memcpy(os->buf + i * is->len, is->buf, is->len);              \
+                memcpy(os->buf + i * is->size, is->buf, is->size);            \
             }                                                                 \
                                                                               \
             sin += s_stride;                                                  \
@@ -215,7 +215,7 @@ add_strided_loop(PyArrayMethod_Context *context, char *const data[],
     npy_static_string *os = NULL;
 
     while (N--) {
-        int newlen = 0;
+        int newsize = 0;
         s1 = (npy_static_string *)in1;
         s2 = (npy_static_string *)in2;
         int s1_isnull = npy_string_isnull(s1);
@@ -240,13 +240,13 @@ add_strided_loop(PyArrayMethod_Context *context, char *const data[],
                           "Cannot add null that is not a nan-like value");
             }
         }
-        newlen = s1->len + s2->len;
-        if (npy_string_newemptylen(newlen, os) < 0) {
+        newsize = s1->size + s2->size;
+        if (npy_string_newemptysize(newsize, os) < 0) {
             return -1;
         }
 
-        memcpy(os->buf, s1->buf, s1->len);
-        memcpy(os->buf + s1->len, s2->buf, s2->len);
+        memcpy(os->buf, s1->buf, s1->size);
+        memcpy(os->buf + s1->size, s2->buf, s2->size);
 
     next_step:
         in1 += in1_stride;
@@ -385,7 +385,7 @@ string_equal_strided_loop(PyArrayMethod_Context *context, char *const data[],
                 }
             }
         }
-        if (s1->len == s2->len && strncmp(s1->buf, s2->buf, s1->len) == 0) {
+        if (s1->size == s2->size && strncmp(s1->buf, s2->buf, s1->size) == 0) {
             *out = (npy_bool)1;
         }
         else {
@@ -450,7 +450,7 @@ string_not_equal_strided_loop(PyArrayMethod_Context *context,
                 }
             }
         }
-        if (s1->len == s2->len && strncmp(s1->buf, s2->buf, s1->len) == 0) {
+        if (s1->size == s2->size && strncmp(s1->buf, s2->buf, s1->size) == 0) {
             *out = (npy_bool)0;
         }
         else {

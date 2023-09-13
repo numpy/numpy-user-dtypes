@@ -209,8 +209,8 @@ unicode_to_string(PyArrayMethod_Context *context, char *const data[],
         }
         npy_static_string *out_ss = (npy_static_string *)out;
         npy_string_free(out_ss);
-        if (npy_string_newemptylen(out_num_bytes, out_ss) < 0) {
-            gil_error(PyExc_MemoryError, "npy_string_newemptylen failed");
+        if (npy_string_newemptysize(out_num_bytes, out_ss) < 0) {
+            gil_error(PyExc_MemoryError, "npy_string_newemptysize failed");
             return -1;
         }
         char *out_buf = out_ss->buf;
@@ -342,16 +342,16 @@ string_to_unicode(PyArrayMethod_Context *context, char *const data[],
             if (has_null && !has_string_na) {
                 // lossy but not much else we can do
                 this_string = (unsigned char *)descr->na_name.buf;
-                n_bytes = descr->na_name.len;
+                n_bytes = descr->na_name.size;
             }
             else {
                 this_string = (unsigned char *)(default_string.buf);
-                n_bytes = default_string.len;
+                n_bytes = default_string.size;
             }
         }
         else {
             this_string = (unsigned char *)(s->buf);
-            n_bytes = s->len;
+            n_bytes = s->size;
         }
         size_t tot_n_bytes = 0;
 
@@ -440,10 +440,10 @@ string_to_bool(PyArrayMethod_Context *context, char *const data[],
                 *out = (npy_bool)1;
             }
             else {
-                *out = (npy_bool)(default_string.len == 0);
+                *out = (npy_bool)(default_string.size == 0);
             }
         }
-        else if (s->len == 0) {
+        else if (s->size == 0) {
             *out = (npy_bool)0;
         }
         else {
@@ -482,14 +482,14 @@ bool_to_string(PyArrayMethod_Context *NPY_UNUSED(context), char *const data[],
         npy_static_string *out_ss = (npy_static_string *)out;
         npy_string_free(out_ss);
         if ((npy_bool)(*in) == 1) {
-            if (npy_string_newlen("True", 4, out_ss) < 0) {
-                gil_error(PyExc_MemoryError, "npy_string_newlen failed");
+            if (npy_string_newsize("True", 4, out_ss) < 0) {
+                gil_error(PyExc_MemoryError, "npy_string_newsize failed");
                 return -1;
             }
         }
         else if ((npy_bool)(*in) == 0) {
-            if (npy_string_newlen("False", 5, out_ss) < 0) {
-                gil_error(PyExc_MemoryError, "npy_string_newlen failed");
+            if (npy_string_newsize("False", 5, out_ss) < 0) {
+                gil_error(PyExc_MemoryError, "npy_string_newsize failed");
                 return -1;
             }
         }
@@ -527,7 +527,7 @@ string_to_pylong(char *in, int hasnull)
         }
         s = &EMPTY_STRING;
     }
-    PyObject *val_obj = PyUnicode_FromStringAndSize(s->buf, s->len);
+    PyObject *val_obj = PyUnicode_FromStringAndSize(s->buf, s->size);
     if (val_obj == NULL) {
         return NULL;
     }
@@ -587,8 +587,8 @@ pyobj_to_string(PyObject *obj, char *out)
     }
     npy_static_string *out_ss = (npy_static_string *)out;
     npy_string_free(out_ss);
-    if (npy_string_newlen(cstr_val, length, out_ss) < 0) {
-        PyErr_SetString(PyExc_MemoryError, "npy_string_newlen failed");
+    if (npy_string_newsize(cstr_val, length, out_ss) < 0) {
+        PyErr_SetString(PyExc_MemoryError, "npy_string_newsize failed");
         Py_DECREF(pystr_val);
         return -1;
     }
@@ -779,7 +779,7 @@ string_to_pyfloat(char *in, int hasnull)
         }
         s = &EMPTY_STRING;
     }
-    PyObject *val_obj = PyUnicode_FromStringAndSize(s->buf, s->len);
+    PyObject *val_obj = PyUnicode_FromStringAndSize(s->buf, s->size);
     if (val_obj == NULL) {
         return NULL;
     }
@@ -1004,7 +1004,7 @@ string_to_datetime(PyArrayMethod_Context *context, char *const data[],
             s = &default_string;
         }
         if (NpyDatetime_ParseISO8601Datetime(
-                    (const char *)s->buf, s->len, in_unit, NPY_UNSAFE_CASTING,
+                    (const char *)s->buf, s->size, in_unit, NPY_UNSAFE_CASTING,
                     &dts, &in_meta.base, &out_special) < 0) {
             return -1;
         }
@@ -1072,9 +1072,10 @@ datetime_to_string(PyArrayMethod_Context *context, char *const data[],
                 return -1;
             }
 
-            if (npy_string_newlen(datetime_buf, strlen(datetime_buf), out_ss) <
-                0) {
-                PyErr_SetString(PyExc_MemoryError, "npy_string_newlen failed");
+            if (npy_string_newsize(datetime_buf, strlen(datetime_buf),
+                                   out_ss) < 0) {
+                PyErr_SetString(PyExc_MemoryError,
+                                "npy_string_newsize failed");
                 return -1;
             }
         }

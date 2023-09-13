@@ -9,26 +9,26 @@ const npy_static_string EMPTY_STRING = {0, "\0"};
 const npy_static_string NULL_STRING = {0, NULL};
 
 int
-npy_string_newlen(const char *init, size_t len, npy_static_string *to_init)
+npy_string_newsize(const char *init, size_t size, npy_static_string *to_init)
 {
-    if ((to_init == NULL) || (to_init->buf != NULL) || (to_init->len != 0)) {
+    if ((to_init == NULL) || (to_init->buf != NULL) || (to_init->size != 0)) {
         return -2;
     }
 
-    if (len == 0) {
+    if (size == 0) {
         *to_init = EMPTY_STRING;
         return 0;
     }
 
-    char *ret_buf = (char *)PyMem_RawMalloc(sizeof(char) * len);
+    char *ret_buf = (char *)PyMem_RawMalloc(sizeof(char) * size);
 
     if (ret_buf == NULL) {
         return -1;
     }
 
-    to_init->len = len;
+    to_init->size = size;
 
-    memcpy(ret_buf, init, len);
+    memcpy(ret_buf, init, size);
 
     to_init->buf = ret_buf;
 
@@ -42,37 +42,37 @@ npy_string_free(npy_static_string *str)
         PyMem_RawFree(str->buf);
         str->buf = NULL;
     }
-    str->len = 0;
+    str->size = 0;
 }
 
 int
 npy_string_dup(const npy_static_string *in, npy_static_string *out)
 {
     if (npy_string_isnull(in)) {
-        out->len = 0;
+        out->size = 0;
         out->buf = NULL;
         return 0;
     }
     else {
-        return npy_string_newlen(in->buf, in->len, out);
+        return npy_string_newsize(in->buf, in->size, out);
     }
 }
 
 int
-npy_string_newemptylen(size_t num_bytes, npy_static_string *out)
+npy_string_newemptysize(size_t size, npy_static_string *out)
 {
-    if (out->len != 0 || out->buf != NULL) {
+    if (out->size != 0 || out->buf != NULL) {
         return -2;
     }
 
-    out->len = num_bytes;
+    out->size = size;
 
-    if (num_bytes == 0) {
+    if (size == 0) {
         *out = EMPTY_STRING;
         return 0;
     }
 
-    char *buf = (char *)PyMem_RawMalloc(sizeof(char) * num_bytes);
+    char *buf = (char *)PyMem_RawMalloc(sizeof(char) * size);
 
     if (buf == NULL) {
         return -1;
@@ -86,15 +86,15 @@ npy_string_newemptylen(size_t num_bytes, npy_static_string *out)
 int
 npy_string_cmp(const npy_static_string *s1, const npy_static_string *s2)
 {
-    size_t minlen = s1->len < s2->len ? s1->len : s2->len;
+    size_t minsize = s1->size < s2->size ? s1->size : s2->size;
 
-    int cmp = strncmp(s1->buf, s2->buf, minlen);
+    int cmp = strncmp(s1->buf, s2->buf, minsize);
 
     if (cmp == 0) {
-        if (s1->len > minlen) {
+        if (s1->size > minsize) {
             return 1;
         }
-        if (s2->len > minlen) {
+        if (s2->size > minsize) {
             return -1;
         }
     }
@@ -105,7 +105,7 @@ npy_string_cmp(const npy_static_string *s1, const npy_static_string *s2)
 int
 npy_string_isnull(const npy_static_string *in)
 {
-    if (in->len == 0 && in->buf == NULL) {
+    if (in->size == 0 && in->buf == NULL) {
         return 1;
     }
     return 0;
