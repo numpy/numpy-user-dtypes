@@ -2,11 +2,11 @@
 
 #include "static_string.h"
 
-// defined this way so EMPTY_STRING has an in-memory representation that is
-// distinct from a zero-filled struct, allowing us to use a NULL_STRING
+// defined this way so NPY_EMPTY_STRING has an in-memory representation that is
+// distinct from a zero-filled struct, allowing us to use a NPY_NULL_STRING
 // to represent a sentinel value
-const npy_static_string EMPTY_STRING = {0, "\0"};
-const npy_static_string NULL_STRING = {0, NULL};
+const npy_static_string NPY_EMPTY_STRING = {0, "\0"};
+const npy_static_string NPY_NULL_STRING = {0, NULL};
 
 int
 npy_string_newsize(const char *init, size_t size, npy_static_string *to_init)
@@ -17,7 +17,7 @@ npy_string_newsize(const char *init, size_t size, npy_static_string *to_init)
     }
 
     if (size == 0) {
-        *to_init = EMPTY_STRING;
+        *to_init = NPY_EMPTY_STRING;
         return 0;
     }
 
@@ -39,7 +39,7 @@ npy_string_newsize(const char *init, size_t size, npy_static_string *to_init)
 void
 npy_string_free(npy_static_string *str)
 {
-    if (str->buf != NULL && str->buf != EMPTY_STRING.buf) {
+    if (str->buf != NULL && str->buf != NPY_EMPTY_STRING.buf) {
         PyMem_RawFree(str->buf);
         str->buf = NULL;
     }
@@ -69,7 +69,7 @@ npy_string_newemptysize(size_t size, npy_static_string *out)
     out->size = size;
 
     if (size == 0) {
-        *out = EMPTY_STRING;
+        *out = NPY_EMPTY_STRING;
         return 0;
     }
 

@@ -20,18 +20,18 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
 
     Py_XINCREF(na_object);
     ((StringDTypeObject *)new)->na_object = na_object;
-    npy_static_string na_name = NULL_STRING;
+    npy_static_string na_name = NPY_NULL_STRING;
     int hasnull = na_object != NULL;
     int has_nan_na = 0;
     int has_string_na = 0;
-    npy_static_string default_string = EMPTY_STRING;
+    npy_static_string default_string = NPY_EMPTY_STRING;
     if (hasnull) {
         // first check for a string
         if (PyUnicode_Check(na_object)) {
             has_string_na = 1;
             Py_ssize_t size = 0;
             const char *buf = PyUnicode_AsUTF8AndSize(na_object, &size);
-            default_string = NULL_STRING;
+            default_string = NPY_NULL_STRING;
             int res = npy_string_newsize(buf, (size_t)size, &default_string);
             if (res == -1) {
                 PyErr_NoMemory();

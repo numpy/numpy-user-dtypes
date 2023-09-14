@@ -525,7 +525,7 @@ string_to_pylong(char *in, int hasnull)
                             "integers");
             return NULL;
         }
-        s = &EMPTY_STRING;
+        s = &NPY_EMPTY_STRING;
     }
     PyObject *val_obj =
             PyUnicode_FromStringAndSize(npy_string_buf(s), npy_string_size(s));
@@ -778,7 +778,7 @@ string_to_pyfloat(char *in, int hasnull)
                             "integers");
             return NULL;
         }
-        s = &EMPTY_STRING;
+        s = &NPY_EMPTY_STRING;
     }
     PyObject *val_obj =
             PyUnicode_FromStringAndSize(npy_string_buf(s), npy_string_size(s));

@@ -11,11 +11,11 @@ typedef struct npy_static_string {
 
 // represents the empty string and can be passed safely to npy_static_string
 // API functions
-extern const npy_static_string EMPTY_STRING;
+extern const npy_static_string NPY_EMPTY_STRING;
 // represents a sentinel value, *CANNOT* be passed safely to npy_static_string
 // API functions, use npy_string_isnull to check if a value is null before
 // working with it.
-extern const npy_static_string NULL_STRING;
+extern const npy_static_string NPY_NULL_STRING;
 
 // Allocates a new buffer for *to_init*, which must be set to NULL before
 // calling this function, filling the newly allocated buffer with the copied
