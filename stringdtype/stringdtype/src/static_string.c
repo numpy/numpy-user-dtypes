@@ -11,7 +11,8 @@ const npy_static_string NULL_STRING = {0, NULL};
 int
 npy_string_newsize(const char *init, size_t size, npy_static_string *to_init)
 {
-    if ((to_init == NULL) || (to_init->buf != NULL) || (to_init->size != 0)) {
+    if ((to_init == NULL) || (to_init->buf != NULL) ||
+        (npy_string_size(to_init) != 0)) {
         return -2;
     }
 
@@ -108,5 +109,26 @@ npy_string_isnull(const npy_static_string *in)
     if (in->size == 0 && in->buf == NULL) {
         return 1;
     }
+    return 0;
+}
+
+size_t
+npy_string_size(const npy_static_string *s)
+{
+    return s->size;
+}
+
+char *
+npy_string_buf(const npy_static_string *s)
+{
+    return s->buf;
+}
+
+int
+npy_string_size_and_buf(const npy_static_string *s, size_t *size, char **buf)
+{
+    *size = s->size;
+    *buf = s->buf;
+
     return 0;
 }

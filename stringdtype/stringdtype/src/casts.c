@@ -213,7 +213,7 @@ unicode_to_string(PyArrayMethod_Context *context, char *const data[],
             gil_error(PyExc_MemoryError, "npy_string_newemptysize failed");
             return -1;
         }
-        char *out_buf = out_ss->buf;
+        char *out_buf = npy_string_buf(out_ss);
         for (size_t i = 0; i < num_codepoints; i++) {
             // get code point
             Py_UCS4 code = in[i];
@@ -338,28 +338,28 @@ string_to_unicode(PyArrayMethod_Context *context, char *const data[],
         s = (npy_static_string *)in;
         unsigned char *this_string = NULL;
         size_t n_bytes;
+        const npy_static_string *name = NULL;
         if (npy_string_isnull(s)) {
             if (has_null && !has_string_na) {
                 // lossy but not much else we can do
-                this_string = (unsigned char *)descr->na_name.buf;
-                n_bytes = descr->na_name.size;
+                name = &descr->na_name;
             }
             else {
-                this_string = (unsigned char *)(default_string.buf);
-                n_bytes = default_string.size;
+                name = &default_string;
             }
         }
         else {
-            this_string = (unsigned char *)(s->buf);
-            n_bytes = s->size;
+            name = s;
         }
+
+        this_string = (unsigned char *)npy_string_buf(name);
+        n_bytes = npy_string_size(name);
         size_t tot_n_bytes = 0;
 
         for (int i = 0; i < max_out_size; i++) {
             Py_UCS4 code;
 
-            // get code point for character this_string is currently pointing
-            // too
+            // code point for character this_string is currently pointing at
             size_t num_bytes =
                     utf8_char_to_ucs4_code(this_string, n_bytes, &code);
 
@@ -440,10 +440,10 @@ string_to_bool(PyArrayMethod_Context *context, char *const data[],
                 *out = (npy_bool)1;
             }
             else {
-                *out = (npy_bool)(default_string.size == 0);
+                *out = (npy_bool)(npy_string_size(&default_string) == 0);
             }
         }
-        else if (s->size == 0) {
+        else if (npy_string_size(s) == 0) {
             *out = (npy_bool)0;
         }
         else {
@@ -527,7 +527,8 @@ string_to_pylong(char *in, int hasnull)
         }
         s = &EMPTY_STRING;
     }
-    PyObject *val_obj = PyUnicode_FromStringAndSize(s->buf, s->size);
+    PyObject *val_obj =
+            PyUnicode_FromStringAndSize(npy_string_buf(s), npy_string_size(s));
     if (val_obj == NULL) {
         return NULL;
     }
@@ -779,7 +780,8 @@ string_to_pyfloat(char *in, int hasnull)
         }
         s = &EMPTY_STRING;
     }
-    PyObject *val_obj = PyUnicode_FromStringAndSize(s->buf, s->size);
+    PyObject *val_obj =
+            PyUnicode_FromStringAndSize(npy_string_buf(s), npy_string_size(s));
     if (val_obj == NULL) {
         return NULL;
     }
@@ -1004,8 +1006,9 @@ string_to_datetime(PyArrayMethod_Context *context, char *const data[],
             s = &default_string;
         }
         if (NpyDatetime_ParseISO8601Datetime(
-                    (const char *)s->buf, s->size, in_unit, NPY_UNSAFE_CASTING,
-                    &dts, &in_meta.base, &out_special) < 0) {
+                    (const char *)npy_string_buf(s), npy_string_size(s),
+                    in_unit, NPY_UNSAFE_CASTING, &dts, &in_meta.base,
+                    &out_special) < 0) {
             return -1;
         }
         if (NpyDatetime_ConvertDatetimeStructToDatetime64(dt_meta, &dts, out) <

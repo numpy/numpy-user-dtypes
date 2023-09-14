@@ -223,7 +223,6 @@ stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
             return -1;
         }
 
-        // copies contents of val into item_val->buf
         int res = npy_string_newsize(val, length, sdata);
 
         if (res == -1) {
@@ -260,8 +259,8 @@ stringdtype_getitem(StringDTypeObject *descr, char **dataptr)
         }
     }
     else {
-        char *data = sdata->buf;
-        size_t size = sdata->size;
+        char *data = npy_string_buf(sdata);
+        size_t size = npy_string_size(sdata);
         val_obj = PyUnicode_FromStringAndSize(data, size);
         if (val_obj == NULL) {
             return NULL;
@@ -287,7 +286,7 @@ stringdtype_getitem(StringDTypeObject *descr, char **dataptr)
 npy_bool
 nonzero(void *data, void *NPY_UNUSED(arr))
 {
-    return ((npy_static_string *)data)->size != 0;
+    return npy_string_size((npy_static_string *)data) != 0;
 }
 
 // Implementation of PyArray_CompareFunc.

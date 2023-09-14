@@ -17,15 +17,18 @@ extern const npy_static_string EMPTY_STRING;
 // working with it.
 extern const npy_static_string NULL_STRING;
 
-// Allocates a new buffer for *to_init*, filling with the copied contents of
-// the first *size*entries in *init*, which must be valid and initialized
-// beforehand, and sets *to_init->size* to *size*. Returns -1 if malloc fails
-// and -2 if *to_init* is not NULL. Returns 0 on success.
+// Allocates a new buffer for *to_init*, which must be set to NULL before
+// calling this function, filling the newly allocated buffer with the copied
+// contents of the first *size* entries in *init*, which must be valid and
+// initialized beforehand. Calling npy_string_free on *to_init* before calling
+// this function on an existing string is sufficient to initialize it. Returns
+// -1 if malloc fails and -2 if the internal buffer in *to_init* is not NULL
+// to indicate a programming error. Returns 0 on success.
 int
 npy_string_newsize(const char *init, size_t size, npy_static_string *to_init);
 
-// Sets len to 0 and if str->buf is not already NULL, frees it and sets it to
-// NULL. Cannot fail.
+// Sets len to 0 and if the internal buffer is not already NULL, frees it if
+// it is allocated on the heap and sets it to NULL. Cannot fail.
 void
 npy_string_free(npy_static_string *str);
 
@@ -53,5 +56,18 @@ npy_string_isnull(const npy_static_string *in);
 // null-terminated C strings with the content of *s1* and *s2*.
 int
 npy_string_cmp(const npy_static_string *s1, const npy_static_string *s2);
+
+// Returns the *size* of *s*
+size_t
+npy_string_size(const npy_static_string *s);
+
+// Returns the string *buf* of *s*. This is not a null-terminated buffer.
+char *
+npy_string_buf(const npy_static_string *s);
+
+// Fills in *size* and *buf* pointers with the values in *s*.
+// Currently always returns 0.
+int
+npy_string_size_and_buf(const npy_static_string *s, size_t *size, char **buf);
 
 #endif /*_NPY_STATIC_STRING_H */
