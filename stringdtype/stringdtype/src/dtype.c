@@ -20,18 +20,18 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
 
     Py_XINCREF(na_object);
     ((StringDTypeObject *)new)->na_object = na_object;
-    npy_static_string na_name = NPY_NULL_STRING;
+    npy_static_string na_name = NPY_EMPTY_STRING;
+    npy_static_string default_string = NPY_EMPTY_STRING;
     int hasnull = na_object != NULL;
     int has_nan_na = 0;
     int has_string_na = 0;
-    npy_static_string default_string = NPY_EMPTY_STRING;
     if (hasnull) {
         // first check for a string
         if (PyUnicode_Check(na_object)) {
             has_string_na = 1;
             Py_ssize_t size = 0;
             const char *buf = PyUnicode_AsUTF8AndSize(na_object, &size);
-            default_string = NPY_NULL_STRING;
+            default_string = NPY_EMPTY_STRING;
             int res = npy_string_newsize(buf, (size_t)size, &default_string);
             if (res == -1) {
                 PyErr_NoMemory();
@@ -206,8 +206,7 @@ stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
     // setting NA *must* check pointer equality since NA types might not
     // allow equality
     if (na_object != NULL && obj == na_object) {
-        // do nothing, npy_string_free already NULLed the struct ssdata points
-        // to so it already contains a NA value
+        *sdata = NPY_NULL_STRING;
     }
     else {
         PyObject *val_obj = get_value(obj, descr->coerce);
@@ -259,7 +258,7 @@ stringdtype_getitem(StringDTypeObject *descr, char **dataptr)
         }
     }
     else {
-        char *data = npy_string_buf(sdata);
+        const char *data = npy_string_buf(sdata);
         size_t size = npy_string_size(sdata);
         val_obj = PyUnicode_FromStringAndSize(data, size);
         if (val_obj == NULL) {
@@ -420,9 +419,7 @@ stringdtype_fill_zero_loop(void *NPY_UNUSED(traverse_context),
                            NpyAuxData *NPY_UNUSED(auxdata))
 {
     while (size--) {
-        if (npy_string_newsize("", 0, (npy_static_string *)(data)) < 0) {
-            return -1;
-        }
+        *(npy_static_string *)(data) = NPY_EMPTY_STRING;
         data += stride;
     }
     return 0;

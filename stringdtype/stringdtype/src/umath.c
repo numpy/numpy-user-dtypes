@@ -34,107 +34,108 @@ multiply_resolve_descriptors(
     return NPY_NO_CASTING;
 }
 
-#define MULTIPLY_IMPL(shortname)                                              \
-    static int multiply_loop_core_##shortname(                                \
-            npy_intp N, char *sin, char *iin, char *out, npy_intp s_stride,   \
-            npy_intp i_stride, npy_intp o_stride, int has_null,               \
-            int has_nan_na, int has_string_na,                                \
-            const npy_static_string *default_string)                          \
-    {                                                                         \
-        const npy_static_string *is = NULL;                                   \
-        npy_static_string *os = NULL;                                         \
-                                                                              \
-        while (N--) {                                                         \
-            is = (npy_static_string *)sin;                                    \
-            os = (npy_static_string *)out;                                    \
-            npy_string_free(os);                                              \
-            int is_isnull = npy_string_isnull(is);                            \
-            if (is_isnull) {                                                  \
-                if (has_nan_na) {                                             \
-                    /* preserve NA, npy_string_free already set os to NULL */ \
-                    sin += s_stride;                                          \
-                    iin += i_stride;                                          \
-                    out += o_stride;                                          \
-                    continue;                                                 \
-                }                                                             \
-                else if (has_string_na || !has_null) {                        \
-                    is = default_string;                                      \
-                }                                                             \
-                else {                                                        \
-                    gil_error(PyExc_TypeError,                                \
-                              "Cannot multiply null that is not a nan-like "  \
-                              "value");                                       \
-                }                                                             \
-            }                                                                 \
-            npy_##shortname factor = *(npy_##shortname *)iin;                 \
-            size_t cursize = npy_string_size(is);                             \
-            /* FIXME: check for overflow? */                                  \
-            size_t newsize = cursize * factor;                                \
-                                                                              \
-            if (npy_string_newemptysize(newsize, os) < 0) {                   \
-                gil_error(PyExc_MemoryError,                                  \
-                          "npy_string_newemptysize failed");                  \
-                return -1;                                                    \
-            }                                                                 \
-                                                                              \
-            for (size_t i = 0; i < (size_t)factor; i++) {                     \
-                memcpy(npy_string_buf(os) + i * cursize, npy_string_buf(is),  \
-                       cursize);                                              \
-            }                                                                 \
-                                                                              \
-            sin += s_stride;                                                  \
-            iin += i_stride;                                                  \
-            out += o_stride;                                                  \
-        }                                                                     \
-        return 0;                                                             \
-    }                                                                         \
-                                                                              \
-    static int multiply_right_##shortname##_strided_loop(                     \
-            PyArrayMethod_Context *context, char *const data[],               \
-            npy_intp const dimensions[], npy_intp const strides[],            \
-            NpyAuxData *NPY_UNUSED(auxdata))                                  \
-    {                                                                         \
-        StringDTypeObject *descr =                                            \
-                (StringDTypeObject *)context->descriptors[0];                 \
-        int has_null = descr->na_object != NULL;                              \
-        int has_nan_na = descr->has_nan_na;                                   \
-        int has_string_na = descr->has_string_na;                             \
-        const npy_static_string *default_string = &descr->default_string;     \
-        npy_intp N = dimensions[0];                                           \
-        char *in1 = data[0];                                                  \
-        char *in2 = data[1];                                                  \
-        char *out = data[2];                                                  \
-        npy_intp in1_stride = strides[0];                                     \
-        npy_intp in2_stride = strides[1];                                     \
-        npy_intp out_stride = strides[2];                                     \
-                                                                              \
-        return multiply_loop_core_##shortname(                                \
-                N, in1, in2, out, in1_stride, in2_stride, out_stride,         \
-                has_null, has_nan_na, has_string_na, default_string);         \
-    }                                                                         \
-                                                                              \
-    static int multiply_left_##shortname##_strided_loop(                      \
-            PyArrayMethod_Context *context, char *const data[],               \
-            npy_intp const dimensions[], npy_intp const strides[],            \
-            NpyAuxData *NPY_UNUSED(auxdata))                                  \
-    {                                                                         \
-        StringDTypeObject *descr =                                            \
-                (StringDTypeObject *)context->descriptors[1];                 \
-        int has_null = descr->na_object != NULL;                              \
-        int has_nan_na = descr->has_nan_na;                                   \
-        int has_string_na = descr->has_string_na;                             \
-        const npy_static_string *default_string = &descr->default_string;     \
-        npy_intp N = dimensions[0];                                           \
-        char *in1 = data[0];                                                  \
-        char *in2 = data[1];                                                  \
-        char *out = data[2];                                                  \
-        npy_intp in1_stride = strides[0];                                     \
-        npy_intp in2_stride = strides[1];                                     \
-        npy_intp out_stride = strides[2];                                     \
-                                                                              \
-        return multiply_loop_core_##shortname(                                \
-                N, in2, in1, out, in2_stride, in1_stride, out_stride,         \
-                has_null, has_nan_na, has_string_na, default_string);         \
+#define MULTIPLY_IMPL(shortname)                                             \
+    static int multiply_loop_core_##shortname(                               \
+            npy_intp N, char *sin, char *iin, char *out, npy_intp s_stride,  \
+            npy_intp i_stride, npy_intp o_stride, int has_null,              \
+            int has_nan_na, int has_string_na,                               \
+            const npy_static_string *default_string)                         \
+    {                                                                        \
+        const npy_static_string *is = NULL;                                  \
+        npy_static_string *os = NULL;                                        \
+                                                                             \
+        while (N--) {                                                        \
+            is = (npy_static_string *)sin;                                   \
+            os = (npy_static_string *)out;                                   \
+            npy_string_free(os);                                             \
+            int is_isnull = npy_string_isnull(is);                           \
+            if (is_isnull) {                                                 \
+                if (has_nan_na) {                                            \
+                    *os = NPY_NULL_STRING;                                   \
+                    sin += s_stride;                                         \
+                    iin += i_stride;                                         \
+                    out += o_stride;                                         \
+                    continue;                                                \
+                }                                                            \
+                else if (has_string_na || !has_null) {                       \
+                    is = default_string;                                     \
+                }                                                            \
+                else {                                                       \
+                    gil_error(PyExc_TypeError,                               \
+                              "Cannot multiply null that is not a nan-like " \
+                              "value");                                      \
+                    return -1;                                               \
+                }                                                            \
+            }                                                                \
+            npy_##shortname factor = *(npy_##shortname *)iin;                \
+            size_t cursize = npy_string_size(is);                            \
+            /* FIXME: check for overflow? */                                 \
+            size_t newsize = cursize * factor;                               \
+                                                                             \
+            if (npy_string_newemptysize(newsize, os) < 0) {                  \
+                gil_error(PyExc_MemoryError,                                 \
+                          "npy_string_newemptysize failed");                 \
+                return -1;                                                   \
+            }                                                                \
+                                                                             \
+            for (size_t i = 0; i < (size_t)factor; i++) {                    \
+                memcpy(npy_string_buf(os) + i * cursize, npy_string_buf(is), \
+                       cursize);                                             \
+            }                                                                \
+                                                                             \
+            sin += s_stride;                                                 \
+            iin += i_stride;                                                 \
+            out += o_stride;                                                 \
+        }                                                                    \
+        return 0;                                                            \
+    }                                                                        \
+                                                                             \
+    static int multiply_right_##shortname##_strided_loop(                    \
+            PyArrayMethod_Context *context, char *const data[],              \
+            npy_intp const dimensions[], npy_intp const strides[],           \
+            NpyAuxData *NPY_UNUSED(auxdata))                                 \
+    {                                                                        \
+        StringDTypeObject *descr =                                           \
+                (StringDTypeObject *)context->descriptors[0];                \
+        int has_null = descr->na_object != NULL;                             \
+        int has_nan_na = descr->has_nan_na;                                  \
+        int has_string_na = descr->has_string_na;                            \
+        const npy_static_string *default_string = &descr->default_string;    \
+        npy_intp N = dimensions[0];                                          \
+        char *in1 = data[0];                                                 \
+        char *in2 = data[1];                                                 \
+        char *out = data[2];                                                 \
+        npy_intp in1_stride = strides[0];                                    \
+        npy_intp in2_stride = strides[1];                                    \
+        npy_intp out_stride = strides[2];                                    \
+                                                                             \
+        return multiply_loop_core_##shortname(                               \
+                N, in1, in2, out, in1_stride, in2_stride, out_stride,        \
+                has_null, has_nan_na, has_string_na, default_string);        \
+    }                                                                        \
+                                                                             \
+    static int multiply_left_##shortname##_strided_loop(                     \
+            PyArrayMethod_Context *context, char *const data[],              \
+            npy_intp const dimensions[], npy_intp const strides[],           \
+            NpyAuxData *NPY_UNUSED(auxdata))                                 \
+    {                                                                        \
+        StringDTypeObject *descr =                                           \
+                (StringDTypeObject *)context->descriptors[1];                \
+        int has_null = descr->na_object != NULL;                             \
+        int has_nan_na = descr->has_nan_na;                                  \
+        int has_string_na = descr->has_string_na;                            \
+        const npy_static_string *default_string = &descr->default_string;    \
+        npy_intp N = dimensions[0];                                          \
+        char *in1 = data[0];                                                 \
+        char *in2 = data[1];                                                 \
+        char *out = data[2];                                                 \
+        npy_intp in1_stride = strides[0];                                    \
+        npy_intp in2_stride = strides[1];                                    \
+        npy_intp out_stride = strides[2];                                    \
+                                                                             \
+        return multiply_loop_core_##shortname(                               \
+                N, in2, in1, out, in2_stride, in1_stride, out_stride,        \
+                has_null, has_nan_na, has_string_na, default_string);        \
     }
 
 MULTIPLY_IMPL(int8);
@@ -226,7 +227,7 @@ add_strided_loop(PyArrayMethod_Context *context, char *const data[],
         npy_string_free(os);
         if (NPY_UNLIKELY(s1_isnull || s2_isnull)) {
             if (has_nan_na) {
-                /* preserve NA, npy_string_free already set os to NULL */
+                *os = NPY_NULL_STRING;
                 goto next_step;
             }
             else if (has_string_na || !has_null) {
@@ -240,6 +241,7 @@ add_strided_loop(PyArrayMethod_Context *context, char *const data[],
             else {
                 gil_error(PyExc_TypeError,
                           "Cannot add null that is not a nan-like value");
+                return -1;
             }
         }
 
@@ -522,6 +524,7 @@ string_greater_strided_loop(PyArrayMethod_Context *context, char *const data[],
                 gil_error(PyExc_TypeError,
                           "'>' not supported for null values that are not "
                           "nan-like.");
+                return -1;
             }
             else {
                 if (s1_isnull) {
@@ -585,6 +588,7 @@ string_greater_equal_strided_loop(PyArrayMethod_Context *context,
                 gil_error(PyExc_TypeError,
                           "'>=' not supported for null values that are not "
                           "nan-like.");
+                return -1;
             }
             else {
                 if (s1_isnull) {
@@ -646,6 +650,7 @@ string_less_strided_loop(PyArrayMethod_Context *context, char *const data[],
                 gil_error(PyExc_TypeError,
                           "'<' not supported for null values that are not "
                           "nan-like.");
+                return -1;
             }
             else {
                 if (s1_isnull) {
@@ -708,6 +713,7 @@ string_less_equal_strided_loop(PyArrayMethod_Context *context,
                 gil_error(PyExc_TypeError,
                           "'<=' not supported for null values that are not "
                           "nan-like.");
+                return -1;
             }
             else {
                 if (s1_isnull) {

@@ -4,10 +4,58 @@
 #include "stdlib.h"
 #include "string.h"
 
-typedef struct npy_static_string {
+#if NPY_BYTE_ORDER == NPY_LITTLE_ENDIAN
+
+// the high byte in vstring.size is resolved for flags
+// SSSS SSSF
+
+typedef struct _npy_static_string_t {
+    char *buf;
+    size_t size;
+} _npy_static_string_t;
+
+typedef struct _short_string_buffer {
+    char buf[sizeof(_npy_static_string_t) - 1];
+    unsigned char flags_and_size;
+} _short_string_buffer;
+
+#elif NPY_BYTE_ORDER == NPY_BIG_ENDIAN
+
+// the high byte in vstring.size is resolved for flags
+// FSSS SSSS
+
+typedef struct _npy_static_string_t {
     size_t size;
     char *buf;
+} _npy_static_string_t;
+
+typedef struct _short_string_buffer {
+    unsigned char flags_and_size;
+    char buf[sizeof(npy_static_string_t) - 1];
+} _short_string_buffer;
+
+#endif
+
+typedef union _npy_static_string_u {
+    _npy_static_string_t vstring;
+    _short_string_buffer direct_buffer;
+} _npy_static_string_u;
+
+typedef struct npy_static_string {
+    _npy_static_string_u base;
 } npy_static_string;
+
+// room for two more flags with values 0x20 and 0x10
+#define NPY_STRING_MISSING 0x80  // 1000 0000
+#define NPY_STRING_SHORT 0x40    // 0100 0000
+
+// short string sizes fit in a 4-bit integer
+#define NPY_SHORT_STRING_SIZE_MASK 0x0F  // 0000 1111
+#define NPY_SHORT_STRING_MAX_SIZE \
+    (sizeof(npy_static_string) - 1)  // 15 or 7 depending on arch
+
+// one byte in size is reserved for flags and small string optimization
+#define MAX_STRING_SIZE (1 << (sizeof(size_t) - 1)) - 1
 
 // represents the empty string and can be passed safely to npy_static_string
 // API functions
@@ -64,10 +112,5 @@ npy_string_size(const npy_static_string *s);
 // Returns the string *buf* of *s*. This is not a null-terminated buffer.
 char *
 npy_string_buf(const npy_static_string *s);
-
-// Fills in *size* and *buf* pointers with the values in *s*.
-// Currently always returns 0.
-int
-npy_string_size_and_buf(const npy_static_string *s, size_t *size, char **buf);
 
 #endif /*_NPY_STATIC_STRING_H */

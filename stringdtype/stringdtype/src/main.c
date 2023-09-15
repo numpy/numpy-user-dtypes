@@ -58,7 +58,10 @@ _memory_usage(PyObject *NPY_UNUSED(self), PyObject *obj)
         npy_intp count = *innersizeptr;
 
         while (count--) {
-            memory_usage += npy_string_size(((npy_static_string *)in));
+            size_t size = npy_string_size(((npy_static_string *)in));
+            if (size > NPY_SHORT_STRING_MAX_SIZE) {
+                memory_usage += size;
+            }
             in += stride;
         }
 

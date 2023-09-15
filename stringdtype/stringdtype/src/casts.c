@@ -1057,8 +1057,7 @@ datetime_to_string(PyArrayMethod_Context *context, char *const data[],
         npy_static_string *out_ss = (npy_static_string *)out;
         npy_string_free(out_ss);
         if (*in == NPY_DATETIME_NAT) {
-            /* convert to NA */
-            out_ss = NULL;
+            *out_ss = NPY_NULL_STRING;
         }
         else {
             if (NpyDatetime_ConvertDatetime64ToDatetimeStruct(dt_meta, *in,
