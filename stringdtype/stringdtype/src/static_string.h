@@ -13,18 +13,6 @@ typedef struct npy_static_string {
     const char *buf;
 } npy_static_string;
 
-// room for two more flags with values 0x20 and 0x10
-#define NPY_STRING_MISSING 0x80  // 1000 0000
-#define NPY_STRING_SHORT 0x40    // 0100 0000
-
-// short string sizes fit in a 4-bit integer
-#define NPY_SHORT_STRING_SIZE_MASK 0x0F  // 0000 1111
-#define NPY_SHORT_STRING_MAX_SIZE \
-    (sizeof(npy_static_string) - 1)  // 15 or 7 depending on arch
-
-// one byte in size is reserved for flags and small string optimization
-#define MAX_STRING_SIZE (1 << (sizeof(size_t) - 1)) - 1
-
 // represents the empty string and can be passed safely to npy_static_string
 // API functions
 extern const npy_packed_static_string *NPY_EMPTY_STRING;
