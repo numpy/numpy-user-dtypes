@@ -69,12 +69,9 @@ string_to_string(PyArrayMethod_Context *NPY_UNUSED(context),
     npy_intp in_stride = strides[0];
     npy_intp out_stride = strides[1];
 
-    const npy_static_string *s = NULL;
-    npy_static_string *os = NULL;
-
     while (N--) {
-        s = (npy_static_string *)in;
-        os = (npy_static_string *)out;
+        const npy_packed_static_string *s = (npy_packed_static_string *)in;
+        npy_packed_static_string *os = (npy_packed_static_string *)out;
         if (in != out) {
             npy_string_free(os);
             if (npy_string_dup(s, os) < 0) {
@@ -207,13 +204,16 @@ unicode_to_string(PyArrayMethod_Context *context, char *const data[],
             gil_error(PyExc_TypeError, "Invalid unicode code point found");
             return -1;
         }
-        npy_static_string *out_ss = (npy_static_string *)out;
-        npy_string_free(out_ss);
-        if (npy_string_newemptysize(out_num_bytes, out_ss) < 0) {
+        npy_packed_static_string *out_pss = (npy_packed_static_string *)out;
+        npy_string_free(out_pss);
+        if (npy_string_newemptysize(out_num_bytes, out_pss) < 0) {
             gil_error(PyExc_MemoryError, "npy_string_newemptysize failed");
             return -1;
         }
-        char *out_buf = npy_string_buf(out_ss);
+        npy_static_string out_ss = {0, NULL};
+        npy_load_string(out_pss, &out_ss);
+        // ignores const to fill in the buffer
+        char *out_buf = (char *)out_ss.buf;
         for (size_t i = 0; i < num_codepoints; i++) {
             // get code point
             Py_UCS4 code = in[i];
@@ -322,7 +322,8 @@ string_to_unicode(PyArrayMethod_Context *context, char *const data[],
     StringDTypeObject *descr = (StringDTypeObject *)context->descriptors[0];
     int has_null = descr->na_object != NULL;
     int has_string_na = descr->has_string_na;
-    npy_static_string default_string = descr->default_string;
+    const npy_static_string *default_string = &descr->default_string;
+    const npy_static_string *na_name = &descr->na_name;
     npy_intp N = dimensions[0];
     char *in = data[0];
     Py_UCS4 *out = (Py_UCS4 *)data[1];
@@ -332,28 +333,28 @@ string_to_unicode(PyArrayMethod_Context *context, char *const data[],
     // max number of 4 byte UCS4 characters that can fit in the output
     long max_out_size = (context->descriptors[1]->elsize) / 4;
 
-    const npy_static_string *s = NULL;
-
     while (N--) {
-        s = (npy_static_string *)in;
+        const npy_packed_static_string *ps = (npy_packed_static_string *)in;
+        npy_static_string s = {0, NULL};
+        npy_static_string name = {0, NULL};
         unsigned char *this_string = NULL;
         size_t n_bytes;
-        const npy_static_string *name = NULL;
-        if (npy_string_isnull(s)) {
+        int is_null = npy_load_string(ps, &s);
+        if (is_null) {
             if (has_null && !has_string_na) {
                 // lossy but not much else we can do
-                name = &descr->na_name;
+                name = *na_name;
             }
             else {
-                name = &default_string;
+                name = *default_string;
             }
         }
         else {
             name = s;
         }
 
-        this_string = (unsigned char *)npy_string_buf(name);
-        n_bytes = npy_string_size(name);
+        this_string = (unsigned char *)(name.buf);
+        n_bytes = name.size;
         size_t tot_n_bytes = 0;
 
         for (int i = 0; i < max_out_size; i++) {
@@ -421,7 +422,7 @@ string_to_bool(PyArrayMethod_Context *context, char *const data[],
     StringDTypeObject *descr = (StringDTypeObject *)context->descriptors[0];
     int has_null = descr->na_object != NULL;
     int has_string_na = descr->has_string_na;
-    npy_static_string default_string = descr->default_string;
+    const npy_static_string *default_string = &descr->default_string;
 
     npy_intp N = dimensions[0];
     char *in = data[0];
@@ -430,20 +431,19 @@ string_to_bool(PyArrayMethod_Context *context, char *const data[],
     npy_intp in_stride = strides[0];
     npy_intp out_stride = strides[1];
 
-    const npy_static_string *s = NULL;
-
     while (N--) {
-        s = (npy_static_string *)in;
-        if (npy_string_isnull(s)) {
+        const npy_packed_static_string *ps = (npy_packed_static_string *)in;
+        npy_static_string s = {0, NULL};
+        if (npy_load_string(ps, &s)) {
             if (has_null && !has_string_na) {
                 // numpy treats NaN as truthy, following python
                 *out = (npy_bool)1;
             }
             else {
-                *out = (npy_bool)(npy_string_size(&default_string) == 0);
+                *out = (npy_bool)(default_string->size == 0);
             }
         }
-        else if (npy_string_size(s) == 0) {
+        else if (s.size == 0) {
             *out = (npy_bool)0;
         }
         else {
@@ -479,16 +479,16 @@ bool_to_string(PyArrayMethod_Context *NPY_UNUSED(context), char *const data[],
     npy_intp out_stride = strides[1];
 
     while (N--) {
-        npy_static_string *out_ss = (npy_static_string *)out;
-        npy_string_free(out_ss);
+        npy_packed_static_string *out_pss = (npy_packed_static_string *)out;
+        npy_string_free(out_pss);
         if ((npy_bool)(*in) == 1) {
-            if (npy_string_newsize("True", 4, out_ss) < 0) {
+            if (npy_string_newsize("True", 4, out_pss) < 0) {
                 gil_error(PyExc_MemoryError, "npy_string_newsize failed");
                 return -1;
             }
         }
         else if ((npy_bool)(*in) == 0) {
-            if (npy_string_newsize("False", 5, out_ss) < 0) {
+            if (npy_string_newsize("False", 5, out_pss) < 0) {
                 gil_error(PyExc_MemoryError, "npy_string_newsize failed");
                 return -1;
             }
@@ -515,20 +515,21 @@ static char *b2s_name = "cast_Bool_to_StringDType";
 // casts between string and (u)int dtypes
 
 static PyObject *
-string_to_pylong(char *in, int hasnull)
+string_to_pylong(char *in, int hasnull,
+                 const npy_static_string *default_string)
 {
-    const npy_static_string *s = (npy_static_string *)in;
-    if (npy_string_isnull(s)) {
+    const npy_packed_static_string *ps = (npy_packed_static_string *)in;
+    npy_static_string s = {0, NULL};
+    if (npy_load_string(ps, &s)) {
         if (hasnull) {
             PyErr_SetString(PyExc_ValueError,
                             "Arrays with missing data cannot be converted to "
                             "integers");
             return NULL;
         }
-        s = &NPY_EMPTY_STRING;
+        s = *default_string;
     }
-    PyObject *val_obj =
-            PyUnicode_FromStringAndSize(npy_string_buf(s), npy_string_size(s));
+    PyObject *val_obj = PyUnicode_FromStringAndSize(s.buf, s.size);
     if (val_obj == NULL) {
         return NULL;
     }
@@ -539,9 +540,10 @@ string_to_pylong(char *in, int hasnull)
 }
 
 static npy_longlong
-string_to_uint(char *in, npy_ulonglong *value, int hasnull)
+string_to_uint(char *in, npy_ulonglong *value, int hasnull,
+               const npy_static_string *default_string)
 {
-    PyObject *pylong_value = string_to_pylong(in, hasnull);
+    PyObject *pylong_value = string_to_pylong(in, hasnull, default_string);
     if (pylong_value == NULL) {
         return -1;
     }
@@ -555,9 +557,10 @@ string_to_uint(char *in, npy_ulonglong *value, int hasnull)
 }
 
 static npy_longlong
-string_to_int(char *in, npy_longlong *value, int hasnull)
+string_to_int(char *in, npy_longlong *value, int hasnull,
+              const npy_static_string *default_string)
 {
-    PyObject *pylong_value = string_to_pylong(in, hasnull);
+    PyObject *pylong_value = string_to_pylong(in, hasnull, default_string);
     if (pylong_value == NULL) {
         return -1;
     }
@@ -578,6 +581,7 @@ pyobj_to_string(PyObject *obj, char *out)
     }
     PyObject *pystr_val = PyObject_Str(obj);
     Py_DECREF(obj);
+
     if (pystr_val == NULL) {
         return -1;
     }
@@ -586,7 +590,7 @@ pyobj_to_string(PyObject *obj, char *out)
     if (cstr_val == NULL) {
         return -1;
     }
-    npy_static_string *out_ss = (npy_static_string *)out;
+    npy_packed_static_string *out_ss = (npy_packed_static_string *)out;
     npy_string_free(out_ss);
     if (npy_string_newsize(cstr_val, length, out_ss) < 0) {
         PyErr_SetString(PyExc_MemoryError, "npy_string_newsize failed");
@@ -612,104 +616,106 @@ uint_to_string(unsigned long long in, char *out)
     return pyobj_to_string(pylong_val, out);
 }
 
-#define STRING_INT_CASTS(typename, typekind, shortname, numpy_tag,            \
-                         printf_code, npy_longtype, longtype)                 \
-    static NPY_CASTING string_to_##typename##_resolve_descriptors(            \
-            PyObject *NPY_UNUSED(self),                                       \
-            PyArray_DTypeMeta *NPY_UNUSED(dtypes[2]),                         \
-            PyArray_Descr *given_descrs[2], PyArray_Descr *loop_descrs[2],    \
-            npy_intp *NPY_UNUSED(view_offset))                                \
-    {                                                                         \
-        if (given_descrs[1] == NULL) {                                        \
-            loop_descrs[1] = PyArray_DescrNewFromType(numpy_tag);             \
-        }                                                                     \
-        else {                                                                \
-            Py_INCREF(given_descrs[1]);                                       \
-            loop_descrs[1] = given_descrs[1];                                 \
-        }                                                                     \
-                                                                              \
-        Py_INCREF(given_descrs[0]);                                           \
-        loop_descrs[0] = given_descrs[0];                                     \
-                                                                              \
-        return NPY_UNSAFE_CASTING;                                            \
-    }                                                                         \
-                                                                              \
-    static int string_to_##                                                   \
-            typename(PyArrayMethod_Context * context, char *const data[],     \
-                     npy_intp const dimensions[], npy_intp const strides[],   \
-                     NpyAuxData *NPY_UNUSED(auxdata))                         \
-    {                                                                         \
-        int hasnull =                                                         \
-                (((StringDTypeObject *)context->descriptors[0])->na_object != \
-                 NULL);                                                       \
-                                                                              \
-        npy_intp N = dimensions[0];                                           \
-        char *in = data[0];                                                   \
-        npy_##typename *out = (npy_##typename *)data[1];                      \
-                                                                              \
-        npy_intp in_stride = strides[0];                                      \
-        npy_intp out_stride = strides[1] / sizeof(npy_##typename);            \
-                                                                              \
-        while (N--) {                                                         \
-            npy_longtype value;                                               \
-            if (string_to_##typekind(in, &value, hasnull) != 0) {             \
-                return -1;                                                    \
-            }                                                                 \
-            *out = (npy_##typename)value;                                     \
-            if (*out != value) {                                              \
-                /* out of bounds, raise error following NEP 50 behavior */    \
-                PyErr_Format(PyExc_OverflowError,                             \
-                             "Integer %" #printf_code                         \
-                             " is out of bounds "                             \
-                             "for " #typename,                                \
-                             value);                                          \
-                return -1;                                                    \
-            }                                                                 \
-            in += in_stride;                                                  \
-            out += out_stride;                                                \
-        }                                                                     \
-                                                                              \
-        return 0;                                                             \
-    }                                                                         \
-                                                                              \
-    static PyType_Slot s2##shortname##_slots[] = {                            \
-            {NPY_METH_resolve_descriptors,                                    \
-             &string_to_##typename##_resolve_descriptors},                    \
-            {NPY_METH_strided_loop, &string_to_##typename},                   \
-            {0, NULL}};                                                       \
-                                                                              \
-    static char *s2##shortname##_name = "cast_StringDType_to_" #typename;     \
-                                                                              \
-    static int typename##_to_string(                                          \
-            PyArrayMethod_Context *NPY_UNUSED(context), char *const data[],   \
-            npy_intp const dimensions[], npy_intp const strides[],            \
-            NpyAuxData *NPY_UNUSED(auxdata))                                  \
-    {                                                                         \
-        npy_intp N = dimensions[0];                                           \
-        npy_##typename *in = (npy_##typename *)data[0];                       \
-        char *out = data[1];                                                  \
-                                                                              \
-        npy_intp in_stride = strides[0] / sizeof(npy_##typename);             \
-        npy_intp out_stride = strides[1];                                     \
-                                                                              \
-        while (N--) {                                                         \
-            if (typekind##_to_string((longtype)*in, out) != 0) {              \
-                return -1;                                                    \
-            }                                                                 \
-                                                                              \
-            in += in_stride;                                                  \
-            out += out_stride;                                                \
-        }                                                                     \
-                                                                              \
-        return 0;                                                             \
-    }                                                                         \
-                                                                              \
-    static PyType_Slot shortname##2s_slots [] = {                             \
-            {NPY_METH_resolve_descriptors,                                    \
-             &any_to_string_UNSAFE_resolve_descriptors},                      \
-            {NPY_METH_strided_loop, &typename##_to_string},                   \
-            {0, NULL}};                                                       \
-                                                                              \
+#define STRING_INT_CASTS(typename, typekind, shortname, numpy_tag,           \
+                         printf_code, npy_longtype, longtype)                \
+    static NPY_CASTING string_to_##typename##_resolve_descriptors(           \
+            PyObject *NPY_UNUSED(self),                                      \
+            PyArray_DTypeMeta *NPY_UNUSED(dtypes[2]),                        \
+            PyArray_Descr *given_descrs[2], PyArray_Descr *loop_descrs[2],   \
+            npy_intp *NPY_UNUSED(view_offset))                               \
+    {                                                                        \
+        if (given_descrs[1] == NULL) {                                       \
+            loop_descrs[1] = PyArray_DescrNewFromType(numpy_tag);            \
+        }                                                                    \
+        else {                                                               \
+            Py_INCREF(given_descrs[1]);                                      \
+            loop_descrs[1] = given_descrs[1];                                \
+        }                                                                    \
+                                                                             \
+        Py_INCREF(given_descrs[0]);                                          \
+        loop_descrs[0] = given_descrs[0];                                    \
+                                                                             \
+        return NPY_UNSAFE_CASTING;                                           \
+    }                                                                        \
+                                                                             \
+    static int string_to_##                                                  \
+            typename(PyArrayMethod_Context * context, char *const data[],    \
+                     npy_intp const dimensions[], npy_intp const strides[],  \
+                     NpyAuxData *NPY_UNUSED(auxdata))                        \
+    {                                                                        \
+        StringDTypeObject *descr =                                           \
+                ((StringDTypeObject *)context->descriptors[0]);              \
+        int hasnull = descr->na_object != NULL;                              \
+        const npy_static_string *default_string = &descr->default_string;    \
+                                                                             \
+        npy_intp N = dimensions[0];                                          \
+        char *in = data[0];                                                  \
+        npy_##typename *out = (npy_##typename *)data[1];                     \
+                                                                             \
+        npy_intp in_stride = strides[0];                                     \
+        npy_intp out_stride = strides[1] / sizeof(npy_##typename);           \
+                                                                             \
+        while (N--) {                                                        \
+            npy_longtype value;                                              \
+            if (string_to_##typekind(in, &value, hasnull, default_string) != \
+                0) {                                                         \
+                return -1;                                                   \
+            }                                                                \
+            *out = (npy_##typename)value;                                    \
+            if (*out != value) {                                             \
+                /* out of bounds, raise error following NEP 50 behavior */   \
+                PyErr_Format(PyExc_OverflowError,                            \
+                             "Integer %" #printf_code                        \
+                             " is out of bounds "                            \
+                             "for " #typename,                               \
+                             value);                                         \
+                return -1;                                                   \
+            }                                                                \
+            in += in_stride;                                                 \
+            out += out_stride;                                               \
+        }                                                                    \
+                                                                             \
+        return 0;                                                            \
+    }                                                                        \
+                                                                             \
+    static PyType_Slot s2##shortname##_slots[] = {                           \
+            {NPY_METH_resolve_descriptors,                                   \
+             &string_to_##typename##_resolve_descriptors},                   \
+            {NPY_METH_strided_loop, &string_to_##typename},                  \
+            {0, NULL}};                                                      \
+                                                                             \
+    static char *s2##shortname##_name = "cast_StringDType_to_" #typename;    \
+                                                                             \
+    static int typename##_to_string(                                         \
+            PyArrayMethod_Context *NPY_UNUSED(context), char *const data[],  \
+            npy_intp const dimensions[], npy_intp const strides[],           \
+            NpyAuxData *NPY_UNUSED(auxdata))                                 \
+    {                                                                        \
+        npy_intp N = dimensions[0];                                          \
+        npy_##typename *in = (npy_##typename *)data[0];                      \
+        char *out = data[1];                                                 \
+                                                                             \
+        npy_intp in_stride = strides[0] / sizeof(npy_##typename);            \
+        npy_intp out_stride = strides[1];                                    \
+                                                                             \
+        while (N--) {                                                        \
+            if (typekind##_to_string((longtype)*in, out) != 0) {             \
+                return -1;                                                   \
+            }                                                                \
+                                                                             \
+            in += in_stride;                                                 \
+            out += out_stride;                                               \
+        }                                                                    \
+                                                                             \
+        return 0;                                                            \
+    }                                                                        \
+                                                                             \
+    static PyType_Slot shortname##2s_slots [] = {                            \
+            {NPY_METH_resolve_descriptors,                                   \
+             &any_to_string_UNSAFE_resolve_descriptors},                     \
+            {NPY_METH_strided_loop, &typename##_to_string},                  \
+            {0, NULL}};                                                      \
+                                                                             \
     static char *shortname##2s_name = "cast_" #typename "_to_StringDType";
 
 #define DTYPES_AND_CAST_SPEC(shortname, typename)                            \
@@ -768,20 +774,21 @@ STRING_INT_CASTS(ulonglong, uint, ulonglong, NPY_ULONGLONG, llu, npy_ulonglong,
 #endif
 
 static PyObject *
-string_to_pyfloat(char *in, int hasnull)
+string_to_pyfloat(char *in, int hasnull,
+                  const npy_static_string *default_string)
 {
-    const npy_static_string *s = (npy_static_string *)in;
-    if (npy_string_isnull(s)) {
+    const npy_packed_static_string *ps = (npy_packed_static_string *)in;
+    npy_static_string s = {0, NULL};
+    if (npy_load_string(ps, &s)) {
         if (hasnull) {
             PyErr_SetString(PyExc_ValueError,
                             "Arrays with missing data cannot be converted to "
                             "integers");
             return NULL;
         }
-        s = &NPY_EMPTY_STRING;
+        s = *default_string;
     }
-    PyObject *val_obj =
-            PyUnicode_FromStringAndSize(npy_string_buf(s), npy_string_size(s));
+    PyObject *val_obj = PyUnicode_FromStringAndSize(s.buf, s.size);
     if (val_obj == NULL) {
         return NULL;
     }
@@ -790,54 +797,56 @@ string_to_pyfloat(char *in, int hasnull)
     return pyfloat_value;
 }
 
-#define STRING_TO_FLOAT_CAST(typename, shortname, isinf_name,                 \
-                             double_to_float)                                 \
-    static int string_to_##                                                   \
-            typename(PyArrayMethod_Context * context, char *const data[],     \
-                     npy_intp const dimensions[], npy_intp const strides[],   \
-                     NpyAuxData *NPY_UNUSED(auxdata))                         \
-    {                                                                         \
-        int hasnull =                                                         \
-                (((StringDTypeObject *)context->descriptors[0])->na_object != \
-                 NULL);                                                       \
-                                                                              \
-        npy_intp N = dimensions[0];                                           \
-        char *in = data[0];                                                   \
-        npy_##typename *out = (npy_##typename *)data[1];                      \
-                                                                              \
-        npy_intp in_stride = strides[0];                                      \
-        npy_intp out_stride = strides[1] / sizeof(npy_##typename);            \
-                                                                              \
-        while (N--) {                                                         \
-            PyObject *pyfloat_value = string_to_pyfloat(in, hasnull);         \
-            if (pyfloat_value == NULL) {                                      \
-                return -1;                                                    \
-            }                                                                 \
-            double dval = PyFloat_AS_DOUBLE(pyfloat_value);                   \
-            npy_##typename fval = (double_to_float)(dval);                    \
-                                                                              \
-            if (NPY_UNLIKELY(isinf_name(fval) && !(npy_isinf(dval)))) {       \
-                if (PyUFunc_GiveFloatingpointErrors("cast",                   \
-                                                    NPY_FPE_OVERFLOW) < 0) {  \
-                    return -1;                                                \
-                }                                                             \
-            }                                                                 \
-                                                                              \
-            *out = fval;                                                      \
-                                                                              \
-            in += in_stride;                                                  \
-            out += out_stride;                                                \
-        }                                                                     \
-                                                                              \
-        return 0;                                                             \
-    }                                                                         \
-                                                                              \
-    static PyType_Slot s2##shortname##_slots[] = {                            \
-            {NPY_METH_resolve_descriptors,                                    \
-             &string_to_##typename##_resolve_descriptors},                    \
-            {NPY_METH_strided_loop, &string_to_##typename},                   \
-            {0, NULL}};                                                       \
-                                                                              \
+#define STRING_TO_FLOAT_CAST(typename, shortname, isinf_name,                \
+                             double_to_float)                                \
+    static int string_to_##                                                  \
+            typename(PyArrayMethod_Context * context, char *const data[],    \
+                     npy_intp const dimensions[], npy_intp const strides[],  \
+                     NpyAuxData *NPY_UNUSED(auxdata))                        \
+    {                                                                        \
+        StringDTypeObject *descr =                                           \
+                (StringDTypeObject *)context->descriptors[0];                \
+        int hasnull = (descr->na_object != NULL);                            \
+        const npy_static_string *default_string = &descr->default_string;    \
+                                                                             \
+        npy_intp N = dimensions[0];                                          \
+        char *in = data[0];                                                  \
+        npy_##typename *out = (npy_##typename *)data[1];                     \
+                                                                             \
+        npy_intp in_stride = strides[0];                                     \
+        npy_intp out_stride = strides[1] / sizeof(npy_##typename);           \
+                                                                             \
+        while (N--) {                                                        \
+            PyObject *pyfloat_value =                                        \
+                    string_to_pyfloat(in, hasnull, default_string);          \
+            if (pyfloat_value == NULL) {                                     \
+                return -1;                                                   \
+            }                                                                \
+            double dval = PyFloat_AS_DOUBLE(pyfloat_value);                  \
+            npy_##typename fval = (double_to_float)(dval);                   \
+                                                                             \
+            if (NPY_UNLIKELY(isinf_name(fval) && !(npy_isinf(dval)))) {      \
+                if (PyUFunc_GiveFloatingpointErrors("cast",                  \
+                                                    NPY_FPE_OVERFLOW) < 0) { \
+                    return -1;                                               \
+                }                                                            \
+            }                                                                \
+                                                                             \
+            *out = fval;                                                     \
+                                                                             \
+            in += in_stride;                                                 \
+            out += out_stride;                                               \
+        }                                                                    \
+                                                                             \
+        return 0;                                                            \
+    }                                                                        \
+                                                                             \
+    static PyType_Slot s2##shortname##_slots[] = {                           \
+            {NPY_METH_resolve_descriptors,                                   \
+             &string_to_##typename##_resolve_descriptors},                   \
+            {NPY_METH_strided_loop, &string_to_##typename},                  \
+            {0, NULL}};                                                      \
+                                                                             \
     static char *s2##shortname##_name = "cast_StringDType_to_" #typename;
 
 #define STRING_TO_FLOAT_RESOLVE_DESCRIPTORS(typename, npy_typename)        \
@@ -903,8 +912,9 @@ string_to_float64(PyArrayMethod_Context *context, char *const data[],
                   npy_intp const dimensions[], npy_intp const strides[],
                   NpyAuxData *NPY_UNUSED(auxdata))
 {
-    int hasnull = (((StringDTypeObject *)context->descriptors[0])->na_object !=
-                   NULL);
+    StringDTypeObject *descr = (StringDTypeObject *)context->descriptors[0];
+    int hasnull = descr->na_object != NULL;
+    const npy_static_string *default_string = &descr->default_string;
     npy_intp N = dimensions[0];
     char *in = data[0];
     npy_float64 *out = (npy_float64 *)data[1];
@@ -913,7 +923,8 @@ string_to_float64(PyArrayMethod_Context *context, char *const data[],
     npy_intp out_stride = strides[1] / sizeof(npy_float64);
 
     while (N--) {
-        PyObject *pyfloat_value = string_to_pyfloat(in, hasnull);
+        PyObject *pyfloat_value =
+                string_to_pyfloat(in, hasnull, default_string);
         if (pyfloat_value == NULL) {
             return -1;
         }
@@ -977,7 +988,7 @@ string_to_datetime(PyArrayMethod_Context *context, char *const data[],
     StringDTypeObject *descr = (StringDTypeObject *)context->descriptors[0];
     int has_null = descr->na_object != NULL;
     int has_string_na = descr->has_string_na;
-    npy_static_string default_string = descr->default_string;
+    const npy_static_string *default_string = &descr->default_string;
 
     npy_intp N = dimensions[0];
     char *in = data[0];
@@ -986,7 +997,6 @@ string_to_datetime(PyArrayMethod_Context *context, char *const data[],
     npy_intp in_stride = strides[0];
     npy_intp out_stride = strides[1] / sizeof(npy_datetime);
 
-    const npy_static_string *s = NULL;
     npy_datetimestruct dts;
     NPY_DATETIMEUNIT in_unit = -1;
     PyArray_DatetimeMetaData in_meta = {0, 1};
@@ -997,18 +1007,18 @@ string_to_datetime(PyArrayMethod_Context *context, char *const data[],
             &(((PyArray_DatetimeDTypeMetaData *)dt_descr->c_metadata)->meta);
 
     while (N--) {
-        s = (npy_static_string *)in;
-        if (npy_string_isnull(s)) {
+        const npy_packed_static_string *ps = (npy_packed_static_string *)in;
+        npy_static_string s = {0, NULL};
+        if (npy_load_string(ps, &s)) {
             if (has_null && !has_string_na) {
                 *out = NPY_DATETIME_NAT;
                 goto next_step;
             }
-            s = &default_string;
+            s = *default_string;
         }
         if (NpyDatetime_ParseISO8601Datetime(
-                    (const char *)npy_string_buf(s), npy_string_size(s),
-                    in_unit, NPY_UNSAFE_CASTING, &dts, &in_meta.base,
-                    &out_special) < 0) {
+                    (const char *)s.buf, s.size, in_unit, NPY_UNSAFE_CASTING,
+                    &dts, &in_meta.base, &out_special) < 0) {
             return -1;
         }
         if (NpyDatetime_ConvertDatetimeStructToDatetime64(dt_meta, &dts, out) <
@@ -1054,10 +1064,10 @@ datetime_to_string(PyArrayMethod_Context *context, char *const data[],
     char datetime_buf[NPY_DATETIME_MAX_ISO8601_STRLEN];
 
     while (N--) {
-        npy_static_string *out_ss = (npy_static_string *)out;
-        npy_string_free(out_ss);
+        npy_packed_static_string *out_pss = (npy_packed_static_string *)out;
+        npy_string_free(out_pss);
         if (*in == NPY_DATETIME_NAT) {
-            *out_ss = NPY_NULL_STRING;
+            *out_pss = *NPY_NULL_STRING;
         }
         else {
             if (NpyDatetime_ConvertDatetime64ToDatetimeStruct(dt_meta, *in,
@@ -1075,7 +1085,7 @@ datetime_to_string(PyArrayMethod_Context *context, char *const data[],
             }
 
             if (npy_string_newsize(datetime_buf, strlen(datetime_buf),
-                                   out_ss) < 0) {
+                                   out_pss) < 0) {
                 PyErr_SetString(PyExc_MemoryError,
                                 "npy_string_newsize failed");
                 return -1;

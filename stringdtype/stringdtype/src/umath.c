@@ -41,24 +41,23 @@ multiply_resolve_descriptors(
             int has_nan_na, int has_string_na,                               \
             const npy_static_string *default_string)                         \
     {                                                                        \
-        const npy_static_string *is = NULL;                                  \
-        npy_static_string *os = NULL;                                        \
-                                                                             \
         while (N--) {                                                        \
-            is = (npy_static_string *)sin;                                   \
-            os = (npy_static_string *)out;                                   \
-            npy_string_free(os);                                             \
-            int is_isnull = npy_string_isnull(is);                           \
+            const npy_packed_static_string *ips =                            \
+                    (npy_packed_static_string *)sin;                         \
+            npy_static_string is = {0, NULL};                                \
+            npy_packed_static_string *ops = (npy_packed_static_string *)out; \
+            npy_string_free(ops);                                            \
+            int is_isnull = npy_load_string(ips, &is);                       \
             if (is_isnull) {                                                 \
                 if (has_nan_na) {                                            \
-                    *os = NPY_NULL_STRING;                                   \
+                    *ops = *NPY_NULL_STRING;                                 \
                     sin += s_stride;                                         \
                     iin += i_stride;                                         \
                     out += o_stride;                                         \
                     continue;                                                \
                 }                                                            \
                 else if (has_string_na || !has_null) {                       \
-                    is = default_string;                                     \
+                    is = *(npy_static_string *)default_string;               \
                 }                                                            \
                 else {                                                       \
                     gil_error(PyExc_TypeError,                               \
@@ -68,19 +67,21 @@ multiply_resolve_descriptors(
                 }                                                            \
             }                                                                \
             npy_##shortname factor = *(npy_##shortname *)iin;                \
-            size_t cursize = npy_string_size(is);                            \
+            size_t cursize = is.size;                                        \
             /* FIXME: check for overflow? */                                 \
             size_t newsize = cursize * factor;                               \
                                                                              \
-            if (npy_string_newemptysize(newsize, os) < 0) {                  \
+            if (npy_string_newemptysize(newsize, ops) < 0) {                 \
                 gil_error(PyExc_MemoryError,                                 \
                           "npy_string_newemptysize failed");                 \
                 return -1;                                                   \
             }                                                                \
                                                                              \
+            npy_static_string os = {0, NULL};                                \
+            npy_load_string(ops, &os);                                       \
             for (size_t i = 0; i < (size_t)factor; i++) {                    \
-                memcpy(npy_string_buf(os) + i * cursize, npy_string_buf(is), \
-                       cursize);                                             \
+                /* excplicitly discard const; initializing new buffer */     \
+                memcpy((char *)os.buf + i * cursize, is.buf, cursize);       \
             }                                                                \
                                                                              \
             sin += s_stride;                                                 \
@@ -206,7 +207,7 @@ add_strided_loop(PyArrayMethod_Context *context, char *const data[],
     int has_null = descr->na_object != NULL;
     int has_nan_na = descr->has_nan_na;
     int has_string_na = descr->has_string_na;
-    npy_static_string default_string = descr->default_string;
+    const npy_static_string *default_string = &descr->default_string;
     npy_intp N = dimensions[0];
     char *in1 = data[0];
     char *in2 = data[1];
@@ -215,27 +216,26 @@ add_strided_loop(PyArrayMethod_Context *context, char *const data[],
     npy_intp in2_stride = strides[1];
     npy_intp out_stride = strides[2];
 
-    const npy_static_string *s1 = NULL, *s2 = NULL;
-    npy_static_string *os = NULL;
-
     while (N--) {
-        s1 = (npy_static_string *)in1;
-        s2 = (npy_static_string *)in2;
-        int s1_isnull = npy_string_isnull(s1);
-        int s2_isnull = npy_string_isnull(s2);
-        os = (npy_static_string *)out;
-        npy_string_free(os);
+        const npy_packed_static_string *ps1 = (npy_packed_static_string *)in1;
+        npy_static_string s1 = {0, NULL};
+        int s1_isnull = npy_load_string(ps1, &s1);
+        const npy_packed_static_string *ps2 = (npy_packed_static_string *)in2;
+        npy_static_string s2 = {0, NULL};
+        int s2_isnull = npy_load_string(ps2, &s2);
+        npy_packed_static_string *ops = (npy_packed_static_string *)out;
+        npy_string_free(ops);
         if (NPY_UNLIKELY(s1_isnull || s2_isnull)) {
             if (has_nan_na) {
-                *os = NPY_NULL_STRING;
+                *ops = *NPY_NULL_STRING;
                 goto next_step;
             }
             else if (has_string_na || !has_null) {
                 if (s1_isnull) {
-                    s1 = &default_string;
+                    s1 = *default_string;
                 }
                 if (s2_isnull) {
-                    s2 = &default_string;
+                    s2 = *default_string;
                 }
             }
             else {
@@ -245,19 +245,17 @@ add_strided_loop(PyArrayMethod_Context *context, char *const data[],
             }
         }
 
-        size_t s1_size = npy_string_size(s1);
-        size_t s2_size = npy_string_size(s2);
-
-        if (npy_string_newemptysize(s1_size + s2_size, os) < 0) {
+        if (npy_string_newemptysize(s1.size + s2.size, ops) < 0) {
             return -1;
         }
 
-        char *os_buf = npy_string_buf(os);
-        char *s1_buf = npy_string_buf(s1);
-        char *s2_buf = npy_string_buf(s2);
+        npy_static_string os = {0, NULL};
 
-        memcpy(os_buf, s1_buf, s1_size);
-        memcpy(os_buf + s1_size, s2_buf, s2_size);
+        npy_load_string(ops, &os);
+
+        // explicitly discard const because we're initializing empty buffers
+        memcpy((char *)os.buf, s1.buf, s1.size);
+        memcpy((char *)os.buf + s1.size, s2.buf, s2.size);
 
     next_step:
         in1 += in1_stride;
@@ -286,17 +284,17 @@ maximum_strided_loop(PyArrayMethod_Context *context, char *const data[],
             // Only copy *out* to *in1* if they point to different locations;
             // for *arr.max()* they point to the same address.
             if (in1 != out) {
-                npy_string_free((npy_static_string *)out);
-                if (npy_string_dup((npy_static_string *)in1,
-                                   (npy_static_string *)out) < 0) {
+                npy_string_free((npy_packed_static_string *)out);
+                if (npy_string_dup((npy_packed_static_string *)in1,
+                                   (npy_packed_static_string *)out) < 0) {
                     return -1;
                 }
             }
         }
         else {
-            npy_string_free((npy_static_string *)out);
-            if (npy_string_dup((npy_static_string *)in2,
-                               (npy_static_string *)out) < 0) {
+            npy_string_free((npy_packed_static_string *)out);
+            if (npy_string_dup((npy_packed_static_string *)in2,
+                               (npy_packed_static_string *)out) < 0) {
                 return -1;
             }
         }
@@ -325,17 +323,17 @@ minimum_strided_loop(PyArrayMethod_Context *context, char *const data[],
     while (N--) {
         if (_compare(in1, in2, descr) < 0) {
             if (in1 != out) {
-                npy_string_free((npy_static_string *)out);
-                if (npy_string_dup((npy_static_string *)in1,
-                                   (npy_static_string *)out) < 0) {
+                npy_string_free((npy_packed_static_string *)out);
+                if (npy_string_dup((npy_packed_static_string *)in1,
+                                   (npy_packed_static_string *)out) < 0) {
                     return -1;
                 }
             }
         }
         else {
-            npy_string_free((npy_static_string *)out);
-            if (npy_string_dup((npy_static_string *)in2,
-                               (npy_static_string *)out) < 0) {
+            npy_string_free((npy_packed_static_string *)out);
+            if (npy_string_dup((npy_packed_static_string *)in2,
+                               (npy_packed_static_string *)out) < 0) {
                 return -1;
             }
         }
@@ -357,7 +355,7 @@ string_equal_strided_loop(PyArrayMethod_Context *context, char *const data[],
     int has_null = descr->na_object != NULL;
     int has_nan_na = descr->has_nan_na;
     int has_string_na = descr->has_string_na;
-    npy_static_string default_string = descr->default_string;
+    const npy_static_string *default_string = &descr->default_string;
     npy_intp N = dimensions[0];
     char *in1 = data[0];
     char *in2 = data[1];
@@ -366,13 +364,13 @@ string_equal_strided_loop(PyArrayMethod_Context *context, char *const data[],
     npy_intp in2_stride = strides[1];
     npy_intp out_stride = strides[2];
 
-    const npy_static_string *s1 = NULL, *s2 = NULL;
-
     while (N--) {
-        s1 = (npy_static_string *)in1;
-        s2 = (npy_static_string *)in2;
-        int s1_isnull = npy_string_isnull(s1);
-        int s2_isnull = npy_string_isnull(s2);
+        npy_packed_static_string *ps1 = (npy_packed_static_string *)in1;
+        npy_static_string s1 = {0, NULL};
+        int s1_isnull = npy_load_string(ps1, &s1);
+        npy_packed_static_string *ps2 = (npy_packed_static_string *)in2;
+        npy_static_string s2 = {0, NULL};
+        int s2_isnull = npy_load_string(ps2, &s2);
         if (NPY_UNLIKELY(s1_isnull || s2_isnull)) {
             if (has_nan_na) {
                 // s1 or s2 is NA
@@ -389,18 +387,14 @@ string_equal_strided_loop(PyArrayMethod_Context *context, char *const data[],
             }
             else {
                 if (s1_isnull) {
-                    s1 = &default_string;
+                    s1 = *default_string;
                 }
                 if (s2_isnull) {
-                    s2 = &default_string;
+                    s2 = *default_string;
                 }
             }
         }
-        char *s1_buf = npy_string_buf(s1);
-        char *s2_buf = npy_string_buf(s2);
-        size_t s1_size = npy_string_size(s1);
-        size_t s2_size = npy_string_size(s2);
-        if (s1_size == s2_size && strncmp(s1_buf, s2_buf, s1_size) == 0) {
+        if (s1.size == s2.size && strncmp(s1.buf, s2.buf, s1.size) == 0) {
             *out = (npy_bool)1;
         }
         else {
@@ -426,7 +420,7 @@ string_not_equal_strided_loop(PyArrayMethod_Context *context,
     int has_null = descr->na_object != NULL;
     int has_nan_na = descr->has_nan_na;
     int has_string_na = descr->has_string_na;
-    npy_static_string default_string = descr->default_string;
+    const npy_static_string *default_string = &descr->default_string;
     npy_intp N = dimensions[0];
     char *in1 = data[0];
     char *in2 = data[1];
@@ -435,13 +429,14 @@ string_not_equal_strided_loop(PyArrayMethod_Context *context,
     npy_intp in2_stride = strides[1];
     npy_intp out_stride = strides[2];
 
-    const npy_static_string *s1 = NULL, *s2 = NULL;
-
     while (N--) {
-        s1 = (npy_static_string *)in1;
-        s2 = (npy_static_string *)in2;
-        int s1_isnull = npy_string_isnull(s1);
-        int s2_isnull = npy_string_isnull(s2);
+        const npy_packed_static_string *ps1 = (npy_packed_static_string *)in1;
+        npy_static_string s1 = {0, NULL};
+        int s1_isnull = npy_load_string(ps1, &s1);
+        const npy_packed_static_string *ps2 = (npy_packed_static_string *)in2;
+        npy_static_string s2 = {0, NULL};
+        ;
+        int s2_isnull = npy_load_string(ps2, &s2);
         if (NPY_UNLIKELY(s1_isnull || s2_isnull)) {
             if (has_nan_na) {
                 // s1 or s2 is NA
@@ -458,21 +453,15 @@ string_not_equal_strided_loop(PyArrayMethod_Context *context,
             }
             else {
                 if (s1_isnull) {
-                    s1 = &default_string;
+                    s1 = *default_string;
                 }
                 if (s2_isnull) {
-                    s2 = &default_string;
+                    s2 = *default_string;
                 }
             }
         }
 
-        size_t s1_size = npy_string_size(s1);
-        size_t s2_size = npy_string_size(s2);
-
-        char *s1_buf = npy_string_buf(s1);
-        char *s2_buf = npy_string_buf(s2);
-
-        if (s1_size == s2_size && strncmp(s1_buf, s2_buf, s1_size) == 0) {
+        if (s1.size == s2.size && strncmp(s1.buf, s2.buf, s1.size) == 0) {
             *out = (npy_bool)0;
         }
         else {
@@ -498,7 +487,7 @@ string_greater_strided_loop(PyArrayMethod_Context *context, char *const data[],
     int has_null = descr->na_object != NULL;
     int has_nan_na = descr->has_nan_na;
     int has_string_na = descr->has_string_na;
-    npy_static_string default_string = descr->default_string;
+    const npy_static_string *default_string = &descr->default_string;
     npy_intp N = dimensions[0];
     char *in1 = data[0];
     char *in2 = data[1];
@@ -507,13 +496,13 @@ string_greater_strided_loop(PyArrayMethod_Context *context, char *const data[],
     npy_intp in2_stride = strides[1];
     npy_intp out_stride = strides[2];
 
-    const npy_static_string *s1 = NULL, *s2 = NULL;
-
     while (N--) {
-        s1 = (npy_static_string *)in1;
-        s2 = (npy_static_string *)in2;
-        int s1_isnull = npy_string_isnull(s1);
-        int s2_isnull = npy_string_isnull(s2);
+        npy_packed_static_string *ps1 = (npy_packed_static_string *)in1;
+        npy_static_string s1 = {0, NULL};
+        int s1_isnull = npy_load_string(ps1, &s1);
+        npy_packed_static_string *ps2 = (npy_packed_static_string *)in2;
+        npy_static_string s2 = {0, NULL};
+        int s2_isnull = npy_load_string(ps2, &s2);
         if (NPY_UNLIKELY(s1_isnull || s2_isnull)) {
             if (has_nan_na) {
                 // s1 or s2 is NA
@@ -528,14 +517,14 @@ string_greater_strided_loop(PyArrayMethod_Context *context, char *const data[],
             }
             else {
                 if (s1_isnull) {
-                    s1 = &default_string;
+                    s1 = *default_string;
                 }
                 if (s2_isnull) {
-                    s2 = &default_string;
+                    s2 = *default_string;
                 }
             }
         }
-        if (npy_string_cmp(s1, s2) > 0) {
+        if (npy_string_cmp(&s1, &s2) > 0) {
             *out = (npy_bool)1;
         }
         else {
@@ -562,7 +551,7 @@ string_greater_equal_strided_loop(PyArrayMethod_Context *context,
     int has_null = descr->na_object != NULL;
     int has_nan_na = descr->has_nan_na;
     int has_string_na = descr->has_string_na;
-    npy_static_string default_string = descr->default_string;
+    const npy_static_string *default_string = &descr->default_string;
     npy_intp N = dimensions[0];
     char *in1 = data[0];
     char *in2 = data[1];
@@ -571,13 +560,13 @@ string_greater_equal_strided_loop(PyArrayMethod_Context *context,
     npy_intp in2_stride = strides[1];
     npy_intp out_stride = strides[2];
 
-    const npy_static_string *s1 = NULL, *s2 = NULL;
-
     while (N--) {
-        s1 = (npy_static_string *)in1;
-        s2 = (npy_static_string *)in2;
-        int s1_isnull = npy_string_isnull(s1);
-        int s2_isnull = npy_string_isnull(s2);
+        npy_packed_static_string *ps1 = (npy_packed_static_string *)in1;
+        npy_static_string s1 = {0, NULL};
+        int s1_isnull = npy_load_string(ps1, &s1);
+        npy_packed_static_string *ps2 = (npy_packed_static_string *)in2;
+        npy_static_string s2 = {0, NULL};
+        int s2_isnull = npy_load_string(ps2, &s2);
         if (NPY_UNLIKELY(s1_isnull || s2_isnull)) {
             if (has_nan_na) {
                 // s1 or s2 is NA
@@ -592,14 +581,14 @@ string_greater_equal_strided_loop(PyArrayMethod_Context *context,
             }
             else {
                 if (s1_isnull) {
-                    s1 = &default_string;
+                    s1 = *default_string;
                 }
                 if (s2_isnull) {
-                    s2 = &default_string;
+                    s2 = *default_string;
                 }
             }
         }
-        if (npy_string_cmp(s1, s2) >= 0) {
+        if (npy_string_cmp(&s1, &s2) >= 0) {
             *out = (npy_bool)1;
         }
         else {
@@ -624,7 +613,7 @@ string_less_strided_loop(PyArrayMethod_Context *context, char *const data[],
     int has_null = descr->na_object != NULL;
     int has_nan_na = descr->has_nan_na;
     int has_string_na = descr->has_string_na;
-    npy_static_string default_string = descr->default_string;
+    const npy_static_string *default_string = &descr->default_string;
     npy_intp N = dimensions[0];
     char *in1 = data[0];
     char *in2 = data[1];
@@ -633,13 +622,13 @@ string_less_strided_loop(PyArrayMethod_Context *context, char *const data[],
     npy_intp in2_stride = strides[1];
     npy_intp out_stride = strides[2];
 
-    const npy_static_string *s1 = NULL, *s2 = NULL;
-
     while (N--) {
-        s1 = (npy_static_string *)in1;
-        s2 = (npy_static_string *)in2;
-        int s1_isnull = npy_string_isnull(s1);
-        int s2_isnull = npy_string_isnull(s2);
+        const npy_packed_static_string *ps1 = (npy_packed_static_string *)in1;
+        npy_static_string s1 = {0, NULL};
+        int s1_isnull = npy_load_string(ps1, &s1);
+        const npy_packed_static_string *ps2 = (npy_packed_static_string *)in2;
+        npy_static_string s2 = {0, NULL};
+        int s2_isnull = npy_load_string(ps2, &s2);
         if (NPY_UNLIKELY(s1_isnull || s2_isnull)) {
             if (has_nan_na) {
                 // s1 or s2 is NA
@@ -654,14 +643,14 @@ string_less_strided_loop(PyArrayMethod_Context *context, char *const data[],
             }
             else {
                 if (s1_isnull) {
-                    s1 = &default_string;
+                    s1 = *default_string;
                 }
                 if (s2_isnull) {
-                    s2 = &default_string;
+                    s2 = *default_string;
                 }
             }
         }
-        if (npy_string_cmp(s1, s2) < 0) {
+        if (npy_string_cmp(&s1, &s2) < 0) {
             *out = (npy_bool)1;
         }
         else {
@@ -687,7 +676,7 @@ string_less_equal_strided_loop(PyArrayMethod_Context *context,
     int has_null = descr->na_object != NULL;
     int has_nan_na = descr->has_nan_na;
     int has_string_na = descr->has_string_na;
-    npy_static_string default_string = descr->default_string;
+    const npy_static_string *default_string = &descr->default_string;
     npy_intp N = dimensions[0];
     char *in1 = data[0];
     char *in2 = data[1];
@@ -696,13 +685,13 @@ string_less_equal_strided_loop(PyArrayMethod_Context *context,
     npy_intp in2_stride = strides[1];
     npy_intp out_stride = strides[2];
 
-    const npy_static_string *s1 = NULL, *s2 = NULL;
-
     while (N--) {
-        s1 = (npy_static_string *)in1;
-        s2 = (npy_static_string *)in2;
-        int s1_isnull = npy_string_isnull(s1);
-        int s2_isnull = npy_string_isnull(s2);
+        const npy_packed_static_string *ps1 = (npy_packed_static_string *)in1;
+        npy_static_string s1 = {0, NULL};
+        int s1_isnull = npy_load_string(ps1, &s1);
+        const npy_packed_static_string *ps2 = (npy_packed_static_string *)in2;
+        npy_static_string s2 = {0, NULL};
+        int s2_isnull = npy_load_string(ps2, &s2);
         if (NPY_UNLIKELY(s1_isnull || s2_isnull)) {
             if (has_nan_na) {
                 // s1 or s2 is NA
@@ -717,14 +706,14 @@ string_less_equal_strided_loop(PyArrayMethod_Context *context,
             }
             else {
                 if (s1_isnull) {
-                    s1 = &default_string;
+                    s1 = *default_string;
                 }
                 if (s2_isnull) {
-                    s2 = &default_string;
+                    s2 = *default_string;
                 }
             }
         }
-        if (npy_string_cmp(s1, s2) <= 0) {
+        if (npy_string_cmp(&s1, &s2) <= 0) {
             *out = (npy_bool)1;
         }
         else {
@@ -771,10 +760,8 @@ string_isnan_strided_loop(PyArrayMethod_Context *context, char *const data[],
     npy_intp in_stride = strides[0];
     npy_intp out_stride = strides[1];
 
-    npy_static_string *s = NULL;
-
     while (N--) {
-        s = (npy_static_string *)in;
+        const npy_packed_static_string *s = (npy_packed_static_string *)in;
         if (has_nan_na && npy_string_isnull(s)) {
             *out = (npy_bool)1;
         }

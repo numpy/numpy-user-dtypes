@@ -58,7 +58,7 @@ _memory_usage(PyObject *NPY_UNUSED(self), PyObject *obj)
         npy_intp count = *innersizeptr;
 
         while (count--) {
-            size_t size = npy_string_size(((npy_static_string *)in));
+            size_t size = npy_string_size(((npy_packed_static_string *)in));
             if (size > NPY_SHORT_STRING_MAX_SIZE) {
                 memory_usage += size;
             }
@@ -77,7 +77,7 @@ _memory_usage(PyObject *NPY_UNUSED(self), PyObject *obj)
 static PyMethodDef string_methods[] = {
         {"_memory_usage", _memory_usage, METH_O,
          "get memory usage for an array"},
-        {NULL},
+        {NULL, NULL, 0, NULL},
 };
 
 static struct PyModuleDef moduledef = {

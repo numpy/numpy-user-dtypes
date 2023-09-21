@@ -26,7 +26,9 @@ typedef struct {
     int has_nan_na;
     int has_string_na;
     npy_static_string default_string;
+    npy_packed_static_string packed_default_string;
     npy_static_string na_name;
+    npy_packed_static_string packed_na_name;
 } StringDTypeObject;
 
 typedef struct {
