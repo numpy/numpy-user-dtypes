@@ -178,7 +178,7 @@ npy_string_free(npy_packed_static_string *str)
 {
     if (is_not_a_vstring(str)) {
         // zero out
-        memcpy(str, &NPY_EMPTY_STRING, sizeof(npy_static_string));
+        memcpy(str, NPY_EMPTY_STRING, sizeof(npy_packed_static_string));
     }
     else {
         _npy_static_string_u *str_u = (_npy_static_string_u *)str;

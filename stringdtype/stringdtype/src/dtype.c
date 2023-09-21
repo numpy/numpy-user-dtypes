@@ -582,6 +582,8 @@ static void
 stringdtype_dealloc(StringDTypeObject *self)
 {
     Py_XDECREF(self->na_object);
+    npy_string_free(&self->packed_default_string);
+    npy_string_free(&self->packed_na_name);
     PyArrayDescr_Type.tp_dealloc((PyObject *)self);
 }
 
