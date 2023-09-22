@@ -48,9 +48,6 @@ typedef union _npy_static_string_u {
 #define NPY_SHORT_STRING_MAX_SIZE \
     (sizeof(npy_static_string) - 1)  // 15 or 7 depending on arch
 
-// one byte in size is reserved for flags and small string optimization
-#define NPY_MAX_STRING_SIZE (1 << (sizeof(size_t) - 1)) - 1
-
 // Since this has no flags set, technically this is a heap-allocated string
 // with size zero. Practically, that doesn't matter because we always do size
 // checks before accessing heap data, but that may be confusing. The nice part

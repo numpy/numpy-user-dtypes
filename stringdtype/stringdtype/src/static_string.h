@@ -21,6 +21,9 @@ extern const npy_packed_static_string *NPY_EMPTY_STRING;
 // working with it.
 extern const npy_packed_static_string *NPY_NULL_STRING;
 
+// one byte in size is reserved for flags and small string optimization
+#define NPY_MAX_STRING_SIZE (1 << (sizeof(size_t) - 1)) - 1
+
 // Allocates a new buffer for *to_init*, which must be set to NULL before
 // calling this function, filling the newly allocated buffer with the copied
 // contents of the first *size* entries in *init*, which must be valid and
