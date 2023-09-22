@@ -120,6 +120,10 @@ npy_string_newsize(const char *init, size_t size,
         return 0;
     }
 
+    if (size > NPY_MAX_STRING_SIZE) {
+        return -1;
+    }
+
     _npy_static_string_u *to_init_u = ((_npy_static_string_u *)to_init);
 
     if (size > NPY_SHORT_STRING_MAX_SIZE) {
@@ -153,6 +157,10 @@ npy_string_newemptysize(size_t size, npy_packed_static_string *out)
     if (size == 0) {
         *out = *NPY_EMPTY_STRING;
         return 0;
+    }
+
+    if (size > NPY_MAX_STRING_SIZE) {
+        return -1;
     }
 
     _npy_static_string_u *out_u = (_npy_static_string_u *)out;

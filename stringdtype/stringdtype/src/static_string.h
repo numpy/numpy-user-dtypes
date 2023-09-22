@@ -33,7 +33,8 @@ extern const npy_packed_static_string *NPY_NULL_STRING;
 // check if *to_init* is NULL or if the internal buffer is non-NULL, undefined
 // behavior or memory leaks are possible if this function is passed a pointer
 // to a an unintialized struct, a NULL pointer, or an existing heap-allocated
-// string.  Returns -1 if malloc fails. Returns 0 on success.
+// string.  Returns -1 if allocating the string would exceed the maximum
+// allowed string size or exhaust available memory. Returns 0 on success.
 int
 npy_string_newsize(const char *init, size_t size,
                    npy_packed_static_string *to_init);
@@ -60,7 +61,8 @@ npy_string_dup(const npy_packed_static_string *in,
 // internal buffer is non-NULL, undefined behavior or memory leaks are
 // possible if this function is passed a pointer to a an unintialized struct,
 // a NULL pointer, or an existing heap-allocated string.  Returns 0 on
-// success. Returns -1 if malloc fails. Returns 0 on success.
+// success. Returns -1 if allocating the string would exceed the maximum
+// allowed string size or exhaust available memory. Returns 0 on success.
 int
 npy_string_newemptysize(size_t size, npy_packed_static_string *out);
 
