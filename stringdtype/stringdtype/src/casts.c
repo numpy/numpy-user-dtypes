@@ -337,7 +337,7 @@ string_to_unicode(PyArrayMethod_Context *context, char *const data[],
     while (N--) {
         const npy_packed_static_string *ps = (npy_packed_static_string *)in;
         npy_static_string s = {0, NULL};
-        npy_static_string name = {0, NULL};
+        npy_static_string name;
         unsigned char *this_string = NULL;
         size_t n_bytes;
         int is_null = npy_load_string(ps, &s);
