@@ -259,12 +259,11 @@ def test_isnan(dtype, string_list):
 
 
 def test_memory_usage(dtype):
-    sarr = np.array(["abc", "def", "ghi"], dtype=dtype)
-    # 4 bytes for each ASCII string buffer in string_list
-    # (three characters and null terminator)
+    sarr = np.array(["abcdefghijklmnopqrstuvqxyz", "def", "ghi"], dtype=dtype)
+    # 26 bytes for the long string buffer in string_list
     # plus enough bytes for the size_t length
     # plus enough bytes for the pointer in the array buffer
-    assert _memory_usage(sarr) == (4 + 2 * np.dtype(np.uintp).itemsize) * 3
+    assert _memory_usage(sarr) == (2 * np.dtype(np.uintp).itemsize) * 3 + 26
     with pytest.raises(TypeError):
         _memory_usage("hello")
     with pytest.raises(TypeError):
@@ -367,33 +366,10 @@ def test_nonzero(dtype, strings):
 
 def test_creation_functions(dtype):
     np.testing.assert_array_equal(np.zeros(3, dtype=dtype), ["", "", ""])
+    np.testing.assert_array_equal(np.empty(3, dtype=dtype), ["", "", ""])
 
     assert np.zeros(3, dtype=dtype)[0] == ""
-
-    has_null = hasattr(dtype, "na_object")
-    if has_null:
-        is_nan = isinstance(dtype.na_object, float) and np.isnan(
-            dtype.na_object
-        )
-        bool_errors = False
-        try:
-            bool(dtype.na_object)
-        except TypeError:
-            bool_errors = True
-    else:
-        is_nan = False
-        bool_errors = False
-
-    if is_nan or bool_errors:
-        assert np.all(np.isnan(np.empty(3, dtype=dtype)))
-        assert np.empty(3, dtype=dtype)[0] is dtype.na_object
-    elif hasattr(dtype, "na_object"):
-        res = [dtype.na_object] * 3
-        np.testing.assert_array_equal(np.empty(3, dtype=dtype), res)
-        assert np.empty(3, dtype=dtype)[0] == dtype.na_object
-    else:
-        np.testing.assert_array_equal(np.empty(3, dtype=dtype), ["", "", ""])
-        assert np.empty(3, dtype=dtype)[0] == ""
+    assert np.empty(3, dtype=dtype)[0] == ""
 
 
 def test_is_numeric(dtype):
