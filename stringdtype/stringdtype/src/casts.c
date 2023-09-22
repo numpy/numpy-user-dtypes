@@ -207,7 +207,8 @@ unicode_to_string(PyArrayMethod_Context *context, char *const data[],
         npy_packed_static_string *out_pss = (npy_packed_static_string *)out;
         npy_string_free(out_pss);
         if (npy_string_newemptysize(out_num_bytes, out_pss) < 0) {
-            gil_error(PyExc_MemoryError, "npy_string_newemptysize failed");
+            gil_error(PyExc_MemoryError,
+                      "Failed to allocate string in unicode to string cast");
             return -1;
         }
         npy_static_string out_ss = {0, NULL};
@@ -481,21 +482,26 @@ bool_to_string(PyArrayMethod_Context *NPY_UNUSED(context), char *const data[],
     while (N--) {
         npy_packed_static_string *out_pss = (npy_packed_static_string *)out;
         npy_string_free(out_pss);
+        char *ret_val = NULL;
+        size_t size = 0;
         if ((npy_bool)(*in) == 1) {
-            if (npy_string_newsize("True", 4, out_pss) < 0) {
-                gil_error(PyExc_MemoryError, "npy_string_newsize failed");
-                return -1;
-            }
+            ret_val = "True";
+            size = 4;
         }
         else if ((npy_bool)(*in) == 0) {
-            if (npy_string_newsize("False", 5, out_pss) < 0) {
-                gil_error(PyExc_MemoryError, "npy_string_newsize failed");
-                return -1;
-            }
+            ret_val = "False";
+            size = 5;
         }
         else {
             gil_error(PyExc_RuntimeError,
                       "invalid value encountered in bool to string cast");
+            return -1;
+        }
+        if (npy_string_newsize(ret_val, size, out_pss) < 0) {
+            // execution should never get here because this will be a small
+            // string on all platforms
+            gil_error(PyExc_MemoryError,
+                      "Failed to allocate string in bool to string cast");
             return -1;
         }
         in += in_stride;
@@ -593,7 +599,9 @@ pyobj_to_string(PyObject *obj, char *out)
     npy_packed_static_string *out_ss = (npy_packed_static_string *)out;
     npy_string_free(out_ss);
     if (npy_string_newsize(cstr_val, length, out_ss) < 0) {
-        PyErr_SetString(PyExc_MemoryError, "npy_string_newsize failed");
+        PyErr_SetString(PyExc_MemoryError,
+                        "Failed to allocate numpy string when converting from "
+                        "python string.");
         Py_DECREF(pystr_val);
         return -1;
     }
@@ -1087,7 +1095,8 @@ datetime_to_string(PyArrayMethod_Context *context, char *const data[],
             if (npy_string_newsize(datetime_buf, strlen(datetime_buf),
                                    out_pss) < 0) {
                 PyErr_SetString(PyExc_MemoryError,
-                                "npy_string_newsize failed");
+                                "Failed to allocate string when converting "
+                                "from a datetime.");
                 return -1;
             }
         }

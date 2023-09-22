@@ -73,7 +73,7 @@ multiply_resolve_descriptors(
                                                                              \
             if (npy_string_newemptysize(newsize, ops) < 0) {                 \
                 gil_error(PyExc_MemoryError,                                 \
-                          "npy_string_newemptysize failed");                 \
+                          "Failed to allocate string in string mutiply");    \
                 return -1;                                                   \
             }                                                                \
                                                                              \
