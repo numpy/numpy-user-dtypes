@@ -53,16 +53,32 @@ string_to_string_resolve_descriptors(PyObject *NPY_UNUSED(self),
     Py_INCREF(given_descrs[0]);
     loop_descrs[0] = given_descrs[0];
 
+    StringDTypeObject *descr0 = (StringDTypeObject *)loop_descrs[0];
+    StringDTypeObject *descr1 = (StringDTypeObject *)loop_descrs[1];
+
+    if ((descr0->na_object != NULL) && (descr1->na_object == NULL)) {
+        // cast from a dtype with an NA to one without, so it's a lossy
+        // unsafe cast
+        return NPY_UNSAFE_CASTING;
+    }
+
     *view_offset = 0;
 
     return NPY_NO_CASTING;
 }
 
 static int
-string_to_string(PyArrayMethod_Context *NPY_UNUSED(context),
-                 char *const data[], npy_intp const dimensions[],
-                 npy_intp const strides[], NpyAuxData *NPY_UNUSED(auxdata))
+string_to_string(PyArrayMethod_Context *context, char *const data[],
+                 npy_intp const dimensions[], npy_intp const strides[],
+                 NpyAuxData *NPY_UNUSED(auxdata))
 {
+    StringDTypeObject *in_descr =
+            ((StringDTypeObject *)context->descriptors[0]);
+    StringDTypeObject *out_descr =
+            ((StringDTypeObject *)context->descriptors[1]);
+    int in_hasnull = in_descr->na_object != NULL;
+    int out_hasnull = out_descr->na_object != NULL;
+    const npy_static_string *in_na_name = &in_descr->na_name;
     npy_intp N = dimensions[0];
     char *in = data[0];
     char *out = data[1];
@@ -74,7 +90,16 @@ string_to_string(PyArrayMethod_Context *NPY_UNUSED(context),
         npy_packed_static_string *os = (npy_packed_static_string *)out;
         if (in != out) {
             npy_string_free(os);
-            if (npy_string_dup(s, os) < 0) {
+            if (in_hasnull && !out_hasnull && npy_string_isnull(s)) {
+                // lossy but this is an unsafe cast so this is OK
+                if (npy_string_newsize(in_na_name->buf, in_na_name->size, os) <
+                    0) {
+                    gil_error(PyExc_MemoryError,
+                              "Failed to allocate string in string to string "
+                              "cast.");
+                }
+            }
+            else if (npy_string_dup(s, os) < 0) {
                 gil_error(PyExc_MemoryError, "npy_string_dup failed");
                 return -1;
             }

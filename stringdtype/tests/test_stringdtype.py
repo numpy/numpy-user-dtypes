@@ -48,6 +48,16 @@ def dtype(na_object, coerce):
         return StringDType(coerce=coerce)
 
 
+# second copy for cast tests to do a cartesian product over dtypes
+@pytest.fixture()
+def dtype2(na_object, coerce):
+    # explicit is check for pd_NA because != with pd_NA returns pd_NA
+    if na_object is pd_NA or na_object != "unset":
+        return StringDType(na_object=na_object, coerce=coerce)
+    else:
+        return StringDType(coerce=coerce)
+
+
 def test_dtype_creation():
     hashes = set()
     dt = StringDType()
@@ -134,6 +144,34 @@ def test_scalars_string_conversion(data, dtype):
     else:
         with pytest.raises(ValueError):
             np.array(data, dtype=dtype)
+
+
+@pytest.mark.parametrize(
+    ("strings"),
+    [
+        ["this", "is", "an", "array"],
+        ["€", "", "😊"],
+        ["A¢☃€ 😊", " A☃€¢😊", "☃€😊 A¢", "😊☃A¢ €"],
+    ],
+)
+def test_self_casts(dtype, dtype2, strings):
+    if hasattr(dtype, "na_object"):
+        strings = strings + [dtype.na_object]
+    arr = np.array(strings, dtype=dtype)
+    newarr = arr.astype(dtype2)
+
+    if hasattr(dtype, "na_object") and not hasattr(dtype2, "na_object"):
+        assert newarr[-1] == str(dtype.na_object)
+        with pytest.raises(TypeError):
+            arr.astype(dtype2, casting="safe")
+        arr.astype(dtype2, casting="unsafe")
+    elif hasattr(dtype, "na_object") and hasattr(dtype2, "na_object"):
+        assert newarr[-1] is dtype2.na_object
+        arr.astype(dtype2, casting="safe")
+    else:
+        arr.astype(dtype2, casting="safe")
+
+    np.testing.assert_array_equal(arr[:-1], newarr[:-1])
 
 
 @pytest.mark.parametrize(
