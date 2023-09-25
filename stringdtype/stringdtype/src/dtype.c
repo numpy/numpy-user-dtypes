@@ -31,16 +31,9 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
             has_string_na = 1;
             Py_ssize_t size = 0;
             const char *buf = PyUnicode_AsUTF8AndSize(na_object, &size);
-            int res = npy_string_newsize(buf, (size_t)size,
-                                         &packed_default_string);
-            if (res == -1) {
+            if (npy_string_newsize(buf, (size_t)size, &packed_default_string) <
+                0) {
                 PyErr_NoMemory();
-                Py_DECREF(new);
-                return NULL;
-            }
-            else if (res == -2) {
-                // this should never happen
-                assert(0);
                 Py_DECREF(new);
                 return NULL;
             }
@@ -72,17 +65,10 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
 
         Py_ssize_t size = 0;
         const char *utf8_ptr = PyUnicode_AsUTF8AndSize(na_pystr, &size);
-        // discard const to initialize buffer
-        int res = npy_string_newsize(utf8_ptr, (size_t)size, &packed_na_name);
-        if (res == -1) {
+        if (npy_string_newsize(utf8_ptr, (size_t)size, &packed_na_name)) {
             PyErr_NoMemory();
             Py_DECREF(new);
-            return NULL;
-        }
-        else if (res == -2) {
-            // this should never happen
-            assert(0);
-            Py_DECREF(new);
+            Py_DECREF(na_pystr);
             return NULL;
         }
         Py_DECREF(na_pystr);
@@ -235,16 +221,8 @@ stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
             return -1;
         }
 
-        int res = npy_string_newsize(val, length, sdata);
-
-        if (res == -1) {
+        if (npy_string_newsize(val, length, sdata) < 0) {
             PyErr_NoMemory();
-            Py_DECREF(val_obj);
-            return -1;
-        }
-        else if (res == -2) {
-            // this should never happen
-            assert(0);
             Py_DECREF(val_obj);
             return -1;
         }

@@ -21,13 +21,20 @@ extern const npy_packed_static_string *NPY_EMPTY_STRING;
 // working with it.
 extern const npy_packed_static_string *NPY_NULL_STRING;
 
+// one byte in size is reserved for flags and small string optimization
+#define NPY_MAX_STRING_SIZE (1 << (sizeof(size_t) - 1)) - 1
+
 // Allocates a new buffer for *to_init*, which must be set to NULL before
 // calling this function, filling the newly allocated buffer with the copied
 // contents of the first *size* entries in *init*, which must be valid and
 // initialized beforehand. Calling npy_string_free on *to_init* before calling
-// this function on an existing string is sufficient to initialize it. Returns
-// -1 if malloc fails and -2 if the internal buffer in *to_init* is not NULL
-// to indicate a programming error. Returns 0 on success.
+// this function on an existing string or copying the contents of
+// NPY_EMPTY_STRING into *to_init* is sufficient to initialize it. Does not
+// check if *to_init* is NULL or if the internal buffer is non-NULL, undefined
+// behavior or memory leaks are possible if this function is passed a pointer
+// to a an unintialized struct, a NULL pointer, or an existing heap-allocated
+// string.  Returns -1 if allocating the string would exceed the maximum
+// allowed string size or exhaust available memory. Returns 0 on success.
 int
 npy_string_newsize(const char *init, size_t size,
                    npy_packed_static_string *to_init);
@@ -47,8 +54,15 @@ npy_string_dup(const npy_packed_static_string *in,
 
 // Allocates a new string buffer for *out* with enough capacity to store
 // *size* bytes of text. Does not do any initialization, the caller must
-// initialize the string buffer. Returns -1 if malloc fails and -2 if *out* is
-// not NULL. Returns 0 on success.
+// initialize the string buffer after this function returns. Calling
+// npy_string_free on *to_init* before calling this function on an existing
+// string or copying the contents of NPY_EMPTY_STRING into *to_init* is
+// sufficient to initialize it.Does not check if *to_init* is NULL or if the
+// internal buffer is non-NULL, undefined behavior or memory leaks are
+// possible if this function is passed a pointer to a an unintialized struct,
+// a NULL pointer, or an existing heap-allocated string.  Returns 0 on
+// success. Returns -1 if allocating the string would exceed the maximum
+// allowed string size or exhaust available memory. Returns 0 on success.
 int
 npy_string_newemptysize(size_t size, npy_packed_static_string *out);
 

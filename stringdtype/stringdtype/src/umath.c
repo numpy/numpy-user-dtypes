@@ -68,12 +68,12 @@ multiply_resolve_descriptors(
             }                                                                \
             npy_##shortname factor = *(npy_##shortname *)iin;                \
             size_t cursize = is.size;                                        \
-            /* FIXME: check for overflow? */                                 \
             size_t newsize = cursize * factor;                               \
-                                                                             \
-            if (npy_string_newemptysize(newsize, ops) < 0) {                 \
+            /* newsize can only be less than cursize if there is overflow */ \
+            if (((newsize < cursize) ||                                      \
+                 npy_string_newemptysize(newsize, ops) < 0)) {               \
                 gil_error(PyExc_MemoryError,                                 \
-                          "npy_string_newemptysize failed");                 \
+                          "Failed to allocate string in string mutiply");    \
                 return -1;                                                   \
             }                                                                \
                                                                              \
@@ -81,6 +81,8 @@ multiply_resolve_descriptors(
             npy_load_string(ops, &os);                                       \
             for (size_t i = 0; i < (size_t)factor; i++) {                    \
                 /* excplicitly discard const; initializing new buffer */     \
+                /* multiply can't overflow because cursize * factor */       \
+                /* has already been checked and doesn't overflow */          \
                 memcpy((char *)os.buf + i * cursize, is.buf, cursize);       \
             }                                                                \
                                                                              \
@@ -243,6 +245,12 @@ add_strided_loop(PyArrayMethod_Context *context, char *const data[],
                           "Cannot add null that is not a nan-like value");
                 return -1;
             }
+        }
+
+        if ((s1.size + s2.size) < s1.size) {
+            // overflow
+            gil_error(PyExc_MemoryError,
+                      "Failed to allocate string in string add");
         }
 
         if (npy_string_newemptysize(s1.size + s2.size, ops) < 0) {

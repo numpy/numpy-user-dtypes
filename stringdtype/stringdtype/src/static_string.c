@@ -48,9 +48,6 @@ typedef union _npy_static_string_u {
 #define NPY_SHORT_STRING_MAX_SIZE \
     (sizeof(npy_static_string) - 1)  // 15 or 7 depending on arch
 
-// one byte in size is reserved for flags and small string optimization
-#define NPY_MAX_STRING_SIZE (1 << (sizeof(size_t) - 1)) - 1
-
 // Since this has no flags set, technically this is a heap-allocated string
 // with size zero. Practically, that doesn't matter because we always do size
 // checks before accessing heap data, but that may be confusing. The nice part
@@ -118,13 +115,13 @@ int
 npy_string_newsize(const char *init, size_t size,
                    npy_packed_static_string *to_init)
 {
-    if (to_init == NULL || size > NPY_MAX_STRING_SIZE) {
-        return -2;
-    }
-
     if (size == 0) {
         *to_init = *NPY_EMPTY_STRING;
         return 0;
+    }
+
+    if (size > NPY_MAX_STRING_SIZE) {
+        return -1;
     }
 
     _npy_static_string_u *to_init_u = ((_npy_static_string_u *)to_init);
@@ -157,13 +154,13 @@ npy_string_newsize(const char *init, size_t size,
 int
 npy_string_newemptysize(size_t size, npy_packed_static_string *out)
 {
-    if (out == NULL || size > NPY_MAX_STRING_SIZE) {
-        return -2;
-    }
-
     if (size == 0) {
         *out = *NPY_EMPTY_STRING;
         return 0;
+    }
+
+    if (size > NPY_MAX_STRING_SIZE) {
+        return -1;
     }
 
     _npy_static_string_u *out_u = (_npy_static_string_u *)out;

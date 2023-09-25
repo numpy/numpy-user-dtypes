@@ -700,3 +700,9 @@ def test_null_roundtripping(dtype):
     arr = np.array(data, dtype=dtype)
     assert data[0] == arr[0]
     assert data[1] == arr[1]
+
+
+def test_string_too_large_error():
+    arr = np.array(["a", "b", "c"], dtype=StringDType())
+    with pytest.raises(MemoryError):
+        arr * (2**63 - 2)
