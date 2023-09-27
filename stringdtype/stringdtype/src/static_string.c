@@ -1,6 +1,6 @@
-#include "Python.h"
-
 #include "static_string.h"
+
+#include <string.h>
 
 #if NPY_BYTE_ORDER == NPY_LITTLE_ENDIAN
 
@@ -63,6 +63,27 @@ const _npy_static_string_u null_string_u = {
 const npy_packed_static_string *NPY_NULL_STRING =
         (npy_packed_static_string *)&null_string_u;
 
+struct npy_string_allocator {
+    npy_string_malloc_func malloc;
+    npy_string_free_func free;
+};
+
+npy_string_allocator *
+npy_string_new_allocator(npy_string_malloc_func m, npy_string_free_func f)
+{
+    npy_string_allocator *allocator = m(sizeof(npy_string_allocator));
+    allocator->malloc = m;
+    allocator->free = f;
+    return allocator;
+}
+
+void
+npy_string_free_allocator(npy_string_allocator *allocator)
+{
+    npy_string_free_func f = allocator->free;
+    f(allocator);
+}
+
 int
 is_short_string(const npy_packed_static_string *s)
 {
@@ -113,7 +134,8 @@ npy_load_string(const npy_packed_static_string *packed_string,
 
 int
 npy_string_newsize(const char *init, size_t size,
-                   npy_packed_static_string *to_init)
+                   npy_packed_static_string *to_init,
+                   npy_string_allocator *allocator)
 {
     if (size == 0) {
         *to_init = *NPY_EMPTY_STRING;
@@ -127,7 +149,7 @@ npy_string_newsize(const char *init, size_t size,
     _npy_static_string_u *to_init_u = ((_npy_static_string_u *)to_init);
 
     if (size > NPY_SHORT_STRING_MAX_SIZE) {
-        char *ret_buf = (char *)PyMem_RawMalloc(sizeof(char) * size);
+        char *ret_buf = (char *)allocator->malloc(sizeof(char) * size);
 
         if (ret_buf == NULL) {
             return -1;
@@ -152,7 +174,8 @@ npy_string_newsize(const char *init, size_t size,
 }
 
 int
-npy_string_newemptysize(size_t size, npy_packed_static_string *out)
+npy_string_newemptysize(size_t size, npy_packed_static_string *out,
+                        npy_string_allocator *allocator)
 {
     if (size == 0) {
         *out = *NPY_EMPTY_STRING;
@@ -166,7 +189,7 @@ npy_string_newemptysize(size_t size, npy_packed_static_string *out)
     _npy_static_string_u *out_u = (_npy_static_string_u *)out;
 
     if (size > NPY_SHORT_STRING_MAX_SIZE) {
-        char *buf = (char *)PyMem_RawMalloc(sizeof(char) * size);
+        char *buf = (char *)allocator->malloc(sizeof(char) * size);
 
         if (buf == NULL) {
             return -1;
@@ -183,7 +206,7 @@ npy_string_newemptysize(size_t size, npy_packed_static_string *out)
 }
 
 void
-npy_string_free(npy_packed_static_string *str)
+npy_string_free(npy_packed_static_string *str, npy_string_allocator *allocator)
 {
     if (is_not_a_vstring(str)) {
         // zero out
@@ -192,7 +215,7 @@ npy_string_free(npy_packed_static_string *str)
     else {
         _npy_static_string_u *str_u = (_npy_static_string_u *)str;
         if (str_u->vstring.size != 0) {
-            PyMem_RawFree(str_u->vstring.buf);
+            allocator->free(str_u->vstring.buf);
         }
         str_u->vstring.buf = NULL;
         str_u->vstring.size = 0;
@@ -201,7 +224,7 @@ npy_string_free(npy_packed_static_string *str)
 
 int
 npy_string_dup(const npy_packed_static_string *in,
-               npy_packed_static_string *out)
+               npy_packed_static_string *out, npy_string_allocator *allocator)
 {
     if (npy_string_isnull(in)) {
         *out = *NPY_NULL_STRING;
@@ -214,7 +237,8 @@ npy_string_dup(const npy_packed_static_string *in,
 
     _npy_static_string_u *in_u = (_npy_static_string_u *)in;
 
-    return npy_string_newsize(in_u->vstring.buf, in_u->vstring.size, out);
+    return npy_string_newsize(in_u->vstring.buf, in_u->vstring.size, out,
+                              allocator);
 }
 
 int

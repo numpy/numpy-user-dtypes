@@ -29,6 +29,7 @@ typedef struct {
     npy_packed_static_string packed_default_string;
     npy_static_string na_name;
     npy_packed_static_string packed_na_name;
+    npy_string_allocator *allocator;
 } StringDTypeObject;
 
 typedef struct {

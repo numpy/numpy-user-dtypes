@@ -18,6 +18,9 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
         return NULL;
     }
 
+    npy_string_allocator *allocator =
+            npy_string_new_allocator(PyMem_RawMalloc, PyMem_RawFree);
+
     Py_XINCREF(na_object);
     ((StringDTypeObject *)new)->na_object = na_object;
     npy_packed_static_string packed_na_name = *NPY_EMPTY_STRING;
@@ -31,8 +34,8 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
             has_string_na = 1;
             Py_ssize_t size = 0;
             const char *buf = PyUnicode_AsUTF8AndSize(na_object, &size);
-            if (npy_string_newsize(buf, (size_t)size, &packed_default_string) <
-                0) {
+            if (npy_string_newsize(buf, (size_t)size, &packed_default_string,
+                                   allocator) < 0) {
                 PyErr_NoMemory();
                 Py_DECREF(new);
                 return NULL;
@@ -65,7 +68,8 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
 
         Py_ssize_t size = 0;
         const char *utf8_ptr = PyUnicode_AsUTF8AndSize(na_pystr, &size);
-        if (npy_string_newsize(utf8_ptr, (size_t)size, &packed_na_name)) {
+        if (npy_string_newsize(utf8_ptr, (size_t)size, &packed_na_name,
+                               allocator)) {
             PyErr_NoMemory();
             Py_DECREF(new);
             Py_DECREF(na_pystr);
@@ -81,6 +85,7 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
     snew->packed_default_string = packed_default_string;
     snew->packed_na_name = packed_na_name;
     snew->coerce = coerce;
+    snew->allocator = allocator;
 
     npy_static_string default_string = {0, NULL};
     npy_load_string(&snew->packed_default_string, &default_string);
@@ -197,7 +202,7 @@ stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
 
     // free if dataptr holds preexisting string data,
     // npy_string_free does a NULL check and checks for small strings
-    npy_string_free(sdata);
+    npy_string_free(sdata, descr->allocator);
 
     // borrow reference
     PyObject *na_object = descr->na_object;
@@ -221,7 +226,7 @@ stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
             return -1;
         }
 
-        if (npy_string_newsize(val, length, sdata) < 0) {
+        if (npy_string_newsize(val, length, sdata, descr->allocator) < 0) {
             PyErr_NoMemory();
             Py_DECREF(val_obj);
             return -1;
@@ -375,13 +380,14 @@ stringdtype_ensure_canonical(StringDTypeObject *self)
 
 static int
 stringdtype_clear_loop(void *NPY_UNUSED(traverse_context),
-                       PyArray_Descr *NPY_UNUSED(descr), char *data,
-                       npy_intp size, npy_intp stride,
-                       NpyAuxData *NPY_UNUSED(auxdata))
+                       PyArray_Descr *descr, char *data, npy_intp size,
+                       npy_intp stride, NpyAuxData *NPY_UNUSED(auxdata))
 {
+    StringDTypeObject *sdescr = (StringDTypeObject *)descr;
     while (size--) {
+        npy_packed_static_string *sdata = (npy_packed_static_string *)data;
         if (data != NULL) {
-            npy_string_free((npy_packed_static_string *)data);
+            npy_string_free(sdata, sdescr->allocator);
             memset(data, 0, sizeof(npy_packed_static_string));
         }
         data += stride;
@@ -560,8 +566,9 @@ static void
 stringdtype_dealloc(StringDTypeObject *self)
 {
     Py_XDECREF(self->na_object);
-    npy_string_free(&self->packed_default_string);
-    npy_string_free(&self->packed_na_name);
+    npy_string_free(&self->packed_default_string, self->allocator);
+    npy_string_free(&self->packed_na_name, self->allocator);
+    npy_string_free_allocator(self->allocator);
     PyArrayDescr_Type.tp_dealloc((PyObject *)self);
 }
 

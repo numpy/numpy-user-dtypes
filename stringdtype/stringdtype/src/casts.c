@@ -72,13 +72,12 @@ string_to_string(PyArrayMethod_Context *context, char *const data[],
                  npy_intp const dimensions[], npy_intp const strides[],
                  NpyAuxData *NPY_UNUSED(auxdata))
 {
-    StringDTypeObject *in_descr =
-            ((StringDTypeObject *)context->descriptors[0]);
-    StringDTypeObject *out_descr =
-            ((StringDTypeObject *)context->descriptors[1]);
-    int in_hasnull = in_descr->na_object != NULL;
-    int out_hasnull = out_descr->na_object != NULL;
-    const npy_static_string *in_na_name = &in_descr->na_name;
+    StringDTypeObject *idescr = (StringDTypeObject *)context->descriptors[0];
+    StringDTypeObject *odescr = (StringDTypeObject *)context->descriptors[1];
+    npy_string_allocator *allocator = odescr->allocator;
+    int in_hasnull = idescr->na_object != NULL;
+    int out_hasnull = odescr->na_object != NULL;
+    const npy_static_string *in_na_name = &idescr->na_name;
     npy_intp N = dimensions[0];
     char *in = data[0];
     char *out = data[1];
@@ -89,17 +88,17 @@ string_to_string(PyArrayMethod_Context *context, char *const data[],
         const npy_packed_static_string *s = (npy_packed_static_string *)in;
         npy_packed_static_string *os = (npy_packed_static_string *)out;
         if (in != out) {
-            npy_string_free(os);
+            npy_string_free(os, allocator);
             if (in_hasnull && !out_hasnull && npy_string_isnull(s)) {
                 // lossy but this is an unsafe cast so this is OK
-                if (npy_string_newsize(in_na_name->buf, in_na_name->size, os) <
-                    0) {
+                if (npy_string_newsize(
+                            in_na_name->buf, in_na_name->size, os, allocator) < 0) {
                     gil_error(PyExc_MemoryError,
                               "Failed to allocate string in string to string "
                               "cast.");
                 }
             }
-            else if (npy_string_dup(s, os) < 0) {
+            else if (npy_string_dup(s, os, allocator) < 0) {
                 gil_error(PyExc_MemoryError, "npy_string_dup failed");
                 return -1;
             }
@@ -211,6 +210,8 @@ unicode_to_string(PyArrayMethod_Context *context, char *const data[],
                   NpyAuxData *NPY_UNUSED(auxdata))
 {
     PyArray_Descr **descrs = context->descriptors;
+    npy_string_allocator *allocator =
+            ((StringDTypeObject *)descrs[1])->allocator;
     long max_in_size = (descrs[0]->elsize) / 4;
 
     npy_intp N = dimensions[0];
@@ -230,8 +231,8 @@ unicode_to_string(PyArrayMethod_Context *context, char *const data[],
             return -1;
         }
         npy_packed_static_string *out_pss = (npy_packed_static_string *)out;
-        npy_string_free(out_pss);
-        if (npy_string_newemptysize(out_num_bytes, out_pss) < 0) {
+        npy_string_free(out_pss, allocator);
+        if (npy_string_newemptysize(out_num_bytes, out_pss, allocator) < 0) {
             gil_error(PyExc_MemoryError,
                       "Failed to allocate string in unicode to string cast");
             return -1;
@@ -493,7 +494,7 @@ static char *s2b_name = "cast_StringDType_to_Bool";
 // bool to string
 
 static int
-bool_to_string(PyArrayMethod_Context *NPY_UNUSED(context), char *const data[],
+bool_to_string(PyArrayMethod_Context *context, char *const data[],
                npy_intp const dimensions[], npy_intp const strides[],
                NpyAuxData *NPY_UNUSED(auxdata))
 {
@@ -504,9 +505,12 @@ bool_to_string(PyArrayMethod_Context *NPY_UNUSED(context), char *const data[],
     npy_intp in_stride = strides[0];
     npy_intp out_stride = strides[1];
 
+    StringDTypeObject *descr = (StringDTypeObject *)context->descriptors[1];
+    npy_string_allocator *allocator = descr->allocator;
+
     while (N--) {
         npy_packed_static_string *out_pss = (npy_packed_static_string *)out;
-        npy_string_free(out_pss);
+        npy_string_free(out_pss, allocator);
         char *ret_val = NULL;
         size_t size = 0;
         if ((npy_bool)(*in) == 1) {
@@ -522,7 +526,7 @@ bool_to_string(PyArrayMethod_Context *NPY_UNUSED(context), char *const data[],
                       "invalid value encountered in bool to string cast");
             return -1;
         }
-        if (npy_string_newsize(ret_val, size, out_pss) < 0) {
+        if (npy_string_newsize(ret_val, size, out_pss, allocator) < 0) {
             // execution should never get here because this will be a small
             // string on all platforms
             gil_error(PyExc_MemoryError,
@@ -605,7 +609,7 @@ string_to_int(char *in, npy_longlong *value, int hasnull,
 }
 
 static int
-pyobj_to_string(PyObject *obj, char *out)
+pyobj_to_string(PyObject *obj, char *out, npy_string_allocator *allocator)
 {
     if (obj == NULL) {
         return -1;
@@ -622,8 +626,8 @@ pyobj_to_string(PyObject *obj, char *out)
         return -1;
     }
     npy_packed_static_string *out_ss = (npy_packed_static_string *)out;
-    npy_string_free(out_ss);
-    if (npy_string_newsize(cstr_val, length, out_ss) < 0) {
+    npy_string_free(out_ss, allocator);
+    if (npy_string_newsize(cstr_val, length, out_ss, allocator) < 0) {
         PyErr_SetString(PyExc_MemoryError,
                         "Failed to allocate numpy string when converting from "
                         "python string.");
@@ -636,17 +640,18 @@ pyobj_to_string(PyObject *obj, char *out)
 }
 
 static int
-int_to_string(long long in, char *out)
+int_to_string(long long in, char *out, npy_string_allocator *allocator)
 {
     PyObject *pylong_val = PyLong_FromLongLong(in);
-    return pyobj_to_string(pylong_val, out);
+    return pyobj_to_string(pylong_val, out, allocator);
 }
 
 static int
-uint_to_string(unsigned long long in, char *out)
+uint_to_string(unsigned long long in, char *out,
+               npy_string_allocator *allocator)
 {
     PyObject *pylong_val = PyLong_FromUnsignedLongLong(in);
-    return pyobj_to_string(pylong_val, out);
+    return pyobj_to_string(pylong_val, out, allocator);
 }
 
 #define STRING_INT_CASTS(typename, typekind, shortname, numpy_tag,           \
@@ -720,7 +725,7 @@ uint_to_string(unsigned long long in, char *out)
     static char *s2##shortname##_name = "cast_StringDType_to_" #typename;    \
                                                                              \
     static int typename##_to_string(                                         \
-            PyArrayMethod_Context *NPY_UNUSED(context), char *const data[],  \
+            PyArrayMethod_Context *context, char *const data[],              \
             npy_intp const dimensions[], npy_intp const strides[],           \
             NpyAuxData *NPY_UNUSED(auxdata))                                 \
     {                                                                        \
@@ -731,8 +736,12 @@ uint_to_string(unsigned long long in, char *out)
         npy_intp in_stride = strides[0] / sizeof(npy_##typename);            \
         npy_intp out_stride = strides[1];                                    \
                                                                              \
+        StringDTypeObject *descr =                                           \
+                (StringDTypeObject *)context->descriptors[1];                \
+        npy_string_allocator *allocator = descr->allocator;                  \
+                                                                             \
         while (N--) {                                                        \
-            if (typekind##_to_string((longtype)*in, out) != 0) {             \
+            if (typekind##_to_string((longtype)*in, out, allocator) != 0) {  \
                 return -1;                                                   \
             }                                                                \
                                                                              \
@@ -917,9 +926,13 @@ string_to_pyfloat(char *in, int hasnull,
         npy_intp in_stride = strides[0] / sizeof(npy_##typename);         \
         npy_intp out_stride = strides[1];                                 \
                                                                           \
+        StringDTypeObject *descr =                                        \
+                (StringDTypeObject *)context->descriptors[1];             \
+        npy_string_allocator *allocator = descr->allocator;               \
+                                                                          \
         while (N--) {                                                     \
             PyObject *scalar_val = PyArray_Scalar(in, float_descr, NULL); \
-            if (pyobj_to_string(scalar_val, out) == -1) {                 \
+            if (pyobj_to_string(scalar_val, out, allocator) == -1) {      \
                 return -1;                                                \
             }                                                             \
                                                                           \
@@ -1096,9 +1109,12 @@ datetime_to_string(PyArrayMethod_Context *context, char *const data[],
     // buffer passed to numpy to build datetime string
     char datetime_buf[NPY_DATETIME_MAX_ISO8601_STRLEN];
 
+    StringDTypeObject *sdescr = (StringDTypeObject *)context->descriptors[1];
+    npy_string_allocator *allocator = sdescr->allocator;
+
     while (N--) {
         npy_packed_static_string *out_pss = (npy_packed_static_string *)out;
-        npy_string_free(out_pss);
+        npy_string_free(out_pss, allocator);
         if (*in == NPY_DATETIME_NAT) {
             *out_pss = *NPY_NULL_STRING;
         }
@@ -1117,8 +1133,8 @@ datetime_to_string(PyArrayMethod_Context *context, char *const data[],
                 return -1;
             }
 
-            if (npy_string_newsize(datetime_buf, strlen(datetime_buf),
-                                   out_pss) < 0) {
+            if (npy_string_newsize(datetime_buf, strlen(datetime_buf), out_pss,
+                                   allocator) < 0) {
                 PyErr_SetString(PyExc_MemoryError,
                                 "Failed to allocate string when converting "
                                 "from a datetime.");
