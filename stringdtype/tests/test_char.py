@@ -22,7 +22,7 @@ UNARY_FUNCTIONS = [
     "capitalize",
     "expandtabs",
     "isalnum",
-    "isalpha",
+    # "isalpha", (10-23-23) skipped temporarily since it is now a ufunc
     "isdigit",
     "islower",
     "isspace",

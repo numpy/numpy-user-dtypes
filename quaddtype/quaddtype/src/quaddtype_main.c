@@ -23,7 +23,7 @@ PyInit__quaddtype_main(void)
         return NULL;
 
     // Fail to init if the experimental DType API version 5 isn't supported
-    if (import_experimental_dtype_api(13) < 0) {
+    if (import_experimental_dtype_api(14) < 0) {
         PyErr_SetString(PyExc_ImportError,
                         "Error encountered importing the experimental dtype API.");
         return NULL;
