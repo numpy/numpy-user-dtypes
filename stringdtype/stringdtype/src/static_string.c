@@ -345,54 +345,26 @@ npy_string_newsize(const char *init, size_t size,
                    npy_packed_static_string *to_init,
                    npy_string_allocator *allocator)
 {
-    if (size > NPY_MAX_STRING_SIZE) {
+    if (npy_string_newemptysize(size, to_init, allocator) < 0) {
         return -1;
+    }
+
+    if (size == 0) {
+        return 0;
     }
 
     _npy_static_string_u *to_init_u = ((_npy_static_string_u *)to_init);
 
-    unsigned char flags = VSTRING_FLAGS(to_init_u);
-
-    if (size == 0) {
-        *to_init = *NPY_EMPTY_STRING;
-        to_init_u->direct_buffer.flags_and_size |= flags;
-        return 0;
-    }
+    char *buf = NULL;
 
     if (size > NPY_SHORT_STRING_MAX_SIZE) {
-        int on_heap = 0;
-        char *ret_buf =
-                heap_or_arena_allocate(allocator, to_init_u, size, &on_heap);
-
-        if (ret_buf == NULL) {
-            return -1;
-        }
-
-        set_vstring_size(to_init_u, size);
-
-        memcpy(ret_buf, init, size);
-
-        if (on_heap) {
-            to_init_u->vstring.offset = (size_t)ret_buf;
-        }
-        else {
-            npy_string_arena *arena = &allocator->arena;
-            if (arena == NULL) {
-                return -1;
-            }
-            to_init_u->vstring.offset =
-                    (size_t)ret_buf - (size_t)arena->buffer;
-        }
+        buf = vstring_buffer(&allocator->arena, to_init_u);
     }
     else {
-        // Size can be no larger than 7 or 15, depending on CPU architecture.
-        // In either case, the size data is in at most the least significant 4
-        // bits of the byte so it's safe to | with one of 0x10, 0x20, 0x40, or
-        // 0x80.
-        to_init_u->direct_buffer.flags_and_size =
-                NPY_STRING_SHORT | flags | size;
-        memcpy(&(to_init_u->direct_buffer.buf), init, size);
+        buf = to_init_u->direct_buffer.buf;
     }
+
+    memcpy(buf, init, size);
 
     return 0;
 }
@@ -437,6 +409,10 @@ npy_string_newemptysize(size_t size, npy_packed_static_string *out,
         set_vstring_size(out_u, size);
     }
     else {
+        // Size can be no larger than 7 or 15, depending on CPU architecture.
+        // In either case, the size data is in at most the least significant 4
+        // bits of the byte so it's safe to | with one of 0x10, 0x20, 0x40, or
+        // 0x80.
         out_u->direct_buffer.flags_and_size = NPY_STRING_SHORT | flags | size;
     }
 
