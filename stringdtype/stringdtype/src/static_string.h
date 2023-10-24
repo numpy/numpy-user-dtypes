@@ -17,7 +17,7 @@ typedef struct npy_static_string {
 // npy_static_string API functions.
 extern const npy_packed_static_string *NPY_EMPTY_STRING;
 // Represents a sentinel value, use npy_string_isnull or the return value of
-// npy_load_string to check if a value is null before working with the unpacked
+// npy_string_load to check if a value is null before working with the unpacked
 // representation.
 extern const npy_packed_static_string *NPY_NULL_STRING;
 
@@ -113,7 +113,7 @@ npy_string_cmp(const npy_static_string *s1, const npy_static_string *s2);
 // string, and returns 0 otherwise. This function can be used to
 // simultaneously unpack a string and determine if it is a null string.
 int
-npy_load_string(npy_string_allocator *allocator,
+npy_string_load(npy_string_allocator *allocator,
                 const npy_packed_static_string *packed_string,
                 npy_static_string *unpacked_string);
 

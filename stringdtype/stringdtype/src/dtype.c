@@ -104,7 +104,7 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
     snew->array_owned = 0;
 
     npy_static_string default_string = {0, NULL};
-    if (npy_load_string(allocator, &snew->packed_default_string,
+    if (npy_string_load(allocator, &snew->packed_default_string,
                         &default_string) == -1) {
         PyErr_SetString(PyExc_MemoryError,
                         "Failed to load packed string while "
@@ -114,7 +114,7 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
     }
 
     npy_static_string na_name = {0, NULL};
-    if (npy_load_string(allocator, &snew->packed_na_name, &na_name) == -1) {
+    if (npy_string_load(allocator, &snew->packed_na_name, &na_name) == -1) {
         PyErr_SetString(PyExc_MemoryError,
                         "Failed to load packed string while "
                         "creating StringDType instance.");
@@ -317,7 +317,7 @@ stringdtype_getitem(StringDTypeObject *descr, char **dataptr)
     npy_packed_static_string *psdata = (npy_packed_static_string *)dataptr;
     npy_static_string sdata = {0, NULL};
     int hasnull = descr->na_object != NULL;
-    int is_null = npy_load_string(descr->allocator, psdata, &sdata);
+    int is_null = npy_string_load(descr->allocator, psdata, &sdata);
 
     if (is_null < 0) {
         PyErr_SetString(PyExc_MemoryError,
@@ -387,10 +387,10 @@ _compare(void *a, void *b, StringDTypeObject *descr_a,
     npy_static_string *default_string = &descr_a->default_string;
     const npy_packed_static_string *ps_a = (npy_packed_static_string *)a;
     npy_static_string s_a = {0, NULL};
-    int a_is_null = npy_load_string(allocator_a, ps_a, &s_a);
+    int a_is_null = npy_string_load(allocator_a, ps_a, &s_a);
     const npy_packed_static_string *ps_b = (npy_packed_static_string *)b;
     npy_static_string s_b = {0, NULL};
-    int b_is_null = npy_load_string(allocator_b, ps_b, &s_b);
+    int b_is_null = npy_string_load(allocator_b, ps_b, &s_b);
     if (NPY_UNLIKELY(a_is_null == -1 || b_is_null == -1)) {
         char *msg = "Failed to load string in string comparison";
         if (hasnull && !(has_string_na && has_nan_na)) {

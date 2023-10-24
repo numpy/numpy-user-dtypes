@@ -214,7 +214,7 @@ is_not_a_vstring(const npy_packed_static_string *s)
 }
 
 int
-npy_load_string(npy_string_allocator *allocator,
+npy_string_load(npy_string_allocator *allocator,
                 const npy_packed_static_string *packed_string,
                 npy_static_string *unpacked_string)
 {

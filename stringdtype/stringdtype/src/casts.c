@@ -97,7 +97,7 @@ string_to_string(PyArrayMethod_Context *context, char *const data[],
                 }
             }
             else if (free_and_copy(idescr->allocator, odescr->allocator, s, os,
-                              "string to string cast") == -1) {
+                                   "string to string cast") == -1) {
                 return -1;
             }
         }
@@ -240,7 +240,7 @@ unicode_to_string(PyArrayMethod_Context *context, char *const data[],
             return -1;
         }
         npy_static_string out_ss = {0, NULL};
-        int is_null = npy_load_string(allocator, out_pss, &out_ss);
+        int is_null = npy_string_load(allocator, out_pss, &out_ss);
         if (is_null == -1) {
             gil_error(PyExc_MemoryError,
                       "Failed to load string in unicode to string cast");
@@ -373,7 +373,7 @@ string_to_unicode(PyArrayMethod_Context *context, char *const data[],
         npy_static_string name;
         unsigned char *this_string = NULL;
         size_t n_bytes;
-        int is_null = npy_load_string(allocator, ps, &s);
+        int is_null = npy_string_load(allocator, ps, &s);
         if (is_null == -1) {
             gil_error(PyExc_MemoryError,
                       "Failed to load string in unicode to string cast");
@@ -473,7 +473,7 @@ string_to_bool(PyArrayMethod_Context *context, char *const data[],
     while (N--) {
         const npy_packed_static_string *ps = (npy_packed_static_string *)in;
         npy_static_string s = {0, NULL};
-        int is_null = npy_load_string(allocator, ps, &s);
+        int is_null = npy_string_load(allocator, ps, &s);
         if (is_null == -1) {
             gil_error(PyExc_MemoryError,
                       "Failed to load string in unicode to string cast");
@@ -577,7 +577,7 @@ string_to_pylong(char *in, int hasnull,
 {
     const npy_packed_static_string *ps = (npy_packed_static_string *)in;
     npy_static_string s = {0, NULL};
-    int isnull = npy_load_string(allocator, ps, &s);
+    int isnull = npy_string_load(allocator, ps, &s);
     if (isnull == -1) {
         PyErr_SetString(PyExc_MemoryError,
                         "Failed to load string converting string to int");
@@ -860,7 +860,7 @@ string_to_pyfloat(char *in, int hasnull,
 {
     const npy_packed_static_string *ps = (npy_packed_static_string *)in;
     npy_static_string s = {0, NULL};
-    int isnull = npy_load_string(allocator, ps, &s);
+    int isnull = npy_string_load(allocator, ps, &s);
     if (isnull == -1) {
         PyErr_SetString(
                 PyExc_MemoryError,
@@ -1104,7 +1104,7 @@ string_to_datetime(PyArrayMethod_Context *context, char *const data[],
     while (N--) {
         const npy_packed_static_string *ps = (npy_packed_static_string *)in;
         npy_static_string s = {0, NULL};
-        int is_null = npy_load_string(allocator, ps, &s);
+        int is_null = npy_string_load(allocator, ps, &s);
         if (is_null == -1) {
             // do we hold the gil in this cast? error handling below seems to
             // think we do
