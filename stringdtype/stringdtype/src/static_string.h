@@ -22,7 +22,7 @@ extern const npy_packed_static_string *NPY_EMPTY_STRING;
 extern const npy_packed_static_string *NPY_NULL_STRING;
 
 // one byte in size is reserved for flags and small string optimization
-#define NPY_MAX_STRING_SIZE (1 << (sizeof(size_t) - 1)) - 1
+#define NPY_MAX_STRING_SIZE ((int64_t)1 << 8 * (sizeof(size_t) - 1)) - 1
 
 // Handles heap allocations for static strings.
 typedef struct npy_string_allocator npy_string_allocator;
