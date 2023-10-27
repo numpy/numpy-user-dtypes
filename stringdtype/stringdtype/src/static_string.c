@@ -196,7 +196,9 @@ is_short_string(const npy_packed_static_string *s)
 {
     unsigned char high_byte =
             ((_npy_static_string_u *)s)->direct_buffer.flags_and_size;
-    return (high_byte & NPY_STRING_SHORT) == NPY_STRING_SHORT;
+    int has_short_flag = (high_byte & NPY_STRING_SHORT);
+    int has_on_heap_flag = (high_byte & NPY_STRING_ON_HEAP);
+    return has_short_flag && !has_on_heap_flag;
 }
 
 int
@@ -288,11 +290,13 @@ heap_or_arena_allocate(npy_string_allocator *allocator,
         }
     }
     else if (*flags & NPY_STRING_SHORT) {
-        // have to heap allocate this leaves the NPY_STRING_SHORT flag set to
-        // indicate that there is no room in the arena buffer for strings in
-        // this entry, avoiding possible reallocation of the entire arena
-        // buffer when writing to a single string
-        *flags &= NPY_STRING_ON_HEAP;
+        // Have to heap allocate since there isn't a preexisting
+        // allocation. This leaves the NPY_STRING_SHORT flag set to indicate
+        // that there is no room in the arena buffer for strings in this
+        // entry, avoiding possible reallocation of the entire arena buffer
+        // when writing to a single string
+        *flags |= NPY_STRING_ON_HEAP;
+        *on_heap = 1;
         return allocator->malloc(sizeof(char) * size);
     }
     // string isn't previously allocated, so add to existing arena allocation
