@@ -17,7 +17,7 @@ from stringdtype import StringDType, StringScalar, _memory_usage
 
 @pytest.fixture
 def string_list():
-    return ["abc", "def", "ghi", "A¢☃€ 😊", "Abc", "DEF"]
+    return ["abc", "def", "ghi" * 10, "A¢☃€ 😊", "Abc", "DEF"]
 
 
 pd_param = pytest.param(
@@ -343,6 +343,13 @@ def test_pickle(dtype, string_list):
     "strings",
     [
         ["left", "right", "leftovers", "righty", "up", "down"],
+        [
+            "left" * 10,
+            "right" * 10,
+            "leftovers" * 10,
+            "righty" * 10,
+            "up" * 10,
+        ],
         ["🤣🤣", "🤣", "📵", "😰"],
         ["🚜", "🙃", "😾"],
         ["😹", "🚠", "🚌"],
