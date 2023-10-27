@@ -216,6 +216,12 @@ is_not_a_vstring(const npy_packed_static_string *s)
 }
 
 int
+is_a_vstring(const npy_packed_static_string *s)
+{
+    return !is_not_a_vstring(s);
+}
+
+int
 npy_string_load(npy_string_allocator *allocator,
                 const npy_packed_static_string *packed_string,
                 npy_static_string *unpacked_string)
@@ -281,7 +287,7 @@ heap_or_arena_allocate(npy_string_allocator *allocator,
             return buf;
         }
         else {
-            // no room, resort to a heap allocation this leaves the
+            // No room, resort to a heap allocation. This leaves the
             // NPY_STRING_ARENA_FREED flag set to possibly re-use the arena
             // allocation in the future if there is room for it
             *flags |= NPY_STRING_ON_HEAP;
@@ -454,14 +460,36 @@ npy_string_dup(const npy_packed_static_string *in,
         memcpy(out, in, sizeof(npy_packed_static_string));
         return 0;
     }
-
     _npy_static_string_u *in_u = (_npy_static_string_u *)in;
+    size_t size = VSTRING_SIZE(in_u);
+    if (size == 0) {
+        _npy_static_string_u *out_u = (_npy_static_string_u *)out;
+        unsigned char flags = out_u->direct_buffer.flags_and_size &
+                              ~NPY_SHORT_STRING_SIZE_MASK;
+        *out = *NPY_EMPTY_STRING;
+        out_u->direct_buffer.flags_and_size |= flags;
+        return 0;
+    }
+    char *in_buf = NULL;
     npy_string_arena *arena = &in_allocator->arena;
-    if (arena == NULL) {
+    if (arena->buffer == NULL) {
         return -1;
     }
-    return npy_string_newsize(vstring_buffer(arena, in_u), VSTRING_SIZE(in_u),
-                              out, out_allocator);
+    int used_malloc = 0;
+    if (in_allocator == out_allocator && is_a_vstring(in)) {
+        in_buf = in_allocator->malloc(size);
+        memcpy(in_buf, vstring_buffer(arena, in_u), size);
+        used_malloc = 1;
+    }
+    else {
+        in_buf = vstring_buffer(arena, in_u);
+    }
+    int ret =
+            npy_string_newsize(in_buf, VSTRING_SIZE(in_u), out, out_allocator);
+    if (used_malloc) {
+        in_allocator->free(in_buf);
+    }
+    return ret;
 }
 
 int
