@@ -109,7 +109,7 @@ char *
 npy_string_arena_malloc(npy_string_arena *arena, npy_string_realloc_func r,
                         size_t size)
 {
-    if ((arena->size - arena->cursor) <= size) {
+    if ((arena->size - arena->cursor) < size) {
         // realloc the buffer so there is enough room
         // first guess is to double the size of the buffer
         size_t newsize;
