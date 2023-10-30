@@ -599,7 +599,7 @@ stringdtype_is_known_scalar_type(PyArray_DTypeMeta *NPY_UNUSED(cls),
 }
 
 PyArray_Descr *
-stringdtype_get_unique_array_descr(PyArray_Descr *dtype)
+stringdtype_finalize_descr(PyArray_Descr *dtype)
 {
     StringDTypeObject *sdtype = (StringDTypeObject *)dtype;
     if (sdtype->array_owned == 0) {
@@ -626,7 +626,7 @@ static PyType_Slot StringDType_Slots[] = {
         {NPY_DT_PyArray_ArrFuncs_argmax, &argmax},
         {NPY_DT_PyArray_ArrFuncs_argmin, &argmin},
         {NPY_DT_get_clear_loop, &stringdtype_get_clear_loop},
-        {NPY_DT_get_unique_array_descr, &stringdtype_get_unique_array_descr},
+        {NPY_DT_finalize_descr, &stringdtype_finalize_descr},
         {_NPY_DT_is_known_scalar_type, &stringdtype_is_known_scalar_type},
         {0, NULL}};
 
@@ -851,7 +851,7 @@ init_string_dtype(void)
     PyArrayMethod_Spec **StringDType_casts = get_casts();
 
     PyArrayDTypeMeta_Spec StringDType_DTypeSpec = {
-            .flags = NPY_DT_PARAMETRIC | NPY_DT_UNIQUE_ARRAY_DESCRIPTOR,
+            .flags = NPY_DT_PARAMETRIC,
             .typeobj = StringScalar_Type,
             .slots = StringDType_Slots,
             .casts = StringDType_casts,

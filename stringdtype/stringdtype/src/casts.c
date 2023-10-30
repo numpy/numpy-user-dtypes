@@ -42,7 +42,7 @@ string_to_string_resolve_descriptors(PyObject *NPY_UNUSED(self),
                                      npy_intp *view_offset)
 {
     if (given_descrs[1] == NULL) {
-        loop_descrs[1] = stringdtype_get_unique_array_descr(given_descrs[0]);
+        loop_descrs[1] = stringdtype_finalize_descr(given_descrs[0]);
     }
     else {
         Py_INCREF(given_descrs[1]);

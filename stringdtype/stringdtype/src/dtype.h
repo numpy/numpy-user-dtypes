@@ -70,7 +70,7 @@ free_and_copy(npy_string_allocator *in_allocator,
               npy_packed_static_string *out, const char *location);
 
 PyArray_Descr *
-stringdtype_get_unique_array_descr(PyArray_Descr *dtype);
+stringdtype_finalize_descr(PyArray_Descr *dtype);
 
 int
 _eq_comparison(int scoerce, int ocoerce, PyObject *sna, PyObject *ona);
