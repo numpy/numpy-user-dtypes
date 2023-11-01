@@ -50,8 +50,7 @@ typedef union _npy_static_string_u {
 // short string sizes fit in a 4-bit integer
 #define NPY_SHORT_STRING_SIZE_MASK 0x0F  // 0000 1111
 #define NPY_SHORT_STRING_MAX_SIZE \
-    (sizeof(npy_static_string) - 1)  // 15 or 7 depending on arch
-// one bit is used to signal a medium string
+    (sizeof(npy_static_string) - 1)      // 15 or 7 depending on arch
 #define NPY_MEDIUM_STRING_MAX_SIZE 0xFF  // 256
 
 // Since this has no flags set, technically this is a heap-allocated string
