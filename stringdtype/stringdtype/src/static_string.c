@@ -109,18 +109,22 @@ char *
 npy_string_arena_malloc(npy_string_arena *arena, npy_string_realloc_func r,
                         size_t size)
 {
-    if ((arena->size - arena->cursor) < size) {
+    // one extra size_t to store the size of the allocation
+    size_t string_storage_size = size + sizeof(size_t);
+    // expand size to nearest multiple of 8 bytes to ensure 64 bit alignment
+    string_storage_size += (8 - string_storage_size % 8);
+    if ((arena->size - arena->cursor) <= string_storage_size) {
         // realloc the buffer so there is enough room
         // first guess is to double the size of the buffer
         size_t newsize;
         if (arena->size == 0) {
-            newsize = size;
+            newsize = string_storage_size;
         }
-        else if (((2 * arena->size) - arena->cursor) > size) {
+        else if (((2 * arena->size) - arena->cursor) > string_storage_size) {
             newsize = 2 * arena->size;
         }
         else {
-            newsize = arena->size + size;
+            newsize = arena->size + string_storage_size;
         }
         if ((arena->cursor + size) >= newsize) {
             // doubling the current size isn't enough
@@ -135,8 +139,10 @@ npy_string_arena_malloc(npy_string_arena *arena, npy_string_realloc_func r,
         arena->buffer = newbuf;
         arena->size = newsize;
     }
-    char *ret = &arena->buffer[arena->cursor];
-    arena->cursor += size;
+    size_t *size_loc = (size_t *)&arena->buffer[arena->cursor];
+    *size_loc = size;
+    char *ret = &arena->buffer[arena->cursor + sizeof(size_t)];
+    arena->cursor += string_storage_size;
     return ret;
 }
 
