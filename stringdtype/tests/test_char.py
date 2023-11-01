@@ -4,7 +4,12 @@ from numpy.testing import assert_array_equal
 
 from stringdtype import StringDType
 
-TEST_DATA = ["hello", "Ae¢☃€ 😊", "entry\nwith\nnewlines", "entry\twith\ttabs"]
+TEST_DATA = [
+    "hello" * 10,
+    "Ae¢☃€ 😊" * 100,
+    "entry\nwith\nnewlines",
+    "entry\twith\ttabs",
+]
 
 
 @pytest.fixture
@@ -94,11 +99,11 @@ def test_binary(string_array, unicode_array, function_name, args):
 
 
 def test_strip(string_array, unicode_array):
-    rjs = np.char.rjust(string_array, 25)
-    rju = np.char.rjust(unicode_array, 25)
+    rjs = np.char.rjust(string_array, 1000)
+    rju = np.char.rjust(unicode_array, 1000)
 
-    ljs = np.char.ljust(string_array, 25)
-    lju = np.char.ljust(unicode_array, 25)
+    ljs = np.char.ljust(string_array, 1000)
+    lju = np.char.ljust(unicode_array, 1000)
 
     assert_array_equal(
         np.char.lstrip(rjs),
