@@ -314,7 +314,8 @@ heap_or_arena_allocate(npy_string_allocator *allocator,
         }
         else {
             // not necessarily memory-aligned, so need to use memcpy
-            memcpy(&alloc_size, ((size_t *)buf - 1), sizeof(size_t));
+            char *size_loc = (char *)((uintptr_t)buf - sizeof(size_t));
+            memcpy(&alloc_size, size_loc, sizeof(size_t));
         }
         if (size <= alloc_size) {
             // we have room!
