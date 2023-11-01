@@ -49,6 +49,9 @@ typedef union _npy_static_string_u {
 #define NPY_SHORT_STRING_SIZE_MASK 0x0F  // 0000 1111
 #define NPY_SHORT_STRING_MAX_SIZE \
     (sizeof(npy_static_string) - 1)  // 15 or 7 depending on arch
+// one bit is used to signal a medium string
+#define NPY_MEDIUM_STRING_MAX_SIZE 0x7F  // 0111 1111 or 127
+#define NPY_MEDIUM_STRING_FLAG 0x80      // 1000 0000
 
 // Since this has no flags set, technically this is a heap-allocated string
 // with size zero. Practically, that doesn't matter because we always do size
@@ -110,9 +113,13 @@ npy_string_arena_malloc(npy_string_arena *arena, npy_string_realloc_func r,
                         size_t size)
 {
     // one extra size_t to store the size of the allocation
-    size_t string_storage_size = size + sizeof(size_t);
-    // expand size to nearest multiple of 8 bytes to ensure 64 bit alignment
-    string_storage_size += (8 - string_storage_size % 8);
+    size_t string_storage_size;
+    if (size <= NPY_MEDIUM_STRING_MAX_SIZE) {
+        string_storage_size = size + sizeof(char);
+    }
+    else {
+        string_storage_size = size + sizeof(size_t);
+    }
     if ((arena->size - arena->cursor) <= string_storage_size) {
         // realloc the buffer so there is enough room
         // first guess is to double the size of the buffer
@@ -130,7 +137,7 @@ npy_string_arena_malloc(npy_string_arena *arena, npy_string_realloc_func r,
             // doubling the current size isn't enough
             newsize = 2 * (arena->cursor + size);
         }
-        // realloc passed a NULL pointer acts like malloc
+        // passing a NULL buffer to realloc is the same as malloc
         char *newbuf = r(arena->buffer, newsize);
         if (newbuf == NULL) {
             return NULL;
@@ -139,9 +146,17 @@ npy_string_arena_malloc(npy_string_arena *arena, npy_string_realloc_func r,
         arena->buffer = newbuf;
         arena->size = newsize;
     }
-    size_t *size_loc = (size_t *)&arena->buffer[arena->cursor];
-    *size_loc = size;
-    char *ret = &arena->buffer[arena->cursor + sizeof(size_t)];
+    char *ret;
+    if (size <= NPY_MEDIUM_STRING_MAX_SIZE) {
+        char *size_loc = (char *)&arena->buffer[arena->cursor];
+        *size_loc = size | NPY_MEDIUM_STRING_FLAG;
+        ret = &arena->buffer[arena->cursor + sizeof(char)];
+    }
+    else {
+        size_t *size_ptr = (size_t *)&arena->buffer[arena->cursor];
+        memcpy(size_ptr, &size, sizeof(size_t));
+        ret = &arena->buffer[arena->cursor + sizeof(size_t)];
+    }
     arena->cursor += string_storage_size;
     return ret;
 }
@@ -205,6 +220,12 @@ is_short_string(const npy_packed_static_string *s)
     int has_short_flag = (high_byte & NPY_STRING_SHORT);
     int has_on_heap_flag = (high_byte & NPY_STRING_ON_HEAP);
     return has_short_flag && !has_on_heap_flag;
+}
+
+int
+is_medium_string(const char *buf)
+{
+    return ((buf[0] & NPY_MEDIUM_STRING_FLAG) != 0);
 }
 
 int
@@ -286,7 +307,15 @@ heap_or_arena_allocate(npy_string_allocator *allocator,
         if (buf == NULL) {
             return NULL;
         }
-        size_t alloc_size = *((size_t *)(buf - 1));
+        size_t alloc_size;
+        if (is_medium_string(buf)) {
+            // stored in a char so direct access is OK
+            alloc_size = (size_t) * (buf - 1) & ~NPY_MEDIUM_STRING_FLAG;
+        }
+        else {
+            // not necessarily memory-aligned, so need to use memcpy
+            memcpy(&alloc_size, ((size_t *)buf - 1), sizeof(size_t));
+        }
         if (size <= alloc_size) {
             // we have room!
             *flags = NPY_STRING_ARENA_FREED;
