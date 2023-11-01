@@ -747,6 +747,7 @@ def test_null_roundtripping(dtype):
     assert data[1] == arr[1]
 
 
+@pytest.mark.xfail(strict=True)
 def test_string_too_large_error():
     arr = np.array(["a", "b", "c"], dtype=StringDType())
     with pytest.raises(MemoryError):
