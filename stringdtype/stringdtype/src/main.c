@@ -94,7 +94,7 @@ PyInit__main(void)
 {
     import_array();
 
-    if (import_experimental_dtype_api(14) < 0) {
+    if (import_experimental_dtype_api(15) < 0) {
         return NULL;
     }
 

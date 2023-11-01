@@ -74,7 +74,7 @@ jobs:
               rm -r build
           fi
           meson setup build -Db_sanitize=address,undefined
-          python -m build --no-isolation --wheel -Cbuilddir=build --config-setting='compile-args=-v'
+          python -m build --no-isolation --wheel -Cbuilddir=build --config-setting='compile-args=-v' -Csetup-args="-Dbuildtype=debug"
           find ./dist/*.whl | xargs python -m pip install
       - name: Run stringdtype tests
         working-directory: stringdtype
