@@ -17,7 +17,7 @@ from stringdtype import StringDType, StringScalar, _memory_usage
 
 @pytest.fixture
 def string_list():
-    return ["abc", "def", "ghi" * 10, "A¢☃€ 😊", "Abc", "DEF"]
+    return ["abc", "def", "ghi" * 10, "A¢☃€ 😊" * 100, "Abc" * 1000, "DEF"]
 
 
 pd_param = pytest.param(
@@ -121,7 +121,7 @@ def test_array_creation_utf8(dtype, data):
 def test_array_creation_scalars(string_list):
     arr = np.array([StringScalar(s) for s in string_list])
     assert (
-        str(arr)
+        str(arr).replace("\n", "")
         == "[" + " ".join(["'" + str(s) + "'" for s in string_list]) + "]"
     )
     assert arr.dtype == StringDType()
