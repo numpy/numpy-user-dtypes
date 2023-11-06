@@ -19,6 +19,41 @@
 #include "numpy/npy_math.h"
 #include "numpy/ufuncobject.h"
 
+// from dtypemeta.h, not public in numpy
+#define NPY_DTYPE(descr) ((PyArray_DTypeMeta *)Py_TYPE(descr))
+
+#define NPY_STRING_ACQUIRE_ALLOCATOR(descr)                               \
+    if (PyGILState_Check()) {                                             \
+        if (!PyThread_acquire_lock(descr->allocator_lock, NOWAIT_LOCK)) { \
+            Py_BEGIN_ALLOW_THREADS PyThread_acquire_lock(                 \
+                    descr->allocator_lock, WAIT_LOCK);                    \
+            Py_END_ALLOW_THREADS                                          \
+        }                                                                 \
+    }                                                                     \
+    else {                                                                \
+        if (!PyThread_acquire_lock(descr->allocator_lock, NOWAIT_LOCK)) { \
+            PyThread_acquire_lock(descr->allocator_lock, WAIT_LOCK);      \
+        }                                                                 \
+    }
+
+#define NPY_STRING_ACQUIRE_ALLOCATOR2(descr1, descr2) \
+    NPY_STRING_ACQUIRE_ALLOCATOR(descr1)              \
+    if (descr1 != descr2) {                           \
+        NPY_STRING_ACQUIRE_ALLOCATOR(descr2)          \
+    }
+
+#define NPY_STRING_ACQUIRE_ALLOCATOR3(descr1, descr2, descr3) \
+    NPY_STRING_ACQUIRE_ALLOCATOR(descr1)                      \
+    if (descr1 != descr2) {                                   \
+        NPY_STRING_ACQUIRE_ALLOCATOR(descr2)                  \
+    }                                                         \
+    if (descr1 != descr3 && descr2 != descr3) {               \
+        NPY_STRING_ACQUIRE_ALLOCATOR(descr3)                  \
+    }
+
+#define NPY_STRING_RELEASE_ALLOCATOR(descr) \
+    PyThread_release_lock(descr->allocator_lock);
+
 typedef struct {
     PyArray_Descr base;
     PyObject *na_object;
@@ -30,6 +65,11 @@ typedef struct {
     npy_packed_static_string packed_default_string;
     npy_static_string na_name;
     npy_packed_static_string packed_na_name;
+    PyThread_type_lock *allocator_lock;
+    // the allocator should only be directly accessed after
+    // acquiring the allocator_lock and the lock should
+    // be released immediately after the allocator is
+    // no longer needed
     npy_string_allocator *allocator;
 } StringDTypeObject;
 
@@ -46,6 +86,8 @@ new_stringdtype_instance(PyObject *na_object, int coerce);
 int
 init_string_dtype(void);
 
+// Assumes that the caller has already acquired the allocator locks for both
+// descriptors
 int
 _compare(void *a, void *b, StringDTypeObject *descr_a,
          StringDTypeObject *descr_b);
@@ -60,9 +102,7 @@ stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr);
 void
 gil_error(PyObject *type, const char *msg);
 
-// from dtypemeta.h, not public in numpy
-#define NPY_DTYPE(descr) ((PyArray_DTypeMeta *)Py_TYPE(descr))
-
+// the locks on both allocators must be acquired before calling this function
 int
 free_and_copy(npy_string_allocator *in_allocator,
               npy_string_allocator *out_allocator,

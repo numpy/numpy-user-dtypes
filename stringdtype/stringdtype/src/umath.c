@@ -47,6 +47,7 @@ multiply_resolve_descriptors(
             const npy_static_string *default_string,                         \
             StringDTypeObject *idescr, StringDTypeObject *odescr)            \
     {                                                                        \
+        NPY_STRING_ACQUIRE_ALLOCATOR2(idescr, odescr);                       \
         while (N--) {                                                        \
             const npy_packed_static_string *ips =                            \
                     (npy_packed_static_string *)sin;                         \
@@ -55,13 +56,13 @@ multiply_resolve_descriptors(
             if (npy_string_free(ops, odescr->allocator) < 0) {               \
                 gil_error(PyExc_MemoryError,                                 \
                           "Failed to deallocate string in multiply");        \
-                return -1;                                                   \
+                goto fail;                                                   \
             }                                                                \
             int is_isnull = npy_string_load(idescr->allocator, ips, &is);    \
             if (is_isnull == -1) {                                           \
                 gil_error(PyExc_MemoryError,                                 \
                           "Failed to load string in multiply");              \
-                return -1;                                                   \
+                goto fail;                                                   \
             }                                                                \
             else if (is_isnull) {                                            \
                 if (has_nan_na) {                                            \
@@ -78,7 +79,7 @@ multiply_resolve_descriptors(
                     gil_error(PyExc_TypeError,                               \
                               "Cannot multiply null that is not a nan-like " \
                               "value");                                      \
-                    return -1;                                               \
+                    goto fail;                                               \
                 }                                                            \
             }                                                                \
             npy_##shortname factor = *(npy_##shortname *)iin;                \
@@ -90,7 +91,7 @@ multiply_resolve_descriptors(
                          0)) {                                               \
                 gil_error(PyExc_MemoryError,                                 \
                           "Failed to allocate string in string mutiply");    \
-                return -1;                                                   \
+                goto fail;                                                   \
             }                                                                \
                                                                              \
             npy_static_string os = {0, NULL};                                \
@@ -98,7 +99,7 @@ multiply_resolve_descriptors(
             if (is_null == -1) {                                             \
                 gil_error(PyExc_MemoryError,                                 \
                           "Failed to load string in string multiply");       \
-                return -1;                                                   \
+                goto fail;                                                   \
             }                                                                \
             for (size_t i = 0; i < (size_t)factor; i++) {                    \
                 /* excplicitly discard const; initializing new buffer */     \
@@ -111,7 +112,14 @@ multiply_resolve_descriptors(
             iin += i_stride;                                                 \
             out += o_stride;                                                 \
         }                                                                    \
+        NPY_STRING_RELEASE_ALLOCATOR(idescr);                                \
+        NPY_STRING_RELEASE_ALLOCATOR(odescr);                                \
         return 0;                                                            \
+                                                                             \
+    fail:                                                                    \
+        NPY_STRING_RELEASE_ALLOCATOR(idescr);                                \
+        NPY_STRING_RELEASE_ALLOCATOR(odescr);                                \
+        return -1;                                                           \
     }                                                                        \
                                                                              \
     static int multiply_right_##shortname##_strided_loop(                    \
@@ -256,6 +264,8 @@ add_strided_loop(PyArrayMethod_Context *context, char *const data[],
     npy_intp in2_stride = strides[1];
     npy_intp out_stride = strides[2];
 
+    NPY_STRING_ACQUIRE_ALLOCATOR3(s1descr, s2descr, odescr);
+
     while (N--) {
         const npy_packed_static_string *ps1 = (npy_packed_static_string *)in1;
         npy_static_string s1 = {0, NULL};
@@ -265,12 +275,12 @@ add_strided_loop(PyArrayMethod_Context *context, char *const data[],
         int s2_isnull = npy_string_load(s2descr->allocator, ps2, &s2);
         if (s1_isnull == -1 || s2_isnull == -1) {
             gil_error(PyExc_MemoryError, "Failed to load string in add");
-            return -1;
+            goto fail;
         }
         npy_packed_static_string *ops = (npy_packed_static_string *)out;
         if (npy_string_free(ops, odescr->allocator) < 0) {
             gil_error(PyExc_MemoryError, "Failed to deallocate string in add");
-            return -1;
+            goto fail;
         }
         if (NPY_UNLIKELY(s1_isnull || s2_isnull)) {
             if (has_nan_na) {
@@ -288,27 +298,23 @@ add_strided_loop(PyArrayMethod_Context *context, char *const data[],
             else {
                 gil_error(PyExc_TypeError,
                           "Cannot add null that is not a nan-like value");
-                return -1;
+                goto fail;
             }
         }
 
-        if ((s1.size + s2.size) < s1.size) {
-            // overflow
-            gil_error(PyExc_MemoryError,
-                      "Failed to allocate string in string add");
-            return -1;
-        }
-
-        if (npy_string_newemptysize(s1.size + s2.size, ops,
-                                    odescr->allocator) < 0) {
+        // first check is for overflow
+        if (((s1.size + s2.size) < s1.size) ||
+            (npy_string_newemptysize(s1.size + s2.size, ops,
+                                     odescr->allocator) < 0)) {
             gil_error(PyExc_MemoryError, "Failed to allocate string in add");
-            return -1;
+            goto fail;
         }
 
         npy_static_string os = {0, NULL};
 
         if (npy_string_load(odescr->allocator, ops, &os) < 0) {
             gil_error(PyExc_MemoryError, "Failed to load string in add");
+            goto fail;
         };
 
         // explicitly discard const because we're initializing empty buffers
@@ -320,7 +326,16 @@ add_strided_loop(PyArrayMethod_Context *context, char *const data[],
         in2 += in2_stride;
         out += out_stride;
     }
+    NPY_STRING_RELEASE_ALLOCATOR(s1descr);
+    NPY_STRING_RELEASE_ALLOCATOR(s2descr);
+    NPY_STRING_RELEASE_ALLOCATOR(odescr);
     return 0;
+
+fail:
+    NPY_STRING_RELEASE_ALLOCATOR(s1descr);
+    NPY_STRING_RELEASE_ALLOCATOR(s2descr);
+    NPY_STRING_RELEASE_ALLOCATOR(odescr);
+    return -1;
 }
 
 static int
@@ -342,6 +357,8 @@ maximum_strided_loop(PyArrayMethod_Context *context, char *const data[],
     npy_intp in2_stride = strides[1];
     npy_intp out_stride = strides[2];
 
+    NPY_STRING_ACQUIRE_ALLOCATOR3(in1_descr, in2_descr, out_descr);
+
     while (N--) {
         const npy_packed_static_string *sin1 = (npy_packed_static_string *)in1;
         const npy_packed_static_string *sin2 = (npy_packed_static_string *)in2;
@@ -352,7 +369,7 @@ maximum_strided_loop(PyArrayMethod_Context *context, char *const data[],
             if (in1 != out) {
                 if (free_and_copy(in1_descr->allocator, out_descr->allocator,
                                   sin1, sout, "maximum") == -1) {
-                    return -1;
+                    goto fail;
                 }
             }
         }
@@ -360,7 +377,7 @@ maximum_strided_loop(PyArrayMethod_Context *context, char *const data[],
             if (in2 != out) {
                 if (free_and_copy(in2_descr->allocator, out_descr->allocator,
                                   sin2, sout, "maximum") == -1) {
-                    return -1;
+                    goto fail;
                 }
             }
         }
@@ -369,7 +386,16 @@ maximum_strided_loop(PyArrayMethod_Context *context, char *const data[],
         out += out_stride;
     }
 
+    NPY_STRING_RELEASE_ALLOCATOR(in1_descr);
+    NPY_STRING_RELEASE_ALLOCATOR(in2_descr);
+    NPY_STRING_RELEASE_ALLOCATOR(out_descr);
     return 0;
+
+fail:
+    NPY_STRING_RELEASE_ALLOCATOR(in1_descr);
+    NPY_STRING_RELEASE_ALLOCATOR(in2_descr);
+    NPY_STRING_RELEASE_ALLOCATOR(out_descr);
+    return -1;
 }
 
 static int
@@ -391,6 +417,8 @@ minimum_strided_loop(PyArrayMethod_Context *context, char *const data[],
     npy_intp in2_stride = strides[1];
     npy_intp out_stride = strides[2];
 
+    NPY_STRING_ACQUIRE_ALLOCATOR3(in1_descr, in2_descr, out_descr);
+
     while (N--) {
         const npy_packed_static_string *sin1 = (npy_packed_static_string *)in1;
         const npy_packed_static_string *sin2 = (npy_packed_static_string *)in2;
@@ -399,7 +427,7 @@ minimum_strided_loop(PyArrayMethod_Context *context, char *const data[],
             if (in1 != out) {
                 if (free_and_copy(in1_descr->allocator, out_descr->allocator,
                                   sin1, sout, "minimum") == -1) {
-                    return -1;
+                    goto fail;
                 }
             }
         }
@@ -407,7 +435,7 @@ minimum_strided_loop(PyArrayMethod_Context *context, char *const data[],
             if (in2 != out) {
                 if (free_and_copy(in2_descr->allocator, out_descr->allocator,
                                   sin2, sout, "minimum") == -1) {
-                    return -1;
+                    goto fail;
                 }
             }
         }
@@ -416,7 +444,16 @@ minimum_strided_loop(PyArrayMethod_Context *context, char *const data[],
         out += out_stride;
     }
 
+    NPY_STRING_RELEASE_ALLOCATOR(in1_descr);
+    NPY_STRING_RELEASE_ALLOCATOR(in2_descr);
+    NPY_STRING_RELEASE_ALLOCATOR(out_descr);
     return 0;
+
+fail:
+    NPY_STRING_RELEASE_ALLOCATOR(in1_descr);
+    NPY_STRING_RELEASE_ALLOCATOR(in2_descr);
+    NPY_STRING_RELEASE_ALLOCATOR(out_descr);
+    return -1;
 }
 
 static int
@@ -439,6 +476,8 @@ string_equal_strided_loop(PyArrayMethod_Context *context, char *const data[],
     npy_intp in2_stride = strides[1];
     npy_intp out_stride = strides[2];
 
+    NPY_STRING_ACQUIRE_ALLOCATOR2(descr1, descr2);
+
     while (N--) {
         const npy_packed_static_string *ps1 = (npy_packed_static_string *)in1;
         npy_static_string s1 = {0, NULL};
@@ -448,7 +487,7 @@ string_equal_strided_loop(PyArrayMethod_Context *context, char *const data[],
         int s2_isnull = npy_string_load(descr2->allocator, ps2, &s2);
         if (NPY_UNLIKELY(s1_isnull < 0 || s2_isnull < 0)) {
             gil_error(PyExc_MemoryError, "Failed to load string in equal");
-            return -1;
+            goto fail;
         }
         else if (NPY_UNLIKELY(s1_isnull || s2_isnull)) {
             if (has_nan_na) {
@@ -487,7 +526,16 @@ string_equal_strided_loop(PyArrayMethod_Context *context, char *const data[],
         out += out_stride;
     }
 
+    NPY_STRING_RELEASE_ALLOCATOR(descr1);
+    NPY_STRING_RELEASE_ALLOCATOR(descr2);
+
     return 0;
+
+fail:
+    NPY_STRING_RELEASE_ALLOCATOR(descr1);
+    NPY_STRING_RELEASE_ALLOCATOR(descr2);
+
+    return -1;
 }
 
 static int
@@ -510,6 +558,8 @@ string_not_equal_strided_loop(PyArrayMethod_Context *context,
     npy_intp in2_stride = strides[1];
     npy_intp out_stride = strides[2];
 
+    NPY_STRING_ACQUIRE_ALLOCATOR2(descr1, descr2);
+
     while (N--) {
         const npy_packed_static_string *ps1 = (npy_packed_static_string *)in1;
         npy_static_string s1 = {0, NULL};
@@ -519,7 +569,7 @@ string_not_equal_strided_loop(PyArrayMethod_Context *context,
         int s2_isnull = npy_string_load(descr2->allocator, ps2, &s2);
         if (NPY_UNLIKELY(s1_isnull < 0 || s2_isnull < 0)) {
             gil_error(PyExc_MemoryError, "Failed to load string in not equal");
-            return -1;
+            goto fail;
         }
         else if (NPY_UNLIKELY(s1_isnull || s2_isnull)) {
             if (has_nan_na) {
@@ -558,7 +608,16 @@ string_not_equal_strided_loop(PyArrayMethod_Context *context,
         out += out_stride;
     }
 
+    NPY_STRING_RELEASE_ALLOCATOR(descr1);
+    NPY_STRING_RELEASE_ALLOCATOR(descr2);
+
     return 0;
+
+fail:
+    NPY_STRING_RELEASE_ALLOCATOR(descr1);
+    NPY_STRING_RELEASE_ALLOCATOR(descr2);
+
+    return -1;
 }
 
 static int
@@ -581,6 +640,8 @@ string_greater_strided_loop(PyArrayMethod_Context *context, char *const data[],
     npy_intp in2_stride = strides[1];
     npy_intp out_stride = strides[2];
 
+    NPY_STRING_ACQUIRE_ALLOCATOR2(descr1, descr2);
+
     while (N--) {
         const npy_packed_static_string *ps1 = (npy_packed_static_string *)in1;
         npy_static_string s1 = {0, NULL};
@@ -590,7 +651,7 @@ string_greater_strided_loop(PyArrayMethod_Context *context, char *const data[],
         int s2_isnull = npy_string_load(descr2->allocator, ps2, &s2);
         if (NPY_UNLIKELY(s1_isnull < 0 || s2_isnull < 0)) {
             gil_error(PyExc_MemoryError, "Failed to load string in greater");
-            return -1;
+            goto fail;
         }
         else if (NPY_UNLIKELY(s1_isnull || s2_isnull)) {
             if (has_nan_na) {
@@ -602,7 +663,7 @@ string_greater_strided_loop(PyArrayMethod_Context *context, char *const data[],
                 gil_error(PyExc_TypeError,
                           "'>' not supported for null values that are not "
                           "nan-like.");
-                return -1;
+                goto fail;
             }
             else {
                 if (s1_isnull) {
@@ -626,7 +687,16 @@ string_greater_strided_loop(PyArrayMethod_Context *context, char *const data[],
         out += out_stride;
     }
 
+    NPY_STRING_RELEASE_ALLOCATOR(descr1);
+    NPY_STRING_RELEASE_ALLOCATOR(descr2);
+
     return 0;
+
+fail:
+    NPY_STRING_RELEASE_ALLOCATOR(descr1);
+    NPY_STRING_RELEASE_ALLOCATOR(descr2);
+
+    return -1;
 }
 
 static int
@@ -650,6 +720,8 @@ string_greater_equal_strided_loop(PyArrayMethod_Context *context,
     npy_intp in2_stride = strides[1];
     npy_intp out_stride = strides[2];
 
+    NPY_STRING_ACQUIRE_ALLOCATOR2(descr1, descr2);
+
     while (N--) {
         const npy_packed_static_string *ps1 = (npy_packed_static_string *)in1;
         npy_static_string s1 = {0, NULL};
@@ -660,7 +732,7 @@ string_greater_equal_strided_loop(PyArrayMethod_Context *context,
         if (NPY_UNLIKELY(s1_isnull < 0 || s2_isnull < 0)) {
             gil_error(PyExc_MemoryError,
                       "Failed to load string in greater equal");
-            return -1;
+            goto fail;
         }
         else if (NPY_UNLIKELY(s1_isnull || s2_isnull)) {
             if (has_nan_na) {
@@ -672,7 +744,7 @@ string_greater_equal_strided_loop(PyArrayMethod_Context *context,
                 gil_error(PyExc_TypeError,
                           "'>=' not supported for null values that are not "
                           "nan-like.");
-                return -1;
+                goto fail;
             }
             else {
                 if (s1_isnull) {
@@ -696,7 +768,16 @@ string_greater_equal_strided_loop(PyArrayMethod_Context *context,
         out += out_stride;
     }
 
+    NPY_STRING_RELEASE_ALLOCATOR(descr1);
+    NPY_STRING_RELEASE_ALLOCATOR(descr2);
+
     return 0;
+
+fail:
+    NPY_STRING_RELEASE_ALLOCATOR(descr1);
+    NPY_STRING_RELEASE_ALLOCATOR(descr2);
+
+    return -1;
 }
 
 static int
@@ -718,6 +799,8 @@ string_less_strided_loop(PyArrayMethod_Context *context, char *const data[],
     npy_intp in2_stride = strides[1];
     npy_intp out_stride = strides[2];
 
+    NPY_STRING_ACQUIRE_ALLOCATOR2(descr1, descr2);
+
     while (N--) {
         const npy_packed_static_string *ps1 = (npy_packed_static_string *)in1;
         npy_static_string s1 = {0, NULL};
@@ -727,7 +810,7 @@ string_less_strided_loop(PyArrayMethod_Context *context, char *const data[],
         int s2_isnull = npy_string_load(descr2->allocator, ps2, &s2);
         if (NPY_UNLIKELY(s1_isnull < 0 || s2_isnull < 0)) {
             gil_error(PyExc_MemoryError, "Failed to load string in less");
-            return -1;
+            goto fail;
         }
         else if (NPY_UNLIKELY(s1_isnull || s2_isnull)) {
             if (has_nan_na) {
@@ -739,7 +822,7 @@ string_less_strided_loop(PyArrayMethod_Context *context, char *const data[],
                 gil_error(PyExc_TypeError,
                           "'<' not supported for null values that are not "
                           "nan-like.");
-                return -1;
+                goto fail;
             }
             else {
                 if (s1_isnull) {
@@ -763,7 +846,16 @@ string_less_strided_loop(PyArrayMethod_Context *context, char *const data[],
         out += out_stride;
     }
 
+    NPY_STRING_RELEASE_ALLOCATOR(descr1);
+    NPY_STRING_RELEASE_ALLOCATOR(descr2);
+
     return 0;
+
+fail:
+    NPY_STRING_RELEASE_ALLOCATOR(descr1);
+    NPY_STRING_RELEASE_ALLOCATOR(descr2);
+
+    return -1;
 }
 
 static int
@@ -786,6 +878,8 @@ string_less_equal_strided_loop(PyArrayMethod_Context *context,
     npy_intp in2_stride = strides[1];
     npy_intp out_stride = strides[2];
 
+    NPY_STRING_ACQUIRE_ALLOCATOR2(descr1, descr2);
+
     while (N--) {
         const npy_packed_static_string *ps1 = (npy_packed_static_string *)in1;
         npy_static_string s1 = {0, NULL};
@@ -796,7 +890,7 @@ string_less_equal_strided_loop(PyArrayMethod_Context *context,
         if (NPY_UNLIKELY(s1_isnull < 0 || s2_isnull < 0)) {
             gil_error(PyExc_MemoryError,
                       "Failed to load string in less equal");
-            return -1;
+            goto fail;
         }
         else if (NPY_UNLIKELY(s1_isnull || s2_isnull)) {
             if (has_nan_na) {
@@ -808,7 +902,7 @@ string_less_equal_strided_loop(PyArrayMethod_Context *context,
                 gil_error(PyExc_TypeError,
                           "'<=' not supported for null values that are not "
                           "nan-like.");
-                return -1;
+                goto fail;
             }
             else {
                 if (s1_isnull) {
@@ -832,7 +926,16 @@ string_less_equal_strided_loop(PyArrayMethod_Context *context,
         out += out_stride;
     }
 
+    NPY_STRING_RELEASE_ALLOCATOR(descr1);
+    NPY_STRING_RELEASE_ALLOCATOR(descr2);
+
     return 0;
+
+fail:
+    NPY_STRING_RELEASE_ALLOCATOR(descr1);
+    NPY_STRING_RELEASE_ALLOCATOR(descr2);
+
+    return -1;
 }
 
 static NPY_CASTING
