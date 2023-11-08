@@ -164,6 +164,11 @@ npy_string_arena_malloc(npy_string_arena *arena, npy_string_realloc_func r,
 int
 npy_string_arena_free(npy_string_arena *arena, _npy_static_string_u *str)
 {
+    if (arena->size == 0 && arena->cursor == 0 && arena->buffer == NULL) {
+        // empty arena, nothing to do
+        return 0;
+    }
+
     char *ptr = vstring_buffer(arena, str);
     if (ptr == NULL) {
         return -1;
@@ -195,7 +200,7 @@ npy_string_new_allocator(npy_string_malloc_func m, npy_string_free_func f,
     allocator->malloc = m;
     allocator->free = f;
     allocator->realloc = r;
-    // arenas don't get created until the dtype is used for array creation
+    // arena buffer gets allocated in npy_string_arena_malloc
     allocator->arena = NEW_ARENA;
     return allocator;
 }
@@ -295,17 +300,24 @@ heap_or_arena_allocate(npy_string_allocator *allocator,
                        _npy_static_string_u *to_init_u, size_t size,
                        int *on_heap)
 {
-    // check if it's a previously heap-allocated string or a short string
-    // that has no heap allocation
     unsigned char *flags = &to_init_u->direct_buffer.flags_and_size;
+    if (*flags & NPY_STRING_SHORT) {
+        // Have to heap allocate since there isn't a preexisting
+        // allocation. This leaves the NPY_STRING_SHORT flag set to indicate
+        // that there is no room in the arena buffer for strings in this
+        // entry
+        *flags |= NPY_STRING_ON_HEAP;
+        *on_heap = 1;
+        return allocator->malloc(sizeof(char) * size);
+    }
+    npy_string_arena *arena = &allocator->arena;
+    if (arena == NULL) {
+        return NULL;
+    }
     if (*flags & NPY_STRING_ARENA_FREED) {
         // Check if there's room for the new string in the existing
         // allocation. The size is stored one size_t "behind" the beginning of
         // the allocation.
-        npy_string_arena *arena = &allocator->arena;
-        if (arena == NULL) {
-            return NULL;
-        }
         char *buf = vstring_buffer(arena, to_init_u);
         if (buf == NULL) {
             return NULL;
@@ -326,29 +338,13 @@ heap_or_arena_allocate(npy_string_allocator *allocator,
             return buf;
         }
         else {
-            // No room, resort to a heap allocation. This leaves the
-            // NPY_STRING_ARENA_FREED flag set to possibly re-use the arena
-            // allocation in the future if there is room for it
-            *flags |= NPY_STRING_ON_HEAP;
+            // No room, resort to a heap allocation.
+            *flags = NPY_STRING_ON_HEAP;
             *on_heap = 1;
             return allocator->malloc(sizeof(char) * size);
         }
     }
-    else if (*flags & NPY_STRING_SHORT) {
-        // Have to heap allocate since there isn't a preexisting
-        // allocation. This leaves the NPY_STRING_SHORT flag set to indicate
-        // that there is no room in the arena buffer for strings in this
-        // entry, avoiding possible reallocation of the entire arena buffer
-        // when writing to a single string
-        *flags |= NPY_STRING_ON_HEAP;
-        *on_heap = 1;
-        return allocator->malloc(sizeof(char) * size);
-    }
     // string isn't previously allocated, so add to existing arena allocation
-    npy_string_arena *arena = &allocator->arena;
-    if (arena == NULL) {
-        return NULL;
-    }
     char *ret = npy_string_arena_malloc(arena, allocator->realloc,
                                         sizeof(char) * size);
     if (size < NPY_MEDIUM_STRING_MAX_SIZE) {
@@ -382,7 +378,9 @@ heap_or_arena_deallocate(npy_string_allocator *allocator,
         if (npy_string_arena_free(arena, str_u) < 0) {
             return -1;
         }
-        str_u->direct_buffer.flags_and_size |= NPY_STRING_ARENA_FREED;
+        if (arena->buffer != NULL) {
+            str_u->direct_buffer.flags_and_size |= NPY_STRING_ARENA_FREED;
+        }
     }
     return 0;
 }

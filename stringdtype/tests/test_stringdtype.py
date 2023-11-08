@@ -752,3 +752,22 @@ def test_string_too_large_error():
     arr = np.array(["a", "b", "c"], dtype=StringDType())
     with pytest.raises(MemoryError):
         arr * (2**63 - 2)
+
+
+def test_growing_strings(dtype):
+    # growing a string leads to a heap allocation, this tests to make sure
+    # we do that bookeeping correctly for all possible starting cases
+    data = [
+        "hello",  # a short string
+        "abcdefghijklmnopqestuvwxyz",  # a medium heap-allocated string
+        "hello" * 200,  # a long heap-allocated string
+    ]
+
+    arr = np.array(data, dtype=dtype)
+    uarr = np.array(data, dtype=str)
+
+    for _ in range(5):
+        arr = arr + arr
+        uarr = uarr + uarr
+
+    np.testing.assert_array_equal(arr, uarr)
