@@ -560,37 +560,51 @@ def test_take(dtype, string_list):
     np.testing.assert_array_equal(res, out)
 
 
+@pytest.mark.parametrize("use_out", [[True, False]])
 @pytest.mark.parametrize(
-    "ufunc,func",
+    "ufunc_name,func",
     [
         ("min", min),
         ("max", max),
     ],
 )
-def test_ufuncs_minmax(dtype, string_list, ufunc, func):
+def test_ufuncs_minmax(dtype, string_list, ufunc_name, func, use_out):
     """Test that the min/max ufuncs match Python builtin min/max behavior."""
     arr = np.array(string_list, dtype=dtype)
-    np.testing.assert_array_equal(
-        getattr(arr, ufunc)(), np.array(func(string_list), dtype=dtype)
-    )
+    uarr = np.array(string_list, dtype=str)
+    res = np.array(func(string_list), dtype=dtype)
+    np.testing.assert_array_equal(getattr(arr, ufunc_name)(), res)
+
+    ufunc = getattr(np, ufunc_name + "imum")
+
+    if use_out:
+        res = ufunc(arr, arr, out=arr)
+    else:
+        res = ufunc(arr, arr)
+
+    np.testing.assert_array_equal(uarr, res)
 
 
+@pytest.mark.parametrize("use_out", [[True, False]])
 @pytest.mark.parametrize(
     "other_strings",
     [
-        ["abc", "def", "ghi", "🤣", "📵", "😰"],
+        ["abc", "def" * 500, "ghi" * 16, "🤣" * 100, "📵", "😰"],
         ["🚜", "🙃", "😾", "😹", "🚠", "🚌"],
         ["🥦", "¨", "⨯", "∰ ", "⨌ ", "⎶ "],
     ],
 )
-def test_ufunc_add(dtype, string_list, other_strings):
+def test_ufunc_add(dtype, string_list, other_strings, use_out):
     arr1 = np.array(string_list, dtype=dtype)
     arr2 = np.array(other_strings, dtype=dtype)
     result = np.array([a + b for a, b in zip(arr1, arr2)], dtype=dtype)
-    np.testing.assert_array_equal(
-        np.add(arr1, arr2),
-        result,
-    )
+
+    if use_out:
+        res = np.add(arr1, arr2, out=arr1)
+    else:
+        res = np.add(arr1, arr2)
+
+    np.testing.assert_array_equal(res, result)
 
     if not hasattr(dtype, "na_object"):
         return
@@ -619,6 +633,7 @@ def test_ufunc_add(dtype, string_list, other_strings):
             np.add(arr1, arr2)
 
 
+@pytest.mark.parametrize("use_out", [[True, False]])
 @pytest.mark.parametrize("other", [2, [2, 1, 3, 4, 1, 3]])
 @pytest.mark.parametrize(
     "other_dtype",
@@ -643,7 +658,7 @@ def test_ufunc_add(dtype, string_list, other_strings):
         "ulonglong",
     ],
 )
-def test_ufunc_multiply(dtype, string_list, other, other_dtype):
+def test_ufunc_multiply(dtype, string_list, other, other_dtype, use_out):
     """Test the two-argument ufuncs match python builtin behavior."""
     arr = np.array(string_list, dtype=dtype)
     other_dtype = np.dtype(other_dtype)
@@ -655,8 +670,15 @@ def test_ufunc_multiply(dtype, string_list, other, other_dtype):
         other = other_dtype.type(other)
         result = [s * other for s in string_list]
 
-    np.testing.assert_array_equal(arr * other, result)
-    np.testing.assert_array_equal(other * arr, result)
+    if use_out:
+        lres = np.multiply(arr, other, out=arr)
+        rres = np.multiply(other, arr, out=arr)
+    else:
+        lres = arr * other
+        rres = other * arr
+
+    np.testing.assert_array_equal(lres, result)
+    np.testing.assert_array_equal(rres, result)
 
     if not hasattr(dtype, "na_object"):
         return
