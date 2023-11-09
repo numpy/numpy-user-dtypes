@@ -20,6 +20,14 @@ def string_list():
     return ["abc", "def", "ghi" * 10, "A¢☃€ 😊" * 100, "Abc" * 1000, "DEF"]
 
 
+@pytest.fixture
+def random_string_list():
+    chars = list(string.ascii_letters + string.digits)
+    chars = np.array(chars, dtype="U1")
+    ret = np.random.choice(chars, size=100 * 1000, replace=True)
+    return ret.view("U100")
+
+
 pd_param = pytest.param(
     pd_NA,
     marks=pytest.mark.skipif(pd_NA is None, reason="pandas is not installed"),
@@ -202,15 +210,12 @@ def test_unicode_casts(dtype, strings):
     )
 
 
-def test_additional_unicode_cast(dtype):
-    RANDS_CHARS = np.array(
-        list(string.ascii_letters + string.digits), dtype=(np.str_, 1)
-    )
-    arr = np.random.choice(RANDS_CHARS, size=10 * 100_000, replace=True).view(
-        "U10"
-    )
+def test_additional_unicode_cast(random_string_list, dtype):
+    arr = np.array(random_string_list, dtype=dtype)
     np.testing.assert_array_equal(arr, arr.astype(dtype))
-    np.testing.assert_array_equal(arr, arr.astype(dtype).astype("U10"))
+    np.testing.assert_array_equal(
+        arr, arr.astype(dtype).astype(random_string_list.dtype)
+    )
 
 
 def test_insert_scalar(dtype, string_list):
@@ -671,7 +676,9 @@ def test_ufunc_multiply(dtype, string_list, other, other_dtype, use_out):
         result = [s * other for s in string_list]
 
     if use_out:
+        arr_cache = arr.copy()
         lres = np.multiply(arr, other, out=arr)
+        arr[:] = arr_cache
         rres = np.multiply(other, arr, out=arr)
     else:
         lres = arr * other
@@ -793,3 +800,28 @@ def test_growing_strings(dtype):
         uarr = uarr + uarr
 
     np.testing.assert_array_equal(arr, uarr)
+
+
+def test_threaded_access_and_mutation(dtype, random_string_list):
+    # this test uses an RNG and may crash or cause deadlocks if there is a
+    # threading bug
+    rng = np.random.default_rng(0x4D3D3D3)
+
+    def func(arr):
+        rnd = rng.random()
+        # either write to random locations in the array, compute a ufunc, or
+        # re-initialize the array
+        if rnd < 0.3333:
+            num = np.random.randint(0, arr.size)
+            arr[num] = arr[num] + "hello"
+        elif rnd < 0.6666:
+            np.add(arr, arr)
+        else:
+            arr[:] = random_string_list
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as tpe:
+        arr = np.array(random_string_list, dtype=dtype)
+        futures = [tpe.submit(func, arr) for _ in range(100)]
+
+        for f in futures:
+            f.result()

@@ -109,15 +109,13 @@ string_to_string(PyArrayMethod_Context *context, char *const data[],
         out += out_stride;
     }
 
-    NPY_STRING_RELEASE_ALLOCATOR(idescr);
-    NPY_STRING_RELEASE_ALLOCATOR(odescr);
+    NPY_STRING_RELEASE_ALLOCATOR2(odescr, idescr);
 
     return 0;
 
 fail:
 
-    NPY_STRING_RELEASE_ALLOCATOR(idescr);
-    NPY_STRING_RELEASE_ALLOCATOR(odescr);
+    NPY_STRING_RELEASE_ALLOCATOR2(odescr, idescr);
 
     return -1;
 }

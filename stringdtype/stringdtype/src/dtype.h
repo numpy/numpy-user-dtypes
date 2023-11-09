@@ -19,21 +19,9 @@
 #include "numpy/npy_math.h"
 #include "numpy/ufuncobject.h"
 
-// from dtypemeta.h, not public in numpy
-#define NPY_DTYPE(descr) ((PyArray_DTypeMeta *)Py_TYPE(descr))
-
-#define NPY_STRING_ACQUIRE_ALLOCATOR(descr)                               \
-    if (PyGILState_Check()) {                                             \
-        if (!PyThread_acquire_lock(descr->allocator_lock, NOWAIT_LOCK)) { \
-            Py_BEGIN_ALLOW_THREADS PyThread_acquire_lock(                 \
-                    descr->allocator_lock, WAIT_LOCK);                    \
-            Py_END_ALLOW_THREADS                                          \
-        }                                                                 \
-    }                                                                     \
-    else {                                                                \
-        if (!PyThread_acquire_lock(descr->allocator_lock, NOWAIT_LOCK)) { \
-            PyThread_acquire_lock(descr->allocator_lock, WAIT_LOCK);      \
-        }                                                                 \
+#define NPY_STRING_ACQUIRE_ALLOCATOR(descr)                           \
+    if (!PyThread_acquire_lock(descr->allocator_lock, NOWAIT_LOCK)) { \
+        PyThread_acquire_lock(descr->allocator_lock, WAIT_LOCK);      \
     }
 
 #define NPY_STRING_ACQUIRE_ALLOCATOR2(descr1, descr2) \
@@ -53,6 +41,19 @@
 
 #define NPY_STRING_RELEASE_ALLOCATOR(descr) \
     PyThread_release_lock(descr->allocator_lock);
+#define NPY_STRING_RELEASE_ALLOCATOR2(descr1, descr2) \
+    NPY_STRING_RELEASE_ALLOCATOR(descr1);             \
+    if (descr1 != descr2) {                           \
+        NPY_STRING_RELEASE_ALLOCATOR(descr2);         \
+    }
+#define NPY_STRING_RELEASE_ALLOCATOR3(descr1, descr2, descr3) \
+    NPY_STRING_RELEASE_ALLOCATOR(descr1);                     \
+    if (descr1 != descr2) {                                   \
+        NPY_STRING_RELEASE_ALLOCATOR(descr2);                 \
+    }                                                         \
+    if (descr1 != descr3 && descr2 != descr3) {               \
+        NPY_STRING_RELEASE_ALLOCATOR(descr3);                 \
+    }
 
 typedef struct {
     PyArray_Descr base;

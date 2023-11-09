@@ -156,13 +156,11 @@ multiply_resolve_descriptors(
             iin += i_stride;                                                  \
             out += o_stride;                                                  \
         }                                                                     \
-        NPY_STRING_RELEASE_ALLOCATOR(idescr);                                 \
-        NPY_STRING_RELEASE_ALLOCATOR(odescr);                                 \
+        NPY_STRING_RELEASE_ALLOCATOR2(idescr, odescr);                        \
         return 0;                                                             \
                                                                               \
     fail:                                                                     \
-        NPY_STRING_RELEASE_ALLOCATOR(idescr);                                 \
-        NPY_STRING_RELEASE_ALLOCATOR(odescr);                                 \
+        NPY_STRING_RELEASE_ALLOCATOR2(idescr, odescr);                        \
         return -1;                                                            \
     }                                                                         \
                                                                               \
@@ -416,15 +414,11 @@ add_strided_loop(PyArrayMethod_Context *context, char *const data[],
         in2 += in2_stride;
         out += out_stride;
     }
-    NPY_STRING_RELEASE_ALLOCATOR(s1descr);
-    NPY_STRING_RELEASE_ALLOCATOR(s2descr);
-    NPY_STRING_RELEASE_ALLOCATOR(odescr);
+    NPY_STRING_RELEASE_ALLOCATOR3(s1descr, s2descr, odescr);
     return 0;
 
 fail:
-    NPY_STRING_RELEASE_ALLOCATOR(s1descr);
-    NPY_STRING_RELEASE_ALLOCATOR(s2descr);
-    NPY_STRING_RELEASE_ALLOCATOR(odescr);
+    NPY_STRING_RELEASE_ALLOCATOR3(s1descr, s2descr, odescr);
     return -1;
 }
 
@@ -476,15 +470,11 @@ maximum_strided_loop(PyArrayMethod_Context *context, char *const data[],
         out += out_stride;
     }
 
-    NPY_STRING_RELEASE_ALLOCATOR(in1_descr);
-    NPY_STRING_RELEASE_ALLOCATOR(in2_descr);
-    NPY_STRING_RELEASE_ALLOCATOR(out_descr);
+    NPY_STRING_RELEASE_ALLOCATOR3(in1_descr, in2_descr, out_descr);
     return 0;
 
 fail:
-    NPY_STRING_RELEASE_ALLOCATOR(in1_descr);
-    NPY_STRING_RELEASE_ALLOCATOR(in2_descr);
-    NPY_STRING_RELEASE_ALLOCATOR(out_descr);
+    NPY_STRING_RELEASE_ALLOCATOR3(in1_descr, in2_descr, out_descr);
     return -1;
 }
 
@@ -536,15 +526,11 @@ minimum_strided_loop(PyArrayMethod_Context *context, char *const data[],
         out += out_stride;
     }
 
-    NPY_STRING_RELEASE_ALLOCATOR(in1_descr);
-    NPY_STRING_RELEASE_ALLOCATOR(in2_descr);
-    NPY_STRING_RELEASE_ALLOCATOR(out_descr);
+    NPY_STRING_RELEASE_ALLOCATOR3(in1_descr, in2_descr, out_descr);
     return 0;
 
 fail:
-    NPY_STRING_RELEASE_ALLOCATOR(in1_descr);
-    NPY_STRING_RELEASE_ALLOCATOR(in2_descr);
-    NPY_STRING_RELEASE_ALLOCATOR(out_descr);
+    NPY_STRING_RELEASE_ALLOCATOR3(in1_descr, in2_descr, out_descr);
     return -1;
 }
 
@@ -618,14 +604,12 @@ string_equal_strided_loop(PyArrayMethod_Context *context, char *const data[],
         out += out_stride;
     }
 
-    NPY_STRING_RELEASE_ALLOCATOR(descr1);
-    NPY_STRING_RELEASE_ALLOCATOR(descr2);
+    NPY_STRING_RELEASE_ALLOCATOR2(descr1, descr2);
 
     return 0;
 
 fail:
-    NPY_STRING_RELEASE_ALLOCATOR(descr1);
-    NPY_STRING_RELEASE_ALLOCATOR(descr2);
+    NPY_STRING_RELEASE_ALLOCATOR2(descr1, descr2);
 
     return -1;
 }
@@ -700,14 +684,12 @@ string_not_equal_strided_loop(PyArrayMethod_Context *context,
         out += out_stride;
     }
 
-    NPY_STRING_RELEASE_ALLOCATOR(descr1);
-    NPY_STRING_RELEASE_ALLOCATOR(descr2);
+    NPY_STRING_RELEASE_ALLOCATOR2(descr1, descr2);
 
     return 0;
 
 fail:
-    NPY_STRING_RELEASE_ALLOCATOR(descr1);
-    NPY_STRING_RELEASE_ALLOCATOR(descr2);
+    NPY_STRING_RELEASE_ALLOCATOR2(descr1, descr2);
 
     return -1;
 }
@@ -779,14 +761,12 @@ string_greater_strided_loop(PyArrayMethod_Context *context, char *const data[],
         out += out_stride;
     }
 
-    NPY_STRING_RELEASE_ALLOCATOR(descr1);
-    NPY_STRING_RELEASE_ALLOCATOR(descr2);
+    NPY_STRING_RELEASE_ALLOCATOR2(descr1, descr2);
 
     return 0;
 
 fail:
-    NPY_STRING_RELEASE_ALLOCATOR(descr1);
-    NPY_STRING_RELEASE_ALLOCATOR(descr2);
+    NPY_STRING_RELEASE_ALLOCATOR2(descr1, descr2);
 
     return -1;
 }
@@ -860,14 +840,12 @@ string_greater_equal_strided_loop(PyArrayMethod_Context *context,
         out += out_stride;
     }
 
-    NPY_STRING_RELEASE_ALLOCATOR(descr1);
-    NPY_STRING_RELEASE_ALLOCATOR(descr2);
+    NPY_STRING_RELEASE_ALLOCATOR2(descr1, descr2);
 
     return 0;
 
 fail:
-    NPY_STRING_RELEASE_ALLOCATOR(descr1);
-    NPY_STRING_RELEASE_ALLOCATOR(descr2);
+    NPY_STRING_RELEASE_ALLOCATOR2(descr1, descr2);
 
     return -1;
 }
@@ -938,14 +916,12 @@ string_less_strided_loop(PyArrayMethod_Context *context, char *const data[],
         out += out_stride;
     }
 
-    NPY_STRING_RELEASE_ALLOCATOR(descr1);
-    NPY_STRING_RELEASE_ALLOCATOR(descr2);
+    NPY_STRING_RELEASE_ALLOCATOR2(descr1, descr2);
 
     return 0;
 
 fail:
-    NPY_STRING_RELEASE_ALLOCATOR(descr1);
-    NPY_STRING_RELEASE_ALLOCATOR(descr2);
+    NPY_STRING_RELEASE_ALLOCATOR2(descr1, descr2);
 
     return -1;
 }
@@ -1018,14 +994,12 @@ string_less_equal_strided_loop(PyArrayMethod_Context *context,
         out += out_stride;
     }
 
-    NPY_STRING_RELEASE_ALLOCATOR(descr1);
-    NPY_STRING_RELEASE_ALLOCATOR(descr2);
+    NPY_STRING_RELEASE_ALLOCATOR2(descr1, descr2);
 
     return 0;
 
 fail:
-    NPY_STRING_RELEASE_ALLOCATOR(descr1);
-    NPY_STRING_RELEASE_ALLOCATOR(descr2);
+    NPY_STRING_RELEASE_ALLOCATOR2(descr1, descr2);
 
     return -1;
 }
