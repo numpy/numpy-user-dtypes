@@ -20,6 +20,14 @@ def string_list():
     return ["abc", "def", "ghi" * 10, "A¢☃€ 😊" * 100, "Abc" * 1000, "DEF"]
 
 
+@pytest.fixture
+def random_string_list():
+    chars = list(string.ascii_letters + string.digits)
+    chars = np.array(chars, dtype="U1")
+    ret = np.random.choice(chars, size=100 * 1000, replace=True)
+    return ret.view("U100")
+
+
 pd_param = pytest.param(
     pd_NA,
     marks=pytest.mark.skipif(pd_NA is None, reason="pandas is not installed"),
@@ -202,15 +210,12 @@ def test_unicode_casts(dtype, strings):
     )
 
 
-def test_additional_unicode_cast(dtype):
-    RANDS_CHARS = np.array(
-        list(string.ascii_letters + string.digits), dtype=(np.str_, 1)
-    )
-    arr = np.random.choice(RANDS_CHARS, size=10 * 100_000, replace=True).view(
-        "U10"
-    )
+def test_additional_unicode_cast(random_string_list, dtype):
+    arr = np.array(random_string_list, dtype=dtype)
     np.testing.assert_array_equal(arr, arr.astype(dtype))
-    np.testing.assert_array_equal(arr, arr.astype(dtype).astype("U10"))
+    np.testing.assert_array_equal(
+        arr, arr.astype(dtype).astype(random_string_list.dtype)
+    )
 
 
 def test_insert_scalar(dtype, string_list):
@@ -560,37 +565,51 @@ def test_take(dtype, string_list):
     np.testing.assert_array_equal(res, out)
 
 
+@pytest.mark.parametrize("use_out", [[True, False]])
 @pytest.mark.parametrize(
-    "ufunc,func",
+    "ufunc_name,func",
     [
         ("min", min),
         ("max", max),
     ],
 )
-def test_ufuncs_minmax(dtype, string_list, ufunc, func):
+def test_ufuncs_minmax(dtype, string_list, ufunc_name, func, use_out):
     """Test that the min/max ufuncs match Python builtin min/max behavior."""
     arr = np.array(string_list, dtype=dtype)
-    np.testing.assert_array_equal(
-        getattr(arr, ufunc)(), np.array(func(string_list), dtype=dtype)
-    )
+    uarr = np.array(string_list, dtype=str)
+    res = np.array(func(string_list), dtype=dtype)
+    np.testing.assert_array_equal(getattr(arr, ufunc_name)(), res)
+
+    ufunc = getattr(np, ufunc_name + "imum")
+
+    if use_out:
+        res = ufunc(arr, arr, out=arr)
+    else:
+        res = ufunc(arr, arr)
+
+    np.testing.assert_array_equal(uarr, res)
 
 
+@pytest.mark.parametrize("use_out", [[True, False]])
 @pytest.mark.parametrize(
     "other_strings",
     [
-        ["abc", "def", "ghi", "🤣", "📵", "😰"],
+        ["abc", "def" * 500, "ghi" * 16, "🤣" * 100, "📵", "😰"],
         ["🚜", "🙃", "😾", "😹", "🚠", "🚌"],
         ["🥦", "¨", "⨯", "∰ ", "⨌ ", "⎶ "],
     ],
 )
-def test_ufunc_add(dtype, string_list, other_strings):
+def test_ufunc_add(dtype, string_list, other_strings, use_out):
     arr1 = np.array(string_list, dtype=dtype)
     arr2 = np.array(other_strings, dtype=dtype)
     result = np.array([a + b for a, b in zip(arr1, arr2)], dtype=dtype)
-    np.testing.assert_array_equal(
-        np.add(arr1, arr2),
-        result,
-    )
+
+    if use_out:
+        res = np.add(arr1, arr2, out=arr1)
+    else:
+        res = np.add(arr1, arr2)
+
+    np.testing.assert_array_equal(res, result)
 
     if not hasattr(dtype, "na_object"):
         return
@@ -619,6 +638,7 @@ def test_ufunc_add(dtype, string_list, other_strings):
             np.add(arr1, arr2)
 
 
+@pytest.mark.parametrize("use_out", [[True, False]])
 @pytest.mark.parametrize("other", [2, [2, 1, 3, 4, 1, 3]])
 @pytest.mark.parametrize(
     "other_dtype",
@@ -643,7 +663,7 @@ def test_ufunc_add(dtype, string_list, other_strings):
         "ulonglong",
     ],
 )
-def test_ufunc_multiply(dtype, string_list, other, other_dtype):
+def test_ufunc_multiply(dtype, string_list, other, other_dtype, use_out):
     """Test the two-argument ufuncs match python builtin behavior."""
     arr = np.array(string_list, dtype=dtype)
     other_dtype = np.dtype(other_dtype)
@@ -655,8 +675,17 @@ def test_ufunc_multiply(dtype, string_list, other, other_dtype):
         other = other_dtype.type(other)
         result = [s * other for s in string_list]
 
-    np.testing.assert_array_equal(arr * other, result)
-    np.testing.assert_array_equal(other * arr, result)
+    if use_out:
+        arr_cache = arr.copy()
+        lres = np.multiply(arr, other, out=arr)
+        arr[:] = arr_cache
+        rres = np.multiply(other, arr, out=arr)
+    else:
+        lres = arr * other
+        rres = other * arr
+
+    np.testing.assert_array_equal(lres, result)
+    np.testing.assert_array_equal(rres, result)
 
     if not hasattr(dtype, "na_object"):
         return
@@ -752,3 +781,47 @@ def test_string_too_large_error():
     arr = np.array(["a", "b", "c"], dtype=StringDType())
     with pytest.raises(MemoryError):
         arr * (2**63 - 2)
+
+
+def test_growing_strings(dtype):
+    # growing a string leads to a heap allocation, this tests to make sure
+    # we do that bookeeping correctly for all possible starting cases
+    data = [
+        "hello",  # a short string
+        "abcdefghijklmnopqestuvwxyz",  # a medium heap-allocated string
+        "hello" * 200,  # a long heap-allocated string
+    ]
+
+    arr = np.array(data, dtype=dtype)
+    uarr = np.array(data, dtype=str)
+
+    for _ in range(5):
+        arr = arr + arr
+        uarr = uarr + uarr
+
+    np.testing.assert_array_equal(arr, uarr)
+
+
+def test_threaded_access_and_mutation(dtype, random_string_list):
+    # this test uses an RNG and may crash or cause deadlocks if there is a
+    # threading bug
+    rng = np.random.default_rng(0x4D3D3D3)
+
+    def func(arr):
+        rnd = rng.random()
+        # either write to random locations in the array, compute a ufunc, or
+        # re-initialize the array
+        if rnd < 0.3333:
+            num = np.random.randint(0, arr.size)
+            arr[num] = arr[num] + "hello"
+        elif rnd < 0.6666:
+            np.add(arr, arr)
+        else:
+            arr[:] = random_string_list
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as tpe:
+        arr = np.array(random_string_list, dtype=dtype)
+        futures = [tpe.submit(func, arr) for _ in range(100)]
+
+        for f in futures:
+            f.result()
