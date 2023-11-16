@@ -236,10 +236,7 @@ common_dtype(PyArray_DTypeMeta *cls, PyArray_DTypeMeta *other)
 // `scalar`. If scalar is not already a string and
 // coerce is nonzero, __str__ is called to convert it
 // to a string. If coerce is zero, raises an error for
-// non-string or non-NA input. If the scalar is the
-// na_object for the dtype class, return a new
-// reference to the na_object.
-
+// non-string or non-NA input.
 static PyObject *
 get_value(PyObject *scalar, int coerce)
 {
@@ -260,9 +257,11 @@ get_value(PyObject *scalar, int coerce)
             }
         }
     }
+    else {
+        Py_INCREF(scalar);
+    }
 
-    // attempt to decode as UTF8
-    return PyUnicode_AsUTF8String(scalar);
+    return scalar;
 }
 
 static PyArray_Descr *
@@ -273,6 +272,8 @@ string_discover_descriptor_from_pyobject(PyTypeObject *NPY_UNUSED(cls),
     if (val == NULL) {
         return NULL;
     }
+
+    Py_DECREF(val);
 
     PyArray_Descr *ret = (PyArray_Descr *)new_stringdtype_instance(NULL, 1);
 
@@ -311,9 +312,9 @@ stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
             goto fail;
         }
 
-        char *val = NULL;
         Py_ssize_t length = 0;
-        if (PyBytes_AsStringAndSize(val_obj, &val, &length) == -1) {
+        const char *val = PyUnicode_AsUTF8AndSize(val_obj, &length);
+        if (val == NULL) {
             Py_DECREF(val_obj);
             goto fail;
         }
@@ -325,6 +326,7 @@ stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
             Py_DECREF(val_obj);
             goto fail;
         }
+        Py_DECREF(val_obj);
     }
 
     NPY_STRING_RELEASE_ALLOCATOR(descr);
