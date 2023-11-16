@@ -88,11 +88,11 @@ string_to_string(PyArrayMethod_Context *context, char *const data[],
         const npy_packed_static_string *s = (npy_packed_static_string *)in;
         npy_packed_static_string *os = (npy_packed_static_string *)out;
         if (in != out) {
-            if (in_hasnull && !out_hasnull && npy_string_isnull(s)) {
+            if (in_hasnull && !out_hasnull && NpyString_isnull(s)) {
                 // lossy but this is an unsafe cast so this is OK
-                npy_string_free(os, odescr->allocator);
-                if (npy_string_newsize(in_na_name->buf, in_na_name->size, os,
-                                       odescr->allocator) < 0) {
+                NpyString_free(os, odescr->allocator);
+                if (NpyString_newsize(in_na_name->buf, in_na_name->size, os,
+                                      odescr->allocator) < 0) {
                     gil_error(PyExc_MemoryError,
                               "Failed to allocate string in string to string "
                               "cast.");
@@ -243,18 +243,18 @@ unicode_to_string(PyArrayMethod_Context *context, char *const data[],
             goto fail;
         }
         npy_packed_static_string *out_pss = (npy_packed_static_string *)out;
-        if (npy_string_free(out_pss, allocator) < 0) {
+        if (NpyString_free(out_pss, allocator) < 0) {
             gil_error(PyExc_MemoryError,
                       "Failed to deallocate string in unicode to string cast");
             goto fail;
         }
-        if (npy_string_newemptysize(out_num_bytes, out_pss, allocator) < 0) {
+        if (NpyString_newemptysize(out_num_bytes, out_pss, allocator) < 0) {
             gil_error(PyExc_MemoryError,
                       "Failed to allocate string in unicode to string cast");
             goto fail;
         }
         npy_static_string out_ss = {0, NULL};
-        int is_null = npy_string_load(allocator, out_pss, &out_ss);
+        int is_null = NpyString_load(allocator, out_pss, &out_ss);
         if (is_null == -1) {
             gil_error(PyExc_MemoryError,
                       "Failed to load string in unicode to string cast");
@@ -397,7 +397,7 @@ string_to_unicode(PyArrayMethod_Context *context, char *const data[],
         npy_static_string name = {0, NULL};
         unsigned char *this_string = NULL;
         size_t n_bytes;
-        int is_null = npy_string_load(allocator, ps, &s);
+        int is_null = NpyString_load(allocator, ps, &s);
         if (is_null == -1) {
             gil_error(PyExc_MemoryError,
                       "Failed to load string in unicode to string cast");
@@ -506,7 +506,7 @@ string_to_bool(PyArrayMethod_Context *context, char *const data[],
     while (N--) {
         const npy_packed_static_string *ps = (npy_packed_static_string *)in;
         npy_static_string s = {0, NULL};
-        int is_null = npy_string_load(allocator, ps, &s);
+        int is_null = NpyString_load(allocator, ps, &s);
         if (is_null == -1) {
             gil_error(PyExc_MemoryError,
                       "Failed to load string in unicode to string cast");
@@ -570,7 +570,7 @@ bool_to_string(PyArrayMethod_Context *context, char *const data[],
 
     while (N--) {
         npy_packed_static_string *out_pss = (npy_packed_static_string *)out;
-        if (npy_string_free(out_pss, allocator) < 0) {
+        if (NpyString_free(out_pss, allocator) < 0) {
             gil_error(PyExc_MemoryError,
                       "Failed to deallocate string in bool to string cast");
             goto fail;
@@ -590,7 +590,7 @@ bool_to_string(PyArrayMethod_Context *context, char *const data[],
                       "invalid value encountered in bool to string cast");
             goto fail;
         }
-        if (npy_string_newsize(ret_val, size, out_pss, allocator) < 0) {
+        if (NpyString_newsize(ret_val, size, out_pss, allocator) < 0) {
             // execution should never get here because this will be a small
             // string on all platforms
             gil_error(PyExc_MemoryError,
@@ -628,7 +628,7 @@ string_to_pylong(char *in, int hasnull,
 {
     const npy_packed_static_string *ps = (npy_packed_static_string *)in;
     npy_static_string s = {0, NULL};
-    int isnull = npy_string_load(allocator, ps, &s);
+    int isnull = NpyString_load(allocator, ps, &s);
     if (isnull == -1) {
         PyErr_SetString(PyExc_MemoryError,
                         "Failed to load string converting string to int");
@@ -709,13 +709,13 @@ pyobj_to_string(PyObject *obj, char *out, npy_string_allocator *allocator)
         return -1;
     }
     npy_packed_static_string *out_ss = (npy_packed_static_string *)out;
-    if (npy_string_free(out_ss, allocator) < 0) {
+    if (NpyString_free(out_ss, allocator) < 0) {
         gil_error(PyExc_MemoryError,
                   "Failed to deallocate string when converting from python "
                   "string");
         return -1;
     }
-    if (npy_string_newsize(cstr_val, length, out_ss, allocator) < 0) {
+    if (NpyString_newsize(cstr_val, length, out_ss, allocator) < 0) {
         PyErr_SetString(PyExc_MemoryError,
                         "Failed to allocate numpy string when converting from "
                         "python string.");
@@ -925,7 +925,7 @@ string_to_pyfloat(char *in, int hasnull,
 {
     const npy_packed_static_string *ps = (npy_packed_static_string *)in;
     npy_static_string s = {0, NULL};
-    int isnull = npy_string_load(allocator, ps, &s);
+    int isnull = NpyString_load(allocator, ps, &s);
     if (isnull == -1) {
         PyErr_SetString(
                 PyExc_MemoryError,
@@ -1186,7 +1186,7 @@ string_to_datetime(PyArrayMethod_Context *context, char *const data[],
     while (N--) {
         const npy_packed_static_string *ps = (npy_packed_static_string *)in;
         npy_static_string s = {0, NULL};
-        int is_null = npy_string_load(allocator, ps, &s);
+        int is_null = NpyString_load(allocator, ps, &s);
         if (is_null == -1) {
             // do we hold the gil in this cast? error handling below seems to
             // think we do
@@ -1260,7 +1260,7 @@ datetime_to_string(PyArrayMethod_Context *context, char *const data[],
 
     while (N--) {
         npy_packed_static_string *out_pss = (npy_packed_static_string *)out;
-        if (npy_string_free(out_pss, allocator) < 0) {
+        if (NpyString_free(out_pss, allocator) < 0) {
             gil_error(
                     PyExc_MemoryError,
                     "Failed to deallocate string in datetime to string cast");
@@ -1284,8 +1284,8 @@ datetime_to_string(PyArrayMethod_Context *context, char *const data[],
                 goto fail;
             }
 
-            if (npy_string_newsize(datetime_buf, strlen(datetime_buf), out_pss,
-                                   allocator) < 0) {
+            if (NpyString_newsize(datetime_buf, strlen(datetime_buf), out_pss,
+                                  allocator) < 0) {
                 PyErr_SetString(PyExc_MemoryError,
                                 "Failed to allocate string when converting "
                                 "from a datetime.");

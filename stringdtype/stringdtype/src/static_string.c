@@ -109,8 +109,8 @@ vstring_buffer(npy_string_arena *arena, _npy_static_string_u *string)
 }
 
 char *
-npy_string_arena_malloc(npy_string_arena *arena, npy_string_realloc_func r,
-                        size_t size)
+NpyString_arena_malloc(npy_string_arena *arena, npy_string_realloc_func r,
+                       size_t size)
 {
     // one extra size_t to store the size of the allocation
     size_t string_storage_size;
@@ -163,7 +163,7 @@ npy_string_arena_malloc(npy_string_arena *arena, npy_string_realloc_func r,
 }
 
 int
-npy_string_arena_free(npy_string_arena *arena, _npy_static_string_u *str)
+NpyString_arena_free(npy_string_arena *arena, _npy_static_string_u *str)
 {
     if (arena->size == 0 && arena->cursor == 0 && arena->buffer == NULL) {
         // empty arena, nothing to do
@@ -191,8 +191,8 @@ npy_string_arena_free(npy_string_arena *arena, _npy_static_string_u *str)
 static npy_string_arena NEW_ARENA = {0, 0, NULL};
 
 npy_string_allocator *
-npy_string_new_allocator(npy_string_malloc_func m, npy_string_free_func f,
-                         npy_string_realloc_func r)
+NpyString_new_allocator(npy_string_malloc_func m, npy_string_free_func f,
+                        npy_string_realloc_func r)
 {
     npy_string_allocator *allocator = m(sizeof(npy_string_allocator));
     if (allocator == NULL) {
@@ -201,13 +201,13 @@ npy_string_new_allocator(npy_string_malloc_func m, npy_string_free_func f,
     allocator->malloc = m;
     allocator->free = f;
     allocator->realloc = r;
-    // arena buffer gets allocated in npy_string_arena_malloc
+    // arena buffer gets allocated in NpyString_arena_malloc
     allocator->arena = NEW_ARENA;
     return allocator;
 }
 
 void
-npy_string_free_allocator(npy_string_allocator *allocator)
+NpyString_free_allocator(npy_string_allocator *allocator)
 {
     npy_string_free_func f = allocator->free;
 
@@ -238,7 +238,7 @@ is_medium_string(const _npy_static_string_u *s)
 }
 
 int
-npy_string_isnull(const npy_packed_static_string *s)
+NpyString_isnull(const npy_packed_static_string *s)
 {
     unsigned char high_byte =
             ((_npy_static_string_u *)s)->direct_buffer.size_and_flags;
@@ -248,7 +248,7 @@ npy_string_isnull(const npy_packed_static_string *s)
 int
 is_not_a_vstring(const npy_packed_static_string *s)
 {
-    return is_short_string(s) || npy_string_isnull(s);
+    return is_short_string(s) || NpyString_isnull(s);
 }
 
 int
@@ -258,11 +258,11 @@ is_a_vstring(const npy_packed_static_string *s)
 }
 
 int
-npy_string_load(npy_string_allocator *allocator,
-                const npy_packed_static_string *packed_string,
-                npy_static_string *unpacked_string)
+NpyString_load(npy_string_allocator *allocator,
+               const npy_packed_static_string *packed_string,
+               npy_static_string *unpacked_string)
 {
-    if (npy_string_isnull(packed_string)) {
+    if (NpyString_isnull(packed_string)) {
         unpacked_string->size = 0;
         unpacked_string->buf = NULL;
         return 1;
@@ -346,8 +346,8 @@ heap_or_arena_allocate(npy_string_allocator *allocator,
         }
     }
     // string isn't previously allocated, so add to existing arena allocation
-    char *ret = npy_string_arena_malloc(arena, allocator->realloc,
-                                        sizeof(char) * size);
+    char *ret = NpyString_arena_malloc(arena, allocator->realloc,
+                                       sizeof(char) * size);
     if (size < NPY_MEDIUM_STRING_MAX_SIZE) {
         *flags |= NPY_STRING_MEDIUM;
     }
@@ -376,7 +376,7 @@ heap_or_arena_deallocate(npy_string_allocator *allocator,
         if (arena == NULL) {
             return -1;
         }
-        if (npy_string_arena_free(arena, str_u) < 0) {
+        if (NpyString_arena_free(arena, str_u) < 0) {
             return -1;
         }
         if (arena->buffer != NULL) {
@@ -387,11 +387,11 @@ heap_or_arena_deallocate(npy_string_allocator *allocator,
 }
 
 int
-npy_string_newsize(const char *init, size_t size,
-                   npy_packed_static_string *to_init,
-                   npy_string_allocator *allocator)
+NpyString_newsize(const char *init, size_t size,
+                  npy_packed_static_string *to_init,
+                  npy_string_allocator *allocator)
 {
-    if (npy_string_newemptysize(size, to_init, allocator) < 0) {
+    if (NpyString_newemptysize(size, to_init, allocator) < 0) {
         return -1;
     }
 
@@ -416,8 +416,8 @@ npy_string_newsize(const char *init, size_t size,
 }
 
 int
-npy_string_newemptysize(size_t size, npy_packed_static_string *out,
-                        npy_string_allocator *allocator)
+NpyString_newemptysize(size_t size, npy_packed_static_string *out,
+                       npy_string_allocator *allocator)
 {
     if (size > NPY_MAX_STRING_SIZE) {
         return -1;
@@ -466,7 +466,7 @@ npy_string_newemptysize(size_t size, npy_packed_static_string *out,
 }
 
 int
-npy_string_free(npy_packed_static_string *str, npy_string_allocator *allocator)
+NpyString_free(npy_packed_static_string *str, npy_string_allocator *allocator)
 {
     _npy_static_string_u *str_u = (_npy_static_string_u *)str;
     if (is_not_a_vstring(str)) {
@@ -489,12 +489,12 @@ npy_string_free(npy_packed_static_string *str, npy_string_allocator *allocator)
 }
 
 int
-npy_string_dup(const npy_packed_static_string *in,
-               npy_packed_static_string *out,
-               npy_string_allocator *in_allocator,
-               npy_string_allocator *out_allocator)
+NpyString_dup(const npy_packed_static_string *in,
+              npy_packed_static_string *out,
+              npy_string_allocator *in_allocator,
+              npy_string_allocator *out_allocator)
 {
-    if (npy_string_isnull(in)) {
+    if (NpyString_isnull(in)) {
         *out = *NPY_NULL_STRING;
         return 0;
     }
@@ -527,7 +527,7 @@ npy_string_dup(const npy_packed_static_string *in,
         in_buf = vstring_buffer(arena, in_u);
     }
     int ret =
-            npy_string_newsize(in_buf, VSTRING_SIZE(in_u), out, out_allocator);
+            NpyString_newsize(in_buf, VSTRING_SIZE(in_u), out, out_allocator);
     if (used_malloc) {
         in_allocator->free(in_buf);
     }
@@ -535,7 +535,7 @@ npy_string_dup(const npy_packed_static_string *in,
 }
 
 int
-npy_string_cmp(const npy_static_string *s1, const npy_static_string *s2)
+NpyString_cmp(const npy_static_string *s1, const npy_static_string *s2)
 {
     size_t minsize = s1->size < s2->size ? s1->size : s2->size;
 
@@ -558,9 +558,9 @@ npy_string_cmp(const npy_static_string *s1, const npy_static_string *s2)
 }
 
 size_t
-npy_string_size(const npy_packed_static_string *packed_string)
+NpyString_size(const npy_packed_static_string *packed_string)
 {
-    if (npy_string_isnull(packed_string)) {
+    if (NpyString_isnull(packed_string)) {
         return 0;
     }
 

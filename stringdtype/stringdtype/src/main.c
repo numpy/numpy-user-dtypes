@@ -58,7 +58,7 @@ _memory_usage(PyObject *NPY_UNUSED(self), PyObject *obj)
         npy_intp count = *innersizeptr;
 
         while (count--) {
-            size_t size = npy_string_size(((npy_packed_static_string *)in));
+            size_t size = NpyString_size(((npy_packed_static_string *)in));
             // FIXME: add a way for a string to report its heap size usage
             if (size > (sizeof(npy_static_string) - 1)) {
                 memory_usage += size;
