@@ -704,6 +704,7 @@ stringdtype_dealloc(StringDTypeObject *self)
         npy_string_free(&self->packed_default_string, self->allocator);
         npy_string_free(&self->packed_na_name, self->allocator);
         npy_string_free_allocator(self->allocator);
+        PyThread_free_lock(self->allocator_lock);
     }
     PyArrayDescr_Type.tp_dealloc((PyObject *)self);
 }
