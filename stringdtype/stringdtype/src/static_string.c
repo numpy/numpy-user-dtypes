@@ -8,14 +8,14 @@
 // the high byte in vstring.size is reserved for flags
 // SSSS SSSF
 
-typedef struct _npy_static_string_t {
+typedef struct _npy_static_vstring_t {
     size_t offset;
-    size_t size;
-} _npy_static_string_t;
+    size_t size_and_flags;
+} _npy_static_vstring_t;
 
 typedef struct _short_string_buffer {
-    char buf[sizeof(_npy_static_string_t) - 1];
-    unsigned char flags_and_size;
+    char buf[sizeof(_npy_static_vstring_t) - 1];
+    unsigned char size_and_flags;
 } _short_string_buffer;
 
 #elif NPY_BYTE_ORDER == NPY_BIG_ENDIAN
@@ -23,20 +23,20 @@ typedef struct _short_string_buffer {
 // the high byte in vstring.size is reserved for flags
 // FSSS SSSS
 
-typedef struct _npy_static_string_t {
+typedef struct _npy_static_vstring_t {
     size_t size;
     size_t offset;
-} _npy_static_string_t;
+} _npy_static_vstring_t;
 
 typedef struct _short_string_buffer {
-    unsigned char flags_and_size;
-    char buf[sizeof(npy_static_string_t) - 1];
+    unsigned char size_and_flags;
+    char buf[sizeof(npy_static_vstring_t) - 1];
 } _short_string_buffer;
 
 #endif
 
 typedef union _npy_static_string_u {
-    _npy_static_string_t vstring;
+    _npy_static_vstring_t vstring;
     _short_string_buffer direct_buffer;
 } _npy_static_string_u;
 
@@ -59,19 +59,19 @@ typedef union _npy_static_string_u {
 // of this choice is a calloc'd array buffer (e.g. from np.empty) is filled
 // with empty elements for free
 const _npy_static_string_u empty_string_u = {
-        .direct_buffer = {.flags_and_size = 0, .buf = {0}}};
+        .direct_buffer = {.size_and_flags = 0, .buf = {0}}};
 const npy_packed_static_string *NPY_EMPTY_STRING =
         (npy_packed_static_string *)&empty_string_u;
 // zero-filled, but with the NULL flag set to distinguish from empty string
 const _npy_static_string_u null_string_u = {
-        .direct_buffer = {.flags_and_size = NPY_STRING_MISSING, .buf = {0}}};
+        .direct_buffer = {.size_and_flags = NPY_STRING_MISSING, .buf = {0}}};
 const npy_packed_static_string *NPY_NULL_STRING =
         (npy_packed_static_string *)&null_string_u;
 
 #define VSTRING_FLAGS(string) \
-    string->direct_buffer.flags_and_size & ~NPY_SHORT_STRING_SIZE_MASK;
+    string->direct_buffer.size_and_flags & ~NPY_SHORT_STRING_SIZE_MASK;
 #define HIGH_BYTE_MASK ((size_t)0XFF << 8 * (sizeof(size_t) - 1))
-#define VSTRING_SIZE(string) (string->vstring.size & ~HIGH_BYTE_MASK)
+#define VSTRING_SIZE(string) (string->vstring.size_and_flags & ~HIGH_BYTE_MASK)
 
 typedef struct npy_string_arena {
     size_t cursor;
@@ -89,9 +89,10 @@ struct npy_string_allocator {
 void
 set_vstring_size(_npy_static_string_u *str, size_t size)
 {
-    unsigned char current_flags = str->direct_buffer.flags_and_size;
-    str->vstring.size = size;
-    str->direct_buffer.flags_and_size = current_flags;
+    unsigned char *flags = &str->direct_buffer.size_and_flags;
+    unsigned char current_flags = *flags & ~NPY_SHORT_STRING_SIZE_MASK;
+    str->vstring.size_and_flags = size;
+    str->direct_buffer.size_and_flags = current_flags;
 }
 
 char *
@@ -221,7 +222,7 @@ int
 is_short_string(const npy_packed_static_string *s)
 {
     unsigned char high_byte =
-            ((_npy_static_string_u *)s)->direct_buffer.flags_and_size;
+            ((_npy_static_string_u *)s)->direct_buffer.size_and_flags;
     int has_short_flag = (high_byte & NPY_STRING_SHORT);
     int has_on_heap_flag = (high_byte & NPY_STRING_ON_HEAP);
     return has_short_flag && !has_on_heap_flag;
@@ -230,7 +231,7 @@ is_short_string(const npy_packed_static_string *s)
 int
 is_medium_string(const _npy_static_string_u *s)
 {
-    unsigned char high_byte = s->direct_buffer.flags_and_size;
+    unsigned char high_byte = s->direct_buffer.size_and_flags;
     int has_short_flag = (high_byte & NPY_STRING_SHORT);
     int has_medium_flag = (high_byte & NPY_STRING_MEDIUM);
     return (!has_short_flag && has_medium_flag);
@@ -240,7 +241,7 @@ int
 npy_string_isnull(const npy_packed_static_string *s)
 {
     unsigned char high_byte =
-            ((_npy_static_string_u *)s)->direct_buffer.flags_and_size;
+            ((_npy_static_string_u *)s)->direct_buffer.size_and_flags;
     return (high_byte & NPY_STRING_MISSING) == NPY_STRING_MISSING;
 }
 
@@ -270,7 +271,7 @@ npy_string_load(npy_string_allocator *allocator,
     _npy_static_string_u *string_u = (_npy_static_string_u *)packed_string;
 
     if (is_short_string(packed_string)) {
-        unsigned char high_byte = string_u->direct_buffer.flags_and_size;
+        unsigned char high_byte = string_u->direct_buffer.size_and_flags;
         unpacked_string->size = high_byte & NPY_SHORT_STRING_SIZE_MASK;
         unpacked_string->buf = string_u->direct_buffer.buf;
     }
@@ -300,7 +301,7 @@ heap_or_arena_allocate(npy_string_allocator *allocator,
                        _npy_static_string_u *to_init_u, size_t size,
                        int *on_heap)
 {
-    unsigned char *flags = &to_init_u->direct_buffer.flags_and_size;
+    unsigned char *flags = &to_init_u->direct_buffer.size_and_flags;
     if (*flags & NPY_STRING_SHORT) {
         // Have to heap allocate since there isn't a preexisting
         // allocation. This leaves the NPY_STRING_SHORT flag set to indicate
@@ -357,7 +358,7 @@ int
 heap_or_arena_deallocate(npy_string_allocator *allocator,
                          _npy_static_string_u *str_u)
 {
-    unsigned char *flags = &str_u->direct_buffer.flags_and_size;
+    unsigned char *flags = &str_u->direct_buffer.size_and_flags;
     if (*flags & NPY_STRING_ON_HEAP) {
         // It's a heap string (not in the arena buffer) so it needs to be
         // deallocated with free(). For heap strings the offset is a raw
@@ -379,7 +380,7 @@ heap_or_arena_deallocate(npy_string_allocator *allocator,
             return -1;
         }
         if (arena->buffer != NULL) {
-            str_u->direct_buffer.flags_and_size |= NPY_STRING_ARENA_FREED;
+            str_u->direct_buffer.size_and_flags |= NPY_STRING_ARENA_FREED;
         }
     }
     return 0;
@@ -425,11 +426,11 @@ npy_string_newemptysize(size_t size, npy_packed_static_string *out,
     _npy_static_string_u *out_u = (_npy_static_string_u *)out;
 
     unsigned char flags =
-            out_u->direct_buffer.flags_and_size & ~NPY_SHORT_STRING_SIZE_MASK;
+            out_u->direct_buffer.size_and_flags & ~NPY_SHORT_STRING_SIZE_MASK;
 
     if (size == 0) {
         *out = *NPY_EMPTY_STRING;
-        out_u->direct_buffer.flags_and_size |= flags;
+        out_u->direct_buffer.size_and_flags |= flags;
         return 0;
     }
 
@@ -458,7 +459,7 @@ npy_string_newemptysize(size_t size, npy_packed_static_string *out,
         // In either case, the size data is in at most the least significant 4
         // bits of the byte so it's safe to | with one of 0x10, 0x20, 0x40, or
         // 0x80.
-        out_u->direct_buffer.flags_and_size = NPY_STRING_SHORT | flags | size;
+        out_u->direct_buffer.size_and_flags = NPY_STRING_SHORT | flags | size;
     }
 
     return 0;
@@ -470,7 +471,7 @@ npy_string_free(npy_packed_static_string *str, npy_string_allocator *allocator)
     _npy_static_string_u *str_u = (_npy_static_string_u *)str;
     if (is_not_a_vstring(str)) {
         // zero out, keeping flags
-        unsigned char *flags = &str_u->direct_buffer.flags_and_size;
+        unsigned char *flags = &str_u->direct_buffer.size_and_flags;
         unsigned char current_flags = *flags & ~NPY_SHORT_STRING_SIZE_MASK;
         memcpy(str, NPY_EMPTY_STRING, sizeof(npy_packed_static_string));
         *flags |= current_flags;
@@ -505,10 +506,10 @@ npy_string_dup(const npy_packed_static_string *in,
     size_t size = VSTRING_SIZE(in_u);
     if (size == 0) {
         _npy_static_string_u *out_u = (_npy_static_string_u *)out;
-        unsigned char flags = out_u->direct_buffer.flags_and_size &
+        unsigned char flags = out_u->direct_buffer.size_and_flags &
                               ~NPY_SHORT_STRING_SIZE_MASK;
         *out = *NPY_EMPTY_STRING;
-        out_u->direct_buffer.flags_and_size |= flags;
+        out_u->direct_buffer.size_and_flags |= flags;
         return 0;
     }
     char *in_buf = NULL;
@@ -566,7 +567,7 @@ npy_string_size(const npy_packed_static_string *packed_string)
     _npy_static_string_u *string_u = (_npy_static_string_u *)packed_string;
 
     if (is_short_string(packed_string)) {
-        return string_u->direct_buffer.flags_and_size &
+        return string_u->direct_buffer.size_and_flags &
                NPY_SHORT_STRING_SIZE_MASK;
     }
 

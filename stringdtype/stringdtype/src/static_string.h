@@ -5,10 +5,10 @@
 #include "stdlib.h"
 
 typedef struct npy_packed_static_string {
-    char packed_buffer[sizeof(char *) + sizeof(size_t)];
+    char packed_buffer[2 * sizeof(size_t)];
 } npy_packed_static_string;
 
-typedef struct npy_static_string {
+typedef struct npy_unpacked_static_string {
     size_t size;
     const char *buf;
 } npy_static_string;
