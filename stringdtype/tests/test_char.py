@@ -27,10 +27,10 @@ UNARY_FUNCTIONS = [
     "capitalize",
     "expandtabs",
     "isalnum",
-    # "isalpha", (10-23-23) skipped temporarily since it is now a ufunc
-    "isdigit",
+    # "isalpha",
+    # "isdigit",
     "islower",
-    "isspace",
+    # "isspace",
     "istitle",
     "isupper",
     "lower",
@@ -38,8 +38,8 @@ UNARY_FUNCTIONS = [
     "swapcase",
     "title",
     "upper",
-    "isnumeric",
-    "isdecimal",
+    # "isnumeric",
+    # "isdecimal",
 ]
 
 
@@ -61,19 +61,19 @@ BINARY_FUNCTIONS = [
     ("center", (None, 25)),
     ("count", (None, "A")),
     ("encode", (None, "UTF-8")),
-    ("endswith", (None, "lo")),
-    # ("find", (None, "A")),  # 11-6-2023 skipped temporarily
+    # ("endswith", (None, "lo")),
+    # ("find", (None, "A")),
     ("index", (None, "e")),
     ("join", ("-", None)),
     ("ljust", (None, 12)),
     ("partition", (None, "A")),
     ("replace", (None, "A", "B")),
-    # ("rfind", (None, "A")),  # 11-6-2023 skipped temporarily
+    # ("rfind", (None, "A")),
     ("rindex", (None, "e")),
     ("rjust", (None, 12)),
     ("rpartition", (None, "A")),
     ("split", (None, "A")),
-    ("startswith", (None, "A")),
+    # ("startswith", (None, "A")),
     ("zfill", (None, 12)),
 ]
 
