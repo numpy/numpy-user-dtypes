@@ -71,9 +71,7 @@ typedef struct {
     int has_string_na;
     int array_owned;
     npy_static_string default_string;
-    char packed_default_string[SIZEOF_NPY_PACKED_STATIC_STRING];
     npy_static_string na_name;
-    char packed_na_name[SIZEOF_NPY_PACKED_STATIC_STRING];
     PyThread_type_lock *allocator_lock;
     // the allocator should only be directly accessed after
     // acquiring the allocator_lock and the lock should
