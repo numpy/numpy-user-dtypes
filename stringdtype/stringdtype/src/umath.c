@@ -66,13 +66,12 @@ multiply_resolve_descriptors(
             }                                                                 \
             else if (is_isnull) {                                             \
                 if (has_nan_na) {                                             \
-                    if (NpyString_free(ops, odescr->allocator) < 0) {         \
+                    if (NpyString_pack_null(odescr->allocator, ops) < 0) {    \
                         gil_error(PyExc_MemoryError,                          \
                                   "Failed to deallocate string in multiply"); \
                         goto fail;                                            \
                     }                                                         \
                                                                               \
-                    *ops = *NPY_NULL_STRING;                                  \
                     sin += s_stride;                                          \
                     iin += i_stride;                                          \
                     out += o_stride;                                          \
@@ -136,16 +135,10 @@ multiply_resolve_descriptors(
             }                                                                 \
                                                                               \
             if (idescr == odescr) {                                           \
-                if (NpyString_free(ops, odescr->allocator) < 0) {             \
-                    gil_error(PyExc_MemoryError,                              \
-                              "Failed to deallocate string in multiply");     \
-                    goto fail;                                                \
-                }                                                             \
-                                                                              \
-                if (NpyString_newsize(buf, newsize, ops, odescr->allocator) < \
+                if (NpyString_pack(odescr->allocator, ops, buf, newsize) <    \
                     0) {                                                      \
                     gil_error(PyExc_MemoryError,                              \
-                              "Failed to allocate string in multiply");       \
+                              "Failed to pack string in multiply");           \
                     goto fail;                                                \
                 }                                                             \
                                                                               \
@@ -330,12 +323,11 @@ add_strided_loop(PyArrayMethod_Context *context, char *const data[],
         npy_packed_static_string *ops = (npy_packed_static_string *)out;
         if (NPY_UNLIKELY(s1_isnull || s2_isnull)) {
             if (has_nan_na) {
-                if (NpyString_free(ops, odescr->allocator) < 0) {
+                if (NpyString_pack_null(odescr->allocator, ops) < 0) {
                     gil_error(PyExc_MemoryError,
                               "Failed to deallocate string in add");
                     goto fail;
                 }
-                *ops = *NPY_NULL_STRING;
                 goto next_step;
             }
             else if (has_string_na || !has_null) {
@@ -394,15 +386,9 @@ add_strided_loop(PyArrayMethod_Context *context, char *const data[],
         memcpy(buf + s1.size, s2.buf, s2.size);
 
         if (s1descr == odescr || s2descr == odescr) {
-            if (NpyString_free(ops, odescr->allocator) < 0) {
+            if (NpyString_pack(odescr->allocator, ops, buf, newsize) < 0) {
                 gil_error(PyExc_MemoryError,
-                          "Failed to deallocate string in add");
-                goto fail;
-            }
-
-            if (NpyString_newsize(buf, newsize, ops, odescr->allocator) < 0) {
-                gil_error(PyExc_MemoryError,
-                          "Failed to allocate string in add");
+                          "Failed to pack output string in add");
                 goto fail;
             }
 

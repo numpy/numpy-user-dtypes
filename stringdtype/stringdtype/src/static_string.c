@@ -30,7 +30,7 @@ typedef struct _npy_static_vstring_t {
 
 typedef struct _short_string_buffer {
     unsigned char size_and_flags;
-    char buf[sizeof(npy_static_vstring_t) - 1];
+    char buf[sizeof(_npy_static_vstring_t) - 1];
 } _short_string_buffer;
 
 #endif
@@ -60,13 +60,6 @@ typedef union _npy_static_string_u {
 // with empty elements for free
 const _npy_static_string_u empty_string_u = {
         .direct_buffer = {.size_and_flags = 0, .buf = {0}}};
-const npy_packed_static_string *NPY_EMPTY_STRING =
-        (npy_packed_static_string *)&empty_string_u;
-// zero-filled, but with the NULL flag set to distinguish from empty string
-const _npy_static_string_u null_string_u = {
-        .direct_buffer = {.size_and_flags = NPY_STRING_MISSING, .buf = {0}}};
-const npy_packed_static_string *NPY_NULL_STRING =
-        (npy_packed_static_string *)&null_string_u;
 
 #define VSTRING_FLAGS(string) \
     string->direct_buffer.size_and_flags & ~NPY_SHORT_STRING_SIZE_MASK;
@@ -89,8 +82,7 @@ struct npy_string_allocator {
 void
 set_vstring_size(_npy_static_string_u *str, size_t size)
 {
-    unsigned char *flags = &str->direct_buffer.size_and_flags;
-    unsigned char current_flags = *flags & ~NPY_SHORT_STRING_SIZE_MASK;
+    unsigned char current_flags = str->direct_buffer.size_and_flags;
     str->vstring.size_and_flags = size;
     str->direct_buffer.size_and_flags = current_flags;
 }
@@ -429,7 +421,7 @@ NpyString_newemptysize(size_t size, npy_packed_static_string *out,
             out_u->direct_buffer.size_and_flags & ~NPY_SHORT_STRING_SIZE_MASK;
 
     if (size == 0) {
-        *out = *NPY_EMPTY_STRING;
+        memcpy(out_u, &empty_string_u, sizeof(_npy_static_string_u));
         out_u->direct_buffer.size_and_flags |= flags;
         return 0;
     }
@@ -473,7 +465,7 @@ NpyString_free(npy_packed_static_string *str, npy_string_allocator *allocator)
         // zero out, keeping flags
         unsigned char *flags = &str_u->direct_buffer.size_and_flags;
         unsigned char current_flags = *flags & ~NPY_SHORT_STRING_SIZE_MASK;
-        memcpy(str, NPY_EMPTY_STRING, sizeof(npy_packed_static_string));
+        memcpy(str_u, &empty_string_u, sizeof(_npy_static_string_u));
         *flags |= current_flags;
     }
     else {
@@ -495,11 +487,10 @@ NpyString_dup(const npy_packed_static_string *in,
               npy_string_allocator *out_allocator)
 {
     if (NpyString_isnull(in)) {
-        *out = *NPY_NULL_STRING;
-        return 0;
+        return NpyString_pack_null(out_allocator, out);
     }
     if (is_short_string(in)) {
-        memcpy(out, in, sizeof(npy_packed_static_string));
+        memcpy(out, in, sizeof(_npy_static_string_u));
         return 0;
     }
     _npy_static_string_u *in_u = (_npy_static_string_u *)in;
@@ -508,7 +499,7 @@ NpyString_dup(const npy_packed_static_string *in,
         _npy_static_string_u *out_u = (_npy_static_string_u *)out;
         unsigned char flags = out_u->direct_buffer.size_and_flags &
                               ~NPY_SHORT_STRING_SIZE_MASK;
-        *out = *NPY_EMPTY_STRING;
+        memcpy(out_u, &empty_string_u, sizeof(_npy_static_string_u));
         out_u->direct_buffer.size_and_flags |= flags;
         return 0;
     }
@@ -572,4 +563,30 @@ NpyString_size(const npy_packed_static_string *packed_string)
     }
 
     return VSTRING_SIZE(string_u);
+}
+
+int
+NpyString_pack(npy_string_allocator *allocator,
+               npy_packed_static_string *packed_string, const char *buf,
+               size_t size)
+{
+    if (NpyString_free(packed_string, allocator) < 0) {
+        return -1;
+    }
+    return NpyString_newsize(buf, size, packed_string, allocator);
+}
+
+int
+NpyString_pack_null(npy_string_allocator *allocator,
+                    npy_packed_static_string *packed_string)
+{
+    _npy_static_string_u *str_u = (_npy_static_string_u *)packed_string;
+    unsigned char *flags = &str_u->direct_buffer.size_and_flags;
+    unsigned char current_flags = *flags & ~NPY_SHORT_STRING_SIZE_MASK;
+    if (NpyString_free(packed_string, allocator) < 0) {
+        return -1;
+    }
+    memcpy(str_u, &empty_string_u, sizeof(_npy_static_string_u));
+    *flags = current_flags | NPY_STRING_MISSING;
+    return 0;
 }

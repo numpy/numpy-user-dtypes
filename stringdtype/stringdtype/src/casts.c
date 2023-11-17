@@ -90,11 +90,10 @@ string_to_string(PyArrayMethod_Context *context, char *const data[],
         if (in != out) {
             if (in_hasnull && !out_hasnull && NpyString_isnull(s)) {
                 // lossy but this is an unsafe cast so this is OK
-                NpyString_free(os, odescr->allocator);
-                if (NpyString_newsize(in_na_name->buf, in_na_name->size, os,
-                                      odescr->allocator) < 0) {
+                if (NpyString_pack(odescr->allocator, os, in_na_name->buf,
+                                   in_na_name->size) < 0) {
                     gil_error(PyExc_MemoryError,
-                              "Failed to allocate string in string to string "
+                              "Failed to pack string in string to string "
                               "cast.");
                     goto fail;
                 }
@@ -570,11 +569,6 @@ bool_to_string(PyArrayMethod_Context *context, char *const data[],
 
     while (N--) {
         npy_packed_static_string *out_pss = (npy_packed_static_string *)out;
-        if (NpyString_free(out_pss, allocator) < 0) {
-            gil_error(PyExc_MemoryError,
-                      "Failed to deallocate string in bool to string cast");
-            goto fail;
-        }
         char *ret_val = NULL;
         size_t size = 0;
         if ((npy_bool)(*in) == 1) {
@@ -590,11 +584,9 @@ bool_to_string(PyArrayMethod_Context *context, char *const data[],
                       "invalid value encountered in bool to string cast");
             goto fail;
         }
-        if (NpyString_newsize(ret_val, size, out_pss, allocator) < 0) {
-            // execution should never get here because this will be a small
-            // string on all platforms
+        if (NpyString_pack(allocator, out_pss, ret_val, size) < 0) {
             gil_error(PyExc_MemoryError,
-                      "Failed to allocate string in bool to string cast");
+                      "Failed to pack string in bool to string cast");
             goto fail;
         }
         in += in_stride;
@@ -706,19 +698,14 @@ pyobj_to_string(PyObject *obj, char *out, npy_string_allocator *allocator)
     Py_ssize_t length;
     const char *cstr_val = PyUnicode_AsUTF8AndSize(pystr_val, &length);
     if (cstr_val == NULL) {
+        Py_DECREF(pystr_val);
         return -1;
     }
     npy_packed_static_string *out_ss = (npy_packed_static_string *)out;
-    if (NpyString_free(out_ss, allocator) < 0) {
+    if (NpyString_pack(allocator, out_ss, cstr_val, length) < 0) {
         gil_error(PyExc_MemoryError,
-                  "Failed to deallocate string when converting from python "
+                  "Failed to pack string while converting from python "
                   "string");
-        return -1;
-    }
-    if (NpyString_newsize(cstr_val, length, out_ss, allocator) < 0) {
-        PyErr_SetString(PyExc_MemoryError,
-                        "Failed to allocate numpy string when converting from "
-                        "python string.");
         Py_DECREF(pystr_val);
         return -1;
     }
@@ -1260,14 +1247,12 @@ datetime_to_string(PyArrayMethod_Context *context, char *const data[],
 
     while (N--) {
         npy_packed_static_string *out_pss = (npy_packed_static_string *)out;
-        if (NpyString_free(out_pss, allocator) < 0) {
+        if (*in == NPY_DATETIME_NAT &&
+            NpyString_pack_null(allocator, out_pss) < 0) {
             gil_error(
                     PyExc_MemoryError,
                     "Failed to deallocate string in datetime to string cast");
             goto fail;
-        }
-        if (*in == NPY_DATETIME_NAT) {
-            *out_pss = *NPY_NULL_STRING;
         }
         else {
             if (NpyDatetime_ConvertDatetime64ToDatetimeStruct(dt_meta, *in,
@@ -1284,8 +1269,8 @@ datetime_to_string(PyArrayMethod_Context *context, char *const data[],
                 goto fail;
             }
 
-            if (NpyString_newsize(datetime_buf, strlen(datetime_buf), out_pss,
-                                  allocator) < 0) {
+            if (NpyString_pack(allocator, out_pss, datetime_buf,
+                               strlen(datetime_buf)) < 0) {
                 PyErr_SetString(PyExc_MemoryError,
                                 "Failed to allocate string when converting "
                                 "from a datetime.");

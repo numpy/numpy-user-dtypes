@@ -11,11 +11,6 @@ PyTypeObject *StringScalar_Type = NULL;
 PyObject *
 new_stringdtype_instance(PyObject *na_object, int coerce)
 {
-    npy_string_allocator *allocator = NULL;
-    PyThread_type_lock *allocator_lock = NULL;
-    npy_packed_static_string packed_na_name = *NPY_EMPTY_STRING;
-    npy_packed_static_string packed_default_string = *NPY_EMPTY_STRING;
-
     PyObject *new =
             PyArrayDescr_Type.tp_new((PyTypeObject *)&StringDType, NULL, NULL);
 
@@ -23,9 +18,11 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
         return NULL;
     }
 
+    npy_string_allocator *allocator = NULL;
+    PyThread_type_lock *allocator_lock = NULL;
+
     allocator = NpyString_new_allocator(PyMem_RawMalloc, PyMem_RawFree,
                                         PyMem_RawRealloc);
-
     if (allocator == NULL) {
         PyErr_SetString(PyExc_MemoryError,
                         "Failed to create string allocator");
@@ -38,6 +35,13 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
         goto fail;
     }
 
+    char packed_na_name[SIZEOF_NPY_PACKED_STATIC_STRING] = {0};
+    NpyString_pack(allocator, (npy_packed_static_string *)&packed_na_name, "",
+                   0);
+    char packed_default_string[SIZEOF_NPY_PACKED_STATIC_STRING] = {0};
+    NpyString_pack(allocator,
+                   (npy_packed_static_string *)&packed_default_string, "", 0);
+
     Py_XINCREF(na_object);
     ((StringDTypeObject *)new)->na_object = na_object;
     int hasnull = na_object != NULL;
@@ -49,8 +53,10 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
             has_string_na = 1;
             Py_ssize_t size = 0;
             const char *buf = PyUnicode_AsUTF8AndSize(na_object, &size);
-            if (NpyString_newsize(buf, (size_t)size, &packed_default_string,
-                                  allocator) < 0) {
+            if (NpyString_newsize(
+                        buf, (size_t)size,
+                        (npy_packed_static_string *)&packed_default_string,
+                        allocator) < 0) {
                 PyErr_SetString(PyExc_MemoryError,
                                 "Failed to allocate string while creating "
                                 "StringDType instance.");
@@ -86,7 +92,8 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
             Py_DECREF(na_pystr);
             goto fail;
         }
-        if (NpyString_newsize(utf8_ptr, (size_t)size, &packed_na_name,
+        if (NpyString_newsize(utf8_ptr, (size_t)size,
+                              (npy_packed_static_string *)&packed_na_name,
                               allocator) < 0) {
             PyErr_SetString(PyExc_MemoryError,
                             "Failed to allocate string while creating "
@@ -101,16 +108,20 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
 
     snew->has_nan_na = has_nan_na;
     snew->has_string_na = has_string_na;
-    snew->packed_default_string = packed_default_string;
-    snew->packed_na_name = packed_na_name;
+    memcpy(snew->packed_default_string, packed_default_string,
+           SIZEOF_NPY_PACKED_STATIC_STRING);
+    memcpy(snew->packed_na_name, packed_na_name,
+           SIZEOF_NPY_PACKED_STATIC_STRING);
     snew->coerce = coerce;
     snew->allocator_lock = allocator_lock;
     snew->allocator = allocator;
     snew->array_owned = 0;
 
     npy_static_string default_string = {0, NULL};
-    if (NpyString_load(allocator, &snew->packed_default_string,
-                       &default_string) == -1) {
+    if (NpyString_load(
+                allocator,
+                (npy_packed_static_string *)&snew->packed_default_string,
+                &default_string) == -1) {
         PyErr_SetString(PyExc_MemoryError,
                         "Failed to load packed string while "
                         "creating StringDType instance.");
@@ -119,7 +130,9 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
     }
 
     npy_static_string na_name = {0, NULL};
-    if (NpyString_load(allocator, &snew->packed_na_name, &na_name) == -1) {
+    if (NpyString_load(allocator,
+                       (npy_packed_static_string *)&snew->packed_na_name,
+                       &na_name) == -1) {
         PyErr_SetString(PyExc_MemoryError,
                         "Failed to load packed string while "
                         "creating StringDType instance.");
@@ -132,8 +145,8 @@ new_stringdtype_instance(PyObject *na_object, int coerce)
     snew->default_string = default_string;
 
     PyArray_Descr *base = (PyArray_Descr *)new;
-    base->elsize = sizeof(npy_static_string);
-    base->alignment = _Alignof(npy_static_string);
+    base->elsize = SIZEOF_NPY_PACKED_STATIC_STRING;
+    base->alignment = ALIGNOF_NPY_PACKED_STATIC_STRING;
     base->flags |= NPY_NEEDS_INIT;
     base->flags |= NPY_LIST_PICKLE;
     base->flags |= NPY_ITEM_REFCOUNT;
@@ -150,8 +163,9 @@ fail:
     // this only makes sense if the allocator isn't attached to new yet
     Py_DECREF(new);
     if (allocator != NULL) {
-        NpyString_free(&packed_na_name, allocator);
-        NpyString_free(&packed_default_string, allocator);
+        NpyString_free((npy_packed_static_string *)&packed_na_name, allocator);
+        NpyString_free((npy_packed_static_string *)&packed_default_string,
+                       allocator);
         NpyString_free_allocator(allocator);
     }
     if (allocator_lock != NULL) {
@@ -289,21 +303,18 @@ stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
 
     NPY_STRING_ACQUIRE_ALLOCATOR(descr);
 
-    // free if dataptr holds preexisting string data,
-    // npy_string_free does a NULL check and checks for small strings
-    if (NpyString_free(sdata, descr->allocator) < 0) {
-        PyErr_SetString(PyExc_MemoryError,
-                        "String deallocation failed in StringDType setitem");
-        goto fail;
-    }
-
     // borrow reference
     PyObject *na_object = descr->na_object;
 
     // setting NA *must* check pointer equality since NA types might not
     // allow equality
     if (na_object != NULL && obj == na_object) {
-        *sdata = *NPY_NULL_STRING;
+        if (NpyString_pack_null(descr->allocator, sdata) < 0) {
+            PyErr_SetString(PyExc_MemoryError,
+                            "Failed to pack null string during StringDType "
+                            "setitem");
+            goto fail;
+        }
     }
     else {
         PyObject *val_obj = get_value(obj, descr->coerce);
@@ -319,9 +330,9 @@ stringdtype_setitem(StringDTypeObject *descr, PyObject *obj, char **dataptr)
             goto fail;
         }
 
-        if (NpyString_newsize(val, length, sdata, descr->allocator) < 0) {
+        if (NpyString_pack(descr->allocator, sdata, val, length) < 0) {
             PyErr_SetString(PyExc_MemoryError,
-                            "Failed to allocate string during StringDType "
+                            "Failed to pack string during StringDType "
                             "setitem");
             Py_DECREF(val_obj);
             goto fail;
@@ -482,12 +493,13 @@ _compare(void *a, void *b, StringDTypeObject *descr_a,
 // PyArray_ArgFunc
 // The max element is the one with the highest unicode code point.
 int
-argmax(void *data, npy_intp n, npy_intp *max_ind, void *arr)
+argmax(char *data, npy_intp n, npy_intp *max_ind, void *arr)
 {
-    npy_packed_static_string *dptr = (npy_packed_static_string *)data;
+    PyArray_Descr *descr = PyArray_DESCR(arr);
+    npy_intp elsize = descr->elsize;
     *max_ind = 0;
     for (int i = 1; i < n; i++) {
-        if (compare(&dptr[i], &dptr[*max_ind], arr) > 0) {
+        if (compare(data + i * elsize, data + (*max_ind) * elsize, arr) > 0) {
             *max_ind = i;
         }
     }
@@ -497,12 +509,13 @@ argmax(void *data, npy_intp n, npy_intp *max_ind, void *arr)
 // PyArray_ArgFunc
 // The min element is the one with the lowest unicode code point.
 int
-argmin(void *data, npy_intp n, npy_intp *min_ind, void *arr)
+argmin(char *data, npy_intp n, npy_intp *min_ind, void *arr)
 {
-    npy_packed_static_string *dptr = (npy_packed_static_string *)data;
+    PyArray_Descr *descr = PyArray_DESCR(arr);
+    npy_intp elsize = descr->elsize;
     *min_ind = 0;
     for (int i = 1; i < n; i++) {
-        if (compare(&dptr[i], &dptr[*min_ind], arr) < 0) {
+        if (compare(data + i * elsize, data + (*min_ind) * elsize, arr) < 0) {
             *min_ind = i;
         }
     }
@@ -525,13 +538,10 @@ stringdtype_clear_loop(void *NPY_UNUSED(traverse_context),
     NPY_STRING_ACQUIRE_ALLOCATOR(sdescr);
     while (size--) {
         npy_packed_static_string *sdata = (npy_packed_static_string *)data;
-        if (data != NULL) {
-            if (NpyString_free(sdata, sdescr->allocator) < 0) {
-                gil_error(PyExc_MemoryError,
-                          "String deallocation failed in clear loop");
-                goto fail;
-            }
-            memset(data, 0, sizeof(npy_packed_static_string));
+        if (data != NULL && NpyString_free(sdata, sdescr->allocator) < 0) {
+            gil_error(PyExc_MemoryError,
+                      "String deallocation failed in clear loop");
+            goto fail;
         }
         data += stride;
     }
@@ -703,8 +713,11 @@ stringdtype_dealloc(StringDTypeObject *self)
     if (self->allocator != NULL) {
         // can we assume the destructor for an instance will only get called
         // inside of one C thread?
-        NpyString_free(&self->packed_default_string, self->allocator);
-        NpyString_free(&self->packed_na_name, self->allocator);
+        NpyString_free(
+                (npy_packed_static_string *)&self->packed_default_string,
+                self->allocator);
+        NpyString_free((npy_packed_static_string *)&self->packed_na_name,
+                       self->allocator);
         NpyString_free_allocator(self->allocator);
         PyThread_free_lock(self->allocator_lock);
     }

@@ -4,22 +4,12 @@
 #include "stdint.h"
 #include "stdlib.h"
 
-typedef struct npy_packed_static_string {
-    char packed_buffer[2 * sizeof(size_t)];
-} npy_packed_static_string;
+typedef struct npy_packed_static_string npy_packed_static_string;
 
 typedef struct npy_unpacked_static_string {
     size_t size;
     const char *buf;
 } npy_static_string;
-
-// Represents the empty string. The unpacked string can be passed safely to
-// npy_static_string API functions.
-extern const npy_packed_static_string *NPY_EMPTY_STRING;
-// Represents a sentinel value, use NpyString_isnull or the return value of
-// NpyString_load to check if a value is null before working with the unpacked
-// representation.
-extern const npy_packed_static_string *NPY_NULL_STRING;
 
 // one byte in size is reserved for flags and small string optimization
 #define NPY_MAX_STRING_SIZE ((int64_t)1 << 8 * (sizeof(size_t) - 1)) - 1
@@ -100,6 +90,19 @@ NpyString_isnull(const npy_packed_static_string *in);
 // null-terminated C strings with the contents of *s1* and *s2*.
 int
 NpyString_cmp(const npy_static_string *s1, const npy_static_string *s2);
+
+// Copy and pack the first *size* entries of the buffer pointed to by *buf*
+// into the *packed_string*. Returns 0 on success and -1 on failure.
+int
+NpyString_pack(npy_string_allocator *allocator,
+               npy_packed_static_string *packed_string, const char *buf,
+               size_t size);
+
+// Pack the null string into the *packed_string*. Returns 0 on success and -1
+// on failure.
+int
+NpyString_pack_null(npy_string_allocator *allocator,
+                    npy_packed_static_string *packed_string);
 
 // Extract the packed contents of *packed_string* into *unpacked_string*.  A
 // useful pattern is to define a stack-allocated npy_static_string instance

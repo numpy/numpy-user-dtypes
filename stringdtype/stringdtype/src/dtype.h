@@ -55,6 +55,14 @@
         NPY_STRING_RELEASE_ALLOCATOR(descr3);                 \
     }
 
+// not publicly exposed by the static string library so we need to define
+// this here so we can define `elsize` and `alignment` on the descr
+//
+// if the layout of npy_packed_static_string ever changes in the future
+// this may need to be updated.
+#define SIZEOF_NPY_PACKED_STATIC_STRING 2 * sizeof(size_t)
+#define ALIGNOF_NPY_PACKED_STATIC_STRING _Alignof(size_t)
+
 typedef struct {
     PyArray_Descr base;
     PyObject *na_object;
@@ -63,9 +71,9 @@ typedef struct {
     int has_string_na;
     int array_owned;
     npy_static_string default_string;
-    npy_packed_static_string packed_default_string;
+    char packed_default_string[SIZEOF_NPY_PACKED_STATIC_STRING];
     npy_static_string na_name;
-    npy_packed_static_string packed_na_name;
+    char packed_na_name[SIZEOF_NPY_PACKED_STATIC_STRING];
     PyThread_type_lock *allocator_lock;
     // the allocator should only be directly accessed after
     // acquiring the allocator_lock and the lock should
