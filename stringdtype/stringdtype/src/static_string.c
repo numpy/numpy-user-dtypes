@@ -100,9 +100,10 @@ vstring_buffer(npy_string_arena *arena, _npy_static_string_u *string)
     return (char *)((size_t)arena->buffer + string->vstring.offset);
 }
 
+#define ARENA_EXPAND_FACTOR 1.25
+
 char *
-NpyString_arena_malloc(npy_string_arena *arena, npy_string_realloc_func r,
-                       size_t size)
+arena_malloc(npy_string_arena *arena, npy_string_realloc_func r, size_t size)
 {
     // one extra size_t to store the size of the allocation
     size_t string_storage_size;
@@ -119,15 +120,16 @@ NpyString_arena_malloc(npy_string_arena *arena, npy_string_realloc_func r,
         if (arena->size == 0) {
             newsize = string_storage_size;
         }
-        else if (((2 * arena->size) - arena->cursor) > string_storage_size) {
-            newsize = 2 * arena->size;
+        else if (((ARENA_EXPAND_FACTOR * arena->size) - arena->cursor) >
+                 string_storage_size) {
+            newsize = ARENA_EXPAND_FACTOR * arena->size;
         }
         else {
             newsize = arena->size + string_storage_size;
         }
         if ((arena->cursor + size) >= newsize) {
-            // doubling the current size isn't enough
-            newsize = 2 * (arena->cursor + size);
+            // need extra room beyond the expansion factor, leave some padding
+            newsize = ARENA_EXPAND_FACTOR * (arena->cursor + size);
         }
         // passing a NULL buffer to realloc is the same as malloc
         char *newbuf = r(arena->buffer, newsize);
@@ -155,7 +157,7 @@ NpyString_arena_malloc(npy_string_arena *arena, npy_string_realloc_func r,
 }
 
 int
-NpyString_arena_free(npy_string_arena *arena, _npy_static_string_u *str)
+arena_free(npy_string_arena *arena, _npy_static_string_u *str)
 {
     if (arena->size == 0 && arena->cursor == 0 && arena->buffer == NULL) {
         // empty arena, nothing to do
@@ -193,7 +195,7 @@ NpyString_new_allocator(npy_string_malloc_func m, npy_string_free_func f,
     allocator->malloc = m;
     allocator->free = f;
     allocator->realloc = r;
-    // arena buffer gets allocated in NpyString_arena_malloc
+    // arena buffer gets allocated in arena_malloc
     allocator->arena = NEW_ARENA;
     return allocator;
 }
@@ -338,8 +340,7 @@ heap_or_arena_allocate(npy_string_allocator *allocator,
         }
     }
     // string isn't previously allocated, so add to existing arena allocation
-    char *ret = NpyString_arena_malloc(arena, allocator->realloc,
-                                       sizeof(char) * size);
+    char *ret = arena_malloc(arena, allocator->realloc, sizeof(char) * size);
     if (size < NPY_MEDIUM_STRING_MAX_SIZE) {
         *flags |= NPY_STRING_MEDIUM;
     }
@@ -368,7 +369,7 @@ heap_or_arena_deallocate(npy_string_allocator *allocator,
         if (arena == NULL) {
             return -1;
         }
-        if (NpyString_arena_free(arena, str_u) < 0) {
+        if (arena_free(arena, str_u) < 0) {
             return -1;
         }
         if (arena->buffer != NULL) {
