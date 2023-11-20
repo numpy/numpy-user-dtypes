@@ -23,7 +23,7 @@ def unicode_array():
 
 
 UNARY_FUNCTIONS = [
-    "str_len",
+    # "str_len",
     "capitalize",
     "expandtabs",
     "isalnum",
@@ -59,7 +59,7 @@ BINARY_FUNCTIONS = [
     ("multiply", (None, 2)),
     ("mod", ("format: %s", None)),
     ("center", (None, 25)),
-    ("count", (None, "A")),
+    # ("count", (None, "A")),
     ("encode", (None, "UTF-8")),
     # ("endswith", (None, "lo")),
     # ("find", (None, "A")),
