@@ -8,14 +8,14 @@
 // the high byte in vstring.size is reserved for flags
 // SSSS SSSF
 
-typedef struct _npy_static_string_t {
+typedef struct _npy_static_vstring_t {
     size_t offset;
-    size_t size;
-} _npy_static_string_t;
+    size_t size_and_flags;
+} _npy_static_vstring_t;
 
 typedef struct _short_string_buffer {
-    char buf[sizeof(_npy_static_string_t) - 1];
-    unsigned char flags_and_size;
+    char buf[sizeof(_npy_static_vstring_t) - 1];
+    unsigned char size_and_flags;
 } _short_string_buffer;
 
 #elif NPY_BYTE_ORDER == NPY_BIG_ENDIAN
@@ -23,20 +23,20 @@ typedef struct _short_string_buffer {
 // the high byte in vstring.size is reserved for flags
 // FSSS SSSS
 
-typedef struct _npy_static_string_t {
+typedef struct _npy_static_vstring_t {
     size_t size;
     size_t offset;
-} _npy_static_string_t;
+} _npy_static_vstring_t;
 
 typedef struct _short_string_buffer {
-    unsigned char flags_and_size;
-    char buf[sizeof(npy_static_string_t) - 1];
+    unsigned char size_and_flags;
+    char buf[sizeof(_npy_static_vstring_t) - 1];
 } _short_string_buffer;
 
 #endif
 
 typedef union _npy_static_string_u {
-    _npy_static_string_t vstring;
+    _npy_static_vstring_t vstring;
     _short_string_buffer direct_buffer;
 } _npy_static_string_u;
 
@@ -59,19 +59,12 @@ typedef union _npy_static_string_u {
 // of this choice is a calloc'd array buffer (e.g. from np.empty) is filled
 // with empty elements for free
 const _npy_static_string_u empty_string_u = {
-        .direct_buffer = {.flags_and_size = 0, .buf = {0}}};
-const npy_packed_static_string *NPY_EMPTY_STRING =
-        (npy_packed_static_string *)&empty_string_u;
-// zero-filled, but with the NULL flag set to distinguish from empty string
-const _npy_static_string_u null_string_u = {
-        .direct_buffer = {.flags_and_size = NPY_STRING_MISSING, .buf = {0}}};
-const npy_packed_static_string *NPY_NULL_STRING =
-        (npy_packed_static_string *)&null_string_u;
+        .direct_buffer = {.size_and_flags = 0, .buf = {0}}};
 
 #define VSTRING_FLAGS(string) \
-    string->direct_buffer.flags_and_size & ~NPY_SHORT_STRING_SIZE_MASK;
+    string->direct_buffer.size_and_flags & ~NPY_SHORT_STRING_SIZE_MASK;
 #define HIGH_BYTE_MASK ((size_t)0XFF << 8 * (sizeof(size_t) - 1))
-#define VSTRING_SIZE(string) (string->vstring.size & ~HIGH_BYTE_MASK)
+#define VSTRING_SIZE(string) (string->vstring.size_and_flags & ~HIGH_BYTE_MASK)
 
 typedef struct npy_string_arena {
     size_t cursor;
@@ -89,9 +82,9 @@ struct npy_string_allocator {
 void
 set_vstring_size(_npy_static_string_u *str, size_t size)
 {
-    unsigned char current_flags = str->direct_buffer.flags_and_size;
-    str->vstring.size = size;
-    str->direct_buffer.flags_and_size = current_flags;
+    unsigned char current_flags = str->direct_buffer.size_and_flags;
+    str->vstring.size_and_flags = size;
+    str->direct_buffer.size_and_flags = current_flags;
 }
 
 char *
@@ -107,9 +100,10 @@ vstring_buffer(npy_string_arena *arena, _npy_static_string_u *string)
     return (char *)((size_t)arena->buffer + string->vstring.offset);
 }
 
+#define ARENA_EXPAND_FACTOR 1.25
+
 char *
-npy_string_arena_malloc(npy_string_arena *arena, npy_string_realloc_func r,
-                        size_t size)
+arena_malloc(npy_string_arena *arena, npy_string_realloc_func r, size_t size)
 {
     // one extra size_t to store the size of the allocation
     size_t string_storage_size;
@@ -126,15 +120,16 @@ npy_string_arena_malloc(npy_string_arena *arena, npy_string_realloc_func r,
         if (arena->size == 0) {
             newsize = string_storage_size;
         }
-        else if (((2 * arena->size) - arena->cursor) > string_storage_size) {
-            newsize = 2 * arena->size;
+        else if (((ARENA_EXPAND_FACTOR * arena->size) - arena->cursor) >
+                 string_storage_size) {
+            newsize = ARENA_EXPAND_FACTOR * arena->size;
         }
         else {
             newsize = arena->size + string_storage_size;
         }
         if ((arena->cursor + size) >= newsize) {
-            // doubling the current size isn't enough
-            newsize = 2 * (arena->cursor + size);
+            // need extra room beyond the expansion factor, leave some padding
+            newsize = ARENA_EXPAND_FACTOR * (arena->cursor + size);
         }
         // passing a NULL buffer to realloc is the same as malloc
         char *newbuf = r(arena->buffer, newsize);
@@ -162,7 +157,7 @@ npy_string_arena_malloc(npy_string_arena *arena, npy_string_realloc_func r,
 }
 
 int
-npy_string_arena_free(npy_string_arena *arena, _npy_static_string_u *str)
+arena_free(npy_string_arena *arena, _npy_static_string_u *str)
 {
     if (arena->size == 0 && arena->cursor == 0 && arena->buffer == NULL) {
         // empty arena, nothing to do
@@ -190,8 +185,8 @@ npy_string_arena_free(npy_string_arena *arena, _npy_static_string_u *str)
 static npy_string_arena NEW_ARENA = {0, 0, NULL};
 
 npy_string_allocator *
-npy_string_new_allocator(npy_string_malloc_func m, npy_string_free_func f,
-                         npy_string_realloc_func r)
+NpyString_new_allocator(npy_string_malloc_func m, npy_string_free_func f,
+                        npy_string_realloc_func r)
 {
     npy_string_allocator *allocator = m(sizeof(npy_string_allocator));
     if (allocator == NULL) {
@@ -200,13 +195,13 @@ npy_string_new_allocator(npy_string_malloc_func m, npy_string_free_func f,
     allocator->malloc = m;
     allocator->free = f;
     allocator->realloc = r;
-    // arena buffer gets allocated in npy_string_arena_malloc
+    // arena buffer gets allocated in arena_malloc
     allocator->arena = NEW_ARENA;
     return allocator;
 }
 
 void
-npy_string_free_allocator(npy_string_allocator *allocator)
+NpyString_free_allocator(npy_string_allocator *allocator)
 {
     npy_string_free_func f = allocator->free;
 
@@ -221,7 +216,7 @@ int
 is_short_string(const npy_packed_static_string *s)
 {
     unsigned char high_byte =
-            ((_npy_static_string_u *)s)->direct_buffer.flags_and_size;
+            ((_npy_static_string_u *)s)->direct_buffer.size_and_flags;
     int has_short_flag = (high_byte & NPY_STRING_SHORT);
     int has_on_heap_flag = (high_byte & NPY_STRING_ON_HEAP);
     return has_short_flag && !has_on_heap_flag;
@@ -230,24 +225,24 @@ is_short_string(const npy_packed_static_string *s)
 int
 is_medium_string(const _npy_static_string_u *s)
 {
-    unsigned char high_byte = s->direct_buffer.flags_and_size;
+    unsigned char high_byte = s->direct_buffer.size_and_flags;
     int has_short_flag = (high_byte & NPY_STRING_SHORT);
     int has_medium_flag = (high_byte & NPY_STRING_MEDIUM);
     return (!has_short_flag && has_medium_flag);
 }
 
 int
-npy_string_isnull(const npy_packed_static_string *s)
+NpyString_isnull(const npy_packed_static_string *s)
 {
     unsigned char high_byte =
-            ((_npy_static_string_u *)s)->direct_buffer.flags_and_size;
+            ((_npy_static_string_u *)s)->direct_buffer.size_and_flags;
     return (high_byte & NPY_STRING_MISSING) == NPY_STRING_MISSING;
 }
 
 int
 is_not_a_vstring(const npy_packed_static_string *s)
 {
-    return is_short_string(s) || npy_string_isnull(s);
+    return is_short_string(s) || NpyString_isnull(s);
 }
 
 int
@@ -257,11 +252,11 @@ is_a_vstring(const npy_packed_static_string *s)
 }
 
 int
-npy_string_load(npy_string_allocator *allocator,
-                const npy_packed_static_string *packed_string,
-                npy_static_string *unpacked_string)
+NpyString_load(npy_string_allocator *allocator,
+               const npy_packed_static_string *packed_string,
+               npy_static_string *unpacked_string)
 {
-    if (npy_string_isnull(packed_string)) {
+    if (NpyString_isnull(packed_string)) {
         unpacked_string->size = 0;
         unpacked_string->buf = NULL;
         return 1;
@@ -270,7 +265,7 @@ npy_string_load(npy_string_allocator *allocator,
     _npy_static_string_u *string_u = (_npy_static_string_u *)packed_string;
 
     if (is_short_string(packed_string)) {
-        unsigned char high_byte = string_u->direct_buffer.flags_and_size;
+        unsigned char high_byte = string_u->direct_buffer.size_and_flags;
         unpacked_string->size = high_byte & NPY_SHORT_STRING_SIZE_MASK;
         unpacked_string->buf = string_u->direct_buffer.buf;
     }
@@ -300,7 +295,7 @@ heap_or_arena_allocate(npy_string_allocator *allocator,
                        _npy_static_string_u *to_init_u, size_t size,
                        int *on_heap)
 {
-    unsigned char *flags = &to_init_u->direct_buffer.flags_and_size;
+    unsigned char *flags = &to_init_u->direct_buffer.size_and_flags;
     if (*flags & NPY_STRING_SHORT) {
         // Have to heap allocate since there isn't a preexisting
         // allocation. This leaves the NPY_STRING_SHORT flag set to indicate
@@ -345,8 +340,7 @@ heap_or_arena_allocate(npy_string_allocator *allocator,
         }
     }
     // string isn't previously allocated, so add to existing arena allocation
-    char *ret = npy_string_arena_malloc(arena, allocator->realloc,
-                                        sizeof(char) * size);
+    char *ret = arena_malloc(arena, allocator->realloc, sizeof(char) * size);
     if (size < NPY_MEDIUM_STRING_MAX_SIZE) {
         *flags |= NPY_STRING_MEDIUM;
     }
@@ -357,7 +351,7 @@ int
 heap_or_arena_deallocate(npy_string_allocator *allocator,
                          _npy_static_string_u *str_u)
 {
-    unsigned char *flags = &str_u->direct_buffer.flags_and_size;
+    unsigned char *flags = &str_u->direct_buffer.size_and_flags;
     if (*flags & NPY_STRING_ON_HEAP) {
         // It's a heap string (not in the arena buffer) so it needs to be
         // deallocated with free(). For heap strings the offset is a raw
@@ -375,22 +369,22 @@ heap_or_arena_deallocate(npy_string_allocator *allocator,
         if (arena == NULL) {
             return -1;
         }
-        if (npy_string_arena_free(arena, str_u) < 0) {
+        if (arena_free(arena, str_u) < 0) {
             return -1;
         }
         if (arena->buffer != NULL) {
-            str_u->direct_buffer.flags_and_size |= NPY_STRING_ARENA_FREED;
+            str_u->direct_buffer.size_and_flags |= NPY_STRING_ARENA_FREED;
         }
     }
     return 0;
 }
 
 int
-npy_string_newsize(const char *init, size_t size,
-                   npy_packed_static_string *to_init,
-                   npy_string_allocator *allocator)
+NpyString_newsize(const char *init, size_t size,
+                  npy_packed_static_string *to_init,
+                  npy_string_allocator *allocator)
 {
-    if (npy_string_newemptysize(size, to_init, allocator) < 0) {
+    if (NpyString_newemptysize(size, to_init, allocator) < 0) {
         return -1;
     }
 
@@ -415,8 +409,8 @@ npy_string_newsize(const char *init, size_t size,
 }
 
 int
-npy_string_newemptysize(size_t size, npy_packed_static_string *out,
-                        npy_string_allocator *allocator)
+NpyString_newemptysize(size_t size, npy_packed_static_string *out,
+                       npy_string_allocator *allocator)
 {
     if (size > NPY_MAX_STRING_SIZE) {
         return -1;
@@ -425,11 +419,11 @@ npy_string_newemptysize(size_t size, npy_packed_static_string *out,
     _npy_static_string_u *out_u = (_npy_static_string_u *)out;
 
     unsigned char flags =
-            out_u->direct_buffer.flags_and_size & ~NPY_SHORT_STRING_SIZE_MASK;
+            out_u->direct_buffer.size_and_flags & ~NPY_SHORT_STRING_SIZE_MASK;
 
     if (size == 0) {
-        *out = *NPY_EMPTY_STRING;
-        out_u->direct_buffer.flags_and_size |= flags;
+        memcpy(out_u, &empty_string_u, sizeof(_npy_static_string_u));
+        out_u->direct_buffer.size_and_flags |= flags;
         return 0;
     }
 
@@ -458,21 +452,21 @@ npy_string_newemptysize(size_t size, npy_packed_static_string *out,
         // In either case, the size data is in at most the least significant 4
         // bits of the byte so it's safe to | with one of 0x10, 0x20, 0x40, or
         // 0x80.
-        out_u->direct_buffer.flags_and_size = NPY_STRING_SHORT | flags | size;
+        out_u->direct_buffer.size_and_flags = NPY_STRING_SHORT | flags | size;
     }
 
     return 0;
 }
 
 int
-npy_string_free(npy_packed_static_string *str, npy_string_allocator *allocator)
+NpyString_free(npy_packed_static_string *str, npy_string_allocator *allocator)
 {
     _npy_static_string_u *str_u = (_npy_static_string_u *)str;
     if (is_not_a_vstring(str)) {
         // zero out, keeping flags
-        unsigned char *flags = &str_u->direct_buffer.flags_and_size;
+        unsigned char *flags = &str_u->direct_buffer.size_and_flags;
         unsigned char current_flags = *flags & ~NPY_SHORT_STRING_SIZE_MASK;
-        memcpy(str, NPY_EMPTY_STRING, sizeof(npy_packed_static_string));
+        memcpy(str_u, &empty_string_u, sizeof(_npy_static_string_u));
         *flags |= current_flags;
     }
     else {
@@ -488,27 +482,26 @@ npy_string_free(npy_packed_static_string *str, npy_string_allocator *allocator)
 }
 
 int
-npy_string_dup(const npy_packed_static_string *in,
-               npy_packed_static_string *out,
-               npy_string_allocator *in_allocator,
-               npy_string_allocator *out_allocator)
+NpyString_dup(const npy_packed_static_string *in,
+              npy_packed_static_string *out,
+              npy_string_allocator *in_allocator,
+              npy_string_allocator *out_allocator)
 {
-    if (npy_string_isnull(in)) {
-        *out = *NPY_NULL_STRING;
-        return 0;
+    if (NpyString_isnull(in)) {
+        return NpyString_pack_null(out_allocator, out);
     }
     if (is_short_string(in)) {
-        memcpy(out, in, sizeof(npy_packed_static_string));
+        memcpy(out, in, sizeof(_npy_static_string_u));
         return 0;
     }
     _npy_static_string_u *in_u = (_npy_static_string_u *)in;
     size_t size = VSTRING_SIZE(in_u);
     if (size == 0) {
         _npy_static_string_u *out_u = (_npy_static_string_u *)out;
-        unsigned char flags = out_u->direct_buffer.flags_and_size &
+        unsigned char flags = out_u->direct_buffer.size_and_flags &
                               ~NPY_SHORT_STRING_SIZE_MASK;
-        *out = *NPY_EMPTY_STRING;
-        out_u->direct_buffer.flags_and_size |= flags;
+        memcpy(out_u, &empty_string_u, sizeof(_npy_static_string_u));
+        out_u->direct_buffer.size_and_flags |= flags;
         return 0;
     }
     char *in_buf = NULL;
@@ -526,7 +519,7 @@ npy_string_dup(const npy_packed_static_string *in,
         in_buf = vstring_buffer(arena, in_u);
     }
     int ret =
-            npy_string_newsize(in_buf, VSTRING_SIZE(in_u), out, out_allocator);
+            NpyString_newsize(in_buf, VSTRING_SIZE(in_u), out, out_allocator);
     if (used_malloc) {
         in_allocator->free(in_buf);
     }
@@ -534,7 +527,7 @@ npy_string_dup(const npy_packed_static_string *in,
 }
 
 int
-npy_string_cmp(const npy_static_string *s1, const npy_static_string *s2)
+NpyString_cmp(const npy_static_string *s1, const npy_static_string *s2)
 {
     size_t minsize = s1->size < s2->size ? s1->size : s2->size;
 
@@ -557,18 +550,44 @@ npy_string_cmp(const npy_static_string *s1, const npy_static_string *s2)
 }
 
 size_t
-npy_string_size(const npy_packed_static_string *packed_string)
+NpyString_size(const npy_packed_static_string *packed_string)
 {
-    if (npy_string_isnull(packed_string)) {
+    if (NpyString_isnull(packed_string)) {
         return 0;
     }
 
     _npy_static_string_u *string_u = (_npy_static_string_u *)packed_string;
 
     if (is_short_string(packed_string)) {
-        return string_u->direct_buffer.flags_and_size &
+        return string_u->direct_buffer.size_and_flags &
                NPY_SHORT_STRING_SIZE_MASK;
     }
 
     return VSTRING_SIZE(string_u);
+}
+
+int
+NpyString_pack(npy_string_allocator *allocator,
+               npy_packed_static_string *packed_string, const char *buf,
+               size_t size)
+{
+    if (NpyString_free(packed_string, allocator) < 0) {
+        return -1;
+    }
+    return NpyString_newsize(buf, size, packed_string, allocator);
+}
+
+int
+NpyString_pack_null(npy_string_allocator *allocator,
+                    npy_packed_static_string *packed_string)
+{
+    _npy_static_string_u *str_u = (_npy_static_string_u *)packed_string;
+    unsigned char *flags = &str_u->direct_buffer.size_and_flags;
+    unsigned char current_flags = *flags & ~NPY_SHORT_STRING_SIZE_MASK;
+    if (NpyString_free(packed_string, allocator) < 0) {
+        return -1;
+    }
+    memcpy(str_u, &empty_string_u, sizeof(_npy_static_string_u));
+    *flags = current_flags | NPY_STRING_MISSING;
+    return 0;
 }

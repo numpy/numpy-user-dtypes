@@ -19,41 +19,13 @@
 #include "numpy/npy_math.h"
 #include "numpy/ufuncobject.h"
 
-#define NPY_STRING_ACQUIRE_ALLOCATOR(descr)                           \
-    if (!PyThread_acquire_lock(descr->allocator_lock, NOWAIT_LOCK)) { \
-        PyThread_acquire_lock(descr->allocator_lock, WAIT_LOCK);      \
-    }
-
-#define NPY_STRING_ACQUIRE_ALLOCATOR2(descr1, descr2) \
-    NPY_STRING_ACQUIRE_ALLOCATOR(descr1)              \
-    if (descr1 != descr2) {                           \
-        NPY_STRING_ACQUIRE_ALLOCATOR(descr2)          \
-    }
-
-#define NPY_STRING_ACQUIRE_ALLOCATOR3(descr1, descr2, descr3) \
-    NPY_STRING_ACQUIRE_ALLOCATOR(descr1)                      \
-    if (descr1 != descr2) {                                   \
-        NPY_STRING_ACQUIRE_ALLOCATOR(descr2)                  \
-    }                                                         \
-    if (descr1 != descr3 && descr2 != descr3) {               \
-        NPY_STRING_ACQUIRE_ALLOCATOR(descr3)                  \
-    }
-
-#define NPY_STRING_RELEASE_ALLOCATOR(descr) \
-    PyThread_release_lock(descr->allocator_lock);
-#define NPY_STRING_RELEASE_ALLOCATOR2(descr1, descr2) \
-    NPY_STRING_RELEASE_ALLOCATOR(descr1);             \
-    if (descr1 != descr2) {                           \
-        NPY_STRING_RELEASE_ALLOCATOR(descr2);         \
-    }
-#define NPY_STRING_RELEASE_ALLOCATOR3(descr1, descr2, descr3) \
-    NPY_STRING_RELEASE_ALLOCATOR(descr1);                     \
-    if (descr1 != descr2) {                                   \
-        NPY_STRING_RELEASE_ALLOCATOR(descr2);                 \
-    }                                                         \
-    if (descr1 != descr3 && descr2 != descr3) {               \
-        NPY_STRING_RELEASE_ALLOCATOR(descr3);                 \
-    }
+// not publicly exposed by the static string library so we need to define
+// this here so we can define `elsize` and `alignment` on the descr
+//
+// if the layout of npy_packed_static_string ever changes in the future
+// this may need to be updated.
+#define SIZEOF_NPY_PACKED_STATIC_STRING 2 * sizeof(size_t)
+#define ALIGNOF_NPY_PACKED_STATIC_STRING _Alignof(size_t)
 
 typedef struct {
     PyArray_Descr base;
@@ -63,9 +35,7 @@ typedef struct {
     int has_string_na;
     int array_owned;
     npy_static_string default_string;
-    npy_packed_static_string packed_default_string;
     npy_static_string na_name;
-    npy_packed_static_string packed_na_name;
     PyThread_type_lock *allocator_lock;
     // the allocator should only be directly accessed after
     // acquiring the allocator_lock and the lock should
@@ -80,6 +50,74 @@ typedef struct {
 
 extern StringDType_type StringDType;
 extern PyTypeObject *StringScalar_Type;
+
+static inline npy_string_allocator *
+NpyString_acquire_allocator(StringDTypeObject *descr)
+{
+    if (!PyThread_acquire_lock(descr->allocator_lock, NOWAIT_LOCK)) {
+        PyThread_acquire_lock(descr->allocator_lock, WAIT_LOCK);
+    }
+    return descr->allocator;
+}
+
+static inline void
+NpyString_acquire_allocator2(StringDTypeObject *descr1,
+                             StringDTypeObject *descr2,
+                             npy_string_allocator **allocator1,
+                             npy_string_allocator **allocator2)
+{
+    *allocator1 = NpyString_acquire_allocator(descr1);
+    if (descr1 != descr2) {
+        *allocator2 = NpyString_acquire_allocator(descr2);
+    }
+    else {
+        *allocator2 = *allocator1;
+    }
+}
+
+static inline void
+NpyString_acquire_allocator3(StringDTypeObject *descr1,
+                             StringDTypeObject *descr2,
+                             StringDTypeObject *descr3,
+                             npy_string_allocator **allocator1,
+                             npy_string_allocator **allocator2,
+                             npy_string_allocator **allocator3)
+{
+    NpyString_acquire_allocator2(descr1, descr2, allocator1, allocator2);
+    if (descr1 != descr3 && descr2 != descr3) {
+        *allocator3 = NpyString_acquire_allocator(descr3);
+    }
+    else {
+        *allocator3 = descr3->allocator;
+    }
+}
+
+static inline void
+NpyString_release_allocator(StringDTypeObject *descr)
+{
+    PyThread_release_lock(descr->allocator_lock);
+}
+
+static inline void
+NpyString_release_allocator2(StringDTypeObject *descr1,
+                             StringDTypeObject *descr2)
+{
+    NpyString_release_allocator(descr1);
+    if (descr1 != descr2) {
+        NpyString_release_allocator(descr2);
+    }
+}
+
+static inline void
+NpyString_release_allocator3(StringDTypeObject *descr1,
+                             StringDTypeObject *descr2,
+                             StringDTypeObject *descr3)
+{
+    NpyString_release_allocator2(descr1, descr2);
+    if (descr1 != descr3 && descr2 != descr3) {
+        NpyString_release_allocator(descr3);
+    }
+}
 
 PyObject *
 new_stringdtype_instance(PyObject *na_object, int coerce);
