@@ -643,6 +643,7 @@ def test_ufunc_add(dtype, string_list, other_strings, use_out):
 @pytest.mark.parametrize(
     "other_dtype",
     [
+        None,
         "int8",
         "int16",
         "int32",
@@ -666,13 +667,17 @@ def test_ufunc_add(dtype, string_list, other_strings, use_out):
 def test_ufunc_multiply(dtype, string_list, other, other_dtype, use_out):
     """Test the two-argument ufuncs match python builtin behavior."""
     arr = np.array(string_list, dtype=dtype)
-    other_dtype = np.dtype(other_dtype)
+    if other_dtype is not None:
+        other_dtype = np.dtype(other_dtype)
     try:
         len(other)
         result = [s * o for s, o in zip(string_list, other)]
-        other = np.array(other, dtype=other_dtype)
+        other = np.array(other)
+        if other_dtype is not None:
+            other = other.astype(other_dtype)
     except TypeError:
-        other = other_dtype.type(other)
+        if other_dtype is not None:
+            other = other_dtype.type(other)
         result = [s * other for s in string_list]
 
     if use_out:
@@ -702,7 +707,9 @@ def test_ufunc_multiply(dtype, string_list, other, other_dtype, use_out):
 
     try:
         len(other)
-        other = np.append(other, 3).astype(other_dtype)
+        other = np.append(other, 3)
+        if other_dtype is not None:
+            other = other.astype(other_dtype)
     except TypeError:
         pass
 
@@ -714,7 +721,7 @@ def test_ufunc_multiply(dtype, string_list, other, other_dtype, use_out):
             else:
                 try:
                     assert res[-1] == dtype.na_object * other[-1]
-                except IndexError:
+                except (IndexError, TypeError):
                     assert res[-1] == dtype.na_object * other
     else:
         with pytest.raises(TypeError):
@@ -776,7 +783,6 @@ def test_null_roundtripping(dtype):
     assert data[1] == arr[1]
 
 
-@pytest.mark.xfail(strict=True)
 def test_string_too_large_error():
     arr = np.array(["a", "b", "c"], dtype=StringDType())
     with pytest.raises(MemoryError):
