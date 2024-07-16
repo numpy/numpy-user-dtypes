@@ -1,3 +1,11 @@
+#define PY_ARRAY_UNIQUE_SYMBOL metadatadtype_ARRAY_API
+#define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
+#define NPY_TARGET_VERSION NPY_2_0_API_VERSION
+#define NO_IMPORT_ARRAY
+#include "numpy/arrayobject.h"
+#include "numpy/dtype_api.h"
+#include "numpy/ndarraytypes.h"
+
 #include "dtype.h"
 
 #include "casts.h"
@@ -74,8 +82,9 @@ new_metadatadtype_instance(PyObject *metadata)
     }
     Py_INCREF(metadata);
     new->metadata = metadata;
-    new->base.elsize = sizeof(double);
-    new->base.alignment = _Alignof(double); /* is there a better spelling? */
+    PyArray_Descr *base = (PyArray_Descr *)new;
+    base->elsize = sizeof(double);
+    base->alignment = _Alignof(double); /* is there a better spelling? */
     /* do not support byte-order for now */
 
     return new;

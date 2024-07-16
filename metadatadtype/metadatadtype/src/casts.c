@@ -1,10 +1,11 @@
 #include <Python.h>
 
 #define PY_ARRAY_UNIQUE_SYMBOL metadatadtype_ARRAY_API
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
+#define NPY_TARGET_VERSION NPY_2_0_API_VERSION
 #define NO_IMPORT_ARRAY
 #include "numpy/arrayobject.h"
-#include "numpy/experimental_dtype_api.h"
+#include "numpy/dtype_api.h"
 #include "numpy/ndarraytypes.h"
 
 #include "casts.h"
@@ -186,7 +187,7 @@ static PyArray_DTypeMeta *m2m_dtypes[2] = {NULL, NULL};
 static PyType_Slot m2m_slots[] = {
         {NPY_METH_resolve_descriptors,
          &metadata_to_metadata_resolve_descriptors},
-        {_NPY_METH_get_loop, &metadata_to_metadata_get_loop},
+        {NPY_METH_get_loop, &metadata_to_metadata_get_loop},
         {0, NULL}};
 
 PyArrayMethod_Spec MetadataToMetadataCastSpec = {
@@ -200,7 +201,7 @@ PyArrayMethod_Spec MetadataToMetadataCastSpec = {
 };
 
 static PyType_Slot m2f_slots[] = {
-        {_NPY_METH_get_loop, &metadata_to_float64_get_loop}, {0, NULL}};
+        {NPY_METH_get_loop, &metadata_to_float64_get_loop}, {0, NULL}};
 
 static char *m2f_name = "cast_MetadataDType_to_Float64";
 
