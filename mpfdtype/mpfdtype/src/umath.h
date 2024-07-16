@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-int
+PyObject *
 init_mpf_umath(void);
 
 #ifdef __cplusplus

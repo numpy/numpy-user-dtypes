@@ -1,11 +1,12 @@
 #include <Python.h>
 
 #define PY_ARRAY_UNIQUE_SYMBOL MPFDType_ARRAY_API
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
+#define NPY_TARGET_VERSION NPY_2_0_API_VERSION
 #define NO_IMPORT_ARRAY
 #include "numpy/arrayobject.h"
 #include "numpy/ndarraytypes.h"
-#include "numpy/experimental_dtype_api.h"
+#include "numpy/dtype_api.h"
 
 #include "mpfr.h"
 
@@ -68,8 +69,8 @@ init_terrible_hacks(void) {
         return -1;
     }
     /* ->f slots are the same for all instances (currently). */
-    descr->base.f->copyswap = (PyArray_CopySwapFunc *)&copyswap_mpf;
-    descr->base.f->compare = (PyArray_CompareFunc *)&compare_mpf;
+    PyDataType_GetArrFuncs(&descr->base)->copyswap = (PyArray_CopySwapFunc *)&copyswap_mpf;
+    PyDataType_GetArrFuncs(&descr->base)->compare = (PyArray_CompareFunc *)&compare_mpf;
     Py_DECREF(descr);
 
     return 0;
