@@ -1,3 +1,15 @@
+#include <Python.h>
+#define PY_ARRAY_UNIQUE_SYMBOL stringdtype_ARRAY_API
+#define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
+#define NPY_TARGET_VERSION NPY_2_0_API_VERSION
+#define NO_IMPORT_ARRAY
+#include "numpy/ndarraytypes.h"
+#include "numpy/arrayobject.h"
+#include "numpy/ufuncobject.h"
+#include "numpy/dtype_api.h"
+#include "numpy/halffloat.h"
+#include "numpy/npy_math.h"
+
 #include "casts.h"
 
 #include "dtype.h"
@@ -75,7 +87,7 @@ string_to_string(PyArrayMethod_Context *context, char *const data[],
     StringDTypeObject *odescr = (StringDTypeObject *)context->descriptors[1];
     int in_hasnull = idescr->na_object != NULL;
     int out_hasnull = odescr->na_object != NULL;
-    const npy_static_string *in_na_name = &idescr->na_name;
+    const _npy_static_string *in_na_name = &idescr->na_name;
     npy_intp N = dimensions[0];
     char *in = data[0];
     char *out = data[1];
@@ -84,15 +96,15 @@ string_to_string(PyArrayMethod_Context *context, char *const data[],
 
     npy_string_allocator *iallocator = NULL;
     npy_string_allocator *oallocator = NULL;
-    NpyString_acquire_allocator2(idescr, odescr, &iallocator, &oallocator);
+    _NpyString_acquire_allocator2(idescr, odescr, &iallocator, &oallocator);
 
     while (N--) {
         const npy_packed_static_string *s = (npy_packed_static_string *)in;
         npy_packed_static_string *os = (npy_packed_static_string *)out;
         if (in != out) {
-            if (in_hasnull && !out_hasnull && NpyString_isnull(s)) {
+            if (in_hasnull && !out_hasnull && _NpyString_isnull(s)) {
                 // lossy but this is an unsafe cast so this is OK
-                if (NpyString_pack(odescr->allocator, os, in_na_name->buf,
+                if (_NpyString_pack(odescr->allocator, os, in_na_name->buf,
                                    in_na_name->size) < 0) {
                     gil_error(PyExc_MemoryError,
                               "Failed to pack string in string to string "
@@ -110,13 +122,13 @@ string_to_string(PyArrayMethod_Context *context, char *const data[],
         out += out_stride;
     }
 
-    NpyString_release_allocator2(odescr, idescr);
+    _NpyString_release_allocator2(odescr, idescr);
 
     return 0;
 
 fail:
 
-    NpyString_release_allocator2(odescr, idescr);
+    _NpyString_release_allocator2(odescr, idescr);
 
     return -1;
 }
@@ -219,10 +231,10 @@ unicode_to_string(PyArrayMethod_Context *context, char *const data[],
                   npy_intp const dimensions[], npy_intp const strides[],
                   NpyAuxData *NPY_UNUSED(auxdata))
 {
-    PyArray_Descr **descrs = context->descriptors;
+    PyArray_Descr *const *descrs = context->descriptors;
     StringDTypeObject *sdescr = (StringDTypeObject *)descrs[1];
 
-    npy_string_allocator *allocator = NpyString_acquire_allocator(sdescr);
+    npy_string_allocator *allocator = _NpyString_acquire_allocator(sdescr);
 
     long max_in_size = (descrs[0]->elsize) / 4;
 
@@ -243,18 +255,18 @@ unicode_to_string(PyArrayMethod_Context *context, char *const data[],
             goto fail;
         }
         npy_packed_static_string *out_pss = (npy_packed_static_string *)out;
-        if (NpyString_free(out_pss, allocator) < 0) {
+        if (_NpyString_free(out_pss, allocator) < 0) {
             gil_error(PyExc_MemoryError,
                       "Failed to deallocate string in unicode to string cast");
             goto fail;
         }
-        if (NpyString_newemptysize(out_num_bytes, out_pss, allocator) < 0) {
+        if (_NpyString_newemptysize(out_num_bytes, out_pss, allocator) < 0) {
             gil_error(PyExc_MemoryError,
                       "Failed to allocate string in unicode to string cast");
             goto fail;
         }
-        npy_static_string out_ss = {0, NULL};
-        int is_null = NpyString_load(allocator, out_pss, &out_ss);
+        _npy_static_string out_ss = {0, NULL};
+        int is_null = _NpyString_load(allocator, out_pss, &out_ss);
         if (is_null == -1) {
             gil_error(PyExc_MemoryError,
                       "Failed to load string in unicode to string cast");
@@ -287,13 +299,13 @@ unicode_to_string(PyArrayMethod_Context *context, char *const data[],
         out += out_stride;
     }
 
-    NpyString_release_allocator(sdescr);
+    _NpyString_release_allocator(sdescr);
 
     return 0;
 
 fail:
 
-    NpyString_release_allocator(sdescr);
+    _NpyString_release_allocator(sdescr);
 
     return -1;
 }
@@ -376,11 +388,11 @@ string_to_unicode(PyArrayMethod_Context *context, char *const data[],
                   NpyAuxData *NPY_UNUSED(auxdata))
 {
     StringDTypeObject *descr = (StringDTypeObject *)context->descriptors[0];
-    npy_string_allocator *allocator = NpyString_acquire_allocator(descr);
+    npy_string_allocator *allocator = _NpyString_acquire_allocator(descr);
     int has_null = descr->na_object != NULL;
     int has_string_na = descr->has_string_na;
-    const npy_static_string *default_string = &descr->default_string;
-    const npy_static_string *na_name = &descr->na_name;
+    const _npy_static_string *default_string = &descr->default_string;
+    const _npy_static_string *na_name = &descr->na_name;
     npy_intp N = dimensions[0];
     char *in = data[0];
     Py_UCS4 *out = (Py_UCS4 *)data[1];
@@ -392,11 +404,11 @@ string_to_unicode(PyArrayMethod_Context *context, char *const data[],
 
     while (N--) {
         const npy_packed_static_string *ps = (npy_packed_static_string *)in;
-        npy_static_string s = {0, NULL};
-        npy_static_string name = {0, NULL};
+        _npy_static_string s = {0, NULL};
+        _npy_static_string name = {0, NULL};
         unsigned char *this_string = NULL;
         size_t n_bytes;
-        int is_null = NpyString_load(allocator, ps, &s);
+        int is_null = _NpyString_load(allocator, ps, &s);
         if (is_null == -1) {
             gil_error(PyExc_MemoryError,
                       "Failed to load string in unicode to string cast");
@@ -443,12 +455,12 @@ string_to_unicode(PyArrayMethod_Context *context, char *const data[],
         out += out_stride;
     }
 
-    NpyString_release_allocator(descr);
+    _NpyString_release_allocator(descr);
 
     return 0;
 
 fail:
-    NpyString_release_allocator(descr);
+    _NpyString_release_allocator(descr);
 
     return -1;
 }
@@ -489,10 +501,10 @@ string_to_bool(PyArrayMethod_Context *context, char *const data[],
                NpyAuxData *NPY_UNUSED(auxdata))
 {
     StringDTypeObject *descr = (StringDTypeObject *)context->descriptors[0];
-    npy_string_allocator *allocator = NpyString_acquire_allocator(descr);
+    npy_string_allocator *allocator = _NpyString_acquire_allocator(descr);
     int has_null = descr->na_object != NULL;
     int has_string_na = descr->has_string_na;
-    const npy_static_string *default_string = &descr->default_string;
+    const _npy_static_string *default_string = &descr->default_string;
 
     npy_intp N = dimensions[0];
     char *in = data[0];
@@ -503,8 +515,8 @@ string_to_bool(PyArrayMethod_Context *context, char *const data[],
 
     while (N--) {
         const npy_packed_static_string *ps = (npy_packed_static_string *)in;
-        npy_static_string s = {0, NULL};
-        int is_null = NpyString_load(allocator, ps, &s);
+        _npy_static_string s = {0, NULL};
+        int is_null = _NpyString_load(allocator, ps, &s);
         if (is_null == -1) {
             gil_error(PyExc_MemoryError,
                       "Failed to load string in unicode to string cast");
@@ -530,13 +542,13 @@ string_to_bool(PyArrayMethod_Context *context, char *const data[],
         out += out_stride;
     }
 
-    NpyString_release_allocator(descr);
+    _NpyString_release_allocator(descr);
 
     return 0;
 
 fail:
 
-    NpyString_release_allocator(descr);
+    _NpyString_release_allocator(descr);
 
     return -1;
 }
@@ -563,7 +575,7 @@ bool_to_string(PyArrayMethod_Context *context, char *const data[],
     npy_intp out_stride = strides[1];
 
     StringDTypeObject *descr = (StringDTypeObject *)context->descriptors[1];
-    npy_string_allocator *allocator = NpyString_acquire_allocator(descr);
+    npy_string_allocator *allocator = _NpyString_acquire_allocator(descr);
 
     while (N--) {
         npy_packed_static_string *out_pss = (npy_packed_static_string *)out;
@@ -582,7 +594,7 @@ bool_to_string(PyArrayMethod_Context *context, char *const data[],
                       "invalid value encountered in bool to string cast");
             goto fail;
         }
-        if (NpyString_pack(allocator, out_pss, ret_val, size) < 0) {
+        if (_NpyString_pack(allocator, out_pss, ret_val, size) < 0) {
             gil_error(PyExc_MemoryError,
                       "Failed to pack string in bool to string cast");
             goto fail;
@@ -591,13 +603,13 @@ bool_to_string(PyArrayMethod_Context *context, char *const data[],
         out += out_stride;
     }
 
-    NpyString_release_allocator(descr);
+    _NpyString_release_allocator(descr);
 
     return 0;
 
 fail:
 
-    NpyString_release_allocator(descr);
+    _NpyString_release_allocator(descr);
 
     return -1;
 }
@@ -613,12 +625,12 @@ static char *b2s_name = "cast_Bool_to_StringDType";
 
 static PyObject *
 string_to_pylong(char *in, int hasnull,
-                 const npy_static_string *default_string,
+                 const _npy_static_string *default_string,
                  npy_string_allocator *allocator)
 {
     const npy_packed_static_string *ps = (npy_packed_static_string *)in;
-    npy_static_string s = {0, NULL};
-    int isnull = NpyString_load(allocator, ps, &s);
+    _npy_static_string s = {0, NULL};
+    int isnull = _NpyString_load(allocator, ps, &s);
     if (isnull == -1) {
         PyErr_SetString(PyExc_MemoryError,
                         "Failed to load string converting string to int");
@@ -645,7 +657,7 @@ string_to_pylong(char *in, int hasnull,
 
 static npy_longlong
 string_to_uint(char *in, npy_ulonglong *value, int hasnull,
-               const npy_static_string *default_string,
+               const _npy_static_string *default_string,
                npy_string_allocator *allocator)
 {
     PyObject *pylong_value =
@@ -664,7 +676,7 @@ string_to_uint(char *in, npy_ulonglong *value, int hasnull,
 
 static npy_longlong
 string_to_int(char *in, npy_longlong *value, int hasnull,
-              const npy_static_string *default_string,
+              const _npy_static_string *default_string,
               npy_string_allocator *allocator)
 {
     PyObject *pylong_value =
@@ -700,7 +712,7 @@ pyobj_to_string(PyObject *obj, char *out, npy_string_allocator *allocator)
         return -1;
     }
     npy_packed_static_string *out_ss = (npy_packed_static_string *)out;
-    if (NpyString_pack(allocator, out_ss, cstr_val, length) < 0) {
+    if (_NpyString_pack(allocator, out_ss, cstr_val, length) < 0) {
         gil_error(PyExc_MemoryError,
                   "Failed to pack string while converting from python "
                   "string");
@@ -756,9 +768,9 @@ uint_to_string(unsigned long long in, char *out,
     {                                                                         \
         StringDTypeObject *descr =                                            \
                 ((StringDTypeObject *)context->descriptors[0]);               \
-        npy_string_allocator *allocator = NpyString_acquire_allocator(descr); \
+        npy_string_allocator *allocator = _NpyString_acquire_allocator(descr); \
         int hasnull = descr->na_object != NULL;                               \
-        const npy_static_string *default_string = &descr->default_string;     \
+        const _npy_static_string *default_string = &descr->default_string;     \
                                                                               \
         npy_intp N = dimensions[0];                                           \
         char *in = data[0];                                                   \
@@ -789,11 +801,11 @@ uint_to_string(unsigned long long in, char *out,
             out += out_stride;                                                \
         }                                                                     \
                                                                               \
-        NpyString_release_allocator(descr);                                   \
+        _NpyString_release_allocator(descr);                                   \
         return 0;                                                             \
                                                                               \
     fail:                                                                     \
-        NpyString_release_allocator(descr);                                   \
+        _NpyString_release_allocator(descr);                                   \
         return -1;                                                            \
     }                                                                         \
                                                                               \
@@ -819,7 +831,7 @@ uint_to_string(unsigned long long in, char *out,
                                                                               \
         StringDTypeObject *descr =                                            \
                 (StringDTypeObject *)context->descriptors[1];                 \
-        npy_string_allocator *allocator = NpyString_acquire_allocator(descr); \
+        npy_string_allocator *allocator = _NpyString_acquire_allocator(descr); \
                                                                               \
         while (N--) {                                                         \
             if (typekind##_to_string((longtype)*in, out, allocator) != 0) {   \
@@ -830,11 +842,11 @@ uint_to_string(unsigned long long in, char *out,
             out += out_stride;                                                \
         }                                                                     \
                                                                               \
-        NpyString_release_allocator(descr);                                   \
+        _NpyString_release_allocator(descr);                                   \
         return 0;                                                             \
                                                                               \
     fail:                                                                     \
-        NpyString_release_allocator(descr);                                   \
+        _NpyString_release_allocator(descr);                                   \
         return -1;                                                            \
     }                                                                         \
                                                                               \
@@ -903,12 +915,12 @@ STRING_INT_CASTS(ulonglong, uint, ulonglong, NPY_ULONGLONG, llu, npy_ulonglong,
 
 static PyObject *
 string_to_pyfloat(char *in, int hasnull,
-                  const npy_static_string *default_string,
+                  const _npy_static_string *default_string,
                   npy_string_allocator *allocator)
 {
     const npy_packed_static_string *ps = (npy_packed_static_string *)in;
-    npy_static_string s = {0, NULL};
-    int isnull = NpyString_load(allocator, ps, &s);
+    _npy_static_string s = {0, NULL};
+    int isnull = _NpyString_load(allocator, ps, &s);
     if (isnull == -1) {
         PyErr_SetString(
                 PyExc_MemoryError,
@@ -942,9 +954,9 @@ string_to_pyfloat(char *in, int hasnull,
     {                                                                         \
         StringDTypeObject *descr =                                            \
                 (StringDTypeObject *)context->descriptors[0];                 \
-        npy_string_allocator *allocator = NpyString_acquire_allocator(descr); \
+        npy_string_allocator *allocator = _NpyString_acquire_allocator(descr); \
         int hasnull = (descr->na_object != NULL);                             \
-        const npy_static_string *default_string = &descr->default_string;     \
+        const _npy_static_string *default_string = &descr->default_string;     \
                                                                               \
         npy_intp N = dimensions[0];                                           \
         char *in = data[0];                                                   \
@@ -975,10 +987,10 @@ string_to_pyfloat(char *in, int hasnull,
             out += out_stride;                                                \
         }                                                                     \
                                                                               \
-        NpyString_release_allocator(descr);                                   \
+        _NpyString_release_allocator(descr);                                   \
         return 0;                                                             \
     fail:                                                                     \
-        NpyString_release_allocator(descr);                                   \
+        _NpyString_release_allocator(descr);                                   \
         return -1;                                                            \
     }                                                                         \
                                                                               \
@@ -1027,7 +1039,7 @@ string_to_pyfloat(char *in, int hasnull,
                                                                               \
         StringDTypeObject *descr =                                            \
                 (StringDTypeObject *)context->descriptors[1];                 \
-        npy_string_allocator *allocator = NpyString_acquire_allocator(descr); \
+        npy_string_allocator *allocator = _NpyString_acquire_allocator(descr); \
                                                                               \
         while (N--) {                                                         \
             PyObject *scalar_val = PyArray_Scalar(in, float_descr, NULL);     \
@@ -1039,10 +1051,10 @@ string_to_pyfloat(char *in, int hasnull,
             out += out_stride;                                                \
         }                                                                     \
                                                                               \
-        NpyString_release_allocator(descr);                                   \
+        _NpyString_release_allocator(descr);                                   \
         return 0;                                                             \
     fail:                                                                     \
-        NpyString_release_allocator(descr);                                   \
+        _NpyString_release_allocator(descr);                                   \
         return -1;                                                            \
     }                                                                         \
                                                                               \
@@ -1062,9 +1074,9 @@ string_to_float64(PyArrayMethod_Context *context, char *const data[],
                   NpyAuxData *NPY_UNUSED(auxdata))
 {
     StringDTypeObject *descr = (StringDTypeObject *)context->descriptors[0];
-    npy_string_allocator *allocator = NpyString_acquire_allocator(descr);
+    npy_string_allocator *allocator = _NpyString_acquire_allocator(descr);
     int hasnull = descr->na_object != NULL;
-    const npy_static_string *default_string = &descr->default_string;
+    const _npy_static_string *default_string = &descr->default_string;
     npy_intp N = dimensions[0];
     char *in = data[0];
     npy_float64 *out = (npy_float64 *)data[1];
@@ -1085,11 +1097,11 @@ string_to_float64(PyArrayMethod_Context *context, char *const data[],
         out += out_stride;
     }
 
-    NpyString_release_allocator(descr);
+    _NpyString_release_allocator(descr);
     return 0;
 
 fail:
-    NpyString_release_allocator(descr);
+    _NpyString_release_allocator(descr);
     return -1;
 }
 
@@ -1141,10 +1153,10 @@ string_to_datetime(PyArrayMethod_Context *context, char *const data[],
                    NpyAuxData *NPY_UNUSED(auxdata))
 {
     StringDTypeObject *descr = (StringDTypeObject *)context->descriptors[0];
-    npy_string_allocator *allocator = NpyString_acquire_allocator(descr);
+    npy_string_allocator *allocator = _NpyString_acquire_allocator(descr);
     int has_null = descr->na_object != NULL;
     int has_string_na = descr->has_string_na;
-    const npy_static_string *default_string = &descr->default_string;
+    const _npy_static_string *default_string = &descr->default_string;
 
     npy_intp N = dimensions[0];
     char *in = data[0];
@@ -1159,13 +1171,14 @@ string_to_datetime(PyArrayMethod_Context *context, char *const data[],
     npy_bool out_special;
 
     PyArray_Descr *dt_descr = context->descriptors[1];
+    _PyArray_LegacyDescr *legacy_descr = (_PyArray_LegacyDescr *)dt_descr;
     PyArray_DatetimeMetaData *dt_meta =
-            &(((PyArray_DatetimeDTypeMetaData *)dt_descr->c_metadata)->meta);
+        &(((PyArray_DatetimeDTypeMetaData *)legacy_descr->c_metadata)->meta);
 
     while (N--) {
         const npy_packed_static_string *ps = (npy_packed_static_string *)in;
-        npy_static_string s = {0, NULL};
-        int is_null = NpyString_load(allocator, ps, &s);
+        _npy_static_string s = {0, NULL};
+        int is_null = _NpyString_load(allocator, ps, &s);
         if (is_null == -1) {
             // do we hold the gil in this cast? error handling below seems to
             // think we do
@@ -1196,11 +1209,11 @@ string_to_datetime(PyArrayMethod_Context *context, char *const data[],
         out += out_stride;
     }
 
-    NpyString_release_allocator(descr);
+    _NpyString_release_allocator(descr);
     return 0;
 
 fail:
-    NpyString_release_allocator(descr);
+    _NpyString_release_allocator(descr);
     return -1;
 }
 
@@ -1228,18 +1241,19 @@ datetime_to_string(PyArrayMethod_Context *context, char *const data[],
 
     npy_datetimestruct dts;
     PyArray_Descr *dt_descr = context->descriptors[0];
+    _PyArray_LegacyDescr *legacy_descr = (_PyArray_LegacyDescr *)dt_descr;
     PyArray_DatetimeMetaData *dt_meta =
-            &(((PyArray_DatetimeDTypeMetaData *)dt_descr->c_metadata)->meta);
+        &(((PyArray_DatetimeDTypeMetaData *)legacy_descr->c_metadata)->meta);
     // buffer passed to numpy to build datetime string
     char datetime_buf[NPY_DATETIME_MAX_ISO8601_STRLEN];
 
     StringDTypeObject *sdescr = (StringDTypeObject *)context->descriptors[1];
-    npy_string_allocator *allocator = NpyString_acquire_allocator(sdescr);
+    npy_string_allocator *allocator = _NpyString_acquire_allocator(sdescr);
 
     while (N--) {
         npy_packed_static_string *out_pss = (npy_packed_static_string *)out;
         if (*in == NPY_DATETIME_NAT &&
-            NpyString_pack_null(allocator, out_pss) < 0) {
+            _NpyString_pack_null(allocator, out_pss) < 0) {
             gil_error(
                     PyExc_MemoryError,
                     "Failed to deallocate string in datetime to string cast");
@@ -1260,7 +1274,7 @@ datetime_to_string(PyArrayMethod_Context *context, char *const data[],
                 goto fail;
             }
 
-            if (NpyString_pack(allocator, out_pss, datetime_buf,
+            if (_NpyString_pack(allocator, out_pss, datetime_buf,
                                strlen(datetime_buf)) < 0) {
                 PyErr_SetString(PyExc_MemoryError,
                                 "Failed to allocate string when converting "
@@ -1273,11 +1287,11 @@ datetime_to_string(PyArrayMethod_Context *context, char *const data[],
         out += out_stride;
     }
 
-    NpyString_release_allocator(sdescr);
+    _NpyString_release_allocator(sdescr);
     return 0;
 
 fail:
-    NpyString_release_allocator(sdescr);
+    _NpyString_release_allocator(sdescr);
     return -1;
 }
 

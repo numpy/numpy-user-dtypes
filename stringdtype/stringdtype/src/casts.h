@@ -9,7 +9,8 @@
 #define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
 #define NPY_TARGET_VERSION NPY_2_0_API_VERSION
 #define NO_IMPORT_ARRAY
-#include "numpy/experimental_dtype_api.h"
+#include "numpy/ndarraytypes.h"
+#include "numpy/dtype_api.h"
 
 PyArrayMethod_Spec **
 get_casts();

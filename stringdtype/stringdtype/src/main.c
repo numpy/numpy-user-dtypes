@@ -3,8 +3,10 @@
 #define PY_ARRAY_UNIQUE_SYMBOL stringdtype_ARRAY_API
 #define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
 #define NPY_TARGET_VERSION NPY_2_0_API_VERSION
+#include "numpy/ndarraytypes.h"
 #include "numpy/arrayobject.h"
-#include "numpy/experimental_dtype_api.h"
+#include "numpy/ufuncobject.h"
+#include "numpy/dtype_api.h"
 
 #include "dtype.h"
 #include "static_string.h"
@@ -58,9 +60,9 @@ _memory_usage(PyObject *NPY_UNUSED(self), PyObject *obj)
         npy_intp count = *innersizeptr;
 
         while (count--) {
-            size_t size = NpyString_size(((npy_packed_static_string *)in));
+            size_t size = _NpyString_size(((npy_packed_static_string *)in));
             // FIXME: add a way for a string to report its heap size usage
-            if (size > (sizeof(npy_static_string) - 1)) {
+            if (size > (sizeof(_npy_static_string) - 1)) {
                 memory_usage += size;
             }
             in += stride;
@@ -94,10 +96,6 @@ PyInit__main(void)
 {
     import_array();
 
-    if (import_experimental_dtype_api(15) < 0) {
-        return NULL;
-    }
-
     PyObject *m = PyModule_Create(&moduledef);
     if (m == NULL) {
         return NULL;
@@ -127,9 +125,13 @@ PyInit__main(void)
         goto error;
     }
 
-    if (init_ufuncs() < 0) {
+    PyObject *numpy = init_ufuncs();
+
+    if (numpy == NULL) {
         goto error;
     }
+
+    Py_DECREF(numpy);
 
     return m;
 

@@ -8,17 +8,6 @@
 
 #include "static_string.h"
 
-#define PY_ARRAY_UNIQUE_SYMBOL stringdtype_ARRAY_API
-#define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
-#define NPY_TARGET_VERSION NPY_2_0_API_VERSION
-#define NO_IMPORT_ARRAY
-#include "numpy/arrayobject.h"
-#include "numpy/experimental_dtype_api.h"
-#include "numpy/halffloat.h"
-#include "numpy/ndarraytypes.h"
-#include "numpy/npy_math.h"
-#include "numpy/ufuncobject.h"
-
 // not publicly exposed by the static string library so we need to define
 // this here so we can define `elsize` and `alignment` on the descr
 //
@@ -34,8 +23,8 @@ typedef struct {
     int has_nan_na;
     int has_string_na;
     int array_owned;
-    npy_static_string default_string;
-    npy_static_string na_name;
+    _npy_static_string default_string;
+    _npy_static_string na_name;
     PyThread_type_lock *allocator_lock;
     // the allocator should only be directly accessed after
     // acquiring the allocator_lock and the lock should
@@ -52,7 +41,7 @@ extern StringDType_type StringDType;
 extern PyTypeObject *StringScalar_Type;
 
 static inline npy_string_allocator *
-NpyString_acquire_allocator(StringDTypeObject *descr)
+_NpyString_acquire_allocator(StringDTypeObject *descr)
 {
     if (!PyThread_acquire_lock(descr->allocator_lock, NOWAIT_LOCK)) {
         PyThread_acquire_lock(descr->allocator_lock, WAIT_LOCK);
@@ -61,14 +50,14 @@ NpyString_acquire_allocator(StringDTypeObject *descr)
 }
 
 static inline void
-NpyString_acquire_allocator2(StringDTypeObject *descr1,
+_NpyString_acquire_allocator2(StringDTypeObject *descr1,
                              StringDTypeObject *descr2,
                              npy_string_allocator **allocator1,
                              npy_string_allocator **allocator2)
 {
-    *allocator1 = NpyString_acquire_allocator(descr1);
+    *allocator1 = _NpyString_acquire_allocator(descr1);
     if (descr1 != descr2) {
-        *allocator2 = NpyString_acquire_allocator(descr2);
+        *allocator2 = _NpyString_acquire_allocator(descr2);
     }
     else {
         *allocator2 = *allocator1;
@@ -76,16 +65,16 @@ NpyString_acquire_allocator2(StringDTypeObject *descr1,
 }
 
 static inline void
-NpyString_acquire_allocator3(StringDTypeObject *descr1,
+_NpyString_acquire_allocator3(StringDTypeObject *descr1,
                              StringDTypeObject *descr2,
                              StringDTypeObject *descr3,
                              npy_string_allocator **allocator1,
                              npy_string_allocator **allocator2,
                              npy_string_allocator **allocator3)
 {
-    NpyString_acquire_allocator2(descr1, descr2, allocator1, allocator2);
+    _NpyString_acquire_allocator2(descr1, descr2, allocator1, allocator2);
     if (descr1 != descr3 && descr2 != descr3) {
-        *allocator3 = NpyString_acquire_allocator(descr3);
+        *allocator3 = _NpyString_acquire_allocator(descr3);
     }
     else {
         *allocator3 = descr3->allocator;
@@ -93,29 +82,29 @@ NpyString_acquire_allocator3(StringDTypeObject *descr1,
 }
 
 static inline void
-NpyString_release_allocator(StringDTypeObject *descr)
+_NpyString_release_allocator(StringDTypeObject *descr)
 {
     PyThread_release_lock(descr->allocator_lock);
 }
 
 static inline void
-NpyString_release_allocator2(StringDTypeObject *descr1,
+_NpyString_release_allocator2(StringDTypeObject *descr1,
                              StringDTypeObject *descr2)
 {
-    NpyString_release_allocator(descr1);
+    _NpyString_release_allocator(descr1);
     if (descr1 != descr2) {
-        NpyString_release_allocator(descr2);
+        _NpyString_release_allocator(descr2);
     }
 }
 
 static inline void
-NpyString_release_allocator3(StringDTypeObject *descr1,
+_NpyString_release_allocator3(StringDTypeObject *descr1,
                              StringDTypeObject *descr2,
                              StringDTypeObject *descr3)
 {
-    NpyString_release_allocator2(descr1, descr2);
+    _NpyString_release_allocator2(descr1, descr2);
     if (descr1 != descr3 && descr2 != descr3) {
-        NpyString_release_allocator(descr3);
+        _NpyString_release_allocator(descr3);
     }
 }
 
