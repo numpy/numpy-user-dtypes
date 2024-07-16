@@ -3,8 +3,8 @@
 This is the prototype implementation of the variable-width UTF-8 string DType
 described in [NEP 55](https://numpy.org/neps/nep-0055-string_dtype.html).
 
-See the NEP for implementation details and usage examples. Full
-documentation will be written as before this code is merged into NumPy.
+See the NEP for implementation details and usage examples. See
+`numpy.dtypes.StringDType` for the version that made it into NumPy.
 
 ## Building
 
@@ -36,20 +36,4 @@ $ rm -r dist/
 $ meson build
 $ python -m build --wheel -Cbuilddir=build
 $ python -m pip install dist/path-to-wheel-file.whl
-```
-
-## Usage
-
-The dtype will not import unless you run python executable with
-the `NUMPY_EXPERIMENTAL_DTYPE_API` environment variable set:
-
-```bash
-$ NUMPY_EXPERIMENTAL_DTYPE_API=1 python
-Python 3.11.3 (main, May  2 2023, 11:36:22) [GCC 11.3.0] on linux
-Type "help", "copyright", "credits" or "license" for more information.
->>> from stringdtype import StringDType
->>> import numpy as np
->>> arr = np.array(["hello", "world"], dtype=StringDType())
->>> arr
-array(['hello', 'world'], dtype=StringDType())
 ```
