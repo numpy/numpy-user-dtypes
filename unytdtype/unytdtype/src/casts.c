@@ -1,10 +1,13 @@
 #include <Python.h>
 
+#include <Python.h>
+
 #define PY_ARRAY_UNIQUE_SYMBOL unytdtype_ARRAY_API
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
+#define NPY_TARGET_VERSION NPY_2_0_API_VERSION
 #define NO_IMPORT_ARRAY
 #include "numpy/arrayobject.h"
-#include "numpy/experimental_dtype_api.h"
+#include "numpy/dtype_api.h"
 #include "numpy/ndarraytypes.h"
 
 #include "casts.h"
@@ -442,7 +445,7 @@ static PyArray_DTypeMeta *u2u_dtypes[2] = {NULL, NULL};
 
 static PyType_Slot u2u_slots[] = {
         {NPY_METH_resolve_descriptors, &unit_to_unit_resolve_descriptors},
-        {_NPY_METH_get_loop, &unit_to_unit_get_loop},
+        {NPY_METH_get_loop, &unit_to_unit_get_loop},
         {0, NULL}};
 
 static PyArrayMethod_Spec UnitToUnitCastSpec = {
@@ -456,7 +459,7 @@ static PyArrayMethod_Spec UnitToUnitCastSpec = {
 };
 
 static PyType_Slot u2f_slots[] = {
-        {_NPY_METH_get_loop, &unit_to_float64_get_loop}, {0, NULL}};
+        {NPY_METH_get_loop, &unit_to_float64_get_loop}, {0, NULL}};
 
 static char *u2f_name = "cast_UnytDType_to_Float64";
 

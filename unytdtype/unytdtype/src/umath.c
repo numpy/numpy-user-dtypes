@@ -1,10 +1,11 @@
 #include <Python.h>
 
 #define PY_ARRAY_UNIQUE_SYMBOL unytdtype_ARRAY_API
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
+#define NPY_TARGET_VERSION NPY_2_0_API_VERSION
 #define NO_IMPORT_ARRAY
 #include "numpy/arrayobject.h"
-#include "numpy/experimental_dtype_api.h"
+#include "numpy/dtype_api.h"
 #include "numpy/ndarraytypes.h"
 #include "numpy/ufuncobject.h"
 
@@ -64,20 +65,22 @@ unit_multiply_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *dtypes[],
 /*
  * Function that adds our multiply loop to NumPy's multiply ufunc.
  */
-int
+PyObject *
 init_multiply_ufunc(void)
 {
+    import_umath();
+  
     /*
      * Get the multiply ufunc:
      */
     PyObject *numpy = PyImport_ImportModule("numpy");
     if (numpy == NULL) {
-        return -1;
+        return NULL;
     }
     PyObject *multiply = PyObject_GetAttrString(numpy, "multiply");
-    Py_DECREF(numpy);
     if (multiply == NULL) {
-        return -1;
+        Py_DECREF(numpy);
+        return NULL;
     }
 
     /*
@@ -103,8 +106,9 @@ init_multiply_ufunc(void)
     /* Register */
     if (PyUFunc_AddLoopFromSpec(multiply, &MultiplySpec) < 0) {
         Py_DECREF(multiply);
-        return -1;
+        Py_DECREF(numpy);
+        return NULL;
     }
     Py_DECREF(multiply);
-    return 0;
+    return numpy;
 }
