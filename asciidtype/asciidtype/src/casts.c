@@ -49,7 +49,7 @@ ascii_to_ascii(PyArrayMethod_Context *context, char *const data[],
                npy_intp const dimensions[], npy_intp const strides[],
                NpyAuxData *NPY_UNUSED(auxdata))
 {
-    PyArray_Descr **descrs = context->descriptors;
+    PyArray_Descr *const *descrs = context->descriptors;
     long in_size = ((ASCIIDTypeObject *)descrs[0])->size;
     long out_size = ((ASCIIDTypeObject *)descrs[1])->size;
     long copy_size;
@@ -114,7 +114,7 @@ unicode_to_ascii(PyArrayMethod_Context *context, char *const data[],
                  npy_intp const dimensions[], npy_intp const strides[],
                  NpyAuxData *NPY_UNUSED(auxdata))
 {
-    PyArray_Descr **descrs = context->descriptors;
+    PyArray_Descr *const *descrs = context->descriptors;
     long in_size = (descrs[0]->elsize) / 4;
     long out_size = ((ASCIIDTypeObject *)descrs[1])->size;
     long copy_size;
@@ -165,7 +165,7 @@ ascii_to_unicode(PyArrayMethod_Context *context, char *const data[],
                  npy_intp const dimensions[], npy_intp const strides[],
                  NpyAuxData *NPY_UNUSED(auxdata))
 {
-    PyArray_Descr **descrs = context->descriptors;
+    PyArray_Descr *const *descrs = context->descriptors;
     long in_size = ((ASCIIDTypeObject *)descrs[0])->size;
     long out_size = (descrs[1]->elsize) / 4;
     long copy_size;
