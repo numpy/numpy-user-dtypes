@@ -1,5 +1,15 @@
-#include "casts.h"
+#include <Python.h>
+
+#define PY_ARRAY_UNIQUE_SYMBOL quaddtype_ARRAY_API
+#define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
+#define NPY_TARGET_VERSION NPY_2_0_API_VERSION
+#define NO_IMPORT_ARRAY
+#include "numpy/ndarraytypes.h"
+#include "numpy/arrayobject.h"
+#include "numpy/dtype_api.h"
+
 #include "dtype.h"
+#include "casts.h"
 
 // And now the actual cast code!  Starting with the "resolver" which tells
 // us about cast safety.
@@ -131,7 +141,7 @@ static PyArray_DTypeMeta *QuadToQuadDtypes[2] = {NULL, NULL};
 
 static PyType_Slot QuadToQuadSlots[] = {
         {NPY_METH_resolve_descriptors, &quad_to_quad_resolve_descriptors},
-        {_NPY_METH_get_loop, &quad_to_quad_get_loop},
+        {NPY_METH_get_loop, &quad_to_quad_get_loop},
         {0, NULL}};
 
 PyArrayMethod_Spec QuadToQuadCastSpec = {
