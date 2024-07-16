@@ -1,8 +1,11 @@
 
 #include "scalar.h"
 #define PY_ARRAY_UNIQUE_SYMBOL MPFDType_ARRAY_API
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#define PY_UFUNC_UNIQUE_SYMBOL MPFDType_UFUNC_API
+#define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
+#define NPY_TARGET_VERSION NPY_2_0_API_VERSION
 #define NO_IMPORT_ARRAY
+#define NO_IMPORT_UFUNC
 
 extern "C" {
     #include <Python.h>
@@ -11,7 +14,7 @@ extern "C" {
     #include "numpy/ndarraytypes.h"
     #include "numpy/ufuncobject.h"
 
-    #include "numpy/experimental_dtype_api.h"
+    #include "numpy/dtype_api.h"
 }
 
 #include <algorithm>
@@ -612,6 +615,7 @@ init_mpf_umath(void)
         goto err;
     }
 
+    Py_DECREF(numpy);
     return 0;
 
   err:

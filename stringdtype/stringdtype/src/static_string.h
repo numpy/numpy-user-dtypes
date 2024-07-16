@@ -1,15 +1,15 @@
-#ifndef _NPY_STATIC_STRING_H
-#define _NPY_STATIC_STRING_H
+#ifndef __NPY_STATIC_STRING_H
+#define __NPY_STATIC_STRING_H
 
 #include "stdint.h"
 #include "stdlib.h"
 
 typedef struct npy_packed_static_string npy_packed_static_string;
 
-typedef struct npy_unpacked_static_string {
+typedef struct _npy_unpacked_static_string {
     size_t size;
     const char *buf;
-} npy_static_string;
+} _npy_static_string;
 
 // one byte in size is reserved for flags and small string optimization
 #define NPY_MAX_STRING_SIZE ((int64_t)1 << 8 * (sizeof(size_t) - 1)) - 1
@@ -26,17 +26,17 @@ typedef void *(*npy_string_realloc_func)(void *ptr, size_t size);
 // users won't use these directly and will use an allocator already
 // attached to a dtype instance
 npy_string_allocator *
-NpyString_new_allocator(npy_string_malloc_func m, npy_string_free_func f,
+_NpyString_new_allocator(npy_string_malloc_func m, npy_string_free_func f,
                         npy_string_realloc_func r);
 
 // Deallocates the internal buffer and the allocator itself.
 void
-NpyString_free_allocator(npy_string_allocator *allocator);
+_NpyString_free_allocator(npy_string_allocator *allocator);
 
 // Allocates a new buffer for *to_init*, which must be set to NULL before
 // calling this function, filling the newly allocated buffer with the copied
 // contents of the first *size* entries in *init*, which must be valid and
-// initialized beforehand. Calling NpyString_free on *to_init* before calling
+// initialized beforehand. Calling _NpyString_free on *to_init* before calling
 // this function on an existing string or copying the contents of
 // NPY_EMPTY_STRING into *to_init* is sufficient to initialize it. Does not
 // check if *to_init* is NULL or if the internal buffer is non-NULL, undefined
@@ -45,7 +45,7 @@ NpyString_free_allocator(npy_string_allocator *allocator);
 // string.  Returns -1 if allocating the string would exceed the maximum
 // allowed string size or exhaust available memory. Returns 0 on success.
 int
-NpyString_newsize(const char *init, size_t size,
+_NpyString_newsize(const char *init, size_t size,
                   npy_packed_static_string *to_init,
                   npy_string_allocator *allocator);
 
@@ -53,14 +53,14 @@ NpyString_newsize(const char *init, size_t size,
 // arena-allocated data, checks if the data are inside the arena and
 // will return -1 if not. Returns 0 on success.
 int
-NpyString_free(npy_packed_static_string *str, npy_string_allocator *allocator);
+_NpyString_free(npy_packed_static_string *str, npy_string_allocator *allocator);
 
 // Copies the contents of *in* into *out*. Allocates a new string buffer for
-// *out*, NpyString_free *must* be called before this is called if *out*
+// *out*, _NpyString_free *must* be called before this is called if *out*
 // points to an existing string. Returns -1 if malloc fails. Returns 0 on
 // success.
 int
-NpyString_dup(const npy_packed_static_string *in,
+_NpyString_dup(const npy_packed_static_string *in,
               npy_packed_static_string *out,
               npy_string_allocator *in_allocator,
               npy_string_allocator *out_allocator);
@@ -68,7 +68,7 @@ NpyString_dup(const npy_packed_static_string *in,
 // Allocates a new string buffer for *out* with enough capacity to store
 // *size* bytes of text. Does not do any initialization, the caller must
 // initialize the string buffer after this function returns. Calling
-// NpyString_free on *to_init* before calling this function on an existing
+// _NpyString_free on *to_init* before calling this function on an existing
 // string or initializing a new string with the contents of NPY_EMPTY_STRING
 // is sufficient to initialize it. Does not check if *to_init* has already
 // been initialized or if the internal buffer is non-NULL, undefined behavior
@@ -77,35 +77,35 @@ NpyString_dup(const npy_packed_static_string *in,
 // allocating the string would exceed the maximum allowed string size or
 // exhaust available memory. Returns 0 on success.
 int
-NpyString_newemptysize(size_t size, npy_packed_static_string *out,
+_NpyString_newemptysize(size_t size, npy_packed_static_string *out,
                        npy_string_allocator *allocator);
 
 // Determine if *in* corresponds to a null string (e.g. an NA object). Returns
 // -1 if *in* cannot be unpacked. Returns 1 if *in* is a null string and
 // zero otherwise.
 int
-NpyString_isnull(const npy_packed_static_string *in);
+_NpyString_isnull(const npy_packed_static_string *in);
 
 // Compare two strings. Has the same semantics as if strcmp were passed
 // null-terminated C strings with the contents of *s1* and *s2*.
 int
-NpyString_cmp(const npy_static_string *s1, const npy_static_string *s2);
+_NpyString_cmp(const _npy_static_string *s1, const _npy_static_string *s2);
 
 // Copy and pack the first *size* entries of the buffer pointed to by *buf*
 // into the *packed_string*. Returns 0 on success and -1 on failure.
 int
-NpyString_pack(npy_string_allocator *allocator,
+_NpyString_pack(npy_string_allocator *allocator,
                npy_packed_static_string *packed_string, const char *buf,
                size_t size);
 
 // Pack the null string into the *packed_string*. Returns 0 on success and -1
 // on failure.
 int
-NpyString_pack_null(npy_string_allocator *allocator,
+_NpyString_pack_null(npy_string_allocator *allocator,
                     npy_packed_static_string *packed_string);
 
 // Extract the packed contents of *packed_string* into *unpacked_string*.  A
-// useful pattern is to define a stack-allocated npy_static_string instance
+// useful pattern is to define a stack-allocated _npy_static_string instance
 // initialized to {0, NULL} and pass a pointer to the stack-allocated unpacked
 // string to this function to unpack the contents of a packed string. The
 // *unpacked_string* is a read-only view onto the *packed_string* data and
@@ -115,14 +115,14 @@ NpyString_pack_null(npy_string_allocator *allocator,
 // string, and returns 0 otherwise. This function can be used to
 // simultaneously unpack a string and determine if it is a null string.
 int
-NpyString_load(npy_string_allocator *allocator,
+_NpyString_load(npy_string_allocator *allocator,
                const npy_packed_static_string *packed_string,
-               npy_static_string *unpacked_string);
+               _npy_static_string *unpacked_string);
 
 // Returns the size of the string data in the packed string. Useful in
 // situations where only the string size is needed and determining if it is a
 // null or unpacking the string is unnecessary.
 size_t
-NpyString_size(const npy_packed_static_string *packed_string);
+_NpyString_size(const npy_packed_static_string *packed_string);
 
-#endif /*_NPY_STATIC_STRING_H */
+#endif /*__NPY_STATIC_STRING_H */

@@ -1,9 +1,11 @@
 #include <Python.h>
 
 #define PY_ARRAY_UNIQUE_SYMBOL quaddtype_ARRAY_API
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#define PY_UFUNC_UNIQUE_SYMBOL quaddtype_UFUNC_API
+#define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
 #include "numpy/arrayobject.h"
-#include "numpy/experimental_dtype_api.h"
+#include "numpy/ufuncobject.h"
+#include "numpy/dtype_api.h"
 
 #include "dtype.h"
 #include "umath.h"
@@ -19,15 +21,8 @@ static struct PyModuleDef moduledef = {
 PyMODINIT_FUNC
 PyInit__quaddtype_main(void)
 {
-    if (_import_array() < 0)
-        return NULL;
-
-    // Fail to init if the experimental DType API version 5 isn't supported
-    if (import_experimental_dtype_api(15) < 0) {
-        PyErr_SetString(PyExc_ImportError,
-                        "Error encountered importing the experimental dtype API.");
-        return NULL;
-    }
+    import_array();
+    import_umath();
 
     PyObject *m = PyModule_Create(&moduledef);
     if (m == NULL) {
@@ -57,7 +52,7 @@ PyInit__quaddtype_main(void)
         goto error;
     }
 
-    if (init_multiply_ufunc() < 0) {
+    if (init_multiply_ufunc() == -1) {
         PyErr_SetString(PyExc_TypeError, "Failed to initialize the quadscalar multiply ufunc.");
         goto error;
     }

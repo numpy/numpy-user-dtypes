@@ -1,4 +1,16 @@
 #include <Python.h>
+#define PY_ARRAY_UNIQUE_SYMBOL stringdtype_ARRAY_API
+#define PY_UFUNC_UNIQUE_SYMBOL stringdtype_UFUNC_API
+#define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
+#define NPY_TARGET_VERSION NPY_2_0_API_VERSION
+#define NO_IMPORT_ARRAY
+#define NO_IMPORT_UFUNC
+#include "numpy/ndarraytypes.h"
+#include "numpy/arrayobject.h"
+#include "numpy/ufuncobject.h"
+#include "numpy/dtype_api.h"
+#include "numpy/halffloat.h"
+#include "numpy/npy_math.h"
 
 #include "umath.h"
 
@@ -8,7 +20,7 @@
 static NPY_CASTING
 multiply_resolve_descriptors(
         struct PyArrayMethodObject_tag *NPY_UNUSED(method),
-        PyArray_DTypeMeta *dtypes[], PyArray_Descr *given_descrs[],
+        PyArray_DTypeMeta *const dtypes[], PyArray_Descr *const given_descrs[],
         PyArray_Descr *loop_descrs[], npy_intp *NPY_UNUSED(view_offset))
 {
     PyArray_Descr *ldescr = given_descrs[0];
@@ -49,19 +61,19 @@ multiply_resolve_descriptors(
             npy_intp N, char *sin, char *iin, char *out, npy_intp s_stride,   \
             npy_intp i_stride, npy_intp o_stride, int has_null,               \
             int has_nan_na, int has_string_na,                                \
-            const npy_static_string *default_string,                          \
+            const _npy_static_string *default_string,                          \
             StringDTypeObject *idescr, StringDTypeObject *odescr)             \
     {                                                                         \
         npy_string_allocator *iallocator = NULL;                              \
         npy_string_allocator *oallocator = NULL;                              \
-        NpyString_acquire_allocator2(idescr, odescr, &iallocator,             \
+        _NpyString_acquire_allocator2(idescr, odescr, &iallocator,             \
                                      &oallocator);                            \
         while (N--) {                                                         \
             const npy_packed_static_string *ips =                             \
                     (npy_packed_static_string *)sin;                          \
-            npy_static_string is = {0, NULL};                                 \
+            _npy_static_string is = {0, NULL};                                 \
             npy_packed_static_string *ops = (npy_packed_static_string *)out;  \
-            int is_isnull = NpyString_load(iallocator, ips, &is);             \
+            int is_isnull = _NpyString_load(iallocator, ips, &is);             \
             if (is_isnull == -1) {                                            \
                 gil_error(PyExc_MemoryError,                                  \
                           "Failed to load string in multiply");               \
@@ -69,7 +81,7 @@ multiply_resolve_descriptors(
             }                                                                 \
             else if (is_isnull) {                                             \
                 if (has_nan_na) {                                             \
-                    if (NpyString_pack_null(oallocator, ops) < 0) {           \
+                    if (_NpyString_pack_null(oallocator, ops) < 0) {           \
                         gil_error(PyExc_MemoryError,                          \
                                   "Failed to deallocate string in multiply"); \
                         goto fail;                                            \
@@ -81,7 +93,7 @@ multiply_resolve_descriptors(
                     continue;                                                 \
                 }                                                             \
                 else if (has_string_na || !has_null) {                        \
-                    is = *(npy_static_string *)default_string;                \
+                    is = *(_npy_static_string *)default_string;                \
                 }                                                             \
                 else {                                                        \
                     gil_error(PyExc_TypeError,                                \
@@ -101,7 +113,7 @@ multiply_resolve_descriptors(
             }                                                                 \
                                                                               \
             char *buf = NULL;                                                 \
-            npy_static_string os = {0, NULL};                                 \
+            _npy_static_string os = {0, NULL};                                 \
             if (odescr == idescr) {                                           \
                 buf = PyMem_RawMalloc(newsize);                               \
                 if (buf == NULL) {                                            \
@@ -111,17 +123,17 @@ multiply_resolve_descriptors(
                 }                                                             \
             }                                                                 \
             else {                                                            \
-                if (NpyString_free(ops, oallocator) < 0) {                    \
+                if (_NpyString_free(ops, oallocator) < 0) {                    \
                     gil_error(PyExc_MemoryError,                              \
                               "Failed to deallocate string in multiply");     \
                     goto fail;                                                \
                 }                                                             \
-                if (NpyString_newemptysize(newsize, ops, oallocator) < 0) {   \
+                if (_NpyString_newemptysize(newsize, ops, oallocator) < 0) {   \
                     gil_error(PyExc_MemoryError,                              \
                               "Failed to allocate string in multiply");       \
                     goto fail;                                                \
                 }                                                             \
-                if (NpyString_load(oallocator, ops, &os) < 0) {               \
+                if (_NpyString_load(oallocator, ops, &os) < 0) {               \
                     gil_error(PyExc_MemoryError,                              \
                               "Failed to load string in multiply");           \
                     goto fail;                                                \
@@ -137,7 +149,7 @@ multiply_resolve_descriptors(
             }                                                                 \
                                                                               \
             if (idescr == odescr) {                                           \
-                if (NpyString_pack(oallocator, ops, buf, newsize) < 0) {      \
+                if (_NpyString_pack(oallocator, ops, buf, newsize) < 0) {      \
                     gil_error(PyExc_MemoryError,                              \
                               "Failed to pack string in multiply");           \
                     goto fail;                                                \
@@ -150,11 +162,11 @@ multiply_resolve_descriptors(
             iin += i_stride;                                                  \
             out += o_stride;                                                  \
         }                                                                     \
-        NpyString_release_allocator2(idescr, odescr);                         \
+        _NpyString_release_allocator2(idescr, odescr);                         \
         return 0;                                                             \
                                                                               \
     fail:                                                                     \
-        NpyString_release_allocator2(idescr, odescr);                         \
+        _NpyString_release_allocator2(idescr, odescr);                         \
         return -1;                                                            \
     }                                                                         \
                                                                               \
@@ -170,7 +182,7 @@ multiply_resolve_descriptors(
         int has_null = odescr->na_object != NULL;                             \
         int has_nan_na = odescr->has_nan_na;                                  \
         int has_string_na = odescr->has_string_na;                            \
-        const npy_static_string *default_string = &idescr->default_string;    \
+        const _npy_static_string *default_string = &idescr->default_string;    \
         npy_intp N = dimensions[0];                                           \
         char *in1 = data[0];                                                  \
         char *in2 = data[1];                                                  \
@@ -197,7 +209,7 @@ multiply_resolve_descriptors(
         int has_null = idescr->na_object != NULL;                             \
         int has_nan_na = idescr->has_nan_na;                                  \
         int has_string_na = idescr->has_string_na;                            \
-        const npy_static_string *default_string = &idescr->default_string;    \
+        const _npy_static_string *default_string = &idescr->default_string;    \
         npy_intp N = dimensions[0];                                           \
         char *in1 = data[0];                                                  \
         char *in2 = data[1];                                                  \
@@ -239,8 +251,8 @@ MULTIPLY_IMPL(ulonglong);
 
 static NPY_CASTING
 binary_resolve_descriptors(struct PyArrayMethodObject_tag *NPY_UNUSED(method),
-                           PyArray_DTypeMeta *NPY_UNUSED(dtypes[]),
-                           PyArray_Descr *given_descrs[],
+                           PyArray_DTypeMeta *const NPY_UNUSED(dtypes[]),
+                           PyArray_Descr *const given_descrs[],
                            PyArray_Descr *loop_descrs[],
                            npy_intp *NPY_UNUSED(view_offset))
 {
@@ -299,7 +311,7 @@ add_strided_loop(PyArrayMethod_Context *context, char *const data[],
     int has_null = s1descr->na_object != NULL;
     int has_nan_na = s1descr->has_nan_na;
     int has_string_na = s1descr->has_string_na;
-    const npy_static_string *default_string = &s1descr->default_string;
+    const _npy_static_string *default_string = &s1descr->default_string;
     npy_intp N = dimensions[0];
     char *in1 = data[0];
     char *in2 = data[1];
@@ -311,16 +323,16 @@ add_strided_loop(PyArrayMethod_Context *context, char *const data[],
     npy_string_allocator *s1allocator = NULL;
     npy_string_allocator *s2allocator = NULL;
     npy_string_allocator *oallocator = NULL;
-    NpyString_acquire_allocator3(s1descr, s2descr, odescr, &s1allocator,
+    _NpyString_acquire_allocator3(s1descr, s2descr, odescr, &s1allocator,
                                  &s2allocator, &oallocator);
 
     while (N--) {
         const npy_packed_static_string *ps1 = (npy_packed_static_string *)in1;
-        npy_static_string s1 = {0, NULL};
-        int s1_isnull = NpyString_load(s1allocator, ps1, &s1);
+        _npy_static_string s1 = {0, NULL};
+        int s1_isnull = _NpyString_load(s1allocator, ps1, &s1);
         const npy_packed_static_string *ps2 = (npy_packed_static_string *)in2;
-        npy_static_string s2 = {0, NULL};
-        int s2_isnull = NpyString_load(s2allocator, ps2, &s2);
+        _npy_static_string s2 = {0, NULL};
+        int s2_isnull = _NpyString_load(s2allocator, ps2, &s2);
         if (s1_isnull == -1 || s2_isnull == -1) {
             gil_error(PyExc_MemoryError, "Failed to load string in add");
             goto fail;
@@ -328,7 +340,7 @@ add_strided_loop(PyArrayMethod_Context *context, char *const data[],
         npy_packed_static_string *ops = (npy_packed_static_string *)out;
         if (NPY_UNLIKELY(s1_isnull || s2_isnull)) {
             if (has_nan_na) {
-                if (NpyString_pack_null(oallocator, ops) < 0) {
+                if (_NpyString_pack_null(oallocator, ops) < 0) {
                     gil_error(PyExc_MemoryError,
                               "Failed to deallocate string in add");
                     goto fail;
@@ -358,7 +370,7 @@ add_strided_loop(PyArrayMethod_Context *context, char *const data[],
         }
 
         char *buf = NULL;
-        npy_static_string os = {0, NULL};
+        _npy_static_string os = {0, NULL};
         if (odescr == s1descr || odescr == s2descr) {
             buf = PyMem_RawMalloc(newsize);
 
@@ -369,17 +381,17 @@ add_strided_loop(PyArrayMethod_Context *context, char *const data[],
             }
         }
         else {
-            if (NpyString_free(ops, oallocator) < 0) {
+            if (_NpyString_free(ops, oallocator) < 0) {
                 gil_error(PyExc_MemoryError,
                           "Failed to deallocate string in add");
                 goto fail;
             }
-            if (NpyString_newemptysize(newsize, ops, oallocator) < 0) {
+            if (_NpyString_newemptysize(newsize, ops, oallocator) < 0) {
                 gil_error(PyExc_MemoryError,
                           "Failed to allocate string in add");
                 goto fail;
             }
-            if (NpyString_load(oallocator, ops, &os) < 0) {
+            if (_NpyString_load(oallocator, ops, &os) < 0) {
                 gil_error(PyExc_MemoryError, "Failed to load string in add");
                 goto fail;
             }
@@ -391,7 +403,7 @@ add_strided_loop(PyArrayMethod_Context *context, char *const data[],
         memcpy(buf + s1.size, s2.buf, s2.size);
 
         if (s1descr == odescr || s2descr == odescr) {
-            if (NpyString_pack(oallocator, ops, buf, newsize) < 0) {
+            if (_NpyString_pack(oallocator, ops, buf, newsize) < 0) {
                 gil_error(PyExc_MemoryError,
                           "Failed to pack output string in add");
                 goto fail;
@@ -405,11 +417,11 @@ add_strided_loop(PyArrayMethod_Context *context, char *const data[],
         in2 += in2_stride;
         out += out_stride;
     }
-    NpyString_release_allocator3(s1descr, s2descr, odescr);
+    _NpyString_release_allocator3(s1descr, s2descr, odescr);
     return 0;
 
 fail:
-    NpyString_release_allocator3(s1descr, s2descr, odescr);
+    _NpyString_release_allocator3(s1descr, s2descr, odescr);
     return -1;
 }
 
@@ -435,7 +447,7 @@ maximum_strided_loop(PyArrayMethod_Context *context, char *const data[],
     npy_string_allocator *in1_allocator = NULL;
     npy_string_allocator *in2_allocator = NULL;
     npy_string_allocator *out_allocator = NULL;
-    NpyString_acquire_allocator3(in1_descr, in2_descr, out_descr,
+    _NpyString_acquire_allocator3(in1_descr, in2_descr, out_descr,
                                  &in1_allocator, &in2_allocator,
                                  &out_allocator);
 
@@ -466,11 +478,11 @@ maximum_strided_loop(PyArrayMethod_Context *context, char *const data[],
         out += out_stride;
     }
 
-    NpyString_release_allocator3(in1_descr, in2_descr, out_descr);
+    _NpyString_release_allocator3(in1_descr, in2_descr, out_descr);
     return 0;
 
 fail:
-    NpyString_release_allocator3(in1_descr, in2_descr, out_descr);
+    _NpyString_release_allocator3(in1_descr, in2_descr, out_descr);
     return -1;
 }
 
@@ -496,7 +508,7 @@ minimum_strided_loop(PyArrayMethod_Context *context, char *const data[],
     npy_string_allocator *in1_allocator = NULL;
     npy_string_allocator *in2_allocator = NULL;
     npy_string_allocator *out_allocator = NULL;
-    NpyString_acquire_allocator3(in1_descr, in2_descr, out_descr,
+    _NpyString_acquire_allocator3(in1_descr, in2_descr, out_descr,
                                  &in1_allocator, &in2_allocator,
                                  &out_allocator);
 
@@ -527,11 +539,11 @@ minimum_strided_loop(PyArrayMethod_Context *context, char *const data[],
         out += out_stride;
     }
 
-    NpyString_release_allocator3(in1_descr, in2_descr, out_descr);
+    _NpyString_release_allocator3(in1_descr, in2_descr, out_descr);
     return 0;
 
 fail:
-    NpyString_release_allocator3(in1_descr, in2_descr, out_descr);
+    _NpyString_release_allocator3(in1_descr, in2_descr, out_descr);
     return -1;
 }
 
@@ -546,7 +558,7 @@ string_equal_strided_loop(PyArrayMethod_Context *context, char *const data[],
     int has_null = descr1->na_object != NULL;
     int has_nan_na = descr1->has_nan_na;
     int has_string_na = descr1->has_string_na;
-    const npy_static_string *default_string = &descr1->default_string;
+    const _npy_static_string *default_string = &descr1->default_string;
     npy_intp N = dimensions[0];
     char *in1 = data[0];
     char *in2 = data[1];
@@ -557,15 +569,15 @@ string_equal_strided_loop(PyArrayMethod_Context *context, char *const data[],
 
     npy_string_allocator *allocator1 = NULL;
     npy_string_allocator *allocator2 = NULL;
-    NpyString_acquire_allocator2(descr1, descr2, &allocator1, &allocator2);
+    _NpyString_acquire_allocator2(descr1, descr2, &allocator1, &allocator2);
 
     while (N--) {
         const npy_packed_static_string *ps1 = (npy_packed_static_string *)in1;
-        npy_static_string s1 = {0, NULL};
-        int s1_isnull = NpyString_load(allocator1, ps1, &s1);
+        _npy_static_string s1 = {0, NULL};
+        int s1_isnull = _NpyString_load(allocator1, ps1, &s1);
         const npy_packed_static_string *ps2 = (npy_packed_static_string *)in2;
-        npy_static_string s2 = {0, NULL};
-        int s2_isnull = NpyString_load(allocator2, ps2, &s2);
+        _npy_static_string s2 = {0, NULL};
+        int s2_isnull = _NpyString_load(allocator2, ps2, &s2);
         if (NPY_UNLIKELY(s1_isnull < 0 || s2_isnull < 0)) {
             gil_error(PyExc_MemoryError, "Failed to load string in equal");
             goto fail;
@@ -607,12 +619,12 @@ string_equal_strided_loop(PyArrayMethod_Context *context, char *const data[],
         out += out_stride;
     }
 
-    NpyString_release_allocator2(descr1, descr2);
+    _NpyString_release_allocator2(descr1, descr2);
 
     return 0;
 
 fail:
-    NpyString_release_allocator2(descr1, descr2);
+    _NpyString_release_allocator2(descr1, descr2);
 
     return -1;
 }
@@ -628,7 +640,7 @@ string_not_equal_strided_loop(PyArrayMethod_Context *context,
     int has_null = descr1->na_object != NULL;
     int has_nan_na = descr1->has_nan_na;
     int has_string_na = descr1->has_string_na;
-    const npy_static_string *default_string = &descr1->default_string;
+    const _npy_static_string *default_string = &descr1->default_string;
     npy_intp N = dimensions[0];
     char *in1 = data[0];
     char *in2 = data[1];
@@ -639,15 +651,15 @@ string_not_equal_strided_loop(PyArrayMethod_Context *context,
 
     npy_string_allocator *allocator1 = NULL;
     npy_string_allocator *allocator2 = NULL;
-    NpyString_acquire_allocator2(descr1, descr2, &allocator1, &allocator2);
+    _NpyString_acquire_allocator2(descr1, descr2, &allocator1, &allocator2);
 
     while (N--) {
         const npy_packed_static_string *ps1 = (npy_packed_static_string *)in1;
-        npy_static_string s1 = {0, NULL};
-        int s1_isnull = NpyString_load(allocator1, ps1, &s1);
+        _npy_static_string s1 = {0, NULL};
+        int s1_isnull = _NpyString_load(allocator1, ps1, &s1);
         const npy_packed_static_string *ps2 = (npy_packed_static_string *)in2;
-        npy_static_string s2 = {0, NULL};
-        int s2_isnull = NpyString_load(allocator2, ps2, &s2);
+        _npy_static_string s2 = {0, NULL};
+        int s2_isnull = _NpyString_load(allocator2, ps2, &s2);
         if (NPY_UNLIKELY(s1_isnull < 0 || s2_isnull < 0)) {
             gil_error(PyExc_MemoryError, "Failed to load string in not equal");
             goto fail;
@@ -689,12 +701,12 @@ string_not_equal_strided_loop(PyArrayMethod_Context *context,
         out += out_stride;
     }
 
-    NpyString_release_allocator2(descr1, descr2);
+    _NpyString_release_allocator2(descr1, descr2);
 
     return 0;
 
 fail:
-    NpyString_release_allocator2(descr1, descr2);
+    _NpyString_release_allocator2(descr1, descr2);
 
     return -1;
 }
@@ -710,7 +722,7 @@ string_greater_strided_loop(PyArrayMethod_Context *context, char *const data[],
     int has_null = descr1->na_object != NULL;
     int has_nan_na = descr1->has_nan_na;
     int has_string_na = descr1->has_string_na;
-    const npy_static_string *default_string = &descr1->default_string;
+    const _npy_static_string *default_string = &descr1->default_string;
     npy_intp N = dimensions[0];
     char *in1 = data[0];
     char *in2 = data[1];
@@ -721,15 +733,15 @@ string_greater_strided_loop(PyArrayMethod_Context *context, char *const data[],
 
     npy_string_allocator *allocator1 = NULL;
     npy_string_allocator *allocator2 = NULL;
-    NpyString_acquire_allocator2(descr1, descr2, &allocator1, &allocator2);
+    _NpyString_acquire_allocator2(descr1, descr2, &allocator1, &allocator2);
 
     while (N--) {
         const npy_packed_static_string *ps1 = (npy_packed_static_string *)in1;
-        npy_static_string s1 = {0, NULL};
-        int s1_isnull = NpyString_load(allocator1, ps1, &s1);
+        _npy_static_string s1 = {0, NULL};
+        int s1_isnull = _NpyString_load(allocator1, ps1, &s1);
         const npy_packed_static_string *ps2 = (npy_packed_static_string *)in2;
-        npy_static_string s2 = {0, NULL};
-        int s2_isnull = NpyString_load(allocator2, ps2, &s2);
+        _npy_static_string s2 = {0, NULL};
+        int s2_isnull = _NpyString_load(allocator2, ps2, &s2);
         if (NPY_UNLIKELY(s1_isnull < 0 || s2_isnull < 0)) {
             gil_error(PyExc_MemoryError, "Failed to load string in greater");
             goto fail;
@@ -755,7 +767,7 @@ string_greater_strided_loop(PyArrayMethod_Context *context, char *const data[],
                 }
             }
         }
-        if (NpyString_cmp(&s1, &s2) > 0) {
+        if (_NpyString_cmp(&s1, &s2) > 0) {
             *out = (npy_bool)1;
         }
         else {
@@ -768,12 +780,12 @@ string_greater_strided_loop(PyArrayMethod_Context *context, char *const data[],
         out += out_stride;
     }
 
-    NpyString_release_allocator2(descr1, descr2);
+    _NpyString_release_allocator2(descr1, descr2);
 
     return 0;
 
 fail:
-    NpyString_release_allocator2(descr1, descr2);
+    _NpyString_release_allocator2(descr1, descr2);
 
     return -1;
 }
@@ -790,7 +802,7 @@ string_greater_equal_strided_loop(PyArrayMethod_Context *context,
     int has_null = descr1->na_object != NULL;
     int has_nan_na = descr1->has_nan_na;
     int has_string_na = descr1->has_string_na;
-    const npy_static_string *default_string = &descr1->default_string;
+    const _npy_static_string *default_string = &descr1->default_string;
     npy_intp N = dimensions[0];
     char *in1 = data[0];
     char *in2 = data[1];
@@ -801,15 +813,15 @@ string_greater_equal_strided_loop(PyArrayMethod_Context *context,
 
     npy_string_allocator *allocator1 = NULL;
     npy_string_allocator *allocator2 = NULL;
-    NpyString_acquire_allocator2(descr1, descr2, &allocator1, &allocator2);
+    _NpyString_acquire_allocator2(descr1, descr2, &allocator1, &allocator2);
 
     while (N--) {
         const npy_packed_static_string *ps1 = (npy_packed_static_string *)in1;
-        npy_static_string s1 = {0, NULL};
-        int s1_isnull = NpyString_load(allocator1, ps1, &s1);
+        _npy_static_string s1 = {0, NULL};
+        int s1_isnull = _NpyString_load(allocator1, ps1, &s1);
         const npy_packed_static_string *ps2 = (npy_packed_static_string *)in2;
-        npy_static_string s2 = {0, NULL};
-        int s2_isnull = NpyString_load(allocator2, ps2, &s2);
+        _npy_static_string s2 = {0, NULL};
+        int s2_isnull = _NpyString_load(allocator2, ps2, &s2);
         if (NPY_UNLIKELY(s1_isnull < 0 || s2_isnull < 0)) {
             gil_error(PyExc_MemoryError,
                       "Failed to load string in greater equal");
@@ -836,7 +848,7 @@ string_greater_equal_strided_loop(PyArrayMethod_Context *context,
                 }
             }
         }
-        if (NpyString_cmp(&s1, &s2) >= 0) {
+        if (_NpyString_cmp(&s1, &s2) >= 0) {
             *out = (npy_bool)1;
         }
         else {
@@ -849,12 +861,12 @@ string_greater_equal_strided_loop(PyArrayMethod_Context *context,
         out += out_stride;
     }
 
-    NpyString_release_allocator2(descr1, descr2);
+    _NpyString_release_allocator2(descr1, descr2);
 
     return 0;
 
 fail:
-    NpyString_release_allocator2(descr1, descr2);
+    _NpyString_release_allocator2(descr1, descr2);
 
     return -1;
 }
@@ -869,7 +881,7 @@ string_less_strided_loop(PyArrayMethod_Context *context, char *const data[],
     int has_null = descr1->na_object != NULL;
     int has_nan_na = descr1->has_nan_na;
     int has_string_na = descr1->has_string_na;
-    const npy_static_string *default_string = &descr1->default_string;
+    const _npy_static_string *default_string = &descr1->default_string;
     npy_intp N = dimensions[0];
     char *in1 = data[0];
     char *in2 = data[1];
@@ -880,15 +892,15 @@ string_less_strided_loop(PyArrayMethod_Context *context, char *const data[],
 
     npy_string_allocator *allocator1 = NULL;
     npy_string_allocator *allocator2 = NULL;
-    NpyString_acquire_allocator2(descr1, descr2, &allocator1, &allocator2);
+    _NpyString_acquire_allocator2(descr1, descr2, &allocator1, &allocator2);
 
     while (N--) {
         const npy_packed_static_string *ps1 = (npy_packed_static_string *)in1;
-        npy_static_string s1 = {0, NULL};
-        int s1_isnull = NpyString_load(allocator1, ps1, &s1);
+        _npy_static_string s1 = {0, NULL};
+        int s1_isnull = _NpyString_load(allocator1, ps1, &s1);
         const npy_packed_static_string *ps2 = (npy_packed_static_string *)in2;
-        npy_static_string s2 = {0, NULL};
-        int s2_isnull = NpyString_load(allocator2, ps2, &s2);
+        _npy_static_string s2 = {0, NULL};
+        int s2_isnull = _NpyString_load(allocator2, ps2, &s2);
         if (NPY_UNLIKELY(s1_isnull < 0 || s2_isnull < 0)) {
             gil_error(PyExc_MemoryError, "Failed to load string in less");
             goto fail;
@@ -914,7 +926,7 @@ string_less_strided_loop(PyArrayMethod_Context *context, char *const data[],
                 }
             }
         }
-        if (NpyString_cmp(&s1, &s2) < 0) {
+        if (_NpyString_cmp(&s1, &s2) < 0) {
             *out = (npy_bool)1;
         }
         else {
@@ -927,12 +939,12 @@ string_less_strided_loop(PyArrayMethod_Context *context, char *const data[],
         out += out_stride;
     }
 
-    NpyString_release_allocator2(descr1, descr2);
+    _NpyString_release_allocator2(descr1, descr2);
 
     return 0;
 
 fail:
-    NpyString_release_allocator2(descr1, descr2);
+    _NpyString_release_allocator2(descr1, descr2);
 
     return -1;
 }
@@ -948,7 +960,7 @@ string_less_equal_strided_loop(PyArrayMethod_Context *context,
     int has_null = descr1->na_object != NULL;
     int has_nan_na = descr1->has_nan_na;
     int has_string_na = descr1->has_string_na;
-    const npy_static_string *default_string = &descr1->default_string;
+    const _npy_static_string *default_string = &descr1->default_string;
     npy_intp N = dimensions[0];
     char *in1 = data[0];
     char *in2 = data[1];
@@ -959,15 +971,15 @@ string_less_equal_strided_loop(PyArrayMethod_Context *context,
 
     npy_string_allocator *allocator1 = NULL;
     npy_string_allocator *allocator2 = NULL;
-    NpyString_acquire_allocator2(descr1, descr2, &allocator1, &allocator2);
+    _NpyString_acquire_allocator2(descr1, descr2, &allocator1, &allocator2);
 
     while (N--) {
         const npy_packed_static_string *ps1 = (npy_packed_static_string *)in1;
-        npy_static_string s1 = {0, NULL};
-        int s1_isnull = NpyString_load(allocator1, ps1, &s1);
+        _npy_static_string s1 = {0, NULL};
+        int s1_isnull = _NpyString_load(allocator1, ps1, &s1);
         const npy_packed_static_string *ps2 = (npy_packed_static_string *)in2;
-        npy_static_string s2 = {0, NULL};
-        int s2_isnull = NpyString_load(allocator2, ps2, &s2);
+        _npy_static_string s2 = {0, NULL};
+        int s2_isnull = _NpyString_load(allocator2, ps2, &s2);
         if (NPY_UNLIKELY(s1_isnull < 0 || s2_isnull < 0)) {
             gil_error(PyExc_MemoryError,
                       "Failed to load string in less equal");
@@ -994,7 +1006,7 @@ string_less_equal_strided_loop(PyArrayMethod_Context *context,
                 }
             }
         }
-        if (NpyString_cmp(&s1, &s2) <= 0) {
+        if (_NpyString_cmp(&s1, &s2) <= 0) {
             *out = (npy_bool)1;
         }
         else {
@@ -1007,12 +1019,12 @@ string_less_equal_strided_loop(PyArrayMethod_Context *context,
         out += out_stride;
     }
 
-    NpyString_release_allocator2(descr1, descr2);
+    _NpyString_release_allocator2(descr1, descr2);
 
     return 0;
 
 fail:
-    NpyString_release_allocator2(descr1, descr2);
+    _NpyString_release_allocator2(descr1, descr2);
 
     return -1;
 }
@@ -1020,7 +1032,8 @@ fail:
 static NPY_CASTING
 string_comparison_resolve_descriptors(
         struct PyArrayMethodObject_tag *NPY_UNUSED(method),
-        PyArray_DTypeMeta *NPY_UNUSED(dtypes[]), PyArray_Descr *given_descrs[],
+        PyArray_DTypeMeta *const NPY_UNUSED(dtypes[]),
+        PyArray_Descr *const given_descrs[],
         PyArray_Descr *loop_descrs[], npy_intp *NPY_UNUSED(view_offset))
 {
     Py_INCREF(given_descrs[0]);
@@ -1050,7 +1063,7 @@ string_isnan_strided_loop(PyArrayMethod_Context *context, char *const data[],
 
     while (N--) {
         const npy_packed_static_string *s = (npy_packed_static_string *)in;
-        if (has_nan_na && NpyString_isnull(s)) {
+        if (has_nan_na && _NpyString_isnull(s)) {
             *out = (npy_bool)1;
         }
         else {
@@ -1067,7 +1080,8 @@ string_isnan_strided_loop(PyArrayMethod_Context *context, char *const data[],
 static NPY_CASTING
 string_isnan_resolve_descriptors(
         struct PyArrayMethodObject_tag *NPY_UNUSED(method),
-        PyArray_DTypeMeta *NPY_UNUSED(dtypes[]), PyArray_Descr *given_descrs[],
+        PyArray_DTypeMeta *const NPY_UNUSED(dtypes[]),
+        PyArray_Descr *const given_descrs[],
         PyArray_Descr *loop_descrs[], npy_intp *NPY_UNUSED(view_offset))
 {
     Py_INCREF(given_descrs[0]);
@@ -1081,8 +1095,9 @@ string_isnan_resolve_descriptors(
  * Copied from NumPy, because NumPy doesn't always use it :)
  */
 static int
-string_inputs_promoter(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
-                       PyArray_DTypeMeta *signature[],
+string_inputs_promoter(PyUFuncObject *ufunc,
+                       PyArray_DTypeMeta *const op_dtypes[],
+                       PyArray_DTypeMeta *const signature[],
                        PyArray_DTypeMeta *new_op_dtypes[],
                        PyArray_DTypeMeta *final_dtype)
 {
@@ -1105,8 +1120,9 @@ string_inputs_promoter(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
 }
 
 static int
-string_object_promoter(PyObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
-                       PyArray_DTypeMeta *signature[],
+string_object_promoter(PyObject *ufunc,
+                       PyArray_DTypeMeta *const op_dtypes[],
+                       PyArray_DTypeMeta *const signature[],
                        PyArray_DTypeMeta *new_op_dtypes[])
 {
     return string_inputs_promoter((PyUFuncObject *)ufunc, op_dtypes, signature,
@@ -1115,8 +1131,9 @@ string_object_promoter(PyObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
 }
 
 static int
-string_unicode_promoter(PyObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
-                        PyArray_DTypeMeta *signature[],
+string_unicode_promoter(PyObject *ufunc,
+                        PyArray_DTypeMeta *const op_dtypes[],
+                        PyArray_DTypeMeta *const signature[],
                         PyArray_DTypeMeta *new_op_dtypes[])
 {
     return string_inputs_promoter((PyUFuncObject *)ufunc, op_dtypes, signature,
@@ -1125,8 +1142,9 @@ string_unicode_promoter(PyObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
 }
 
 static int
-string_multiply_promoter(PyObject *ufunc_obj, PyArray_DTypeMeta *op_dtypes[],
-                         PyArray_DTypeMeta *signature[],
+string_multiply_promoter(PyObject *ufunc_obj,
+                         PyArray_DTypeMeta *const op_dtypes[],
+                         PyArray_DTypeMeta *const signature[],
                          PyArray_DTypeMeta *new_op_dtypes[])
 {
     PyUFuncObject *ufunc = (PyUFuncObject *)ufunc_obj;
@@ -1135,7 +1153,7 @@ string_multiply_promoter(PyObject *ufunc_obj, PyArray_DTypeMeta *op_dtypes[],
         if (signature[i]) {
             tmp = signature[i];
         }
-        else if (op_dtypes[i] == &PyArray_PyIntAbstractDType) {
+        else if (op_dtypes[i] == &PyArray_IntAbstractDType || op_dtypes[i] == &PyArray_PyLongDType) {
             tmp = &PyArray_Int64DType;
         }
         else if (op_dtypes[i]) {
@@ -1160,7 +1178,7 @@ string_multiply_promoter(PyObject *ufunc_obj, PyArray_DTypeMeta *op_dtypes[],
 // Pass NULL for resolve_func to use the default_resolve_descriptors.
 int
 init_ufunc(PyObject *numpy, const char *ufunc_name, PyArray_DTypeMeta **dtypes,
-           resolve_descriptors_function *resolve_func,
+           PyArrayMethod_ResolveDescriptors *resolve_func,
            PyArrayMethod_StridedLoop *loop_func, int nin, int nout,
            NPY_CASTING casting, NPY_ARRAYMETHOD_FLAGS flags)
 {
@@ -1210,7 +1228,7 @@ init_ufunc(PyObject *numpy, const char *ufunc_name, PyArray_DTypeMeta **dtypes,
 int
 add_promoter(PyObject *numpy, const char *ufunc_name,
              PyArray_DTypeMeta *ldtype, PyArray_DTypeMeta *rdtype,
-             PyArray_DTypeMeta *edtype, promoter_function *promoter_impl)
+             PyArray_DTypeMeta *edtype, PyArrayMethod_PromoterFunction *promoter_impl)
 {
     PyObject *ufunc = PyObject_GetAttrString((PyObject *)numpy, ufunc_name);
 
@@ -1384,18 +1402,23 @@ init_ufuncs(void)
     INIT_MULTIPLY(ULongLong, ulonglong);
 #endif
 
-    if (add_promoter(numpy, "multiply", (PyArray_DTypeMeta *)&StringDType,
-                     &PyArray_PyIntAbstractDType,
-                     (PyArray_DTypeMeta *)&StringDType,
-                     string_multiply_promoter) < 0) {
-        goto error;
-    }
+    PyArray_DTypeMeta *int_dtypes[2] = {&PyArray_IntAbstractDType, &PyArray_PyLongDType};
 
-    if (add_promoter(numpy, "multiply", &PyArray_PyIntAbstractDType,
-                     (PyArray_DTypeMeta *)&StringDType,
-                     (PyArray_DTypeMeta *)&StringDType,
-                     string_multiply_promoter) < 0) {
-        goto error;
+    for (int i=0; i<2; i++) {
+    
+        if (add_promoter(numpy, "multiply", (PyArray_DTypeMeta *)&StringDType,
+                         int_dtypes[i],
+                         (PyArray_DTypeMeta *)&StringDType,
+                         string_multiply_promoter) < 0) {
+            goto error;
+        }
+
+        if (add_promoter(numpy, "multiply", int_dtypes[i],
+                         (PyArray_DTypeMeta *)&StringDType,
+                         (PyArray_DTypeMeta *)&StringDType,
+                         string_multiply_promoter) < 0) {
+            goto error;
+        }
     }
 
     Py_DECREF(numpy);

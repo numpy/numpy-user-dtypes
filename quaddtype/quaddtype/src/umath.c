@@ -1,13 +1,15 @@
 #include <Python.h>
 
 #define PY_ARRAY_UNIQUE_SYMBOL quaddtype_ARRAY_API
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#define PY_UFUNC_UNIQUE_SYMBOL quaddtype_UFUNC_API
+#define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
+#define NPY_TARGET_VERSION NPY_2_0_API_VERSION
 #define NO_IMPORT_ARRAY
-#include "numpy/arrayobject.h"
+#define NO_IMPORT_UFUNC
 #include "numpy/ndarraytypes.h"
+#include "numpy/arrayobject.h"
 #include "numpy/ufuncobject.h"
-
-#include "numpy/experimental_dtype_api.h"
+#include "numpy/dtype_api.h"
 
 #include "dtype.h"
 #include "umath.h"
@@ -81,10 +83,10 @@ init_multiply_ufunc(void)
     if (numpy == NULL) {
         return -1;
     }
-    PyObject *multiply = PyObject_GetAttrString(numpy, "multiply");
 
-    // Why decref here?
+    PyObject *multiply = PyObject_GetAttrString(numpy, "multiply");
     Py_DECREF(numpy);
+
     if (multiply == NULL) {
         return -1;
     }
@@ -116,6 +118,7 @@ init_multiply_ufunc(void)
         Py_DECREF(multiply);
         return -1;
     }
+
     Py_DECREF(multiply);
     return 0;
 }

@@ -1,20 +1,23 @@
 #include <Python.h>
 
 #define PY_ARRAY_UNIQUE_SYMBOL metadatadtype_ARRAY_API
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#define PY_UFUNC_UNIQUE_SYMBOL metadatadtype_UFUNC_API
+#define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
+#define NPY_TARGET_VERSION NPY_2_0_API_VERSION
 #define NO_IMPORT_ARRAY
-#include "numpy/arrayobject.h"
-#include "numpy/experimental_dtype_api.h"
+#define NO_IMPORT_UFUNC
 #include "numpy/ndarraytypes.h"
+#include "numpy/arrayobject.h"
 #include "numpy/ufuncobject.h"
+#include "numpy/dtype_api.h"
 
 #include "dtype.h"
 #include "umath.h"
 
 static int
 translate_given_descrs(int nin, int nout,
-                       PyArray_DTypeMeta *NPY_UNUSED(wrapped_dtypes[]),
-                       PyArray_Descr *given_descrs[],
+                       PyArray_DTypeMeta *const NPY_UNUSED(wrapped_dtypes[]),
+                       PyArray_Descr *const given_descrs[],
                        PyArray_Descr *new_descrs[])
 {
     for (int i = 0; i < nin + nout; i++) {
@@ -35,8 +38,8 @@ translate_given_descrs(int nin, int nout,
 
 static int
 translate_loop_descrs(int nin, int NPY_UNUSED(nout),
-                      PyArray_DTypeMeta *NPY_UNUSED(new_dtypes[]),
-                      PyArray_Descr *given_descrs[],
+                      PyArray_DTypeMeta *const NPY_UNUSED(new_dtypes[]),
+                      PyArray_Descr *const given_descrs[],
                       PyArray_Descr *original_descrs[],
                       PyArray_Descr *loop_descrs[])
 {
@@ -125,5 +128,6 @@ init_ufuncs(void)
 
     return 0;
 error:
+
     return -1;
 }

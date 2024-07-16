@@ -1,10 +1,13 @@
 #include <Python.h>
 
 #define PY_ARRAY_UNIQUE_SYMBOL asciidtype_ARRAY_API
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#define PY_UFUNC_UNIQUE_SYMBOL asciidtype_UFUNC_API
+#define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
+#define NPY_TARGET_VERSION NPY_2_0_API_VERSION
 #define NO_IMPORT_ARRAY
+#define NO_IMPORT_UFUNC
 #include "numpy/arrayobject.h"
-#include "numpy/experimental_dtype_api.h"
+#include "numpy/dtype_api.h"
 #include "numpy/ndarraytypes.h"
 
 #include "casts.h"
@@ -46,7 +49,7 @@ ascii_to_ascii(PyArrayMethod_Context *context, char *const data[],
                npy_intp const dimensions[], npy_intp const strides[],
                NpyAuxData *NPY_UNUSED(auxdata))
 {
-    PyArray_Descr **descrs = context->descriptors;
+    PyArray_Descr *const *descrs = context->descriptors;
     long in_size = ((ASCIIDTypeObject *)descrs[0])->size;
     long out_size = ((ASCIIDTypeObject *)descrs[1])->size;
     long copy_size;
@@ -111,7 +114,7 @@ unicode_to_ascii(PyArrayMethod_Context *context, char *const data[],
                  npy_intp const dimensions[], npy_intp const strides[],
                  NpyAuxData *NPY_UNUSED(auxdata))
 {
-    PyArray_Descr **descrs = context->descriptors;
+    PyArray_Descr *const *descrs = context->descriptors;
     long in_size = (descrs[0]->elsize) / 4;
     long out_size = ((ASCIIDTypeObject *)descrs[1])->size;
     long copy_size;
@@ -162,7 +165,7 @@ ascii_to_unicode(PyArrayMethod_Context *context, char *const data[],
                  npy_intp const dimensions[], npy_intp const strides[],
                  NpyAuxData *NPY_UNUSED(auxdata))
 {
-    PyArray_Descr **descrs = context->descriptors;
+    PyArray_Descr *const *descrs = context->descriptors;
     long in_size = ((ASCIIDTypeObject *)descrs[0])->size;
     long out_size = (descrs[1]->elsize) / 4;
     long copy_size;

@@ -1,9 +1,11 @@
 #include <Python.h>
 
 #define PY_ARRAY_UNIQUE_SYMBOL MPFDType_ARRAY_API
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#define PY_UFUNC_UNIQUE_SYMBOL MPFDType_UFUNC_API
+#define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
 #include "numpy/arrayobject.h"
-#include "numpy/experimental_dtype_api.h"
+#include "numpy/ufuncobject.h"
+#include "numpy/dtype_api.h"
 
 #include "dtype.h"
 #include "umath.h"
@@ -19,12 +21,8 @@ static struct PyModuleDef moduledef = {
 PyMODINIT_FUNC
 PyInit__mpfdtype_main(void)
 {
-    if (_import_array() < 0) {
-        return NULL;
-    }
-    if (import_experimental_dtype_api(15) < 0) {
-        return NULL;
-    }
+    import_array();
+    import_umath();
 
     PyObject *m = PyModule_Create(&moduledef);
     if (m == NULL) {
@@ -47,7 +45,7 @@ PyInit__mpfdtype_main(void)
         goto error;
     }
 
-    if (init_mpf_umath() < 0) {
+    if (init_mpf_umath() == -1) {
         goto error;
     }
 
