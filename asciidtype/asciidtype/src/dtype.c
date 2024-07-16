@@ -1,3 +1,17 @@
+// clang-format off
+#include <Python.h>
+#include "structmember.h"
+// clang-format on
+
+#define PY_ARRAY_UNIQUE_SYMBOL asciidtype_ARRAY_API
+#define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
+#define NPY_TARGET_VERSION NPY_2_0_API_VERSION
+#define NO_IMPORT_ARRAY
+#include "numpy/ndarraytypes.h"
+#include "numpy/arrayobject.h"
+#include "numpy/ufuncobject.h"
+#include "numpy/dtype_api.h"
+
 #include "dtype.h"
 
 #include "casts.h"

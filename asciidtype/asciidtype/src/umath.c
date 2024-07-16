@@ -1,12 +1,13 @@
 #include <Python.h>
 
 #define PY_ARRAY_UNIQUE_SYMBOL asciidtype_ARRAY_API
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
+#define NPY_TARGET_VERSION NPY_2_0_API_VERSION
 #define NO_IMPORT_ARRAY
-#include "numpy/arrayobject.h"
-#include "numpy/experimental_dtype_api.h"
 #include "numpy/ndarraytypes.h"
+#include "numpy/arrayobject.h"
 #include "numpy/ufuncobject.h"
+#include "numpy/dtype_api.h"
 
 #include "dtype.h"
 #include "string.h"
@@ -17,7 +18,7 @@ ascii_add_strided_loop(PyArrayMethod_Context *context, char *const data[],
                        npy_intp const dimensions[], npy_intp const strides[],
                        NpyAuxData *NPY_UNUSED(auxdata))
 {
-    PyArray_Descr **descrs = context->descriptors;
+    PyArray_Descr *const *descrs = context->descriptors;
     long in1_size = ((ASCIIDTypeObject *)descrs[0])->size;
     long in2_size = ((ASCIIDTypeObject *)descrs[1])->size;
     long out_size = ((ASCIIDTypeObject *)descrs[2])->size;
@@ -112,7 +113,7 @@ ascii_equal_strided_loop(PyArrayMethod_Context *context, char *const data[],
                          npy_intp const dimensions[], npy_intp const strides[],
                          NpyAuxData *NPY_UNUSED(auxdata))
 {
-    PyArray_Descr **descrs = context->descriptors;
+    PyArray_Descr *const *descrs = context->descriptors;
     long in1_size = ((ASCIIDTypeObject *)descrs[0])->size;
     long in2_size = ((ASCIIDTypeObject *)descrs[1])->size;
 
@@ -218,12 +219,14 @@ init_equal_ufunc(PyObject *numpy)
     return 0;
 }
 
-int
+PyObject *
 init_ufuncs(void)
 {
+    import_umath();
+  
     PyObject *numpy = PyImport_ImportModule("numpy");
     if (numpy == NULL) {
-        return -1;
+        return NULL;
     }
 
     if (init_add_ufunc(numpy) < 0) {
@@ -234,10 +237,9 @@ init_ufuncs(void)
         goto error;
     }
 
-    Py_DECREF(numpy);
-    return 0;
+    return numpy;
 
 error:
     Py_DECREF(numpy);
-    return -1;
+    return NULL;
 }
