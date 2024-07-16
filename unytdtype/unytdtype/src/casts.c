@@ -3,9 +3,11 @@
 #include <Python.h>
 
 #define PY_ARRAY_UNIQUE_SYMBOL unytdtype_ARRAY_API
+#define PY_UFUNC_UNIQUE_SYMBOL unytdtype_UFUNC_API
 #define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
 #define NPY_TARGET_VERSION NPY_2_0_API_VERSION
 #define NO_IMPORT_ARRAY
+#define NO_IMPORT_UFUNC
 #include "numpy/arrayobject.h"
 #include "numpy/dtype_api.h"
 #include "numpy/ndarraytypes.h"

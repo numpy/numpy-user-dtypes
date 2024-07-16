@@ -1,6 +1,7 @@
 #include <Python.h>
 
 #define PY_ARRAY_UNIQUE_SYMBOL stringdtype_ARRAY_API
+#define PY_UFUNC_UNIQUE_SYMBOL stringdtype_UFUNC_API
 #define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
 #define NPY_TARGET_VERSION NPY_2_0_API_VERSION
 #include "numpy/ndarraytypes.h"
@@ -95,6 +96,7 @@ PyMODINIT_FUNC
 PyInit__main(void)
 {
     import_array();
+    import_umath();
 
     PyObject *m = PyModule_Create(&moduledef);
     if (m == NULL) {
@@ -125,13 +127,9 @@ PyInit__main(void)
         goto error;
     }
 
-    PyObject *numpy = init_ufuncs();
-
-    if (numpy == NULL) {
+    if (init_ufuncs() == -1) {
         goto error;
     }
-
-    Py_DECREF(numpy);
 
     return m;
 

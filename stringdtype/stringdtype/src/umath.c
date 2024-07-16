@@ -1,8 +1,10 @@
 #include <Python.h>
 #define PY_ARRAY_UNIQUE_SYMBOL stringdtype_ARRAY_API
+#define PY_UFUNC_UNIQUE_SYMBOL stringdtype_UFUNC_API
 #define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
 #define NPY_TARGET_VERSION NPY_2_0_API_VERSION
 #define NO_IMPORT_ARRAY
+#define NO_IMPORT_UFUNC
 #include "numpy/ndarraytypes.h"
 #include "numpy/arrayobject.h"
 #include "numpy/ufuncobject.h"
@@ -1287,16 +1289,14 @@ add_promoter(PyObject *numpy, const char *ufunc_name,
         goto error;                                                        \
     }
 
-PyObject *
+int
 init_ufuncs(void)
 {
     PyObject *numpy = PyImport_ImportModule("numpy");
     if (numpy == NULL) {
-        return NULL;
+        return -1;
     }
 
-    import_umath();
-    
     static char *comparison_ufunc_names[6] = {"equal",   "not_equal",
                                               "greater", "greater_equal",
                                               "less",    "less_equal"};
@@ -1421,9 +1421,10 @@ init_ufuncs(void)
         }
     }
 
-        return numpy;
+    Py_DECREF(numpy);
+    return 0;
 
 error:
     Py_DECREF(numpy);
-    return NULL;
+    return -1;
 }

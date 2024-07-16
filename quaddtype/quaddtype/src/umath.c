@@ -73,22 +73,20 @@ quad_multiply_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *dtypes[],
 }
 
 // Function that adds our multiply loop to NumPy's multiply ufunc.
-PyObject*
+int
 init_multiply_ufunc(void)
 {
-    import_umath();
-  
     // Get the multiply ufunc:
     PyObject *numpy = PyImport_ImportModule("numpy");
     if (numpy == NULL) {
-        return NULL;
+        return -1;
     }
 
     PyObject *multiply = PyObject_GetAttrString(numpy, "multiply");
+    Py_DECREF(numpy);
 
     if (multiply == NULL) {
-        Py_DECREF(numpy);
-        return NULL;
+        return -1;
     }
 
     // The initializing "wrap up" code from the slides (plus one error check)
@@ -116,10 +114,9 @@ init_multiply_ufunc(void)
     /* Register */
     if (PyUFunc_AddLoopFromSpec(multiply, &MultiplySpec) < 0) {
         Py_DECREF(multiply);
-        Py_DECREF(numpy);
-        return NULL;
+        return -1;
     }
 
     Py_DECREF(multiply);
-    return numpy;
+    return 0;
 }

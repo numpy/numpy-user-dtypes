@@ -1,11 +1,6 @@
 #ifndef _NPY_DTYPE_H
 #define _NPY_DTYPE_H
 
-// clang-format off
-#include <Python.h>
-#include "structmember.h"
-// clang-format on
-
 typedef struct {
     PyArray_Descr base;
     PyObject *metadata;

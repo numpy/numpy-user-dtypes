@@ -1,9 +1,11 @@
 #include <Python.h>
 
 #define PY_ARRAY_UNIQUE_SYMBOL metadatadtype_ARRAY_API
+#define PY_UFUNC_UNIQUE_SYMBOL metadatadtype_UFUNC_API
 #define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
 #define NPY_TARGET_VERSION NPY_2_0_API_VERSION
 #define NO_IMPORT_ARRAY
+#define NO_IMPORT_UFUNC
 #include "numpy/ndarraytypes.h"
 #include "numpy/arrayobject.h"
 #include "numpy/ufuncobject.h"
@@ -103,11 +105,9 @@ add_wrapping_loop(const char *ufunc_name, PyArray_DTypeMeta **dtypes,
     return res;
 }
 
-PyObject *
-init_ufuncs(PyObject *module)
+int
+init_ufuncs(void)
 {
-    import_umath();
-
     PyArray_DTypeMeta *binary_orig_dtypes[3] = {&MetadataDType, &MetadataDType,
                                                 &MetadataDType};
     PyArray_DTypeMeta *binary_wrapped_dtypes[3] = {
@@ -126,9 +126,8 @@ init_ufuncs(PyObject *module)
         goto error;
     }
 
-    return module;
+    return 0;
 error:
 
-    Py_DECREF(module);
-    return NULL;
+    return -1;
 }

@@ -1,9 +1,11 @@
 
 #include "scalar.h"
 #define PY_ARRAY_UNIQUE_SYMBOL MPFDType_ARRAY_API
+#define PY_UFUNC_UNIQUE_SYMBOL MPFDType_UFUNC_API
 #define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
 #define NPY_TARGET_VERSION NPY_2_0_API_VERSION
 #define NO_IMPORT_ARRAY
+#define NO_IMPORT_UFUNC
 
 extern "C" {
     #include <Python.h>
@@ -592,17 +594,15 @@ init_comps(PyObject *numpy)
 /*
  * Function that adds our multiply loop to NumPy's multiply ufunc.
  */
-PyObject *
+int
 init_mpf_umath(void)
 {
-    import_umath();
-  
     /*
      * Get the multiply ufunc:
      */
     PyObject *numpy = PyImport_ImportModule("numpy");
     if (numpy == NULL) {
-        return NULL;
+        return -1;
     }
 
     if (init_unary_ops(numpy) < 0) {
@@ -615,10 +615,11 @@ init_mpf_umath(void)
         goto err;
     }
 
-    return numpy;
+    Py_DECREF(numpy);
+    return 0;
 
   err:
     Py_DECREF(numpy);
-    return NULL;
+    return -1;
 }
 

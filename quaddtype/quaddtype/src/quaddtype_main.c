@@ -50,14 +50,10 @@ PyInit__quaddtype_main(void)
         goto error;
     }
 
-    PyObject *numpy = init_multiply_ufunc();
-    
-    if (numpy == NULL) {
+    if (init_multiply_ufunc() == -1) {
         PyErr_SetString(PyExc_TypeError, "Failed to initialize the quadscalar multiply ufunc.");
         goto error;
     }
-
-    Py_DECREF(numpy);
 
     return m;
 

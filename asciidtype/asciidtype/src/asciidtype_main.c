@@ -1,10 +1,12 @@
 #include <Python.h>
 
 #define PY_ARRAY_UNIQUE_SYMBOL asciidtype_ARRAY_API
+#define PY_UFUNC_UNIQUE_SYMBOL asciidtype_UFUNC_API
 #define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
 #define NPY_TARGET_VERSION NPY_2_0_API_VERSION
 #include "numpy/ndarraytypes.h"
 #include "numpy/arrayobject.h"
+#include "numpy/ufuncobject.h"
 #include "numpy/dtype_api.h"
 
 #include "dtype.h"
@@ -21,6 +23,7 @@ PyMODINIT_FUNC
 PyInit__asciidtype_main(void)
 {
     import_array();
+    import_umath();
 
     PyObject *m = PyModule_Create(&moduledef);
     if (m == NULL) {
@@ -47,13 +50,9 @@ PyInit__asciidtype_main(void)
         goto error;
     }
 
-    PyObject *numpy = init_ufuncs();
-
-    if (numpy == NULL) {
+    if (init_ufuncs() == -1) {
         goto error;
     }
-
-    Py_DECREF(numpy);
 
     return m;
 
