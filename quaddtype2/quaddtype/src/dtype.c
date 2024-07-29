@@ -1,4 +1,6 @@
 #include <Python.h>
+#include<sleef.h>
+#include<sleefquad.h>
 
 #define PY_ARRAY_UNIQUE_SYMBOL quaddtype_ARRAY_API
 #define PY_UFUNC_UNIQUE_SYMBOL quaddtype_UFUNC_API
@@ -23,8 +25,8 @@ QuadDTypeObject *new_quaddtype_instance(void)
         return NULL;
     }
 
-    new->base.elsize = sizeof(__float128);
-    new->base.alignment = _Alignof(__float128);
+    new->base.elsize = sizeof(Sleef_quad);
+    new->base.alignment = _Alignof(Sleef_quad);
     return new;
 }
 
@@ -40,7 +42,7 @@ static void quaddtype_dealloc(QuadDTypeObject *self)
 
 static PyObject *quaddtype_repr(QuadDTypeObject *self)
 {
-    PyObject *res = PyUnicode_FromString("This is a quad (128-bit float) dtype.");
+    PyObject *res = PyUnicode_FromString("This is a Sleef based quad (128-bit float) dtype.");
     return res;
 }
 
