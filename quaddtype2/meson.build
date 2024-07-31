@@ -9,7 +9,7 @@ py = py_mod.find_installation('/home/rootacess/numpy-user-dtypes/quaddtype2/.ven
 # incdir_numpy = run_command(py,
 #   [
 #     '-c',
-#     'import numpy; print(numpy.get_include())'
+#     'import numpy; import os; print(os.path.relpath(numpy.get_include()))'
 #   ],
 #   check: true
 # ).stdout().strip()
