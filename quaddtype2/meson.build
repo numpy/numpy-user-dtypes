@@ -6,17 +6,17 @@ project(
 py_mod = import('python')
 py = py_mod.find_installation('/home/rootacess/numpy-user-dtypes/quaddtype2/.venv/bin/python3')
 
-# incdir_numpy = run_command(py,
-#   [
-#     '-c',
-#     'import numpy; import os; print(os.path.relpath(numpy.get_include()))'
-#   ],
-#   check: true
-# ).stdout().strip()
+incdir_numpy = run_command(py,
+  [
+    '-c',
+    'import numpy; import os; print(os.path.relpath(numpy.get_include()))'
+  ],
+  check: true
+).stdout().strip()
 
 includes = include_directories(
   [
-    '.venv/lib/python3.12/site-packages/numpy/_core/include',
+    incdir_numpy,
     'quaddtype/src'
   ]
 )
