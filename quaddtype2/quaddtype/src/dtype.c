@@ -184,6 +184,8 @@ PyArray_DTypeMeta QuadPrecDType = {
 int init_quadprec_dtype(void)
 {
     PyArrayMethod_Spec **casts = init_casts();
+    if (!casts)
+        return -1;
 
     PyArrayDTypeMeta_Spec QuadPrecDType_DTypeSpec = {
         .flags = NPY_DT_NUMERIC,

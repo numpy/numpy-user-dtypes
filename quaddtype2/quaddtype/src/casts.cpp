@@ -38,7 +38,7 @@ static NPY_CASTING quad_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self),
     }
 
     *view_offset = 0;
-    return NPY_EQUIV_CASTING;
+    return NPY_SAME_KIND_CASTING;
 }
 
 static int quad_to_quad_strided_loop(
