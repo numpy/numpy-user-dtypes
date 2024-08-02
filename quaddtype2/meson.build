@@ -1,11 +1,12 @@
 project('quaddtype2', 'c')
 
 py_mod = import('python')
-py = py_mod.find_installation('/home/rootacess/numpy-user-dtypes/quaddtype2/.venv/bin/python3')
+py = py_mod.find_installation()
 
 c = meson.get_compiler('c')
-sleef = c.find_library('sleef')
-sleefquad_math =c.find_library('sleefquad')
+
+sleef_dep = c.find_library('sleef', dirs: ['/usr/local/lib']) # sleef installation directories
+sleefquad_dep = c.find_library('sleefquad', dirs: ['/usr/local/lib'])
 
 incdir_numpy = run_command(py,
   [
@@ -18,7 +19,8 @@ incdir_numpy = run_command(py,
 includes = include_directories(
     [
         incdir_numpy,
-        'quaddtype/src'
+        '/usr/local/include',
+        'quaddtype/src',
     ]
 )
 
@@ -41,6 +43,7 @@ py.install_sources(
 py.extension_module('_quaddtype_main',
 srcs,
 c_args: ['-g', '-O0', '-lsleef', '-lsleefquad'],
+dependencies: [sleef_dep, sleefquad_dep],
 install: true,
 subdir: 'quaddtype',
 include_directories: includes
