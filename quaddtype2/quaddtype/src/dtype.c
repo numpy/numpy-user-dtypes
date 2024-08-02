@@ -14,6 +14,7 @@
 #include "numpy/_public_dtype_api_table.h" // not included in dtype_api.h
 
 #include "scalar.h"
+#include "casts.h"
 #include "dtype.h"
 
 static inline int quad_load(Sleef_quad *x, char *data_ptr) 
@@ -135,6 +136,11 @@ static PyObject * quadprec_getitem(QuadPrecDTypeObject *descr, char *dataptr)
     return (PyObject *)new;
 }
 
+static PyArray_Descr *quadprec_default_descr(PyArray_DTypeMeta *NPY_UNUSED(cls))
+{
+    return (PyArray_Descr *)new_quaddtype_instance();
+}
+
 static PyType_Slot QuadPrecDType_Slots[] = 
 {
     {NPY_DT_ensure_canonical, &ensure_canonical},
@@ -143,6 +149,7 @@ static PyType_Slot QuadPrecDType_Slots[] =
     {NPY_DT_discover_descr_from_pyobject, &quadprec_discover_descriptor_from_pyobject},
     {NPY_DT_setitem, &quadprec_setitem},
     {NPY_DT_getitem, &quadprec_getitem},
+    {NPY_DT_default_descr, &quadprec_default_descr},
     {0, NULL}
 };
 
@@ -176,7 +183,7 @@ PyArray_DTypeMeta QuadPrecDType = {
 
 int init_quadprec_dtype(void)
 {
-    PyArrayMethod_Spec **casts = NULL;  // Initialize casts if needed
+    PyArrayMethod_Spec **casts = init_casts();
 
     PyArrayDTypeMeta_Spec QuadPrecDType_DTypeSpec = {
         .flags = NPY_DT_NUMERIC,
@@ -198,5 +205,8 @@ int init_quadprec_dtype(void)
     {
         return -1;
     }
+
+    free_casts();
+    
     return 0;
 }

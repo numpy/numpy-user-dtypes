@@ -1,4 +1,4 @@
-project('quaddtype2', 'c')
+project('quaddtype2', 'c', 'cpp')
 
 py_mod = import('python')
 py = py_mod.find_installation()
@@ -25,6 +25,8 @@ includes = include_directories(
 )
 
 srcs = [
+    'quaddtype/src/casts.h',
+    'quaddtype/src/casts.cpp',
     'quaddtype/src/scalar.h',
     'quaddtype/src/scalar.c',
     'quaddtype/src/dtype.h',
