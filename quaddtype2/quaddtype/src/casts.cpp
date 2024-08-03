@@ -5,10 +5,10 @@
 #define NO_IMPORT_ARRAY
 #define NO_IMPORT_UFUNC
 
-#include<Python.h>
-#include<sleef.h>
-#include<sleefquad.h>
-#include<vector>
+#include <Python.h>
+#include <sleef.h>
+#include <sleefquad.h>
+#include <vector>
 
 #include "numpy/arrayobject.h"
 #include "numpy/ndarraytypes.h"
@@ -18,12 +18,11 @@
 #include "casts.h"
 #include "dtype.h"
 
-
-static NPY_CASTING quad_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self),
-        PyArray_DTypeMeta *NPY_UNUSED(dtypes[2]),
-        QuadPrecDTypeObject *given_descrs[2],
-        QuadPrecDTypeObject *loop_descrs[2],
-        npy_intp *view_offset)
+static NPY_CASTING
+quad_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self),
+                                 PyArray_DTypeMeta *NPY_UNUSED(dtypes[2]),
+                                 QuadPrecDTypeObject *given_descrs[2],
+                                 QuadPrecDTypeObject *loop_descrs[2], npy_intp *view_offset)
 {
     Py_INCREF(given_descrs[0]);
     loop_descrs[0] = given_descrs[0];
@@ -41,10 +40,10 @@ static NPY_CASTING quad_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self),
     return NPY_SAME_KIND_CASTING;
 }
 
-static int quad_to_quad_strided_loop(
-        PyArrayMethod_Context *context,
-        char *const data[], npy_intp const dimensions[],
-        npy_intp const strides[], void *NPY_UNUSED(auxdata))
+static int
+quad_to_quad_strided_loop(PyArrayMethod_Context *context, char *const data[],
+                          npy_intp const dimensions[], npy_intp const strides[],
+                          void *NPY_UNUSED(auxdata))
 {
     npy_intp N = dimensions[0];
     char *in_ptr = data[0];
@@ -62,45 +61,43 @@ static int quad_to_quad_strided_loop(
     return 0;
 }
 
-static std::vector<PyArrayMethod_Spec *>specs;
+static std::vector<PyArrayMethod_Spec *> specs;
 
-
-PyArrayMethod_Spec ** init_casts_internal(void)
+PyArrayMethod_Spec **
+init_casts_internal(void)
 {
     PyArray_DTypeMeta **quad2quad_dtypes = new PyArray_DTypeMeta *[2]{nullptr, nullptr};
 
-    specs.push_back(new PyArrayMethod_Spec {
-    .name = "cast_QuadPrec_to_QuadPrec",
-    .nin = 1,
-    .nout = 1,
-    .casting = NPY_SAME_KIND_CASTING,
-    .flags = NPY_METH_SUPPORTS_UNALIGNED,
-    .dtypes = quad2quad_dtypes,
-    .slots = new PyType_Slot[3]{
-        {NPY_METH_resolve_descriptors, (void *)&quad_to_quad_resolve_descriptors},
-        {NPY_METH_strided_loop, (void *)&quad_to_quad_strided_loop},
-        {0, NULL}
-    }});
+    specs.push_back(new PyArrayMethod_Spec{
+            .name = "cast_QuadPrec_to_QuadPrec",
+            .nin = 1,
+            .nout = 1,
+            .casting = NPY_SAME_KIND_CASTING,
+            .flags = NPY_METH_SUPPORTS_UNALIGNED,
+            .dtypes = quad2quad_dtypes,
+            .slots = new PyType_Slot[4]{
+                    {NPY_METH_resolve_descriptors, (void *)&quad_to_quad_resolve_descriptors},
+                    {NPY_METH_strided_loop, (void *)&quad_to_quad_strided_loop},
+                    {NPY_METH_unaligned_strided_loop, (void *)&quad_to_quad_strided_loop},
+                    {0, NULL}}});
 
-   
     return specs.data();
 }
 
-PyArrayMethod_Spec ** init_casts(void)
+PyArrayMethod_Spec **
+init_casts(void)
 {
-    try
-    {
+    try {
         return init_casts_internal();
     }
-    catch(const std::exception& e)
-    {
+    catch (const std::exception &e) {
         PyErr_NoMemory();
         return nullptr;
     }
-    
 }
 
-void free_casts(void)
+void
+free_casts(void)
 {
     for (auto cast : specs) {
         if (cast == nullptr) {

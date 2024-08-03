@@ -71,7 +71,7 @@ QuadPrecision_new(PyTypeObject *cls, PyObject *args, PyObject *kwargs)
 static PyObject * QuadPrecision_str(QuadPrecisionObject * self)
 {
     char buffer[128];
-    Sleef_snprintf(buffer, sizeof(buffer), "%.*Qe", self->quad.value);
+    Sleef_snprintf(buffer, sizeof(buffer), "%.*Qe", SLEEF_QUAD_DIG, self->quad.value);
     return PyUnicode_FromString(buffer);
 }
 
