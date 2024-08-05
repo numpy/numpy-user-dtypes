@@ -1,12 +1,12 @@
-project('quaddtype2', 'c', 'cpp')
+project('quaddtype2', 'c', 'cpp', default_options : ['cpp_std=c++17'])
 
 py_mod = import('python')
 py = py_mod.find_installation()
 
 c = meson.get_compiler('c')
 
-sleef_dep = c.find_library('sleef', dirs: ['/usr/local/lib']) # sleef installation directories
-sleefquad_dep = c.find_library('sleefquad', dirs: ['/usr/local/lib'])
+sleef_dep = c.find_library('sleef')
+sleefquad_dep = c.find_library('sleefquad')
 
 incdir_numpy = run_command(py,
   [
@@ -19,7 +19,6 @@ incdir_numpy = run_command(py,
 includes = include_directories(
     [
         incdir_numpy,
-        '/usr/local/include',
         'quaddtype/src',
     ]
 )
