@@ -57,11 +57,21 @@ jobs:
         working-directory: unytdtype
         run: |
           pytest -vvv --color=yes
+      - name: Install quaddtype dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmpfr-dev libssl-dev libfftw3-dev
+      - name: Install SLEEF
+        run: |
+          git clone https://github.com/shibatch/sleef.git
+          cd sleef
+          cmake -S . -B build/
+          cmake --build build/ --clean-first -j
+          sudo cmake --install build/ --prefix /usr
       - name: Install quaddtype
         working-directory: quaddtype
         run: |
-          python -m build --no-isolation --wheel -Cbuilddir=build
-          find ./dist/*.whl | xargs python -m pip install
+          python -m pip install . -v --no-build-isolation -Cbuilddir=build -C'compile-args=-v' -Csetup-args="-Dbuildtype=debug"
       - name: Run quaddtype tests
         working-directory: quaddtype
         run: |
