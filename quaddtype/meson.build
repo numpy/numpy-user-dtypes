@@ -1,4 +1,4 @@
-project('quaddtype2', 'c', 'cpp', default_options : ['cpp_std=c++17'], b_pie : true)
+project('quaddtype', 'c', 'cpp', default_options : ['cpp_std=c++17', 'b_pie=true'])
 
 py_mod = import('python')
 py = py_mod.find_installation()
