@@ -73,6 +73,10 @@ jobs:
         working-directory: quaddtype
         run: |
           CFLAGS="-fPIC" CXXFLAGS="-fPIC" python -m pip install . -v --no-build-isolation -Cbuilddir=build -C'compile-args=-v' -Csetup-args="-Dbuildtype=debug"
+      - name: Check SLEEF installation
+        run: |
+          ls -l /usr/local/lib | grep sleef
+          ls -l /usr/local/include | grep sleef
       - name: Run quaddtype tests
         working-directory: quaddtype
         run: |
