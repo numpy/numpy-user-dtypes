@@ -66,9 +66,9 @@ jobs:
         run: |
           git clone https://github.com/shibatch/sleef.git
           cd sleef
-          cmake -S . -B -DSLEEF_BUILD_QUAD:BOOL=ON build/
+          cmake -S . -B build -DSLEEF_BUILD_QUAD:BOOL=ON
           cmake --build build/ --clean-first -j
-          sudo cmake --install build/ --prefix /usr
+          sudo cmake --install build --prefix /usr
       - name: Install quaddtype
         working-directory: quaddtype
         run: |
