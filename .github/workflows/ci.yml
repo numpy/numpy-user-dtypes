@@ -21,7 +21,7 @@ jobs:
           python -m pip install -U pip build pytest unyt wheel meson ninja meson-python patchelf
           pip uninstall -y numpy
           pip install -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple numpy
-          pip install --no-deps -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple pandas
+          pip install --no-deps --no-build-isolation -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple pandas
       - name: Install asciidtype
         working-directory: asciidtype
         run: |
