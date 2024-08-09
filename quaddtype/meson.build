@@ -5,7 +5,7 @@ py = py_mod.find_installation()
 
 c = meson.get_compiler('c')
 
-sleef_dep = c.find_library('sleef')
+sleef_dep = c.find_library('sleef', dirs:['/usr/local/lib'])
 sleefquad_dep = c.find_library('sleefquad')
 
 incdir_numpy = run_command(py,
