@@ -241,6 +241,9 @@ init_quad_binary_ops(PyObject *numpy)
     if (create_quad_binary_ufunc<quad_pow>(numpy, "power") < 0) {
         return -1;
     }
+    if (create_quad_binary_ufunc<quad_mod>(numpy, "mod") < 0) {
+        return -1;
+    }
     return 0;
 }
 

@@ -139,6 +139,13 @@ quad_pow(Sleef_quad *res, Sleef_quad *a, Sleef_quad *b)
     return 0;
 }
 
+static inline int
+quad_mod(Sleef_quad *res, Sleef_quad *a, Sleef_quad *b)
+{
+    *res = Sleef_fmodq1(*a, *b);
+    return 0;
+}
+
 // comparison functions
 typedef npy_bool (*cmp_def)(const Sleef_quad *, const Sleef_quad *);
 
