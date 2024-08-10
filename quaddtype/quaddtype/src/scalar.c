@@ -10,7 +10,8 @@
 #include "numpy/ndarraytypes.h"
 #include "numpy/dtype_api.h"
 
-#include"scalar.h"
+#include "scalar.h"
+#include "scalar_ops.h"
 
 
 // static PyTypeObject QuadPrecision_Type;
@@ -45,6 +46,10 @@ QuadPrecisionObject * QuadPrecision_from_object(PyObject * value)
             Py_DECREF(self);
             return NULL;
         }
+    }
+    else if(PyLong_Check(value))
+    {
+        self->quad.value = Sleef_cast_from_int64q1(PyLong_AsLong(value));
     }
     else
     {
@@ -95,6 +100,8 @@ PyTypeObject QuadPrecision_Type =
     .tp_new = QuadPrecision_new,
     .tp_repr = (reprfunc)QuadPrecision_repr,
     .tp_str = (reprfunc)QuadPrecision_str,
+    .tp_as_number = &quad_as_scalar,
+    .tp_richcompare = (richcmpfunc)quad_richcompare
 
 };
 

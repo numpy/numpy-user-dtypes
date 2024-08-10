@@ -7,8 +7,10 @@
 
 #include "numpy/arrayobject.h"
 #include "numpy/dtype_api.h"
+#include "numpy/ufuncobject.h"
 
 #include "dtype.h"
+#include "umath.h"
 
 static struct PyModuleDef moduledef = {
         PyModuleDef_HEAD_INIT,
@@ -21,6 +23,7 @@ PyMODINIT_FUNC
 PyInit__quaddtype_main(void)
 {
     import_array();
+    import_umath();
     PyObject *m = PyModule_Create(&moduledef);
     if (!m) 
     {
@@ -38,6 +41,10 @@ PyInit__quaddtype_main(void)
 
     if(PyModule_AddObject(m, "QuadPrecDType", (PyObject *)&QuadPrecDType) < 0)
         goto error;
+
+    if (init_quad_umath() < 0) {
+        goto error;
+    }
 
     return m;
     
