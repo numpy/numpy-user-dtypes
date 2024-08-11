@@ -10,6 +10,13 @@ quad_negative(Sleef_quad *op, Sleef_quad *out)
     return 0;
 }
 
+static int
+quad_positive(Sleef_quad *op, Sleef_quad *out)
+{
+    *out = *op;
+    return 0;
+}
+
 static inline int
 quad_absolute(Sleef_quad *op, Sleef_quad *out)
 {

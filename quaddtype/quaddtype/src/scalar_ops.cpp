@@ -165,7 +165,7 @@ PyNumberMethods quad_as_scalar = {
         .nb_true_divide = (binaryfunc)quad_binary_func<quad_div>,
         .nb_power = (ternaryfunc)quad_binary_func<quad_pow>,
         .nb_negative = (unaryfunc)quad_unary_func<quad_negative>,
-        .nb_positive = (unaryfunc)quad_unary_func<quad_absolute>,
+        .nb_positive = (unaryfunc)quad_unary_func<quad_positive>,
         .nb_absolute = (unaryfunc)quad_unary_func<quad_absolute>,
         .nb_bool = (inquiry)quad_nonzero,
 };
