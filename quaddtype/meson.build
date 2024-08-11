@@ -5,7 +5,7 @@ py = py_mod.find_installation()
 
 c = meson.get_compiler('c')
 
-sleef_dep = c.find_library('sleef', dirs:['/usr/local/lib'])
+sleef_dep = c.find_library('sleef')
 sleefquad_dep = c.find_library('sleefquad')
 
 incdir_numpy = run_command(py,
@@ -30,7 +30,12 @@ srcs = [
     'quaddtype/src/scalar.c',
     'quaddtype/src/dtype.h',
     'quaddtype/src/dtype.c',
-    'quaddtype/src/quaddtype_main.c'
+    'quaddtype/src/quaddtype_main.c',
+    'quaddtype/src/scalar_ops.h',
+    'quaddtype/src/scalar_ops.cpp',
+    'quaddtype/src/ops.hpp',
+    'quaddtype/src/umath.h',
+    'quaddtype/src/umath.cpp'
 ]
 
 py.install_sources(
