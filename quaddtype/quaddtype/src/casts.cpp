@@ -14,11 +14,12 @@ extern "C" {
 }
 #include "sleef.h"
 #include "sleefquad.h"
-#include <vector>
 
 #include "scalar.h"
 #include "casts.h"
 #include "dtype.h"
+
+#define NUM_CASTS 29  // 14 to_casts + 14 from_casts + 1 quad_to_quad
 
 static NPY_CASTING
 quad_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self),
@@ -51,14 +52,13 @@ quad_to_quad_strided_loop(PyArrayMethod_Context *context, char *const data[],
     char *in_ptr = data[0];
     char *out_ptr = data[1];
 
+    npy_intp in_stride = strides[0];
+    npy_intp out_stride = strides[1];
+
     while (N--) {
-        Sleef_quad *in = (Sleef_quad *)in_ptr;
-        Sleef_quad *out = (Sleef_quad *)out_ptr;
-
-        *out = *in;
-
-        in_ptr += strides[0];
-        out_ptr += strides[1];
+        memcpy(out_ptr, in_ptr, sizeof(Sleef_quad));
+        in_ptr += in_stride;
+        out_ptr += out_stride;
     }
     return 0;
 }
@@ -172,7 +172,7 @@ numpy_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta 
     }
 
     loop_descrs[0] = PyArray_GetDefaultDescr(dtypes[0]);
-    *view_offset = 0;
+    // *view_offset = 0;
     return NPY_SAFE_CASTING;
 }
 
@@ -187,9 +187,12 @@ numpy_to_quad_strided_loop(PyArrayMethod_Context *context, char *const data[],
     char *out_ptr = data[1];
 
     while (N--) {
-        T in_val = *(T *)in_ptr;
-        Sleef_quad *out_val = (Sleef_quad *)out_ptr;
-        *out_val = to_quad<T>(in_val);
+        T in_val;
+        Sleef_quad out_val;
+
+        memcpy(&in_val, in_ptr, sizeof(T));
+        out_val = to_quad<T>(in_val);
+        memcpy(out_ptr, &out_val, sizeof(Sleef_quad));
 
         in_ptr += strides[0];
         out_ptr += strides[1];
@@ -298,8 +301,8 @@ quad_to_numpy_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta 
     loop_descrs[0] = given_descrs[0];
 
     loop_descrs[1] = PyArray_GetDefaultDescr(dtypes[1]);
-    *view_offset = 0;
-    return NPY_SAME_KIND_CASTING;
+    // *view_offset = 0;
+    return NPY_UNSAFE_CASTING;
 }
 
 template <typename T>
@@ -323,7 +326,16 @@ quad_to_numpy_strided_loop(PyArrayMethod_Context *context, char *const data[],
     return 0;
 }
 
-static std::vector<PyArrayMethod_Spec *> specs;
+static PyArrayMethod_Spec *specs[NUM_CASTS + 1];  // +1 for NULL terminator
+static size_t spec_count = 0;
+
+void
+add_spec(PyArrayMethod_Spec *spec)
+{
+    if (spec_count < NUM_CASTS) {
+        specs[spec_count++] = spec;
+    }
+}
 
 // functions to add casts
 template <typename T>
@@ -337,15 +349,16 @@ add_cast_from(PyArray_DTypeMeta *to)
             {NPY_METH_strided_loop, (void *)&quad_to_numpy_strided_loop<T>},
             {0, nullptr}};
 
-    specs.push_back(new PyArrayMethod_Spec{
+    PyArrayMethod_Spec *spec = new PyArrayMethod_Spec{
             .name = "cast_QuadPrec_to_NumPy",
             .nin = 1,
             .nout = 1,
-            .casting = NPY_SAME_KIND_CASTING,
+            .casting = NPY_UNSAFE_CASTING,
             .flags = (NPY_ARRAYMETHOD_FLAGS)0,
             .dtypes = dtypes,
             .slots = slots,
-    });
+    };
+    add_spec(spec);
 }
 
 template <typename T>
@@ -359,7 +372,7 @@ add_cast_to(PyArray_DTypeMeta *from)
             {NPY_METH_strided_loop, (void *)&numpy_to_quad_strided_loop<T>},
             {0, nullptr}};
 
-    specs.push_back(new PyArrayMethod_Spec{
+    PyArrayMethod_Spec *spec = new PyArrayMethod_Spec{
             .name = "cast_NumPy_to_QuadPrec",
             .nin = 1,
             .nout = 1,
@@ -367,26 +380,32 @@ add_cast_to(PyArray_DTypeMeta *from)
             .flags = (NPY_ARRAYMETHOD_FLAGS)0,
             .dtypes = dtypes,
             .slots = slots,
-    });
+    };
+
+    add_spec(spec);
 }
 
 PyArrayMethod_Spec **
 init_casts_internal(void)
 {
     PyArray_DTypeMeta **quad2quad_dtypes = new PyArray_DTypeMeta *[2]{nullptr, nullptr};
+    PyType_Slot *quad2quad_slots = new PyType_Slot[4]{
+            {NPY_METH_resolve_descriptors, (void *)&quad_to_quad_resolve_descriptors},
+            {NPY_METH_strided_loop, (void *)&quad_to_quad_strided_loop},
+            {NPY_METH_unaligned_strided_loop, (void *)&quad_to_quad_strided_loop},
+            {0, nullptr}};
 
-    specs.push_back(new PyArrayMethod_Spec{
+    PyArrayMethod_Spec *quad2quad_spec = new PyArrayMethod_Spec{
             .name = "cast_QuadPrec_to_QuadPrec",
             .nin = 1,
             .nout = 1,
             .casting = NPY_SAME_KIND_CASTING,
             .flags = NPY_METH_SUPPORTS_UNALIGNED,
             .dtypes = quad2quad_dtypes,
-            .slots = new PyType_Slot[4]{
-                    {NPY_METH_resolve_descriptors, (void *)&quad_to_quad_resolve_descriptors},
-                    {NPY_METH_strided_loop, (void *)&quad_to_quad_strided_loop},
-                    {NPY_METH_unaligned_strided_loop, (void *)&quad_to_quad_strided_loop},
-                    {0, NULL}}});
+            .slots = quad2quad_slots,
+    };
+
+    add_spec(quad2quad_spec);
 
     add_cast_to<npy_bool>(&PyArray_BoolDType);
     add_cast_to<npy_byte>(&PyArray_ByteDType);
@@ -418,8 +437,8 @@ init_casts_internal(void)
     add_cast_from<double>(&PyArray_DoubleDType);
     add_cast_from<long double>(&PyArray_LongDoubleDType);
 
-    specs.push_back(nullptr);
-    return specs.data();
+    specs[spec_count] = nullptr;
+    return specs;
 }
 
 PyArrayMethod_Spec **
@@ -428,7 +447,7 @@ init_casts(void)
     try {
         return init_casts_internal();
     }
-    catch (const std::exception &e) {
+    catch (int e) {
         PyErr_NoMemory();
         return nullptr;
     }
@@ -445,5 +464,5 @@ free_casts(void)
         delete cast->slots;
         delete cast;
     }
-    specs.clear();
+    spec_count = 0;
 }
