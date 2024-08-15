@@ -11,7 +11,6 @@
 #include "numpy/arrayobject.h"
 #include "numpy/ndarraytypes.h"
 #include "numpy/dtype_api.h"
-#include "numpy/_public_dtype_api_table.h" // not included in dtype_api.h
 
 #include "scalar.h"
 #include "casts.h"
@@ -21,7 +20,6 @@ static inline int quad_load(Sleef_quad *x, char *data_ptr)
 {
     if (data_ptr == NULL || x == NULL) 
     {
-        PyErr_SetString(PyExc_ValueError, "Invalid memory location");
         return -1;
     }
     *x = *(Sleef_quad *)data_ptr;
@@ -32,7 +30,6 @@ static inline int quad_store(char *data_ptr, Sleef_quad x)
 {
     if (data_ptr == NULL) 
     {
-        PyErr_SetString(PyExc_ValueError, "Invalid memory location");
         return -1;
     }
     *(Sleef_quad *)data_ptr = x;
@@ -47,7 +44,6 @@ QuadPrecDTypeObject  * new_quaddtype_instance(void)
     }
     new->base.elsize = sizeof(Sleef_quad);
     new->base.alignment = _Alignof(Sleef_quad);
-    new->base.flags |= NPY_NEEDS_INIT; // Indicates memory for this data-type must be initialized (set to 0) on creation.
 
     return new;
 }
@@ -114,6 +110,9 @@ static int quadprec_setitem(QuadPrecDTypeObject *descr, PyObject *obj, char *dat
     if (quad_store(dataptr, value->quad.value) < 0)
     {
         Py_DECREF(value);
+        char error_msg[100];
+        snprintf(error_msg, sizeof(error_msg), "Invalid memory location %p", (void*)dataptr);
+        PyErr_SetString(PyExc_ValueError, error_msg);
         return -1;
     }
 
@@ -131,6 +130,9 @@ static PyObject * quadprec_getitem(QuadPrecDTypeObject *descr, char *dataptr)
     if (quad_load(&new->quad.value, dataptr) < 0) 
     {
         Py_DECREF(new);
+        char error_msg[100];
+        snprintf(error_msg, sizeof(error_msg), "Invalid memory location %p", (void*)dataptr);
+        PyErr_SetString(PyExc_ValueError, error_msg);
         return NULL;
     }
     return (PyObject *)new;
