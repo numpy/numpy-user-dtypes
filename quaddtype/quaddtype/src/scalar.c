@@ -49,11 +49,18 @@ QuadPrecisionObject * QuadPrecision_from_object(PyObject * value)
     }
     else if(PyLong_Check(value))
     {
-        self->quad.value = Sleef_cast_from_int64q1(PyLong_AsLong(value));
+        long int val = PyLong_AsLong(value);
+        if (val == -1)
+        {
+            PyErr_SetString(PyExc_OverflowError, "Overflow Error, value out of range");
+            Py_DECREF(self);
+            return NULL;
+        }
+        self->quad.value = Sleef_cast_from_int64q1(val);
     }
     else
     {
-        PyErr_SetString(PyExc_TypeError, "QuadPrecision value must be a float or string");
+        PyErr_SetString(PyExc_TypeError, "QuadPrecision value must be a float, int or string");
         Py_DECREF(self);
         return NULL;
     }
@@ -91,6 +98,12 @@ static PyObject * QuadPrecision_repr(QuadPrecisionObject* self)
     return res;
 }
 
+static void
+quad_dealloc(QuadPrecDTypeObject *self)
+{
+    PyArrayDescr_Type.tp_dealloc((PyObject *)self);
+}
+
 PyTypeObject QuadPrecision_Type = 
 {
     PyVarObject_HEAD_INIT(NULL, 0)
@@ -98,6 +111,7 @@ PyTypeObject QuadPrecision_Type =
     .tp_basicsize = sizeof(QuadPrecisionObject),
     .tp_itemsize = 0,
     .tp_new = QuadPrecision_new,
+    .tp_dealloc = (destructor)quad_dealloc,
     .tp_repr = (reprfunc)QuadPrecision_repr,
     .tp_str = (reprfunc)QuadPrecision_str,
     .tp_as_number = &quad_as_scalar,
