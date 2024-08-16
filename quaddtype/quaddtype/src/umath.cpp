@@ -9,6 +9,7 @@
 
 extern "C" {
 #include <Python.h>
+#include <cstdio>
 
 #include "numpy/arrayobject.h"
 #include "numpy/ndarraytypes.h"
@@ -16,7 +17,6 @@ extern "C" {
 
 #include "numpy/dtype_api.h"
 }
-
 #include "dtype.h"
 #include "umath.h"
 #include "ops.hpp"
@@ -33,8 +33,12 @@ quad_generic_unary_op_strided_loop(PyArrayMethod_Context *context, char *const d
     npy_intp in_stride = strides[0];
     npy_intp out_stride = strides[1];
 
+    Sleef_quad in, out;
     while (N--) {
-        unary_op((Sleef_quad *)in_ptr, (Sleef_quad *)out_ptr);
+        memcpy(&in, in_ptr, sizeof(Sleef_quad));
+        unary_op(&in, &out);
+        memcpy(out_ptr, &out, sizeof(Sleef_quad));
+
         in_ptr += in_stride;
         out_ptr += out_stride;
     }
@@ -42,9 +46,9 @@ quad_generic_unary_op_strided_loop(PyArrayMethod_Context *context, char *const d
 }
 
 static NPY_CASTING
-quad_unary_op_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *dtypes[],
-                                  QuadPrecDTypeObject *given_descrs[],
-                                  QuadPrecDTypeObject *loop_descrs[], npy_intp *unused)
+quad_unary_op_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtypes[],
+                                  PyArray_Descr *const given_descrs[], PyArray_Descr *loop_descrs[],
+                                  npy_intp *NPY_UNUSED(view_offset))
 {
     Py_INCREF(given_descrs[0]);
     loop_descrs[0] = given_descrs[0];
@@ -57,7 +61,7 @@ quad_unary_op_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *dtypes[],
     Py_INCREF(given_descrs[1]);
     loop_descrs[1] = given_descrs[1];
 
-    return NPY_NO_CASTING;  // Quad precision is always the same precision
+    return NPY_NO_CASTING;
 }
 
 template <unary_op_def unary_op>
@@ -156,8 +160,12 @@ quad_generic_binop_strided_loop(PyArrayMethod_Context *context, char *const data
     npy_intp in2_stride = strides[1];
     npy_intp out_stride = strides[2];
 
+    Sleef_quad in1, in2, out;
     while (N--) {
-        binop((Sleef_quad *)out_ptr, (Sleef_quad *)in1_ptr, (Sleef_quad *)in2_ptr);
+        memcpy(&in1, in1_ptr, sizeof(Sleef_quad));
+        memcpy(&in2, in2_ptr, sizeof(Sleef_quad));
+        binop(&out, &in1, &in2);
+        memcpy(out_ptr, &out, sizeof(Sleef_quad));
 
         in1_ptr += in1_stride;
         in2_ptr += in2_stride;
@@ -167,9 +175,9 @@ quad_generic_binop_strided_loop(PyArrayMethod_Context *context, char *const data
 }
 
 static NPY_CASTING
-quad_binary_op_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *dtypes[],
-                                   QuadPrecDTypeObject *given_descrs[],
-                                   QuadPrecDTypeObject *loop_descrs[], npy_intp *unused)
+quad_binary_op_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtypes[],
+                                   PyArray_Descr *const given_descrs[],
+                                   PyArray_Descr *loop_descrs[], npy_intp *NPY_UNUSED(view_offset))
 {
     Py_INCREF(given_descrs[0]);
     loop_descrs[0] = given_descrs[0];
@@ -177,18 +185,168 @@ quad_binary_op_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *dtypes[],
     loop_descrs[1] = given_descrs[1];
 
     if (given_descrs[2] == NULL) {
+        PyArray_Descr *out_descr = (PyArray_Descr *)new_quaddtype_instance();
+        if (!out_descr) {
+            return (NPY_CASTING)-1;
+        }
         Py_INCREF(given_descrs[0]);
-        loop_descrs[2] = given_descrs[0];
+        loop_descrs[2] = out_descr;
     }
     else {
         Py_INCREF(given_descrs[2]);
         loop_descrs[2] = given_descrs[2];
     }
 
-    return NPY_NO_CASTING;  // Quad precision is always the same precision
+    return NPY_NO_CASTING;
 }
 
-// todo: skipping the promoter for now, since same type operation will be requried
+// helper debugging function
+static const char *
+get_dtype_name(PyArray_DTypeMeta *dtype)
+{
+    if (dtype == &QuadPrecDType) {
+        return "QuadPrecDType";
+    }
+    else if (dtype == &PyArray_BoolDType) {
+        return "BoolDType";
+    }
+    else if (dtype == &PyArray_ByteDType) {
+        return "ByteDType";
+    }
+    else if (dtype == &PyArray_UByteDType) {
+        return "UByteDType";
+    }
+    else if (dtype == &PyArray_ShortDType) {
+        return "ShortDType";
+    }
+    else if (dtype == &PyArray_UShortDType) {
+        return "UShortDType";
+    }
+    else if (dtype == &PyArray_IntDType) {
+        return "IntDType";
+    }
+    else if (dtype == &PyArray_UIntDType) {
+        return "UIntDType";
+    }
+    else if (dtype == &PyArray_LongDType) {
+        return "LongDType";
+    }
+    else if (dtype == &PyArray_ULongDType) {
+        return "ULongDType";
+    }
+    else if (dtype == &PyArray_LongLongDType) {
+        return "LongLongDType";
+    }
+    else if (dtype == &PyArray_ULongLongDType) {
+        return "ULongLongDType";
+    }
+    else if (dtype == &PyArray_FloatDType) {
+        return "FloatDType";
+    }
+    else if (dtype == &PyArray_DoubleDType) {
+        return "DoubleDType";
+    }
+    else if (dtype == &PyArray_LongDoubleDType) {
+        return "LongDoubleDType";
+    }
+    else {
+        return "UnknownDType";
+    }
+}
+
+static int
+quad_ufunc_promoter(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
+                    PyArray_DTypeMeta *signature[], PyArray_DTypeMeta *new_op_dtypes[])
+{
+    // printf("quad_ufunc_promoter called for ufunc: %s\n", ufunc->name);
+    // printf("Entering quad_ufunc_promoter\n");
+    // printf("Ufunc name: %s\n", ufunc->name);
+    // printf("nin: %d, nargs: %d\n", ufunc->nin, ufunc->nargs);
+
+    int nin = ufunc->nin;
+    int nargs = ufunc->nargs;
+    PyArray_DTypeMeta *common = NULL;
+    bool has_quad = false;
+
+    // Handle the special case for reductions
+    if (op_dtypes[0] == NULL) {
+        assert(nin == 2 && ufunc->nout == 1); /* must be reduction */
+        for (int i = 0; i < 3; i++) {
+            Py_INCREF(op_dtypes[1]);
+            new_op_dtypes[i] = op_dtypes[1];
+            // printf("new_op_dtypes[%d] set to %s\n", i, get_dtype_name(new_op_dtypes[i]));
+        }
+        return 0;
+    }
+
+    // Check if any input or signature is QuadPrecision
+    for (int i = 0; i < nargs; i++) {
+        if ((i < nin && op_dtypes[i] == &QuadPrecDType) || (signature[i] == &QuadPrecDType)) {
+            has_quad = true;
+            // printf("QuadPrecision detected in input %d or signature\n", i);
+            break;
+        }
+    }
+
+    if (has_quad) {
+        // If QuadPrecision is involved, use it for all arguments
+        common = &QuadPrecDType;
+        // printf("Using QuadPrecDType as common type\n");
+    }
+    else {
+        // Check if output signature is homogeneous
+        for (int i = nin; i < nargs; i++) {
+            if (signature[i] != NULL) {
+                if (common == NULL) {
+                    Py_INCREF(signature[i]);
+                    common = signature[i];
+                    // printf("Common type set to %s from signature\n", get_dtype_name(common));
+                }
+                else if (common != signature[i]) {
+                    Py_CLEAR(common);  // Not homogeneous, unset common
+                    // printf("Output signature not homogeneous, cleared common type\n");
+                    break;
+                }
+            }
+        }
+
+        // If no common output dtype, use standard promotion for inputs
+        if (common == NULL) {
+            // printf("Using standard promotion for inputs\n");
+            common = PyArray_PromoteDTypeSequence(nin, op_dtypes);
+            if (common == NULL) {
+                if (PyErr_ExceptionMatches(PyExc_TypeError)) {
+                    PyErr_Clear();  // Do not propagate normal promotion errors
+                }
+                // printf("Exiting quad_ufunc_promoter (promotion failed)\n");
+                return -1;
+            }
+            // printf("Common type after promotion: %s\n", get_dtype_name(common));
+        }
+    }
+
+    // Set all new_op_dtypes to the common dtype
+    for (int i = 0; i < nargs; i++) {
+        if (signature[i]) {
+            // If signature is specified for this argument, use it
+            Py_INCREF(signature[i]);
+            new_op_dtypes[i] = signature[i];
+            // printf("new_op_dtypes[%d] set to %s (from signature)\n", i,
+            // get_dtype_name(new_op_dtypes[i]));
+        }
+        else {
+            // Otherwise, use the common dtype
+            Py_INCREF(common);
+            new_op_dtypes[i] = common;
+            // printf("new_op_dtypes[%d] set to %s (from common)\n", i,
+            // get_dtype_name(new_op_dtypes[i]));
+        }
+    }
+
+    Py_XDECREF(common);
+    // printf("Exiting quad_ufunc_promoter\n");
+    return 0;
+}
 
 template <binop_def binop>
 int
@@ -196,6 +354,7 @@ create_quad_binary_ufunc(PyObject *numpy, const char *ufunc_name)
 {
     PyObject *ufunc = PyObject_GetAttrString(numpy, ufunc_name);
     if (ufunc == NULL) {
+        Py_DecRef(ufunc);
         return -1;
     }
 
@@ -220,6 +379,25 @@ create_quad_binary_ufunc(PyObject *numpy, const char *ufunc_name)
         return -1;
     }
 
+    PyObject *promoter_capsule =
+            PyCapsule_New((void *)&quad_ufunc_promoter, "numpy._ufunc_promoter", NULL);
+    if (promoter_capsule == NULL) {
+        return -1;
+    }
+
+    PyObject *DTypes = PyTuple_Pack(3, &PyArrayDescr_Type, &PyArrayDescr_Type, &PyArrayDescr_Type);
+    if (DTypes == 0) {
+        Py_DECREF(promoter_capsule);
+        return -1;
+    }
+
+    if (PyUFunc_AddPromoter(ufunc, DTypes, promoter_capsule) < 0) {
+        Py_DECREF(promoter_capsule);
+        Py_DECREF(DTypes);
+        return -1;
+    }
+    Py_DECREF(promoter_capsule);
+    Py_DECREF(DTypes);
     return 0;
 }
 
@@ -272,6 +450,22 @@ quad_generic_comp_strided_loop(PyArrayMethod_Context *context, char *const data[
     return 0;
 }
 
+NPY_NO_EXPORT int
+comparison_ufunc_promoter(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
+                          PyArray_DTypeMeta *signature[], PyArray_DTypeMeta *new_op_dtypes[])
+{
+    PyArray_DTypeMeta *new_signature[NPY_MAXARGS];
+
+    memcpy(new_signature, signature, 3 * sizeof(PyArray_DTypeMeta *));
+    new_signature[2] = NULL;
+    int res = quad_ufunc_promoter(ufunc, op_dtypes, new_signature, new_op_dtypes);
+    if (res < 0) {
+        return -1;
+    }
+    Py_XSETREF(new_op_dtypes[2], &PyArray_BoolDType);
+    return 0;
+}
+
 template <cmp_def comp>
 int
 create_quad_comparison_ufunc(PyObject *numpy, const char *ufunc_name)
@@ -299,6 +493,26 @@ create_quad_comparison_ufunc(PyObject *numpy, const char *ufunc_name)
     if (PyUFunc_AddLoopFromSpec(ufunc, &Spec) < 0) {
         return -1;
     }
+
+    PyObject *promoter_capsule =
+            PyCapsule_New((void *)&comparison_ufunc_promoter, "numpy._ufunc_promoter", NULL);
+    if (promoter_capsule == NULL) {
+        return -1;
+    }
+
+    PyObject *DTypes = PyTuple_Pack(3, &PyArrayDescr_Type, &PyArrayDescr_Type, &PyArray_BoolDType);
+    if (DTypes == 0) {
+        Py_DECREF(promoter_capsule);
+        return -1;
+    }
+
+    if (PyUFunc_AddPromoter(ufunc, DTypes, promoter_capsule) < 0) {
+        Py_DECREF(promoter_capsule);
+        Py_DECREF(DTypes);
+        return -1;
+    }
+    Py_DECREF(promoter_capsule);
+    Py_DECREF(DTypes);
 
     return 0;
 }
