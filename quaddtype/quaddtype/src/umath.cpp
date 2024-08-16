@@ -422,6 +422,12 @@ init_quad_binary_ops(PyObject *numpy)
     if (create_quad_binary_ufunc<quad_mod>(numpy, "mod") < 0) {
         return -1;
     }
+    if (create_quad_binary_ufunc<quad_minimum>(numpy, "minimum") < 0) {
+        return -1;
+    }
+    if (create_quad_binary_ufunc<quad_maximum>(numpy, "maximum") < 0) {
+        return -1;
+    }
     return 0;
 }
 

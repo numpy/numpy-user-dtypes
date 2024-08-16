@@ -153,6 +153,20 @@ quad_mod(Sleef_quad *res, Sleef_quad *a, Sleef_quad *b)
     return 0;
 }
 
+static inline int
+quad_minimum(Sleef_quad *out, Sleef_quad *in1, Sleef_quad *in2)
+{
+    *out = Sleef_icmpleq1(*in1, *in2) ? *in1 : *in2;
+    return 0;
+}
+
+static inline int
+quad_maximum(Sleef_quad *out, Sleef_quad *in1, Sleef_quad *in2)
+{
+    *out = Sleef_icmpgeq1(*in1, *in2) ? *in1 : *in2;
+    return 0;
+}
+
 // comparison functions
 typedef npy_bool (*cmp_def)(const Sleef_quad *, const Sleef_quad *);
 
