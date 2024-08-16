@@ -101,7 +101,7 @@ static PyObject * QuadPrecision_repr(QuadPrecisionObject* self)
 static void
 quad_dealloc(QuadPrecDTypeObject *self)
 {
-    PyArrayDescr_Type.tp_dealloc((PyObject *)self);
+    Py_TYPE(self)->tp_free((PyObject *)self);
 }
 
 PyTypeObject QuadPrecision_Type = 
