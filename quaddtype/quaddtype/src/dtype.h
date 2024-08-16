@@ -1,17 +1,30 @@
-#ifndef _NPY_DTYPE_H
-#define _NPY_DTYPE_H
+#ifndef _QUADDTYPE_DTYPE_H
+#define _QUADDTYPE_DTYPE_H
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-typedef struct {
+#include<Python.h>
+#include<sleef.h>
+#include<numpy/ndarraytypes.h>
+#include<numpy/dtype_api.h>
+
+#include "scalar.h"
+
+typedef struct
+{
     PyArray_Descr base;
-} QuadDTypeObject;
+    
+} QuadPrecDTypeObject;
 
-extern PyArray_DTypeMeta QuadDType;
-extern PyTypeObject *QuadScalar_Type;
+extern PyArray_DTypeMeta QuadPrecDType;
 
-QuadDTypeObject *
-new_quaddtype_instance(void);
+QuadPrecDTypeObject * new_quaddtype_instance(void);
 
-int
-init_quad_dtype(void);
+int init_quadprec_dtype(void);
 
-#endif /*_NPY_DTYPE_H*/
+#ifdef __cplusplus
+}
+#endif
+
+#endif

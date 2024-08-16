@@ -1,7 +1,15 @@
-#ifndef _NPY_UFUNC_H
-#define _NPY_UFUNC_H
+#ifndef _QUADDTYPE_UMATH_H
+#define _QUADDTYPE_UMATH_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 int
-init_multiply_ufunc(void);
+init_quad_umath(void);
 
-#endif /*_NPY_UFUNC_H */
+#ifdef __cplusplus
+}
+#endif
+
+#endif

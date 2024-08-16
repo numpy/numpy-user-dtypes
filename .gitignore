@@ -133,3 +133,4 @@ compile_commands.json
 
 .ruff-cache/
 .asv
+.vscode/

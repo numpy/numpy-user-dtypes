@@ -1,7 +1,21 @@
-#ifndef _NPY_CASTS_H
-#define _NPY_CASTS_H
+#ifndef _QUADDTYPE_CASTS_H
+#define _QUADDTYPE_CASTS_H
 
-extern PyArrayMethod_Spec QuadToQuadCastSpec;
-extern PyArrayMethod_Spec QuadToFloat128CastSpec;
+#include <Python.h>
+#include "numpy/dtype_api.h"
 
-#endif /* _NPY_CASTS_H */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+PyArrayMethod_Spec **
+init_casts(void);
+
+void
+free_casts(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

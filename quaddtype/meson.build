@@ -1,47 +1,56 @@
-project(
-  'quaddtype',
-  'c',
-)
+project('quaddtype', 'c', 'cpp', default_options : ['cpp_std=c++17', 'b_pie=true'])
 
 py_mod = import('python')
 py = py_mod.find_installation()
 
+c = meson.get_compiler('c')
+
+sleef_dep = c.find_library('sleef')
+sleefquad_dep = c.find_library('sleefquad')
+
 incdir_numpy = run_command(py,
   [
     '-c',
-    'import numpy; print(numpy.get_include())'
+    'import numpy; import os; print(os.path.relpath(numpy.get_include()))'
   ],
   check: true
 ).stdout().strip()
 
 includes = include_directories(
-  [
-    incdir_numpy,
-    'quaddtype/src'
-  ]
+    [
+        incdir_numpy,
+        'quaddtype/src',
+    ]
 )
 
 srcs = [
-  'quaddtype/src/umath.c',
-  'quaddtype/src/casts.c',
-  'quaddtype/src/dtype.c',
-  'quaddtype/src/quaddtype_main.c',
+    'quaddtype/src/casts.h',
+    'quaddtype/src/casts.cpp',
+    'quaddtype/src/scalar.h',
+    'quaddtype/src/scalar.c',
+    'quaddtype/src/dtype.h',
+    'quaddtype/src/dtype.c',
+    'quaddtype/src/quaddtype_main.c',
+    'quaddtype/src/scalar_ops.h',
+    'quaddtype/src/scalar_ops.cpp',
+    'quaddtype/src/ops.hpp',
+    'quaddtype/src/umath.h',
+    'quaddtype/src/umath.cpp'
 ]
 
 py.install_sources(
-  [
-    'quaddtype/__init__.py',
-    'quaddtype/quadscalar.py'
-  ],
-  subdir: 'quaddtype',
-  pure: false
+    [
+        'quaddtype/__init__.py',
+    ],
+    subdir: 'quaddtype',
+    pure: false
 )
 
-py.extension_module(
-  '_quaddtype_main',
-  srcs,
-  c_args: ['-g', '-O0'],
-  install: true,
-  subdir: 'quaddtype',
-  include_directories: includes
+py.extension_module('_quaddtype_main',
+srcs,
+c_args: ['-g', '-O0', '-lsleef', '-lsleefquad'],
+dependencies: [sleef_dep, sleefquad_dep],
+install: true,
+subdir: 'quaddtype',
+include_directories: includes
 )

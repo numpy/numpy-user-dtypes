@@ -1,197 +1,216 @@
 #include <Python.h>
+#include <sleef.h>
+#include <sleefquad.h>
 
-#define PY_ARRAY_UNIQUE_SYMBOL quaddtype_ARRAY_API
-#define PY_UFUNC_UNIQUE_SYMBOL quaddtype_UFUNC_API
+#define PY_ARRAY_UNIQUE_SYMBOL QuadPrecType_ARRAY_API
+#define PY_UFUNC_UNIQUE_SYMBOL QuadPrecType_UFUNC_API
 #define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
 #define NPY_TARGET_VERSION NPY_2_0_API_VERSION
 #define NO_IMPORT_ARRAY
 #define NO_IMPORT_UFUNC
-#include "numpy/ndarraytypes.h"
 #include "numpy/arrayobject.h"
+#include "numpy/ndarraytypes.h"
 #include "numpy/dtype_api.h"
 
-#include "dtype.h"
-#include "abstract.h"
+#include "scalar.h"
 #include "casts.h"
+#include "dtype.h"
 
-PyTypeObject *QuadScalar_Type = NULL;
-
-QuadDTypeObject *
-new_quaddtype_instance(void)
+static inline int quad_load(Sleef_quad *x, char *data_ptr) 
 {
-    QuadDTypeObject *new =
-            (QuadDTypeObject *)PyArrayDescr_Type.tp_new((PyTypeObject *)&QuadDType, NULL, NULL);
-    if (new == NULL) {
-        return NULL;
+    if (data_ptr == NULL || x == NULL) 
+    {
+        return -1;
     }
-
-    new->base.elsize = sizeof(__float128);
-    new->base.alignment = _Alignof(__float128);
-    return new;
-}
-
-// Take an python double and put a copy into the array
-static int
-quad_setitem(QuadDTypeObject *descr, PyObject *obj, char *dataptr)
-{
-    __float128 val = (__float128)PyFloat_AsDouble(obj);
-    memcpy(dataptr, &val, sizeof(__float128));
+    *x = *(Sleef_quad *)data_ptr;
     return 0;
 }
 
-static PyObject *
-quad_getitem(QuadDTypeObject *descr, char *dataptr)
+static inline int quad_store(char *data_ptr, Sleef_quad x) 
 {
-    __float128 val;
-    memcpy(&val, dataptr, sizeof(__float128));
+    if (data_ptr == NULL) 
+    {
+        return -1;
+    }
+    *(Sleef_quad *)data_ptr = x;
+    return 0;
+}
 
-    PyObject *val_obj = PyFloat_FromDouble((double)val);
-    if (val_obj == NULL) {
+QuadPrecDTypeObject  * new_quaddtype_instance(void)
+{
+    QuadPrecDTypeObject *new = (QuadPrecDTypeObject *)PyArrayDescr_Type.tp_new((PyTypeObject *)&QuadPrecDType, NULL, NULL);
+    if (new == NULL) {
         return NULL;
     }
+    new->base.elsize = sizeof(Sleef_quad);
+    new->base.alignment = _Alignof(Sleef_quad);
 
-    // Need to create a new QuadScalar instance here and return that...
-    PyObject *res = PyObject_CallFunctionObjArgs((PyObject *)QuadScalar_Type, val_obj, NULL);
-    if (res == NULL) {
-        return NULL;
-    }
-    Py_DECREF(val_obj);
-    return res;
+    return new;
 }
 
-// For two instances of the same dtype, both have the same precision. Return
-// self.
-static QuadDTypeObject *
-common_instance(QuadDTypeObject *self, QuadDTypeObject *other)
-{
-    return self;
-}
-
-// When dtypes are mixed, find a "common" dtype for the two which can hold
-// content of both without loss of information. I guess this should return a
-// 256-bit float dtype? Since this isn't natively supported by any platform,
-// just return another 128-bit float dtype.
-static PyArray_DTypeMeta *
-common_dtype(PyArray_DTypeMeta *self, PyArray_DTypeMeta *other)
-{
-    /*
-     * Typenum is useful for NumPy, but there it can still be convenient.
-     * (New-style user dtypes will probably get -1 as type number...)
-     */
-    if (other->type_num >= 0 && PyTypeNum_ISNUMBER(other->type_num) &&
-        !PyTypeNum_ISCOMPLEX(other->type_num)) {
-        // float128 is the biggest natively supported float. Return it in all
-        // cases where other is a number (and not complex).
-        Py_INCREF(self);
-        return self;
-    }
-
-    // Revert to object dtype in all other cases.
-    Py_INCREF(Py_NotImplemented);
-    return (PyArray_DTypeMeta *)Py_NotImplemented;
-}
-
-// Expected to have this, and that it does an incref; see NEP42
-// Without this you'll get weird memory corruption bugs in the casting code
-static QuadDTypeObject *
-quaddtype_ensure_canonical(QuadDTypeObject *self)
+static QuadPrecDTypeObject * ensure_canonical(QuadPrecDTypeObject *self)
 {
     Py_INCREF(self);
     return self;
 }
 
-static PyArray_Descr *
-quad_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls), PyObject *obj)
+static QuadPrecDTypeObject * common_instance(QuadPrecDTypeObject *dtype1, QuadPrecDTypeObject *dtype2)
 {
-    if (Py_TYPE(obj) != QuadScalar_Type) {
-        PyErr_SetString(PyExc_TypeError, "Can only store QuadScalars in a QuadDType array.");
+    Py_INCREF(dtype1);
+    return dtype1;
+}
+
+
+static PyArray_DTypeMeta * common_dtype(PyArray_DTypeMeta *cls, PyArray_DTypeMeta *other)
+{
+    // Promote integer and floating-point types to QuadPrecDType
+    if (other->type_num >= 0 && 
+        (PyTypeNum_ISINTEGER(other->type_num) || 
+         PyTypeNum_ISFLOAT(other->type_num))) {
+        Py_INCREF(cls);
+        return cls;
+    }
+    // Don't promote complex types
+    if (PyTypeNum_ISCOMPLEX(other->type_num)) {
+        Py_INCREF(Py_NotImplemented);
+        return (PyArray_DTypeMeta *)Py_NotImplemented;
+    }
+
+    Py_INCREF(Py_NotImplemented);
+    return (PyArray_DTypeMeta *)Py_NotImplemented;
+}
+
+static PyArray_Descr *
+quadprec_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls), PyObject *obj)
+{
+    if (Py_TYPE(obj) != &QuadPrecision_Type) 
+    {
+        PyErr_SetString(PyExc_TypeError, "Can only store QuadPrecision in a QuadPrecDType array.");
+        return NULL;
+    }
+    return (PyArray_Descr *)new_quaddtype_instance();
+}
+
+static int quadprec_setitem(QuadPrecDTypeObject *descr, PyObject *obj, char *dataptr)
+{
+    QuadPrecisionObject *value;
+    if (PyObject_TypeCheck(obj, &QuadPrecision_Type)) 
+    {
+        Py_INCREF(obj);
+        value = (QuadPrecisionObject *)obj;
+    }
+    else 
+    {
+        value = QuadPrecision_from_object(obj);
+        if (value == NULL) {
+            return -1;
+        }
+    }
+
+    if (quad_store(dataptr, value->quad.value) < 0)
+    {
+        Py_DECREF(value);
+        char error_msg[100];
+        snprintf(error_msg, sizeof(error_msg), "Invalid memory location %p", (void*)dataptr);
+        PyErr_SetString(PyExc_ValueError, error_msg);
+        return -1;
+    }
+
+    Py_DECREF(value);
+    return 0;
+}
+
+static PyObject * quadprec_getitem(QuadPrecDTypeObject *descr, char *dataptr)
+{
+    QuadPrecisionObject *new = QuadPrecision_raw_new();
+    if (!new) 
+    {
+        return NULL;
+    }
+    if (quad_load(&new->quad.value, dataptr) < 0) 
+    {
+        Py_DECREF(new);
+        char error_msg[100];
+        snprintf(error_msg, sizeof(error_msg), "Invalid memory location %p", (void*)dataptr);
+        PyErr_SetString(PyExc_ValueError, error_msg);
+        return NULL;
+    }
+    return (PyObject *)new;
+}
+
+static PyArray_Descr *quadprec_default_descr(PyArray_DTypeMeta *NPY_UNUSED(cls))
+{
+    return (PyArray_Descr *)new_quaddtype_instance();
+}
+
+static PyType_Slot QuadPrecDType_Slots[] = 
+{
+    {NPY_DT_ensure_canonical, &ensure_canonical},
+    {NPY_DT_common_instance, &common_instance},
+    {NPY_DT_common_dtype, &common_dtype},
+    {NPY_DT_discover_descr_from_pyobject, &quadprec_discover_descriptor_from_pyobject},
+    {NPY_DT_setitem, &quadprec_setitem},
+    {NPY_DT_getitem, &quadprec_getitem},
+    {NPY_DT_default_descr, &quadprec_default_descr},
+    {0, NULL}
+};
+
+
+static PyObject * QuadPrecDType_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwds)
+{
+    if (PyTuple_GET_SIZE(args) != 0 || (kwds != NULL && PyDict_Size(kwds) != 0)) {
+        PyErr_SetString(PyExc_TypeError,
+                        "QuadPrecDType takes no arguments");
         return NULL;
     }
 
-    // Get the dtype attribute from the object.
-    return (PyArray_Descr *)PyObject_GetAttrString(obj, "dtype");
-}
-
-static PyType_Slot QuadDType_Slots[] = {
-        {NPY_DT_common_instance, &common_instance},
-        {NPY_DT_common_dtype, &common_dtype},
-        {NPY_DT_discover_descr_from_pyobject, &quad_discover_descriptor_from_pyobject},
-        /* The header is wrong on main :(, so we add 1 */
-        {NPY_DT_setitem, &quad_setitem},
-        {NPY_DT_getitem, &quad_getitem},
-        {NPY_DT_ensure_canonical, &quaddtype_ensure_canonical},
-        {0, NULL}};
-
-/*
- * The following defines everything type object related (i.e. not NumPy
- * specific).
- *
- * Note that this function is by default called without any arguments to fetch
- * a default version of the descriptor (in principle at least).  During init
- * we fill in `cls->singleton` though for the dimensionless unit.
- */
-static PyObject *
-quaddtype_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwargs)
-{
     return (PyObject *)new_quaddtype_instance();
 }
 
-static void
-quaddtype_dealloc(QuadDTypeObject *self)
+static PyObject * QuadPrecDType_repr(QuadPrecDTypeObject *self)
 {
-    PyArrayDescr_Type.tp_dealloc((PyObject *)self);
+    return PyUnicode_FromString("QuadPrecDType()");
 }
 
-static PyObject *
-quaddtype_repr(QuadDTypeObject *self)
-{
-    PyObject *res = PyUnicode_FromString("This is a quad (128-bit float) dtype.");
-    return res;
-}
-
-// These are the basic things that you need to create a Python Type/Class in C.
-// However, there is a slight difference here because we create a
-// PyArray_DTypeMeta, which is a larger struct than a typical type.
-// (This should get a bit nicer eventually with Python >3.11.)
-PyArray_DTypeMeta QuadDType = {
-        {{
-                PyVarObject_HEAD_INIT(NULL, 0).tp_name = "quaddtype.QuadDType",
-                .tp_basicsize = sizeof(QuadDTypeObject),
-                .tp_new = quaddtype_new,
-                .tp_dealloc = (destructor)quaddtype_dealloc,
-                .tp_repr = (reprfunc)quaddtype_repr,
-                .tp_str = (reprfunc)quaddtype_repr,
-        }},
-        /* rest, filled in during DTypeMeta initialization */
+PyArray_DTypeMeta QuadPrecDType = {
+    {{
+        PyVarObject_HEAD_INIT(NULL, 0)
+        .tp_name = "QuadPrecDType.QuadPrecDType",
+        .tp_basicsize = sizeof(QuadPrecDTypeObject),
+        .tp_new = QuadPrecDType_new,
+        .tp_repr = (reprfunc)QuadPrecDType_repr,
+        .tp_str = (reprfunc)QuadPrecDType_repr,
+    }},
 };
 
-int
-init_quad_dtype(void)
+int init_quadprec_dtype(void)
 {
-    // To create our DType, we have to use a "Spec" that tells NumPy how to
-    // do it.  You first have to create a static type, but see the note there!
-    PyArrayMethod_Spec *casts[] = {
-            &QuadToQuadCastSpec,
-            NULL,
+    PyArrayMethod_Spec **casts = init_casts();
+    if (!casts)
+        return -1;
+
+    PyArrayDTypeMeta_Spec QuadPrecDType_DTypeSpec = {
+        .flags = NPY_DT_NUMERIC,
+        .casts = casts,
+        .typeobj = &QuadPrecision_Type,
+        .slots = QuadPrecDType_Slots,
     };
 
-    PyArrayDTypeMeta_Spec QuadDType_DTypeSpec = {
-            .flags = NPY_DT_NUMERIC,
-            .casts = casts,
-            .typeobj = QuadScalar_Type,
-            .slots = QuadDType_Slots,
-    };
+    ((PyObject *)&QuadPrecDType)->ob_type = &PyArrayDTypeMeta_Type;
 
-    ((PyObject *)&QuadDType)->ob_type = &PyArrayDTypeMeta_Type;
-    ((PyTypeObject *)&QuadDType)->tp_base = &PyArrayDescr_Type;
-    if (PyType_Ready((PyTypeObject *)&QuadDType) < 0) {
+    ((PyTypeObject *)&QuadPrecDType)->tp_base = &PyArrayDescr_Type;
+
+    if (PyType_Ready((PyTypeObject *)&QuadPrecDType) < 0) 
+    {
         return -1;
     }
 
-    if (PyArrayInitDTypeMeta_FromSpec(&QuadDType, &QuadDType_DTypeSpec) < 0) {
+    if (PyArrayInitDTypeMeta_FromSpec(&QuadPrecDType, &QuadPrecDType_DTypeSpec) < 0)
+    {
         return -1;
     }
 
-    QuadDType.singleton = PyArray_GetDefaultDescr(&QuadDType);
+    free_casts();
+    
     return 0;
 }
