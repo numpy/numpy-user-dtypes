@@ -40,7 +40,7 @@ quad_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self),
     }
 
     *view_offset = 0;
-    return NPY_SAME_KIND_CASTING;
+    return NPY_NO_CASTING;
 }
 
 static int
@@ -399,7 +399,7 @@ init_casts_internal(void)
             .name = "cast_QuadPrec_to_QuadPrec",
             .nin = 1,
             .nout = 1,
-            .casting = NPY_SAME_KIND_CASTING,
+            .casting = NPY_NO_CASTING,
             .flags = NPY_METH_SUPPORTS_UNALIGNED,
             .dtypes = quad2quad_dtypes,
             .slots = quad2quad_slots,
