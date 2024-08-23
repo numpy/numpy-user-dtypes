@@ -13,8 +13,8 @@ add_project_link_arguments('-L' + conda_prefix + '/lib', language: ['c', 'cpp'])
 add_project_arguments('-I' + conda_prefix + '/include', language: ['c', 'cpp'])
 
 # Use pkg-config to find SLEEF
-pkg = import('pkgconfig')
-sleef_dep = pkg.dependency('sleef', required: false)
+pkgconfig = import('pkgconfig')
+sleef_dep = dependency('sleef', required : false)
 
 if not sleef_dep.found()
     # Fallback to manual library detection
