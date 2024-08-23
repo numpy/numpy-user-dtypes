@@ -3,6 +3,18 @@ project('quaddtype', 'c', 'cpp', default_options : ['cpp_std=c++17', 'b_pie=true
 py_mod = import('python')
 py = py_mod.find_installation()
 
+py_version = py.language_version()
+message('Python version: ' + py_version)
+
+if py_version.version_compare('>=3.13')
+  py_dep = declare_dependency(
+    include_directories: py.get_path('include'),
+    link_args: ['-L' + py.get_path('stdlib'), '-lpython' + py_version]
+  )
+else
+  py_dep = py.dependency(required: true)
+endif
+
 c = meson.get_compiler('c')
 
 # Get the conda prefix
@@ -69,10 +81,10 @@ py.install_sources(
 )
 
 py.extension_module('_quaddtype_main',
-srcs,
-c_args: ['-g', '-O0', '-lsleef', '-lsleefquad'],
-dependencies: [sleef_dep, sleefquad_dep],
-install: true,
-subdir: 'quaddtype',
-include_directories: includes
+    srcs,
+    c_args: ['-g', '-O0', '-lsleef', '-lsleefquad'],
+    dependencies: [sleef_dep, sleefquad_dep, py_dep],
+    install: true,
+    subdir: 'quaddtype',
+    include_directories: includes
 )
