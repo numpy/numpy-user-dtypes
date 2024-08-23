@@ -27,36 +27,10 @@ test = [
 [tool.cibuildwheel]
 archs = ["auto64"]
 skip = ["*-musllinux*", "pp*", "cp36-*", "cp37-*", "cp38-*"]
-environment = { PATH = "$PATH:/usr/share/miniconda3/bin" }
 
-[tool.cibuildwheel.linux]
-before-all = """
-    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
-    bash miniconda.sh -b -p /usr/share/miniconda3
-    export PATH="/usr/share/miniconda3/bin:$PATH"
-    conda config --add channels conda-forge
-    conda config --set channel_priority strict
-    conda install -y sleef
-"""
-
-[tool.cibuildwheel.macos]
-before-all = """
-    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh
-    bash miniconda.sh -b -p $HOME/miniconda3
-    export PATH="$HOME/miniconda3/bin:$PATH"
-    conda config --add channels conda-forge
-    conda config --set channel_priority strict
-    conda install -y sleef
-"""
+# The environment variable ensures the conda installation is available
+environment = { PATH = "$CONDA_PREFIX/bin:$PATH", LD_LIBRARY_PATH = "$CONDA_PREFIX/lib:$LD_LIBRARY_PATH" }
 
 [tool.cibuildwheel.windows]
-before-all = """
-    powershell -Command "(New-Object Net.WebClient).DownloadFile('https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe', 'miniconda.exe')"
-    start /wait "" miniconda.exe /S /D=C:\\Miniconda3
-    set PATH=C:\\Miniconda3;C:\\Miniconda3\\Scripts;%PATH%
-    conda config --add channels conda-forge
-    conda config --set channel_priority strict
-    conda install -y sleef
-"""
 before-build = "pip install delvewheel"
 repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel}"
