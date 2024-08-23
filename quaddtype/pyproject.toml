@@ -26,9 +26,17 @@ test = [
 
 [tool.cibuildwheel]
 archs = ["auto64"]
-skip = ["*-musllinux*", "pp*", "cp36-*", "cp37-*", "cp38-*"]
-test-command = "pytest {project}/tests"
+skip = ["*-musllinux*", "pp*", "cp36-*", "cp37-*", "cp38-*", "cp39-*"]
+test-command = """
+python -c "import platform; print('Python version:', platform.python_version())"
+python -c "import sys; print('sys.platform:', sys.platform)"
+ldd --version
+uname -a
+pip install {package}[test]
+pytest {project}/tests
+"""
 test-extras = ["test"]
+manylinux-x86_64-image = "manylinux_2_28"
 
 [tool.cibuildwheel.linux]
 before-all = """
