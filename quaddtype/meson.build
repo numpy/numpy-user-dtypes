@@ -12,7 +12,7 @@ conda_prefix = run_command('bash', '-c', 'echo $CONDA_PREFIX', check: true).stdo
 add_project_link_arguments('-L' + conda_prefix + '/lib', language: ['c', 'cpp'])
 add_project_arguments('-I' + conda_prefix + '/include', language: ['c', 'cpp'])
 
-# Use pkg-config to find SLEEF
+# Try to use pkg-config first
 pkgconfig = import('pkgconfig')
 sleef_dep = dependency('sleef', required : false)
 
@@ -34,7 +34,7 @@ incdir_numpy = run_command(py,
 ).stdout().strip()
 
 includes = include_directories(
-    [incdir_numpy, 'quaddtype/src']
+    [incdir_numpy, 'quaddtype/src', conda_prefix + '/include']
 )
 
 srcs = [
