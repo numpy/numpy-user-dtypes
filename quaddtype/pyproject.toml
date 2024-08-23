@@ -34,16 +34,10 @@ test-extras = ["test"]
 [tool.cibuildwheel.linux]
 before-all = """
 set -ex
-# Update ca-certificates
-yum install -y ca-certificates
-update-ca-trust
-
-# Install wget and other necessary tools
-yum install -y wget
-
-# Install devtoolset-8
-yum install -y centos-release-scl
-yum install -y devtoolset-8-gcc devtoolset-8-gcc-c++
+# Download and install a standalone GCC
+wget https://github.com/Aetherinox/gcc-arm64/releases/download/12.3.1-2023.10/aarch64-linux-gnu-12.3.1-2023.10-x86_64-linux.tar.xz
+tar xf aarch64-linux-gnu-12.3.1-2023.10-x86_64-linux.tar.xz -C /opt
+export PATH="/opt/aarch64-linux-gnu/bin:$PATH"
 
 # Install Miniconda and sleef
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
@@ -54,8 +48,8 @@ conda install -y -c conda-forge sleef
 # Verify sleef installation
 ls -l $HOME/miniconda/include/sleef.h || echo "sleef.h not found"
 """
-before-build = "source /opt/rh/devtoolset-8/enable"
-environment = { PATH = "/opt/rh/devtoolset-8/root/usr/bin:$HOME/miniconda/bin:$PATH", LD_LIBRARY_PATH = "/opt/rh/devtoolset-8/root/usr/lib64:/opt/rh/devtoolset-8/root/usr/lib:$HOME/miniconda/lib:$LD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include -fPIC $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include -fPIC $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS", AUDITWHEEL_PLAT = "manylinux2014_x86_64", CC = "/opt/rh/devtoolset-8/root/usr/bin/gcc", CXX = "/opt/rh/devtoolset-8/root/usr/bin/g++" }
+# have to give in one-line as toml does not allow multi-line here
+environment = {PATH = "/opt/aarch64-linux-gnu/bin:$HOME/miniconda/bin:$PATH", LD_LIBRARY_PATH = "/opt/aarch64-linux-gnu/lib:$HOME/miniconda/lib:$LD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include -fPIC $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include -fPIC $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS", AUDITWHEEL_PLAT = "manylinux2014_x86_64", CC = "/opt/aarch64-linux-gnu/bin/gcc", CXX = "/opt/aarch64-linux-gnu/bin/g++"}
 repair-wheel-command = "auditwheel repair -w {dest_dir} {wheel}"
 
 [tool.cibuildwheel.macos]
