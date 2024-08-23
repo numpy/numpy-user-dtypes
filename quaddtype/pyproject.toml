@@ -32,9 +32,10 @@ test-extras = ["test"]
 
 [tool.cibuildwheel.linux]
 before-all = """
-yum install -y wget &&
-wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh &&
-bash miniconda.sh -b -p $HOME/miniconda &&
+set -ex
+yum install -y wget
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+bash miniconda.sh -b -p $HOME/miniconda
 $HOME/miniconda/bin/conda install -y -c conda-forge sleef
 ls -l $HOME/miniconda/include/sleef.h
 """
@@ -43,8 +44,8 @@ repair-wheel-command = "auditwheel repair -w {dest_dir} {wheel}"
 
 [tool.cibuildwheel.macos]
 before-all = """
-wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh &&
-bash miniconda.sh -b -p $HOME/miniconda &&
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh
+bash miniconda.sh -b -p $HOME/miniconda
 $HOME/miniconda/bin/conda install -y -c conda-forge sleef
 ls -l $HOME/miniconda/include/sleef.h
 """
@@ -52,8 +53,8 @@ environment = {DYLD_LIBRARY_PATH = "$HOME/miniconda/lib:$DYLD_LIBRARY_PATH", LIB
 
 [tool.cibuildwheel.windows]
 before-all = """
-powershell -Command "Invoke-WebRequest -Uri https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe -OutFile miniconda.exe" &&
-start /wait "" miniconda.exe /S /D=%UserProfile%\\Miniconda3 &&
+powershell -Command "Invoke-WebRequest -Uri https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe -OutFile miniconda.exe"
+start /wait "" miniconda.exe /S /D=%UserProfile%\\Miniconda3
 %UserProfile%\\Miniconda3\\Scripts\\conda install -y -c conda-forge sleef
 """
 before-build = "pip install delvewheel"
