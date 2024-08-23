@@ -2,8 +2,10 @@ name: Build quaddtype wheels and release
 
 on:
   push:
-    branches: [testing-pkg]
-    tags: ["v*"]
+    branches:
+      - main
+    tags:
+      - "v*"
   pull_request:
 
 jobs:
@@ -13,35 +15,60 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-13, macos-14]
-        python-version: ["3.10", "3.11", "3.12"]
 
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.10"
+
+      - name: Install cibuildwheel
+        run: pip install cibuildwheel==2.20.0
+
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.20.0
+        run: |
+          python -m cibuildwheel --output-dir wheelhouse
         env:
-          CIBW_BUILD: cp3${{ matrix.python-version == '3.10' && '10' || (matrix.python-version == '3.11' && '11' || '12') }}-*
-          CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-13' && 'x86_64' || 'arm64' }}
           CIBW_BUILD_VERBOSITY: "1"
-      - uses: actions/upload-artifact@v3
+          CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-13' && 'x86_64' || 'arm64' }}
+        working-directory: ./quaddtype
+
+      - uses: actions/upload-artifact@v2
         with:
-          path: ./wheelhouse/*.whl
-          name: wheels-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: ./quaddtype/wheelhouse/*.whl
+          name: wheels-${{ matrix.os }}
 
   create_release:
     name: Create Release
     needs: build_wheels
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
+
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/download-artifact@v3
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Download all workflow run artifacts
+        uses: actions/download-artifact@v2
         with:
           path: artifacts
-      - uses: softprops/action-gh-release@v1
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
         with:
           files: ./artifacts/**/*.whl
         env:
