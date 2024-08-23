@@ -5,8 +5,18 @@ py = py_mod.find_installation()
 
 c = meson.get_compiler('c')
 
-sleef_dep = c.find_library('sleef')
-sleefquad_dep = c.find_library('sleefquad')
+# Get the conda prefix
+conda_prefix = run_command('bash', '-c', 'echo $CONDA_PREFIX', check: true).stdout().strip()
+
+# Add conda lib directory to library path
+add_project_link_arguments('-L' + conda_prefix + '/lib', language: ['c', 'cpp'])
+
+sleef_dep = c.find_library('sleef', dirs: [conda_prefix + '/lib'])
+sleefquad_dep = c.find_library('sleefquad', dirs: [conda_prefix + '/lib'])
+
+if not sleef_dep.found() or not sleefquad_dep.found()
+    error('SLEEF library not found. Please ensure it is installed in your conda environment\nconda install sleef.')
+endif
 
 incdir_numpy = run_command(py,
   [

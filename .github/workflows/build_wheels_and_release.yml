@@ -1,0 +1,98 @@
+name: Build quaddtype wheels and release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  pull_request:
+
+jobs:
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, windows-2019, macos-11]
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version:  '3.10'
+
+      - name: Set up Conda
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          auto-update-conda: true
+          python-version: '3.10'
+          channels: conda-forge,defaults
+          channel-priority: strict
+
+      - name: Install SLEEF and other dependencies
+        shell: bash -l {0}
+        run: |
+          conda install -y sleef numpy meson meson-python patchelf wheel
+
+      - name: Install cibuildwheel
+        run: python -m pip install cibuildwheel==2.11.2
+
+      - name: Build wheels
+        shell: bash -l {0}
+        run: |
+          export LIBRARY_PATH=$CONDA_PREFIX/lib:$LIBRARY_PATH
+          export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
+          export CPATH=$CONDA_PREFIX/include:$CPATH
+          python -m cibuildwheel --output-dir wheelhouse
+        env:
+          CIBW_PROJECT_REQUIRES_PYTHON: ">=3.9"
+          CIBW_BUILD_VERBOSITY: "1"
+          CIBW_ENVIRONMENT: >
+            LIBRARY_PATH=$CONDA_PREFIX/lib:$LIBRARY_PATH
+            LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
+            CPATH=$CONDA_PREFIX/include:$CPATH
+        working-directory: ./quaddtype
+
+      - uses: actions/upload-artifact@v2
+        with:
+          path: ./quaddtype/wheelhouse/*.whl
+          name: wheels
+
+  create_release:
+    name: Create Release
+    needs: build_wheels
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Download all workflow run artifacts
+        uses: actions/download-artifact@v2
+        with:
+          path: artifacts
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Assets
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./artifacts/wheels/*.whl
+          asset_name: quaddtype-${{ github.ref_name }}.whl
+          asset_content_type: application/zip
