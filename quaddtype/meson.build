@@ -10,6 +10,7 @@ conda_prefix = run_command('bash', '-c', 'echo $CONDA_PREFIX', check: true).stdo
 
 # Add conda lib directory to library path
 add_project_link_arguments('-L' + conda_prefix + '/lib', language: ['c', 'cpp'])
+add_project_arguments('-I' + conda_prefix + '/include', language: ['c', 'cpp'])
 
 sleef_dep = c.find_library('sleef', dirs: [conda_prefix + '/lib'])
 sleefquad_dep = c.find_library('sleefquad', dirs: [conda_prefix + '/lib'])
