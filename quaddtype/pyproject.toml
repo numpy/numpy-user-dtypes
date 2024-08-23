@@ -49,11 +49,6 @@ conda config --set always_yes yes --set changeps1 no
 conda update -q conda
 conda info -a
 conda install -y -c conda-forge sleef
-if [ ! -f "$HOME/miniconda/include/sleef.h" ]; then
-    echo "sleef.h not found. Installation may have failed."
-    exit 1
-fi
-ls -l $HOME/miniconda/include/sleef.h
 """
 environment = { LD_LIBRARY_PATH = "$HOME/miniconda/lib:$LD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS" }
 repair-wheel-command = "auditwheel repair -w {dest_dir} --plat manylinux_2_28_x86_64 {wheel}"
@@ -70,39 +65,6 @@ conda config --set always_yes yes --set changeps1 no
 conda update -q conda
 conda info -a
 conda install -y -c conda-forge sleef pkg-config
-if [ ! -f "$HOME/miniconda/include/sleef.h" ]; then
-    echo "sleef.h not found. Installation may have failed."
-    exit 1
-fi
-ls -l $HOME/miniconda/include/sleef.h
-ls -l $HOME/miniconda/lib/libsleef*
-
-# Create a pkg-config file for SLEEF
-cat << EOF > $HOME/miniconda/lib/pkgconfig/sleef.pc
-prefix=$HOME/miniconda
-libdir=${prefix}/lib
-includedir=${prefix}/include
-
-Name: SLEEF
-Description: SLEEF library
-Version: 3.5.1
-Libs: -L${libdir} -lsleef -lsleefquad
-Cflags: -I${includedir}
-EOF
-
-export PKG_CONFIG_PATH="$HOME/minoconda/lib/pkgconfig:$PKG_CONFIG_PATH"
-pkg-config --libs --cflags sleef
 """
 environment = {DYLD_LIBRARY_PATH = "$HOME/miniconda/lib:$DYLD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS", PKG_CONFIG_PATH = "$HOME/miniconda/lib/pkgconfig:$PKG_CONFIG_PATH"}
 repair-wheel-command = "delocate-wheel -w {dest_dir} -v {wheel}"
-
-# [tool.cibuildwheel.windows]
-# before-all = [
-#     "powershell -Command \"Invoke-WebRequest -Uri https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe -OutFile miniconda.exe\"",
-#     "start /wait \"\" miniconda.exe /S /D=%UserProfile%\\Miniconda3",
-#     "%UserProfile%\\Miniconda3\\Scripts\\activate.bat",
-#     "%UserProfile%\\Miniconda3\\Scripts\\conda.exe install -y -c conda-forge sleef"
-# ]
-# before-build = "pip install delvewheel"
-# repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel} --verbose || echo 'Repair failed, continuing anyway'"
-# environment = { LIBRARY_PATH = "%UserProfile%\\Miniconda3\\Library\\lib;%LIBRARY_PATH%", INCLUDE = "%UserProfile%\\Miniconda3\\Library\\include;%INCLUDE%", LIB = "%UserProfile%\\Miniconda3\\Library\\lib;%LIB%" }
