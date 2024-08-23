@@ -32,7 +32,6 @@ jobs:
           python -m cibuildwheel --output-dir wheelhouse
         env:
           CIBW_BUILD_VERBOSITY: "3"
-          CIBW_ENVIRONMENT: PATH="$HOME/miniconda/bin:$PATH" LD_LIBRARY_PATH="$HOME/miniconda/lib:$LD_LIBRARY_PATH"
         working-directory: ./quaddtype
 
       - uses: actions/upload-artifact@v2

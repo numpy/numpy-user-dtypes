@@ -37,7 +37,7 @@ wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O mi
 bash miniconda.sh -b -p $HOME/miniconda &&
 $HOME/miniconda/bin/conda install -y -c conda-forge sleef
 """
-environment = {LD_LIBRARY_PATH = "$HOME/miniconda/lib:$LD_LIBRARY_PATH"}
+environment = {LD_LIBRARY_PATH = "$HOME/miniconda/lib:$LD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include $CFLAGS",LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS"}
 
 [tool.cibuildwheel.macos]
 before-all = """
@@ -45,14 +45,18 @@ wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O m
 bash miniconda.sh -b -p $HOME/miniconda &&
 $HOME/miniconda/bin/conda install -y -c conda-forge sleef
 """
-environment = {DYLD_LIBRARY_PATH = "$HOME/miniconda/lib:$DYLD_LIBRARY_PATH"}
+environment = {DYLD_LIBRARY_PATH = "$HOME/miniconda/lib:$DYLD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include $CFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS"}
 
 # [tool.cibuildwheel.windows]
 # before-all = """
 # powershell -Command "Invoke-WebRequest -Uri https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe -OutFile miniconda.exe" &&
 # start /wait "" miniconda.exe /S /D=%UserProfile%\Miniconda3 &&
-# set PATH=%UserProfile%\Miniconda3;%UserProfile%\Miniconda3\Scripts;%PATH% &&
-# conda install -y -c conda-forge sleef
+# %UserProfile%\Miniconda3\Scripts\conda install -y -c conda-forge sleef
 # """
 before-build = "pip install delvewheel"
 repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel}"
+# environment = {
+#     LIBRARY_PATH = "%UserProfile%\\Miniconda3\\Library\\lib;%LIBRARY_PATH%",
+#     INCLUDE = "%UserProfile%\\Miniconda3\\Library\\include;%INCLUDE%",
+#     LIB = "%UserProfile%\\Miniconda3\\Library\\lib;%LIB%"
+# }
