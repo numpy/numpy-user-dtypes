@@ -28,8 +28,24 @@ test = [
 archs = ["auto64"]
 skip = ["*-musllinux*", "pp*", "cp36-*", "cp37-*", "cp38-*"]
 
-# The environment variable ensures the conda installation is available
-environment = { PATH = "$CONDA_PREFIX/bin:$PATH", LD_LIBRARY_PATH = "$CONDA_PREFIX/lib:$LD_LIBRARY_PATH" }
+[tool.cibuildwheel.linux]
+before-all = """
+yum install -y wget &&
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh &&
+bash miniconda.sh -b -p $HOME/miniconda &&
+export PATH=$HOME/miniconda/bin:$PATH &&
+conda install -y -c conda-forge sleef
+"""
+environment = {PATH = "$HOME/miniconda/bin:$PATH", LD_LIBRARY_PATH = "$HOME/miniconda/lib:$LD_LIBRARY_PATH"}
+
+[tool.cibuildwheel.macos]
+before-all = """
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh &&
+bash miniconda.sh -b -p $HOME/miniconda &&
+export PATH=$HOME/miniconda/bin:$PATH &&
+conda install -y -c conda-forge sleef
+"""
+environment = {PATH = "$HOME/miniconda/bin:$PATH", DYLD_LIBRARY_PATH = "$HOME/miniconda/lib:$DYLD_LIBRARY_PATH"}
 
 [tool.cibuildwheel.windows]
 before-build = "pip install delvewheel"

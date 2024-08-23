@@ -22,36 +22,16 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version:  '3.10'
-
-      - name: Set up Conda
-        uses: conda-incubator/setup-miniconda@v2
-        with:
-          auto-update-conda: true
           python-version: '3.10'
-          channels: conda-forge,defaults
-          channel-priority: strict
 
-      - name: Install SLEEF and other dependencies
-        shell: bash -l {0}
-        run: |
-          conda install -y sleef numpy meson meson-python patchelf wheel
-          pip install cibuildwheel==2.20.0
+      - name: Install cibuildwheel
+        run: pip install cibuildwheel==2.20.0
 
       - name: Build wheels
-        shell: bash -l {0}
-        run: |
-          export LIBRARY_PATH=$CONDA_PREFIX/lib:$LIBRARY_PATH
-          export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
-          export CPATH=$CONDA_PREFIX/include:$CPATH
-          python -m cibuildwheel --output-dir wheelhouse
+        run: python -m cibuildwheel --output-dir wheelhouse
         env:
           CIBW_PROJECT_REQUIRES_PYTHON: ">=3.9"
           CIBW_BUILD_VERBOSITY: "1"
-          CIBW_ENVIRONMENT: >
-            LIBRARY_PATH=$CONDA_PREFIX/lib:$LIBRARY_PATH
-            LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
-            CPATH=$CONDA_PREFIX/include:$CPATH
         working-directory: ./quaddtype
 
       - uses: actions/upload-artifact@v2
