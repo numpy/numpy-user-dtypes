@@ -12,7 +12,7 @@ build-backend = "mesonpy"
 name = "quaddtype"
 description = "Quad (128-bit) float dtype for numpy"
 version = "0.0.1"
-readme = 'README.md'
+readme = "README.md"
 authors = [{name = "Swayam Singh", email = "singhswayam008@gmail.com"}]
 requires-python = ">=3.10.0"
 dependencies = [
@@ -26,7 +26,7 @@ test = [
 
 [tool.cibuildwheel]
 archs = ["auto64"]
-skip = ["*-musllinux*", "pp*", "cp36-*", "cp37-*", "cp38-*"]
+skip = ["*-musllinux*", "pp*", "cp36-*", "cp37-*", "cp38-*", "cp39-*"]
 manylinux-x86_64-image = "manylinux2014"
 test-command = "pytest {project}/tests"
 test-extras = ["test"]
@@ -34,14 +34,15 @@ test-extras = ["test"]
 [tool.cibuildwheel.linux]
 before-all = """
 set -ex
-yum install -y wget &&
-wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh &&
-bash miniconda.sh -b -p $HOME/miniconda &&
+yum install -y wget centos-release-scl
+yum install -y devtoolset-7-gcc devtoolset-7-gcc-c++
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+bash miniconda.sh -b -p $HOME/miniconda
 $HOME/miniconda/bin/conda install -y -c conda-forge sleef
 ls -l $HOME/miniconda/include/sleef.h
 """
-environment = {LD_LIBRARY_PATH = "$HOME/miniconda/lib:$LD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include -fPIC $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include -fPIC $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS", AUDITWHEEL_PLAT = "manylinux2014_x86_64", AUDITWHEEL_EXTRA_LIB = "/usr/local/lib", AUDITWHEEL_SELINUX = "1"}
-
+before-build = "source /opt/rh/devtoolset-7/enable"
+environment = { PATH = "/opt/rh/devtoolset-7/root/usr/bin:$PATH", LD_LIBRARY_PATH = "/opt/rh/devtoolset-7/root/usr/lib64:/opt/rh/devtoolset-7/root/usr/lib:/opt/rh/devtoolset-7/root/usr/lib64/dyninst:/opt/rh/devtoolset-7/root/usr/lib/dyninst:/opt/rh/devtoolset-7/root/usr/lib64:/opt/rh/devtoolset-7/root/usr/lib:$HOME/miniconda/lib:$LD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include -fPIC $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include -fPIC $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS", AUDITWHEEL_PLAT = "manylinux2014_x86_64", CC = "/opt/rh/devtoolset-7/root/usr/bin/gcc", CXX = "/opt/rh/devtoolset-7/root/usr/bin/g++" }
 repair-wheel-command = "auditwheel repair -w {dest_dir} {wheel}"
 
 [tool.cibuildwheel.macos]
@@ -51,18 +52,8 @@ bash miniconda.sh -b -p $HOME/miniconda &&
 $HOME/miniconda/bin/conda install -y -c conda-forge sleef
 ls -l $HOME/miniconda/include/sleef.h
 """
-environment = {DYLD_LIBRARY_PATH = "$HOME/miniconda/lib:$DYLD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS"}
+environment = { DYLD_LIBRARY_PATH = "$HOME/miniconda/lib:$DYLD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS" }
 
-# [tool.cibuildwheel.windows]
-# before-all = """
-# powershell -Command "Invoke-WebRequest -Uri https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe -OutFile miniconda.exe" &&
-# start /wait "" miniconda.exe /S /D=%UserProfile%\Miniconda3 &&
-# %UserProfile%\Miniconda3\Scripts\conda install -y -c conda-forge sleef
-# """
+[tool.cibuildwheel.windows]
 before-build = "pip install delvewheel"
 repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel}"
-# environment = {
-#     LIBRARY_PATH = "%UserProfile%\\Miniconda3\\Library\\lib;%LIBRARY_PATH%",
-#     INCLUDE = "%UserProfile%\\Miniconda3\\Library\\include;%INCLUDE%",
-#     LIB = "%UserProfile%\\Miniconda3\\Library\\lib;%LIB%"
-# }
