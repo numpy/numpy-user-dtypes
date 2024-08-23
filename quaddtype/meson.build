@@ -7,13 +7,24 @@ c = meson.get_compiler('c')
 
 # Get the conda prefix
 conda_prefix = run_command('bash', '-c', 'echo $CONDA_PREFIX', check: true).stdout().strip()
+is_macos = build_machine.system() == 'darwin'
 
 # Add conda lib directory to library path
 add_project_link_arguments('-L' + conda_prefix + '/lib', language: ['c', 'cpp'])
-add_project_arguments('-I' + conda_prefix + '/include', language: ['c', 'cpp'])
 
-sleef_dep = c.find_library('sleef', dirs: [conda_prefix + '/lib'])
-sleefquad_dep = c.find_library('sleefquad', dirs: [conda_prefix + '/lib'])
+if is_macos
+  sleef_include_dir = run_command('bash', '-c', 'echo $SLEEF_INCLUDE_DIR', check: true).stdout().strip()
+  sleef_library_dir = run_command('bash', '-c', 'echo $SLEEF_LIBRARY', check: true).stdout().strip()
+  
+  add_project_arguments('-I' + sleef_include_dir, language: ['c', 'cpp'])
+  add_project_link_arguments('-L' + sleef_library_dir, language: ['c', 'cpp'])
+  
+  sleef_dep = c.find_library('sleef', dirs: [sleef_library_dir])
+  sleefquad_dep = c.find_library('sleefquad', dirs: [sleef_library_dir])
+else
+  sleef_dep = c.find_library('sleef', dirs: [conda_prefix + '/lib'])
+  sleefquad_dep = c.find_library('sleefquad', dirs: [conda_prefix + '/lib'])
+endif
 
 if not sleef_dep.found() or not sleefquad_dep.found()
     error('SLEEF library not found. Please ensure it is installed in your conda environment\nconda install sleef.')

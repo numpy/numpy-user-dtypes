@@ -34,9 +34,16 @@ bash miniconda.sh -b -p $HOME/miniconda
 export PATH="$HOME/miniconda/bin:$PATH"
 conda init bash
 source ~/.bashrc
-conda config --set always_yes yes --set changeps1 no
 conda update -q conda
+conda config --add channels conda-forge
+conda config --set channel_priority strict
 conda install -y -c conda-forge sleef
+if [ ! -f "$HOME/miniconda/include/sleef.h" ]; then
+    echo "sleef.h not found. Installation may have failed."
+    exit 1
+fi
+ls -l $HOME/miniconda/include/sleef.h
+ls -l $HOME/miniconda/lib/libsleef*
 '''
 environment = { LD_LIBRARY_PATH = "$HOME/miniconda/lib:$LD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS" }
 repair-wheel-command = "auditwheel repair -w {dest_dir} --plat manylinux_2_28_x86_64 {wheel}"
@@ -48,13 +55,19 @@ ARCH=$(uname -m)
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-${ARCH}.sh -O miniconda.sh
 bash miniconda.sh -b -p $HOME/miniconda
 export PATH="$HOME/miniconda/bin:$PATH"
-conda init bash
-source ~/.bash_profile
-conda config --set always_yes yes --set changeps1 no
+ource ~/.bash_profile
 conda update -q conda
+conda config --add channels conda-forge
+conda config --set channel_priority strict
 conda install -y -c conda-forge sleef
+if [ ! -f "$HOME/miniconda/include/sleef.h" ]; then
+    echo "sleef.h not found. Installation may have failed."
+    exit 1
+fi
+ls -l $HOME/miniconda/include/sleef.h
+ls -l $HOME/miniconda/lib/libsleef*
 '''
-environment = { DYLD_LIBRARY_PATH = "$HOME/miniconda/lib:$DYLD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS", SLEEF_INCLUDE_DIR = "$HOME/miniconda/include", SLEEF_LIBRARY = "$HOME/miniconda/lib" }
+environment = {DYLD_LIBRARY_PATH = "$HOME/miniconda/lib:$DYLD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS", SLEEF_INCLUDE_DIR = "$HOME/miniconda/include", SLEEF_LIBRARY = "$HOME/miniconda/lib"}
 repair-wheel-command = "delocate-wheel -w {dest_dir} -v {wheel}"
 
 # [tool.cibuildwheel.windows]
