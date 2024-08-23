@@ -80,7 +80,7 @@ fi
 ls -l $HOME/miniconda/include/sleef.h
 ls -l $HOME/miniconda/lib/libsleef*
 '''
-environment = {DYLD_LIBRARY_PATH = "$HOME/miniconda/lib:$DYLD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS", SLEEF_INCLUDE_DIR = "$HOME/miniconda/include", SLEEF_LIBRARY = "$HOME/miniconda/lib"}
+environment = {DYLD_LIBRARY_PATH = "$HOME/miniconda/lib:$DYLD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS", SLEEF_INCLUDE_DIR = "$HOME/miniconda/include", SLEEF_LIBRARY = "$HOME/miniconda/lib", MACOSX_DEPLOYMENT_TARGET = "10.13"}
 repair-wheel-command = "delocate-wheel -w {dest_dir} -v {wheel}"
 
 # [tool.cibuildwheel.windows]
