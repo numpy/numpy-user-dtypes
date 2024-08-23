@@ -61,7 +61,7 @@ repair-wheel-command = "auditwheel repair -w {dest_dir} --plat manylinux_2_28_x8
 [tool.cibuildwheel.macos]
 before-all = """
 set -ex
-wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-arm64.sh -O miniconda.sh
 bash miniconda.sh -b -p $HOME/miniconda
 export PATH="$HOME/miniconda/bin:$PATH"
 conda init bash
@@ -75,8 +75,24 @@ if [ ! -f "$HOME/miniconda/include/sleef.h" ]; then
     exit 1
 fi
 ls -l $HOME/miniconda/include/sleef.h
+
+# Adding a pkg-config file for SLEEF
+cat << EOF > $HOME/miniconda/lib/pkgconfig/sleef.pc
+prefix=$HOME/miniconda
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: SLEEF
+Description: SLEEF library
+Version: 3.5.1
+Libs: -L${libdir} -lsleef
+Cflags: -I${includedir}
+EOF
+
+
+export PKG_CONFIG_PATH="$HOME/miniconda/lib/pkgconfig:$PKG_CONFIG_PATH"
 """
-environment = {DYLD_LIBRARY_PATH = "$HOME/miniconda/lib:$DYLD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS"}
+environment = {DYLD_LIBRARY_PATH = "$HOME/miniconda/lib:$DYLD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS", PKG_CONFIG_PATH = "$HOME/miniconda/lib/pkgconfig:$PKG_CONFIG_PATH"}
 repair-wheel-command = "delocate-wheel -w {dest_dir} -v {wheel}"
 
 # [tool.cibuildwheel.windows]
