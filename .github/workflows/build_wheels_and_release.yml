@@ -10,12 +10,23 @@ on:
 
 jobs:
   build_wheels:
-    name: Build wheels on ${{ matrix.os }}
+    name: Build wheels on ${{ matrix.os }} ${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
         python-version: ["3.10", "3.11", "3.12"]
+        arch: [x86_64]
+        include:
+          - os: macos-latest
+            arch: arm64
+            python-version: "3.10"
+          - os: macos-latest
+            arch: arm64
+            python-version: "3.11"
+          - os: macos-latest
+            arch: arm64
+            python-version: "3.12"
 
     steps:
       - uses: actions/checkout@v3
@@ -33,14 +44,16 @@ jobs:
           python -m cibuildwheel --output-dir wheelhouse
         env:
           CIBW_BUILD: cp3${{ matrix.python-version == '3.10' && '10' || (matrix.python-version == '3.11' && '11' || '12') }}-*
-          CIBW_ARCHS_MACOS: "x86_64 arm64"
+          CIBW_ARCHS: ${{ matrix.arch }}
           CIBW_BUILD_VERBOSITY: "1"
         working-directory: ./quaddtype
 
       - uses: actions/upload-artifact@v3
         with:
           path: ./quaddtype/wheelhouse/*.whl
-          name: wheels-${{ matrix.os }}-py${{ matrix.python-version }}
+          name: wheels-${{ matrix.os }}-${{ matrix.arch }}-py${{ matrix.python-version }}
+
+  # ... rest of the workflow remains the same
 
   create_release:
     name: Create Release
