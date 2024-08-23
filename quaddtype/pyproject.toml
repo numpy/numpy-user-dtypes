@@ -15,22 +15,19 @@ dependencies = ["numpy"]
 test = ["pytest"]
 
 [tool.cibuildwheel]
-archs = ["auto64"]
 skip = ["*-musllinux*", "pp*", "cp36-*", "cp37-*", "cp38-*", "cp39-*", "cp313-*"]
-test-command = '''
+test-command = """
 python -c "import platform; print('Python version:', platform.python_version())"
 python -c "import sys; print('sys.platform:', sys.platform)"
 uname -a
 pip install {package}[test]
 pytest {project}/tests
-'''
+"""
 test-extras = ["test"]
-manylinux-x86_64-image = "manylinux_2_28"
 
 [tool.cibuildwheel.linux]
 before-all = '''
 set -ex
-yum install -y wget
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
 bash miniconda.sh -b -p $HOME/miniconda
 export PATH="$HOME/miniconda/bin:$PATH"
@@ -38,42 +35,34 @@ conda init bash
 source ~/.bashrc
 conda config --set always_yes yes --set changeps1 no
 conda update -q conda
-conda info -a
 conda install -y -c conda-forge sleef
-if [ ! -f "$HOME/miniconda/include/sleef.h" ]; then
-    echo "sleef.h not found. Installation may have failed."
-    exit 1
-fi
-ls -l $HOME/miniconda/include/sleef.h
 '''
 environment = { LD_LIBRARY_PATH = "$HOME/miniconda/lib:$LD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS" }
 repair-wheel-command = "auditwheel repair -w {dest_dir} --plat manylinux_2_28_x86_64 {wheel}"
 
 [tool.cibuildwheel.macos]
-archs = ["x86_64", "arm64"]
 before-all = '''
 set -ex
 ARCH=$(uname -m)
-if [ "$ARCH" = "arm64" ]; then
-    MINICONDA_ARCH="arm64"
-else
-    MINICONDA_ARCH="x86_64"
-fi
-wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-${MINICONDA_ARCH}.sh -O miniconda.sh
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-${ARCH}.sh -O miniconda.sh
 bash miniconda.sh -b -p $HOME/miniconda
 export PATH="$HOME/miniconda/bin:$PATH"
 conda init bash
 source ~/.bash_profile
 conda config --set always_yes yes --set changeps1 no
 conda update -q conda
-conda info -a
 conda install -y -c conda-forge sleef
-if [ ! -f "$HOME/miniconda/include/sleef.h" ]; then
-    echo "sleef.h not found. Installation may have failed."
-    exit 1
-fi
-ls -l $HOME/miniconda/include/sleef.h
-ls -l $HOME/miniconda/lib/libsleef*
 '''
 environment = { DYLD_LIBRARY_PATH = "$HOME/miniconda/lib:$DYLD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS", SLEEF_INCLUDE_DIR = "$HOME/miniconda/include", SLEEF_LIBRARY = "$HOME/miniconda/lib" }
 repair-wheel-command = "delocate-wheel -w {dest_dir} -v {wheel}"
+
+# [tool.cibuildwheel.windows]
+# before-all = [
+#     "powershell -Command \"Invoke-WebRequest -Uri https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe -OutFile miniconda.exe\"",
+#     "start /wait \"\" miniconda.exe /S /D=%UserProfile%\\Miniconda3",
+#     "%UserProfile%\\Miniconda3\\Scripts\\activate.bat",
+#     "%UserProfile%\\Miniconda3\\Scripts\\conda.exe install -y -c conda-forge sleef"
+# ]
+# before-build = "pip install delvewheel"
+# repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel} --verbose || echo 'Repair failed, continuing anyway'"
+# environment = { LIBRARY_PATH = "%UserProfile%\\Miniconda3\\Library\\lib;%LIBRARY_PATH%", INCLUDE = "%UserProfile%\\Miniconda3\\Library\\include;%INCLUDE%", LIB = "%UserProfile%\\Miniconda3\\Library\\lib;%LIB%" }
