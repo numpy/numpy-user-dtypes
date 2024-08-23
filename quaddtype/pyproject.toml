@@ -36,16 +36,18 @@ yum install -y wget &&
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh &&
 bash miniconda.sh -b -p $HOME/miniconda &&
 $HOME/miniconda/bin/conda install -y -c conda-forge sleef
+ls -l $HOME/miniconda/include/sleef.h
 """
-environment = {LD_LIBRARY_PATH = "$HOME/miniconda/lib:$LD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include $CFLAGS",LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS"}
+environment = {LD_LIBRARY_PATH = "$HOME/miniconda/lib:$LD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS"}
 
 [tool.cibuildwheel.macos]
 before-all = """
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh &&
 bash miniconda.sh -b -p $HOME/miniconda &&
 $HOME/miniconda/bin/conda install -y -c conda-forge sleef
+ls -l $HOME/miniconda/include/sleef.h
 """
-environment = {DYLD_LIBRARY_PATH = "$HOME/miniconda/lib:$DYLD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include $CFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS"}
+environment = {DYLD_LIBRARY_PATH = "$HOME/miniconda/lib:$DYLD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS"}
 
 # [tool.cibuildwheel.windows]
 # before-all = """
