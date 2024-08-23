@@ -83,8 +83,8 @@ repair-wheel-command = "delocate-wheel -w {dest_dir} -v {wheel}"
 
 [tool.cibuildwheel.windows]
 before-all = [
-    "powershell Invoke-WebRequest -Uri https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe -OutFile miniconda.exe",
-    "powershell Start-Process -FilePath ./miniconda.exe -ArgumentList '/S', '/D=%UserProfile%\\Miniconda3' -NoNewWindow -Wait",
+    "curl -L https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe -o miniconda.exe",
+    "start /wait miniconda.exe /S /D=%UserProfile%\\Miniconda3",
     "%UserProfile%\\Miniconda3\\Scripts\\activate.bat",
     "%UserProfile%\\Miniconda3\\Scripts\\conda.exe config --add channels conda-forge",
     "%UserProfile%\\Miniconda3\\Scripts\\conda.exe config --set channel_priority strict",
