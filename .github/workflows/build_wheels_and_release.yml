@@ -3,7 +3,7 @@ name: Build quaddtype wheels and release
 on:
   push:
     branches:
-      - main
+      - testing-pkg
     tags:
       - "v*"
   pull_request:

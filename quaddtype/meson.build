@@ -8,33 +8,29 @@ c = meson.get_compiler('c')
 # Get the conda prefix
 conda_prefix = run_command('bash', '-c', 'echo $CONDA_PREFIX', check: true).stdout().strip()
 
-# Add conda lib and include directories
+# Add conda lib directory to library path
 add_project_link_arguments('-L' + conda_prefix + '/lib', language: ['c', 'cpp'])
-add_project_arguments('-I' + conda_prefix + '/include', language: ['c', 'cpp'])
 
-# Try to use pkg-config first
-pkgconfig = import('pkgconfig')
-sleef_dep = dependency('sleef', required : false)
+sleef_dep = c.find_library('sleef', dirs: [conda_prefix + '/lib'])
+sleefquad_dep = c.find_library('sleefquad', dirs: [conda_prefix + '/lib'])
 
-if not sleef_dep.found()
-    # Fallback to manual library detection
-    sleef_dep = c.find_library('sleef', dirs: [conda_prefix + '/lib'])
-    sleefquad_dep = c.find_library('sleefquad', dirs: [conda_prefix + '/lib'])
-    
-    if not sleef_dep.found() or not sleefquad_dep.found()
-        error('SLEEF library not found. Please ensure it is installed in your conda environment.')
-    endif
-else
-    sleefquad_dep = sleef_dep
+if not sleef_dep.found() or not sleefquad_dep.found()
+    error('SLEEF library not found. Please ensure it is installed in your conda environment\nconda install sleef.')
 endif
 
 incdir_numpy = run_command(py,
-  ['-c', 'import numpy; import os; print(os.path.relpath(numpy.get_include()))'],
+  [
+    '-c',
+    'import numpy; import os; print(os.path.relpath(numpy.get_include()))'
+  ],
   check: true
 ).stdout().strip()
 
 includes = include_directories(
-    [incdir_numpy, 'quaddtype/src', conda_prefix + '/include']
+    [
+        incdir_numpy,
+        'quaddtype/src',
+    ]
 )
 
 srcs = [
@@ -53,15 +49,18 @@ srcs = [
 ]
 
 py.install_sources(
-    ['quaddtype/__init__.py'],
+    [
+        'quaddtype/__init__.py',
+    ],
     subdir: 'quaddtype',
     pure: false
 )
 
 py.extension_module('_quaddtype_main',
-    srcs,
-    dependencies: [sleef_dep, sleefquad_dep],
-    install: true,
-    subdir: 'quaddtype',
-    include_directories: includes
+srcs,
+c_args: ['-g', '-O0', '-lsleef', '-lsleefquad'],
+dependencies: [sleef_dep, sleefquad_dep],
+install: true,
+subdir: 'quaddtype',
+include_directories: includes
 )
