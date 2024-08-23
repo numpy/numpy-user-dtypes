@@ -69,14 +69,15 @@ source ~/.bash_profile
 conda config --set always_yes yes --set changeps1 no
 conda update -q conda
 conda info -a
-conda install -y -c conda-forge sleef
+conda install -y -c conda-forge sleef pkg-config
 if [ ! -f "$HOME/miniconda/include/sleef.h" ]; then
     echo "sleef.h not found. Installation may have failed."
     exit 1
 fi
 ls -l $HOME/miniconda/include/sleef.h
+ls -l $HOME/miniconda/lib/libsleef*
 
-# Adding a pkg-config file for SLEEF
+# Create a pkg-config file for SLEEF
 cat << EOF > $HOME/miniconda/lib/pkgconfig/sleef.pc
 prefix=$HOME/miniconda
 libdir=${prefix}/lib
@@ -85,14 +86,14 @@ includedir=${prefix}/include
 Name: SLEEF
 Description: SLEEF library
 Version: 3.5.1
-Libs: -L${libdir} -lsleef
+Libs: -L${libdir} -lsleef -lsleefquad
 Cflags: -I${includedir}
 EOF
 
-
-export PKG_CONFIG_PATH="$HOME/miniconda/lib/pkgconfig:$PKG_CONFIG_PATH"
+export PKG_CONFIG_PATH="$HOME/minoconda/lib/pkgconfig:$PKG_CONFIG_PATH"
+pkg-config --libs --cflags sleef
 """
-environment = {DYLD_LIBRARY_PATH = "$HOME/miniconda/lib:$DYLD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS", PKG_CONFIG_PATH = "$HOME/miniconda/lib/pkgconfig:$PKG_CONFIG_PATH"}
+environment = {DYLD_LIBRARY_PATH = "$HOME/miniconda/lib:$DYLD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS", PKG_CONFIG_PATH = "$HOME/miniconda/lib/pkgconfig:$PKG_CONFIG_PATH", CONDA_PREFIX = "$HOME/miniconda"}
 repair-wheel-command = "delocate-wheel -w {dest_dir} -v {wheel}"
 
 # [tool.cibuildwheel.windows]
