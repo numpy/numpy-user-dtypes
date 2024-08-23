@@ -46,16 +46,7 @@ echo "LIBRARY_PATH: $LIBRARY_PATH"
 g++ --version
 conda list sleef
 """
-environment = {
-    LD_LIBRARY_PATH = "$HOME/miniconda/lib:$LD_LIBRARY_PATH", 
-    LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", 
-    CFLAGS = "-I$HOME/miniconda/include -fPIC $CFLAGS", 
-    CXXFLAGS = "-I$HOME/miniconda/include -fPIC $CXXFLAGS", 
-    LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS",
-    AUDITWHEEL_PLAT = "manylinux2014_x86_64",
-    AUDITWHEEL_EXTRA_LIB = "/usr/local/lib",
-    AUDITWHEEL_SELINUX = "1"
-}
+environment = {LD_LIBRARY_PATH = "$HOME/miniconda/lib:$LD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include -fPIC $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include -fPIC $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS", AUDITWHEEL_PLAT = "manylinux2014_x86_64", AUDITWHEEL_EXTRA_LIB = "/usr/local/lib", AUDITWHEEL_SELINUX = "1"}
 
 repair-wheel-command = "auditwheel repair -w {dest_dir} {wheel}"
 
