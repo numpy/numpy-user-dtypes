@@ -34,27 +34,44 @@ test-extras = ["test"]
 [tool.cibuildwheel.linux]
 before-all = """
 set -ex
+# Function to download with curl and fallback to Python if curl fails
+download_file() {
+    if ! curl -L -o "$2" "$1"; then
+        python -c "import urllib.request; urllib.request.urlretrieve('$1', '$2')"
+    fi
+}
+
 # Download and install a standalone GCC
-wget https://github.com/Aetherinox/gcc-arm64/releases/download/12.3.1-2023.10/aarch64-linux-gnu-12.3.1-2023.10-x86_64-linux.tar.xz
-tar xf aarch64-linux-gnu-12.3.1-2023.10-x86_64-linux.tar.xz -C /opt
+GCC_URL="https://github.com/Aetherinox/gcc-arm64/releases/download/12.3.1-2023.10/aarch64-linux-gnu-12.3.1-2023.10-x86_64-linux.tar.xz"
+download_file "$GCC_URL" "gcc.tar.xz"
+tar xf gcc.tar.xz -C /opt || echo "Failed to extract GCC"
 export PATH="/opt/aarch64-linux-gnu/bin:$PATH"
 
 # Install Miniconda and sleef
-wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
-bash miniconda.sh -b -p $HOME/miniconda
+MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh"
+download_file "$MINICONDA_URL" "miniconda.sh"
+bash miniconda.sh -b -p $HOME/miniconda || echo "Failed to install Miniconda"
 export PATH="$HOME/miniconda/bin:$PATH"
-conda install -y -c conda-forge sleef
+conda install -y -c conda-forge sleef || echo "Failed to install sleef"
 
 # Verify sleef installation
 ls -l $HOME/miniconda/include/sleef.h || echo "sleef.h not found"
+
+# Print environment information for debugging
+echo "PATH: $PATH"
+echo "GCC version:"
+gcc --version || echo "GCC not found"
+echo "Python version:"
+python --version
+echo "Conda version:"
+conda --version
 """
-# have to give in one-line as toml does not allow multi-line here
-environment = {PATH = "/opt/aarch64-linux-gnu/bin:$HOME/miniconda/bin:$PATH", LD_LIBRARY_PATH = "/opt/aarch64-linux-gnu/lib:$HOME/miniconda/lib:$LD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include -fPIC $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include -fPIC $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS", AUDITWHEEL_PLAT = "manylinux2014_x86_64", CC = "/opt/aarch64-linux-gnu/bin/gcc", CXX = "/opt/aarch64-linux-gnu/bin/g++"}
+environment = { PATH = "/opt/aarch64-linux-gnu/bin:$HOME/miniconda/bin:$PATH", LD_LIBRARY_PATH = "/opt/aarch64-linux-gnu/lib:$HOME/miniconda/lib:$LD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include -fPIC $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include -fPIC $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS", AUDITWHEEL_PLAT = "manylinux2014_x86_64", CC = "/opt/aarch64-linux-gnu/bin/gcc", CXX = "/opt/aarch64-linux-gnu/bin/g++" }
 repair-wheel-command = "auditwheel repair -w {dest_dir} {wheel}"
 
 [tool.cibuildwheel.macos]
 before-all = """
-wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh
+curl -L https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -o miniconda.sh
 bash miniconda.sh -b -p $HOME/miniconda
 export PATH="$HOME/miniconda/bin:$PATH"
 conda install -y -c conda-forge sleef
