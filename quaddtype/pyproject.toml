@@ -40,7 +40,7 @@ $HOME/miniconda/bin/conda install -y -c conda-forge sleef
 ls -l $HOME/miniconda/include/sleef.h
 """
 environment = { LD_LIBRARY_PATH = "$HOME/miniconda/lib:$LD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS" }
-repair-wheel-command = "auditwheel repair -w {dest_dir} {wheel}"
+repair-wheel-command = "auditwheel repair -w {dest_dir} --plat manylinux_2_28_x86_64 {wheel}"
 
 [tool.cibuildwheel.macos]
 before-all = """
@@ -52,11 +52,12 @@ ls -l $HOME/miniconda/include/sleef.h
 environment = {DYLD_LIBRARY_PATH = "$HOME/miniconda/lib:$DYLD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS"}
 
 [tool.cibuildwheel.windows]
-before-all = """
-powershell -Command "Invoke-WebRequest -Uri https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe -OutFile miniconda.exe"
-start /wait "" miniconda.exe /S /D=%UserProfile%\\Miniconda3
-%UserProfile%\\Miniconda3\\Scripts\\conda install -y -c conda-forge sleef
-"""
+before-all = [
+    "powershell -Command \"Invoke-WebRequest -Uri https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe -OutFile miniconda.exe\"",
+    "start /wait \"\" miniconda.exe /S /D=%UserProfile%\\Miniconda3",
+    "%UserProfile%\\Miniconda3\\Scripts\\activate.bat",
+    "%UserProfile%\\Miniconda3\\Scripts\\conda.exe install -y -c conda-forge sleef"
+]
 before-build = "pip install delvewheel"
 repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel} --verbose || echo 'Repair failed, continuing anyway'"
 environment = { LIBRARY_PATH = "%UserProfile%\\Miniconda3\\Library\\lib;%LIBRARY_PATH%", INCLUDE = "%UserProfile%\\Miniconda3\\Library\\include;%INCLUDE%", LIB = "%UserProfile%\\Miniconda3\\Library\\lib;%LIB%" }
