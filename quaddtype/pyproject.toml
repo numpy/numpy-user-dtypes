@@ -27,18 +27,37 @@ test = [
 [tool.cibuildwheel]
 archs = ["auto64"]
 skip = ["*-musllinux*", "pp*", "cp36-*", "cp37-*", "cp38-*"]
+manylinux-x86_64-image = "manylinux2014"
 test-command = "pytest {project}/tests"
 test-extras = ["test"]
 
 [tool.cibuildwheel.linux]
 before-all = """
+set -ex
 yum install -y wget &&
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh &&
 bash miniconda.sh -b -p $HOME/miniconda &&
 $HOME/miniconda/bin/conda install -y -c conda-forge sleef
 ls -l $HOME/miniconda/include/sleef.h
+echo "CFLAGS: $CFLAGS"
+echo "CXXFLAGS: $CXXFLAGS"
+echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
+echo "LIBRARY_PATH: $LIBRARY_PATH"
+g++ --version
+conda list sleef
 """
-environment = {LD_LIBRARY_PATH = "$HOME/miniconda/lib:$LD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS"}
+environment = {
+    LD_LIBRARY_PATH = "$HOME/miniconda/lib:$LD_LIBRARY_PATH", 
+    LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", 
+    CFLAGS = "-I$HOME/miniconda/include -fPIC $CFLAGS", 
+    CXXFLAGS = "-I$HOME/miniconda/include -fPIC $CXXFLAGS", 
+    LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS",
+    AUDITWHEEL_PLAT = "manylinux2014_x86_64",
+    AUDITWHEEL_EXTRA_LIB = "/usr/local/lib",
+    AUDITWHEEL_SELINUX = "1"
+}
+
+repair-wheel-command = "auditwheel repair -w {dest_dir} {wheel}"
 
 [tool.cibuildwheel.macos]
 before-all = """
