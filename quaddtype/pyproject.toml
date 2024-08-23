@@ -12,7 +12,7 @@ build-backend = "mesonpy"
 name = "quaddtype"
 description = "Quad (128-bit) float dtype for numpy"
 version = "0.0.1"
-readme = "README.md"
+readme = 'README.md'
 authors = [{name = "Swayam Singh", email = "singhswayam008@gmail.com"}]
 requires-python = ">=3.10.0"
 dependencies = [
@@ -26,55 +26,36 @@ test = [
 
 [tool.cibuildwheel]
 archs = ["auto64"]
-skip = ["*-musllinux*", "pp*", "cp36-*", "cp37-*", "cp38-*", "cp39-*"]
-manylinux-x86_64-image = "manylinux2014"
+skip = ["*-musllinux*", "pp*", "cp36-*", "cp37-*", "cp38-*"]
 test-command = "pytest {project}/tests"
 test-extras = ["test"]
 
 [tool.cibuildwheel.linux]
 before-all = """
-set -ex
-# Function to download with curl and fallback to Python if curl fails
-download_file() {
-    if ! curl -L -o "$2" "$1"; then
-        python -c "import urllib.request; urllib.request.urlretrieve('$1', '$2')"
-    fi
-}
-
-# Download and install a standalone GCC
-GCC_URL="https://github.com/Aetherinox/gcc-arm64/releases/download/12.3.1-2023.10/aarch64-linux-gnu-12.3.1-2023.10-x86_64-linux.tar.xz"
-download_file "$GCC_URL" "gcc.tar.xz"
-tar xf gcc.tar.xz -C /opt || echo "Failed to extract GCC"
-
-# Install Miniconda and sleef
-MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh"
-download_file "$MINICONDA_URL" "miniconda.sh"
-bash miniconda.sh -b -p $HOME/miniconda || echo "Failed to install Miniconda"
-$HOME/miniconda/bin/conda install -y -c conda-forge sleef || echo "Failed to install sleef"
-
-# Verify sleef installation
-ls -l $HOME/miniconda/include/sleef.h || echo "sleef.h not found"
-
-# Print environment information for debugging
-echo "GCC version:"
-/opt/aarch64-linux-gnu/bin/gcc --version || echo "GCC not found"
-echo "Python version:"
-python --version
-echo "Conda version:"
-$HOME/miniconda/bin/conda --version
+yum install -y wget &&
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh &&
+bash miniconda.sh -b -p $HOME/miniconda &&
+$HOME/miniconda/bin/conda install -y -c conda-forge sleef
+ls -l $HOME/miniconda/include/sleef.h
 """
-environment = { LD_LIBRARY_PATH = "/opt/aarch64-linux-gnu/lib:$HOME/miniconda/lib:$LD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include -fPIC $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include -fPIC $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS", AUDITWHEEL_PLAT = "manylinux2014_x86_64", CC = "/opt/aarch64-linux-gnu/bin/gcc", CXX = "/opt/aarch64-linux-gnu/bin/g++" }
+environment = { LD_LIBRARY_PATH = "$HOME/miniconda/lib:$LD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS" }
 repair-wheel-command = "auditwheel repair -w {dest_dir} {wheel}"
 
 [tool.cibuildwheel.macos]
 before-all = """
-curl -L https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -o miniconda.sh
-bash miniconda.sh -b -p $HOME/miniconda
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh &&
+bash miniconda.sh -b -p $HOME/miniconda &&
 $HOME/miniconda/bin/conda install -y -c conda-forge sleef
-ls -l $HOME/miniconda/include/sleef.h || echo "sleef.h not found"
+ls -l $HOME/miniconda/include/sleef.h
 """
-environment = { DYLD_LIBRARY_PATH = "$HOME/miniconda/lib:$DYLD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS" }
+environment = {DYLD_LIBRARY_PATH = "$HOME/miniconda/lib:$DYLD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS"}
 
 [tool.cibuildwheel.windows]
+before-all = """
+powershell -Command "Invoke-WebRequest -Uri https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe -OutFile miniconda.exe" &&
+start /wait "" miniconda.exe /S /D=%UserProfile%\\Miniconda3 &&
+%UserProfile%\\Miniconda3\\Scripts\\conda install -y -c conda-forge sleef
+"""
 before-build = "pip install delvewheel"
-repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel}"
+repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel} --verbose || echo 'Repair failed, continuing anyway'"
+environment = { LIBRARY_PATH = "%UserProfile%\\Miniconda3\\Library\\lib;%LIBRARY_PATH%", INCLUDE = "%UserProfile%\\Miniconda3\\Library\\include;%INCLUDE%", LIB = "%UserProfile%\\Miniconda3\\Library\\lib;%LIB%" }
