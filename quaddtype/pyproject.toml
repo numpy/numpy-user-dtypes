@@ -84,13 +84,29 @@ repair-wheel-command = "delocate-wheel -w {dest_dir} -v {wheel}"
 [tool.cibuildwheel.windows]
 before-all = '''
 "C:\\Program Files\\PowerShell\\7\\pwsh.EXE" -command "& {
+    $ErrorActionPreference = 'Stop'
+    $ProgressPreference = 'SilentlyContinue'
+
+    Write-Host 'Downloading Miniconda...'
     Invoke-WebRequest -Uri 'https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe' -OutFile 'miniconda.exe'
-    Start-Process -FilePath 'miniconda.exe' -ArgumentList '/S','/D=$env:UserProfile\\Miniconda3' -Wait
-    $env:PATH = '$env:UserProfile\\Miniconda3;$env:UserProfile\\Miniconda3\\Scripts;$env:UserProfile\\Miniconda3\\Library\\bin;' + $env:PATH
-    & $env:UserProfile\\Miniconda3\\Scripts\\activate.ps1
+
+    Write-Host 'Installing Miniconda...'
+    Start-Process -FilePath 'miniconda.exe' -ArgumentList '/S','/D=C:\\Miniconda3' -Wait
+
+    Write-Host 'Updating PATH...'
+    $env:PATH = 'C:\\Miniconda3;C:\\Miniconda3\\Scripts;C:\\Miniconda3\\Library\\bin;' + $env:PATH
+
+    Write-Host 'Activating Conda...'
+    & C:\\Miniconda3\\Scripts\\activate.ps1
+
+    Write-Host 'Configuring Conda...'
     conda config --add channels conda-forge
     conda config --set channel_priority strict
+
+    Write-Host 'Installing sleef...'
     conda install -y -c conda-forge sleef
+
+    Write-Host 'Setup completed successfully.'
 }"
 '''
 before-build = "pip install delvewheel"
