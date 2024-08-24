@@ -83,12 +83,13 @@ repair-wheel-command = "delocate-wheel -w {dest_dir} -v {wheel}"
 
 [tool.cibuildwheel.windows]
 before-all = [
-    "C:\\Program Files\\PowerShell\\7\\pwsh.EXE -Command \"$env:PATH; Get-Command python; python -c 'import sys; print(sys.executable)'\"",
-    "C:\\Program Files\\PowerShell\\7\\pwsh.EXE -Command \"Invoke-WebRequest -Uri 'https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe' -OutFile 'miniconda.exe'\"",
-    "start /wait \"\" miniconda.exe /S /D=%UserProfile%\\Miniconda3",
-    "C:\\Program Files\\PowerShell\\7\\pwsh.EXE -Command \"$env:PATH = '$env:UserProfile\\Miniconda3;$env:UserProfile\\Miniconda3\\Scripts;$env:UserProfile\\Miniconda3\\Library\\bin;' + $env:PATH\"",
-    "C:\\Program Files\\PowerShell\\7\\pwsh.EXE -Command \"& $env:UserProfile\\Miniconda3\\Scripts\\activate.ps1\"",
-    "C:\\Program Files\\PowerShell\\7\\pwsh.EXE -Command \"conda config --add channels conda-forge; conda config --set channel_priority strict; conda install -y -c conda-forge sleef\""
+    "Invoke-WebRequest -Uri 'https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe' -OutFile 'miniconda.exe'",
+    "Start-Process -FilePath 'miniconda.exe' -ArgumentList '/S','/D=$env:UserProfile\\Miniconda3' -Wait",
+    "$env:PATH = '$env:UserProfile\\Miniconda3;$env:UserProfile\\Miniconda3\\Scripts;$env:UserProfile\\Miniconda3\\Library\\bin;' + $env:PATH",
+    "& $env:UserProfile\\Miniconda3\\Scripts\\activate.ps1",
+    "conda config --add channels conda-forge",
+    "conda config --set channel_priority strict",
+    "conda install -y -c conda-forge sleef"
 ]
 before-build = "pip install delvewheel"
 repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel} --add-path %UserProfile%\\Miniconda3\\Library\\bin"
