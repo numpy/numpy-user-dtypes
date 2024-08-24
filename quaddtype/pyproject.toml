@@ -82,7 +82,7 @@ environment = {DYLD_LIBRARY_PATH = "$HOME/miniconda/lib:$DYLD_LIBRARY_PATH", LIB
 repair-wheel-command = "delocate-wheel -w {dest_dir} -v {wheel}"
 
 [tool.cibuildwheel.windows]
-before-all =     "pwsh -Command @'\nInvoke-WebRequest -Uri 'https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe' -OutFile 'miniconda.exe'\nStart-Process -FilePath 'miniconda.exe' -ArgumentList '/S','/D=$env:UserProfile\\Miniconda3' -Wait\n$env:PATH = \"$env:UserProfile\\Miniconda3;$env:UserProfile\\Miniconda3\\Scripts;$env:UserProfile\\Miniconda3\\Library\\bin;$env:PATH\"\n& $env:UserProfile\\Miniconda3\\Scripts\\activate.ps1\nconda config --add channels conda-forge\nconda config --set channel_priority strict\nconda install -y -c conda-forge sleef\n'@"
+before-all = "powershell.exe -ExecutionPolicy Bypass -File setup_miniconda.ps1"
 
 before-build = "pip install delvewheel"
 repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel} --add-path %UserProfile%\\Miniconda3\\Library\\bin"
