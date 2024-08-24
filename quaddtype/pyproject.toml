@@ -83,9 +83,10 @@ repair-wheel-command = "delocate-wheel -w {dest_dir} -v {wheel}"
 
 [tool.cibuildwheel.windows]
 before-all = [
-    "curl -o miniconda.exe https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe",
+    "python -c \"import urllib.request; urllib.request.urlretrieve('https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe', 'miniconda.exe')\"",
     "start /wait \"\" miniconda.exe /S /D=%UserProfile%\\Miniconda3",
     "set PATH=%UserProfile%\\Miniconda3;%UserProfile%\\Miniconda3\\Scripts;%UserProfile%\\Miniconda3\\Library\\bin;%PATH%",
+    "call %UserProfile%\\Miniconda3\\Scripts\\activate.bat",
     "conda config --add channels conda-forge",
     "conda config --set channel_priority strict",
     "conda install -y -c conda-forge sleef"
