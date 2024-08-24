@@ -45,6 +45,7 @@ jobs:
           conda config --set channel_priority strict
           Write-Host "Installing sleef..."
           conda install -y -c conda-forge sleef
+          pip install cibuildwheel==2.20.0
           Write-Host "Miniconda setup completed."
 
           # Set environment variables for the build
