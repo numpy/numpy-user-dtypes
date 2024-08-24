@@ -24,15 +24,33 @@ jobs:
         with:
           python-version: "3.10"
 
+      - name: Display Python version
+        shell: cmd
+        run: |
+          "C:\Program Files\PowerShell\7\pwsh.exe" -Command "$env:PATH; Get-Command python; python --version; python -c 'import sys; print(sys.executable)'"
+
       - name: Install cibuildwheel
-        run: pip install cibuildwheel==2.20.0
+        shell: cmd
+        run: |
+          "C:\Program Files\PowerShell\7\pwsh.exe" -Command "python -m pip install --upgrade pip; pip install cibuildwheel==2.20.0"
 
       - name: Build wheels
+        shell: cmd
         run: |
-          python -m cibuildwheel --output-dir wheelhouse
+          "C:\Program Files\PowerShell\7\pwsh.exe" -Command "python -m cibuildwheel --output-dir wheelhouse"
         env:
           CIBW_BUILD_VERBOSITY: "1"
           CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-13' && 'x86_64' || 'arm64' }}
+          CIBW_BEFORE_ALL_WINDOWS: >
+            cmd /c ""C:\Program Files\PowerShell\7\pwsh.exe" -Command "
+            Invoke-WebRequest -Uri 'https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe' -OutFile 'miniconda.exe';
+            Start-Process -FilePath 'miniconda.exe' -ArgumentList '/S','/D=$env:UserProfile\Miniconda3' -Wait;
+            $env:PATH = '$env:UserProfile\Miniconda3;$env:UserProfile\Miniconda3\Scripts;$env:UserProfile\Miniconda3\Library\bin;' + $env:PATH;
+            & $env:UserProfile\Miniconda3\Scripts\activate.ps1;
+            conda config --add channels conda-forge;
+            conda config --set channel_priority strict;
+            conda install -y -c conda-forge sleef
+            ""
         working-directory: ./quaddtype
 
       - uses: actions/upload-artifact@v2
