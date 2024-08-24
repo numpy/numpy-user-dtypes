@@ -14,7 +14,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-latest]
+        os: [ubuntu-latest, macos-13, macos-14]
 
     steps:
       - uses: actions/checkout@v2
@@ -27,53 +27,12 @@ jobs:
       - name: Install cibuildwheel
         run: pip install cibuildwheel==2.20.0
 
-      - name: Install Miniconda (Windows only)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $ProgressPreference = 'SilentlyContinue'
-          Write-Host "Downloading Miniconda..."
-          Invoke-WebRequest -Uri "https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe" -OutFile "miniconda.exe"
-          Write-Host "Installing Miniconda..."
-          Start-Process -FilePath "miniconda.exe" -ArgumentList "/S", "/D=$env:UserProfile\Miniconda3" -Wait -NoNewWindow
-          Write-Host "Miniconda installed. Configuring..."
-          $env:Path = "$env:UserProfile\Miniconda3;$env:UserProfile\Miniconda3\Scripts;$env:UserProfile\Miniconda3\Library\bin;" + $env:Path
-          conda init powershell
-          conda config --set auto_activate_base false
-          conda config --add channels conda-forge
-          conda config --set channel_priority strict
-          Write-Host "Installing sleef..."
-          conda install -y -c conda-forge sleef
-          pip install cibuildwheel==2.20.0
-          Write-Host "Miniconda setup completed."
-
-          # Set environment variables for the build
-          $env:INCLUDE = "$env:UserProfile\Miniconda3\Library\include;$env:INCLUDE"
-          $env:LIB = "$env:UserProfile\Miniconda3\Library\lib;$env:LIB"
-          $env:SLEEF_INCLUDE_DIR = "$env:UserProfile\Miniconda3\Library\include"
-          $env:SLEEF_LIBRARY = "$env:UserProfile\Miniconda3\Library\lib"
-
-          # Make the environment variables available to subsequent steps
-          echo "INCLUDE=$env:INCLUDE" >> $env:GITHUB_ENV
-          echo "LIB=$env:LIB" >> $env:GITHUB_ENV
-          echo "SLEEF_INCLUDE_DIR=$env:SLEEF_INCLUDE_DIR" >> $env:GITHUB_ENV
-          echo "SLEEF_LIBRARY=$env:SLEEF_LIBRARY" >> $env:GITHUB_ENV
-          echo "$env:UserProfile\Miniconda3;$env:UserProfile\Miniconda3\Scripts;$env:UserProfile\Miniconda3\Library\bin" >> $env:GITHUB_PATH
-
       - name: Build wheels
-        run: python -m cibuildwheel --output-dir wheelhouse
+        run: |
+          python -m cibuildwheel --output-dir wheelhouse
         env:
           CIBW_BUILD_VERBOSITY: "1"
           CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-13' && 'x86_64' || 'arm64' }}
-          CIBW_ENVIRONMENT_WINDOWS: >-
-            PATH="$env:UserProfile\Miniconda3\Scripts;$env:UserProfile\Miniconda3\Library\bin;$env:PATH"
-            INCLUDE="$env:INCLUDE"
-            LIB="$env:LIB"
-            SLEEF_INCLUDE_DIR="$env:SLEEF_INCLUDE_DIR"
-            SLEEF_LIBRARY="$env:SLEEF_LIBRARY"
-          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >
-            python -m pip install delvewheel && python -m delvewheel repair -w {dest_dir} {wheel} --add-path "%UserProfile%\Miniconda3\Library\bin"
         working-directory: ./quaddtype
 
       - uses: actions/upload-artifact@v2
