@@ -1,0 +1,114 @@
+name: Build quaddtype wheels for macOS
+
+on:
+  push:
+    branches:
+      - sep-workflows
+    tags:
+      - "v*"
+  pull_request:
+
+jobs:
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-13, macos-14]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install cibuildwheel
+        run: pip install cibuildwheel==2.20.0
+
+      - name: Build wheels
+        env:
+          CIBW_BUILD_VERBOSITY: "1"
+          CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-13' && 'x86_64' || 'arm64' }}
+          CIBW_SKIP: "pp* cp36-* cp37-* cp38-* cp39-* cp313-*"
+          CIBW_BEFORE_ALL_MACOS: |
+            set -ex
+            ARCH=$(uname -m)
+            wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-${ARCH}.sh -O miniconda.sh
+            bash miniconda.sh -b -p $HOME/miniconda
+            export PATH="$HOME/miniconda/bin:$PATH"
+            source ~/.bash_profile
+            conda update -q conda
+            conda config --add channels conda-forge
+            conda config --set channel_priority strict
+            conda install -y -c conda-forge sleef
+            if [ ! -f "$HOME/miniconda/include/sleef.h" ]; then
+                echo "sleef.h not found. Installation may have failed."
+                exit 1
+            fi
+            ls -l $HOME/miniconda/include/sleef.h
+            ls -l $HOME/miniconda/lib/libsleef*
+          CIBW_ENVIRONMENT: >
+            DYLD_LIBRARY_PATH="$HOME/miniconda/lib:$DYLD_LIBRARY_PATH"
+            LIBRARY_PATH="$HOME/miniconda/lib:$LIBRARY_PATH"
+            CFLAGS="-I$HOME/miniconda/include $CFLAGS"
+            CXXFLAGS="-I$HOME/miniconda/include $CXXFLAGS"
+            LDFLAGS="-L$HOME/miniconda/lib $LDFLAGS"
+            MACOSX_DEPLOYMENT_TARGET="10.13"
+          CIBW_REPAIR_WHEEL_COMMAND: "delocate-wheel -w {dest_dir} -v {wheel}"
+          CIBW_TEST_COMMAND: |
+            python -c "import platform; print('Python version:', platform.python_version())"
+            python -c "import sys; print('sys.platform:', sys.platform)"
+            python -c "import quaddtype; print('quaddtype imported successfully')"
+            pip install {package}[test]
+            pytest {project}/tests
+          CIBW_TEST_EXTRAS: "test"
+        run: |
+          python -m cibuildwheel --output-dir wheelhouse
+        working-directory: ./quaddtype
+
+      - uses: actions/upload-artifact@v3
+        with:
+          path: ./quaddtype/wheelhouse/*.whl
+          name: wheels-${{ matrix.os }}
+
+  publish_to_testpypi:
+    name: Publish to TestPyPI
+    needs: build_wheels
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download all workflow run artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: dist
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@v1.8.5
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: dist/*
+
+  create_release:
+    name: Create Release
+    needs: build_wheels
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Download all workflow run artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+
+      - name: Create Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ./artifacts/**/*.whl
