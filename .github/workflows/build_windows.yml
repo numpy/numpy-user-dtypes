@@ -3,7 +3,7 @@ name: Build quaddtype wheels for Windows
 on:
   push:
     branches:
-      - testing-pkg
+      - sep-workflows
     tags:
       - "v*"
   pull_request:
