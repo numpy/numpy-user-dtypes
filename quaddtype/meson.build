@@ -40,8 +40,17 @@ else
   sleef_include_dir = sleef_path + '/include'
   sleef_library_dir = sleef_path + '/lib'
   message('$SLEEF_PATH: ', sleef_path)
-  message('SLEEF_PATH from environment: ', run_command('bash', '-c', 'ls -l $SLEEF_PATH', check: false).stdout().strip())
-  message('SLEEF_PATH from environment: ', run_command('bash', '-c', 'ls $SLEEF_PATH/lib/libsleef*', check: false).stdout().strip())
+  ls_command = 'ls ' + sleef_path + '/include/sleef*'
+  ls_result = run_command('bash', '-c', ls_command, check: false)
+
+  if ls_result.returncode() == 0
+    message('SLEEF libraries found:')
+    foreach line : ls_result.stdout().strip().split('\n')
+        message(' - ', line)
+    endforeach
+  else
+    message('Error listing SLEEF libraries: ', ls_result.stderr().strip())
+endif
   add_project_arguments('-I' + sleef_include_dir, language: ['c', 'cpp'])
   add_project_link_arguments('-L' + sleef_library_dir, language: ['c', 'cpp'])
   
