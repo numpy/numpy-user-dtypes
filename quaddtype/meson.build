@@ -5,13 +5,21 @@ py = py_mod.find_installation()
 
 c = meson.get_compiler('c')
 
-# Get the conda prefix
-conda_prefix = run_command('bash', '-c', 'echo $CONDA_PREFIX', check: true).stdout().strip()
+# Get the SLEEF path
+sleef_path = run_command('bash', '-c', 'echo $SLEEF_PATH', check: false).stdout().strip()
+if sleef_path == ''
+  sleef_path = run_command('bash', '-c', 'echo $CONDA_PREFIX', check: false).stdout().strip()
+endif
+
+if sleef_path == ''
+  error('SLEEF_PATH or CONDA_PREFIX environment variable is not set')
+endif
+
 is_windows = build_machine.system() == 'windows'
 is_macos = build_machine.system() == 'darwin'
 
-# Add conda lib directory to library path
-add_project_link_arguments('-L' + conda_prefix + '/lib', language: ['c', 'cpp'])
+# Add SLEEF lib directory to library path
+add_project_link_arguments('-L' + sleef_path + '/lib', language: ['c', 'cpp'])
 
 if is_windows
   add_project_arguments('-DWIN32', '-D_WINDOWS', language : ['c', 'cpp'])
@@ -30,8 +38,8 @@ if is_windows
                                  dependencies: [sleef_lib, sleefquad_lib])
 else
   # Linux and macOS configuration
-  sleef_include_dir = conda_prefix + '/include'
-  sleef_library_dir = conda_prefix + '/lib'
+  sleef_include_dir = sleef_path + '/include'
+  sleef_library_dir = sleef_path + '/lib'
   
   add_project_arguments('-I' + sleef_include_dir, language: ['c', 'cpp'])
   add_project_link_arguments('-L' + sleef_library_dir, language: ['c', 'cpp'])
