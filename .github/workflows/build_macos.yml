@@ -24,18 +24,18 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Setup Miniconda and install SLEEF
+      - name: Setup Miniconda
         uses: conda-incubator/setup-miniconda@v3
         with:
           auto-update-conda: true
           python-version: "3.10"
           channels: conda-forge
-          activate-environment: sleef_env
 
       - name: Install SLEEF
         shell: bash -l {0}
         run: |
           conda install -y -c conda-forge sleef
+          echo $CONDA_PREFIX
           echo "SLEEF_PATH=$CONDA_PREFIX" >> $GITHUB_ENV
 
       - name: Install cibuildwheel
@@ -47,6 +47,7 @@ jobs:
           CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-13' && 'x86_64' || 'arm64' }}
           CIBW_SKIP: "pp* cp36-* cp37-* cp38-* cp39-* cp313-*"
           CIBW_ENVIRONMENT: >
+            CONDA_PREFIX=
             SLEEF_PATH="${{ env.SLEEF_PATH }}"
             DYLD_LIBRARY_PATH="${{ env.SLEEF_PATH }}/lib:$DYLD_LIBRARY_PATH"
             LIBRARY_PATH="${{ env.SLEEF_PATH }}/lib:$LIBRARY_PATH"
