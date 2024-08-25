@@ -42,7 +42,6 @@ jobs:
             source activate build_env
             conda install -y sleef
           CIBW_ENVIRONMENT: >
-            PATH="/root/miniconda/envs/build_env/bin:$PATH"
             LD_LIBRARY_PATH="/root/miniconda/envs/build_env/lib:$LD_LIBRARY_PATH"
             LIBRARY_PATH="/root/miniconda/envs/build_env/lib:$LIBRARY_PATH"
             CFLAGS="-I/root/miniconda/envs/build_env/include $CFLAGS"
