@@ -25,6 +25,7 @@ jobs:
           auto-update-conda: true
           python-version: "3.10"
           channels: conda-forge
+          activate-environment: build_env
 
       - name: Install dependencies and build wheels
         shell: bash -l {0}
@@ -57,8 +58,10 @@ jobs:
           fi
           ls -l $CONDA_PREFIX/include/sleef.h
           ls -l $CONDA_PREFIX/lib/libsleef*
+          echo "Using Python: $(which python)"
+          echo "Using pip: $(which pip)"
           cd quaddtype
-          cibuildwheel --output-dir wheelhouse
+          python -m cibuildwheel --output-dir wheelhouse
 
       - uses: actions/upload-artifact@v3
         with:
