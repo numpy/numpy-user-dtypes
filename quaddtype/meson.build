@@ -14,7 +14,7 @@ endif
 if sleef_path == ''
   error('SLEEF_PATH or CONDA_PREFIX environment variable is not set')
 endif
-
+message('SLEEF_PATH from environment: ', sleef_path)
 is_windows = build_machine.system() == 'windows'
 is_macos = build_machine.system() == 'darwin'
 
