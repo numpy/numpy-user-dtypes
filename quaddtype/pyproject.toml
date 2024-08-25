@@ -80,18 +80,3 @@ ls -l $HOME/miniconda/lib/libsleef*
 '''
 environment = {DYLD_LIBRARY_PATH = "$HOME/miniconda/lib:$DYLD_LIBRARY_PATH", LIBRARY_PATH = "$HOME/miniconda/lib:$LIBRARY_PATH", CFLAGS = "-I$HOME/miniconda/include $CFLAGS", CXXFLAGS = "-I$HOME/miniconda/include $CXXFLAGS", LDFLAGS = "-L$HOME/miniconda/lib $LDFLAGS", SLEEF_INCLUDE_DIR = "$HOME/miniconda/include", SLEEF_LIBRARY = "$HOME/miniconda/lib", MACOSX_DEPLOYMENT_TARGET = "10.13"}
 repair-wheel-command = "delocate-wheel -w {dest_dir} -v {wheel}"
-
-[tool.cibuildwheel.windows]
-before-all = [
-    "winget install --id Microsoft.Powershell --source winget",
-    "start /wait powershell.msi /quiet /norestart",
-    "powershell -Command \"Invoke-WebRequest -Uri https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe -OutFile miniconda.exe\"",
-    "start /wait miniconda.exe /S /D=%UserProfile%\\Miniconda3",
-    "%UserProfile%\\Miniconda3\\Scripts\\activate.bat",
-    "%UserProfile%\\Miniconda3\\Scripts\\conda.exe config --add channels conda-forge",
-    "%UserProfile%\\Miniconda3\\Scripts\\conda.exe config --set channel_priority strict",
-    "%UserProfile%\\Miniconda3\\Scripts\\conda.exe install -y -c conda-forge sleef"
-]
-before-build = "pip install delvewheel"
-repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel} --add-path %UserProfile%\\Miniconda3\\Library\\bin"
-environment = { PATH = "%UserProfile%\\Miniconda3\\Scripts;%UserProfile%\\Miniconda3\\Library\\bin;%PATH%", INCLUDE = "%UserProfile%\\Miniconda3\\Library\\include;%INCLUDE%", LIB = "%UserProfile%\\Miniconda3\\Library\\lib;%LIB%", SLEEF_INCLUDE_DIR = "%UserProfile%\\Miniconda3\\Library\\include", SLEEF_LIBRARY = "%UserProfile%\\Miniconda3\\Library\\lib"}

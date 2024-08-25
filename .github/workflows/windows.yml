@@ -1,0 +1,110 @@
+name: Build quaddtype wheels for Windows
+
+on:
+  push:
+    branches:
+      - testing-pkg
+    tags:
+      - "v*"
+  pull_request:
+
+jobs:
+  build_wheels:
+    name: Build wheels on Windows
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        architecture: [x64, x86]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+          architecture: ${{ matrix.architecture }}
+
+      - name: Install Miniconda
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          auto-update-conda: true
+          python-version: "3.10"
+          architecture: ${{ matrix.architecture }}
+
+      - name: Install SLEEF and other dependencies
+        shell: bash -l {0}
+        run: |
+          conda config --add channels conda-forge
+          conda config --set channel_priority strict
+          conda install -y sleef
+          conda list
+          if [ ! -f "$CONDA_PREFIX/Library/include/sleef.h" ]; then
+            echo "sleef.h not found. Installation may have failed."
+            exit 1
+          fi
+          ls -l "$CONDA_PREFIX/Library/include/sleef.h"
+          ls -l "$CONDA_PREFIX/Library/lib/sleef"*
+
+      - name: Install cibuildwheel
+        run: pip install cibuildwheel==2.20.0
+
+      - name: Build wheels
+        env:
+          CIBW_BUILD: cp310-win_${{ matrix.architecture == 'x86' && 'win32' || 'amd64' }}
+          CIBW_ARCHS_WINDOWS: ${{ matrix.architecture == 'x86' && 'x86' || 'AMD64' }}
+          CIBW_BUILD_VERBOSITY: "1"
+          SLEEF_INCLUDE_DIR: ${{ env.CONDA_PREFIX }}\Library\include
+          SLEEF_LIBRARY: ${{ env.CONDA_PREFIX }}\Library\lib
+          CFLAGS: "-I${{ env.CONDA_PREFIX }}\\Library\\include %CFLAGS%"
+          CXXFLAGS: "-I${{ env.CONDA_PREFIX }}\\Library\\include %CXXFLAGS%"
+          LDFLAGS: "-L${{ env.CONDA_PREFIX }}\\Library\\lib %LDFLAGS%"
+        run: |
+          python -m cibuildwheel --output-dir wheelhouse
+          if (-not (Test-Path wheelhouse/*.whl)) { throw "Wheel was not created" }
+        working-directory: ./quaddtype
+
+      - uses: actions/upload-artifact@v3
+        with:
+          path: ./quaddtype/wheelhouse/*.whl
+          name: wheels-windows-${{ matrix.architecture }}
+
+  publish_to_testpypi:
+    name: Publish to TestPyPI
+    needs: build_wheels
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download all workflow run artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: dist
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@v1.8.5
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: dist/*
+
+  create_release:
+    name: Create Release
+    needs: build_wheels
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Download all workflow run artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+
+      - name: Create Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ./artifacts/**/*.whl
