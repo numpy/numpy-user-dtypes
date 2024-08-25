@@ -25,7 +25,6 @@ jobs:
           auto-update-conda: true
           python-version: "3.10"
           channels: conda-forge
-          activate-environment: build_env
 
       - name: Install dependencies and build wheels
         shell: bash -l {0}
