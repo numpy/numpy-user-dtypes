@@ -39,6 +39,7 @@ else
   # Linux and macOS configuration
   sleef_include_dir = sleef_path + '/include'
   sleef_library_dir = sleef_path + '/lib'
+  message('$SLEEF_PATH: ', sleef_path)
   message('SLEEF_PATH from environment: ', run_command('bash', '-c', 'ls $SLEEF_PATH/include/sleef*', check: false).stdout().strip())
   message('SLEEF_PATH from environment: ', run_command('bash', '-c', 'ls $SLEEF_PATH/lib/libsleef*', check: false).stdout().strip())
   add_project_arguments('-I' + sleef_include_dir, language: ['c', 'cpp'])
