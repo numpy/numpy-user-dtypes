@@ -47,7 +47,6 @@ jobs:
           CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-13' && 'x86_64' || 'arm64' }}
           CIBW_SKIP: "pp* cp36-* cp37-* cp38-* cp39-* cp313-*"
           CIBW_ENVIRONMENT: >
-            CONDA_PREFIX=
             SLEEF_PATH="${{ env.SLEEF_PATH }}"
             DYLD_LIBRARY_PATH="${{ env.SLEEF_PATH }}/lib:$DYLD_LIBRARY_PATH"
             LIBRARY_PATH="${{ env.SLEEF_PATH }}/lib:$LIBRARY_PATH"
@@ -66,6 +65,7 @@ jobs:
           CIBW_TEST_EXTRAS: "test"
         run: |
           echo "SLEEF_PATH: $SLEEF_PATH"
+          ls $SLEEF_PATH/include/sleef*
           echo "PATH: $PATH"
           which python
           python --version
