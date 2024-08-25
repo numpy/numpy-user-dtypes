@@ -69,6 +69,7 @@ jobs:
             pytest {project}/tests
           CIBW_TEST_EXTRAS: "test"
         run: |
+          pip install cibuildwheel==2.20.0
           python -m cibuildwheel --output-dir wheelhouse
         working-directory: ./quaddtype
 
