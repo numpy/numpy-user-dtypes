@@ -27,12 +27,12 @@ jobs:
         env:
           CIBW_BUILD: cp310-manylinux_x86_64
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
-          CIBW_BUILD_VERBOSITY: "1"
+          CIBW_BUILD_VERBOSITY: "3"
           CIBW_BEFORE_ALL: |
             yum install -y wget
             wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
-            bash miniconda.sh -b -p $HOME/miniconda
-            export PATH="$HOME/miniconda/bin:$PATH"
+            bash miniconda.sh -b -p /root/miniconda
+            export PATH="/root/miniconda/bin:$PATH"
             conda config --set always_yes yes --set changeps1 no
             conda update -q conda
             conda info -a
@@ -42,11 +42,22 @@ jobs:
             source activate build_env
             conda install -y sleef
             conda list
-          CIBW_ENVIRONMENT: >-
-            PATH="$HOME/miniconda/bin:$PATH"
-            CONDA_PREFIX="$HOME/miniconda/envs/build_env"
+            echo "SLEEF_PATH=$CONDA_PREFIX" >> $GITHUB_ENV
+          CIBW_ENVIRONMENT: >
+            PATH="/root/miniconda/envs/build_env/bin:$PATH"
+            LD_LIBRARY_PATH="/root/miniconda/envs/build_env/lib:$LD_LIBRARY_PATH"
+            LIBRARY_PATH="/root/miniconda/envs/build_env/lib:$LIBRARY_PATH"
+            CFLAGS="-I/root/miniconda/envs/build_env/include $CFLAGS"
+            CXXFLAGS="-I/root/miniconda/envs/build_env/include $CXXFLAGS"
+            LDFLAGS="-L/root/miniconda/envs/build_env/lib $LDFLAGS"
+            SLEEF_PATH="/root/miniconda/envs/build_env"
           CIBW_REPAIR_WHEEL_COMMAND: >
             auditwheel repair -w {dest_dir} --plat manylinux_2_28_x86_64 {wheel}
+          CIBW_TEST_COMMAND: |
+            python -c "import os; print('SLEEF_PATH:', os.environ.get('SLEEF_PATH', 'Not set'))"
+            python -c "import platform; print('Python version:', platform.python_version())"
+            python -c "import sys; print('sys.platform:', sys.platform)"
+            python -c "import quaddtype; print('quaddtype imported successfully')"
         run: |
           python -m cibuildwheel --output-dir wheelhouse
         working-directory: ./quaddtype
