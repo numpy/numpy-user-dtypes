@@ -14,17 +14,20 @@ is_macos = build_machine.system() == 'darwin'
 add_project_link_arguments('-L' + conda_prefix + '/lib', language: ['c', 'cpp'])
 
 if is_windows
-  # Use MSVC on Windows
   add_project_arguments('-DWIN32', '-D_WINDOWS', language : ['c', 'cpp'])
-  # Add SLEEF paths from environment variables
-  sleef_include_dir = run_command('cmd', '/c', 'echo %SLEEF_INCLUDE_DIR%', check: true).stdout().strip()
-  sleef_library_dir = run_command('cmd', '/c', 'echo %SLEEF_LIBRARY%', check: true).stdout().strip()
+  
+  conda_env_dir = run_command('cmd', '/c', 'echo %CONDA_PREFIX%', check: true).stdout().strip()
+  sleef_include_dir = conda_env_dir + '\\Library\\include'
+  sleef_library_dir = conda_env_dir + '\\Library\\lib'
   
   add_project_arguments('-I' + sleef_include_dir, language: ['c', 'cpp'])
   add_project_link_arguments('-L' + sleef_library_dir, language: ['c', 'cpp'])
   
-  sleef_dep = c.find_library('sleef', dirs: [sleef_library_dir])
-  sleefquad_dep = c.find_library('sleefquad', dirs: [sleef_library_dir])
+  sleef_lib = c.find_library('sleef', dirs: [sleef_library_dir])
+  sleefquad_lib = c.find_library('sleefquad', dirs: [sleef_library_dir])
+  
+  sleef_dep = declare_dependency(include_directories: include_directories(sleef_include_dir),
+                                 dependencies: [sleef_lib, sleefquad_lib])
 elif is_macos
   # Existing macOS configuration
   conda_prefix = run_command('bash', '-c', 'echo $CONDA_PREFIX', check: true).stdout().strip()
@@ -86,10 +89,12 @@ py.install_sources(
 )
 
 py.extension_module('_quaddtype_main',
-srcs,
-c_args: ['-g', '-O0', '-lsleef', '-lsleefquad'],
-dependencies: [sleef_dep, sleefquad_dep],
-install: true,
-subdir: 'quaddtype',
-include_directories: includes
+  srcs,
+  c_args: ['-g', '-O0'] + (is_windows ? [] : ['-lsleef', '-lsleefquad']),
+  cpp_args: ['-g', '-O0'] + (is_windows ? [] : ['-lsleef', '-lsleefquad']),
+  link_args: is_windows ? ['-DEFAULTLIB:sleef', '-DEFAULTLIB:sleefquad'] : [],
+  dependencies: [sleef_dep] + (is_windows ? [] : [sleefquad_dep]),
+  install: true,
+  subdir: 'quaddtype',
+  include_directories: includes
 )

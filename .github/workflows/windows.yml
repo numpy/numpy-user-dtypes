@@ -49,7 +49,7 @@ jobs:
             exit 1
           fi
           ls -l "$CONDA_PREFIX/Library/include/sleef.h"
-          ls -l "$CONDA_PREFIX/Library/lib/sleef"*
+          ls -l "$CONDA_PREFIX/Library/lib/sleef*"
 
       - name: Install build dependencies
         run: |
