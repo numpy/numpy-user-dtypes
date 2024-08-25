@@ -24,6 +24,20 @@ jobs:
         with:
           python-version: "3.10"
 
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          python-version: "3.10"
+          channels: conda-forge
+
+      - name: Install SLEEF
+        shell: bash -l {0}
+        run: |
+          conda install -y -c conda-forge sleef
+          echo $CONDA_PREFIX
+          echo "SLEEF_PATH=$CONDA_PREFIX" >> $GITHUB_ENV
+
       - name: Install cibuildwheel
         run: pip install cibuildwheel==2.20.0
 
@@ -33,32 +47,20 @@ jobs:
           CIBW_ARCHS_LINUX: "auto64"
           CIBW_SKIP: "*-musllinux* pp* cp36-* cp37-* cp38-* cp39-* cp313-*"
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
-          CIBW_BEFORE_ALL_LINUX: |
-            set -ex
-            yum install -y wget
-            wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
-            bash miniconda.sh -b -p $HOME/miniconda
-            export PATH="$HOME/miniconda/bin:$PATH"
-            conda init bash
-            source ~/.bashrc
-            conda update -q conda
-            conda config --add channels conda-forge
-            conda config --set channel_priority strict
-            conda install -y -c conda-forge sleef
-            if [ ! -f "$HOME/miniconda/include/sleef.h" ]; then
-                echo "sleef.h not found. Installation may have failed."
-                exit 1
-            fi
-            ls -l $HOME/miniconda/include/sleef.h
-            ls -l $HOME/miniconda/lib/libsleef*
           CIBW_ENVIRONMENT: >
-            LD_LIBRARY_PATH="$HOME/miniconda/lib:$LD_LIBRARY_PATH"
-            LIBRARY_PATH="$HOME/miniconda/lib:$LIBRARY_PATH"
-            CFLAGS="-I$HOME/miniconda/include $CFLAGS"
-            CXXFLAGS="-I$HOME/miniconda/include $CXXFLAGS"
-            LDFLAGS="-L$HOME/miniconda/lib $LDFLAGS"
+            SLEEF_PATH="${{ env.SLEEF_PATH }}"
+            LD_LIBRARY_PATH="${{ env.SLEEF_PATH }}/lib:$LD_LIBRARY_PATH"
+            LIBRARY_PATH="${{ env.SLEEF_PATH }}/lib:$LIBRARY_PATH"
+            CFLAGS="-I${{ env.SLEEF_PATH }}/include $CFLAGS"
+            CXXFLAGS="-I${{ env.SLEEF_PATH }}/include $CXXFLAGS"
+            LDFLAGS="-L${{ env.SLEEF_PATH }}/lib $LDFLAGS"
+          CIBW_BEFORE_ALL_LINUX: |
+            yum install -y wget
+            . $SLEEF_PATH/etc/profile.d/conda.sh
+            conda activate base
           CIBW_REPAIR_WHEEL_COMMAND: "auditwheel repair -w {dest_dir} --plat manylinux_2_28_x86_64 {wheel}"
           CIBW_TEST_COMMAND: |
+            python -c "import os; print('SLEEF_PATH:', os.environ.get('SLEEF_PATH', 'Not set'))"
             python -c "import platform; print('Python version:', platform.python_version())"
             python -c "import sys; print('sys.platform:', sys.platform)"
             python -c "import quaddtype; print('quaddtype imported successfully')"
@@ -66,8 +68,15 @@ jobs:
             pytest {project}/tests
           CIBW_TEST_EXTRAS: "test"
         run: |
+          echo "SLEEF_PATH: $SLEEF_PATH"
+          ls $SLEEF_PATH/include/sleef*
+          echo "PATH: $PATH"
+          which python
+          python --version
+          which pip
+          pip --version
+          cd quaddtype
           python -m cibuildwheel --output-dir wheelhouse
-        working-directory: ./quaddtype
 
       - uses: actions/upload-artifact@v3
         with:
