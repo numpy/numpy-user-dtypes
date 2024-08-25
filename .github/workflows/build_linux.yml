@@ -37,6 +37,7 @@ jobs:
           conda install -y -c conda-forge sleef
           echo $CONDA_PREFIX
           echo "SLEEF_PATH=$CONDA_PREFIX" >> $GITHUB_ENV
+          ls $CONDA_PREFIX/include/sleef*
 
       - name: Install cibuildwheel
         run: pip install cibuildwheel==2.20.0
