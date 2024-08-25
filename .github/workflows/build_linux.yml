@@ -3,7 +3,7 @@ name: Build quaddtype wheels for Linux
 on:
   push:
     branches:
-      - sep-workflows
+      - sep-workflow
     tags:
       - "v*"
   pull_request:
