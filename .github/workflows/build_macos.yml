@@ -19,44 +19,39 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v3
         with:
+          auto-update-conda: true
           python-version: "3.10"
 
-      - name: Install cibuildwheel
-        run: pip install cibuildwheel==2.20.0
+      - name: Install dependencies
+        shell: bash -l {0}
+        run: |
+          pip install cibuildwheel==2.20.0
+          conda config --add channels conda-forge
+          conda config --set channel_priority strict
+          conda install -y sleef
+          if [ ! -f "$CONDA_PREFIX/include/sleef.h" ]; then
+              echo "sleef.h not found. Installation may have failed."
+              exit 1
+          fi
+          ls -l $CONDA_PREFIX/include/sleef.h
+          ls -l $CONDA_PREFIX/lib/libsleef*
 
       - name: Build wheels
+        shell: bash -l {0}
         env:
           CIBW_BUILD_VERBOSITY: "1"
           CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-13' && 'x86_64' || 'arm64' }}
           CIBW_SKIP: "pp* cp36-* cp37-* cp38-* cp39-* cp313-*"
-          CIBW_BEFORE_ALL_MACOS: |
-            set -ex
-            ARCH=$(uname -m)
-            wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-${ARCH}.sh -O miniconda.sh
-            bash miniconda.sh -b -p $HOME/miniconda
-            export PATH="$HOME/miniconda/bin:$PATH"
-            source $HOME/miniconda/bin/activate
-            conda update -q conda
-            conda config --add channels conda-forge
-            conda config --set channel_priority strict
-            conda install -y -c conda-forge sleef
-            if [ ! -f "$HOME/miniconda/include/sleef.h" ]; then
-                echo "sleef.h not found. Installation may have failed."
-                exit 1
-            fi
-            ls -l $HOME/miniconda/include/sleef.h
-            ls -l $HOME/miniconda/lib/libsleef*
           CIBW_ENVIRONMENT: >
-            CONDA_PREFIX="$HOME/miniconda"
-            PATH="$HOME/miniconda/bin:$PATH"
-            DYLD_LIBRARY_PATH="$HOME/miniconda/lib:$DYLD_LIBRARY_PATH"
-            LIBRARY_PATH="$HOME/miniconda/lib:$LIBRARY_PATH"
-            CFLAGS="-I$HOME/miniconda/include $CFLAGS"
-            CXXFLAGS="-I$HOME/miniconda/include $CXXFLAGS"
-            LDFLAGS="-L$HOME/miniconda/lib $LDFLAGS"
+            PATH="$CONDA_PREFIX/bin:$PATH"
+            DYLD_LIBRARY_PATH="$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH"
+            LIBRARY_PATH="$CONDA_PREFIX/lib:$LIBRARY_PATH"
+            CFLAGS="-I$CONDA_PREFIX/include $CFLAGS"
+            CXXFLAGS="-I$CONDA_PREFIX/include $CXXFLAGS"
+            LDFLAGS="-L$CONDA_PREFIX/lib $LDFLAGS"
             MACOSX_DEPLOYMENT_TARGET="10.13"
           CIBW_REPAIR_WHEEL_COMMAND: "delocate-wheel -w {dest_dir} -v {wheel}"
           CIBW_TEST_COMMAND: |
