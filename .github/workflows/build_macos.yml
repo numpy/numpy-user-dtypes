@@ -38,7 +38,7 @@ jobs:
             wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-${ARCH}.sh -O miniconda.sh
             bash miniconda.sh -b -p $HOME/miniconda
             export PATH="$HOME/miniconda/bin:$PATH"
-            source ~/.bash_profile
+            source $HOME/miniconda/bin/activate
             conda update -q conda
             conda config --add channels conda-forge
             conda config --set channel_priority strict
@@ -50,6 +50,8 @@ jobs:
             ls -l $HOME/miniconda/include/sleef.h
             ls -l $HOME/miniconda/lib/libsleef*
           CIBW_ENVIRONMENT: >
+            CONDA_PREFIX="$HOME/miniconda"
+            PATH="$HOME/miniconda/bin:$PATH"
             DYLD_LIBRARY_PATH="$HOME/miniconda/lib:$DYLD_LIBRARY_PATH"
             LIBRARY_PATH="$HOME/miniconda/lib:$LIBRARY_PATH"
             CFLAGS="-I$HOME/miniconda/include $CFLAGS"
@@ -58,6 +60,7 @@ jobs:
             MACOSX_DEPLOYMENT_TARGET="10.13"
           CIBW_REPAIR_WHEEL_COMMAND: "delocate-wheel -w {dest_dir} -v {wheel}"
           CIBW_TEST_COMMAND: |
+            python -c "import os; print('CONDA_PREFIX:', os.environ.get('CONDA_PREFIX', 'Not set'))"
             python -c "import platform; print('Python version:', platform.python_version())"
             python -c "import sys; print('sys.platform:', sys.platform)"
             python -c "import quaddtype; print('quaddtype imported successfully')"
