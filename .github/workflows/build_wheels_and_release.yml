@@ -52,8 +52,7 @@ jobs:
           CIBW_BUILD: cp310-*
           CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-13' && 'x86_64' || 'arm64' }}
           CIBW_BUILD_VERBOSITY: "1"
-          SLEEF_INCLUDE_DIR: ${{ env.CONDA_PREFIX }}/include
-          SLEEF_LIBRARY: ${{ env.CONDA_PREFIX }}/lib
+          CIBW_ENVIRONMENT: CONDA_PREFIX=$CONDA_PREFIX
         run: |
           python -m cibuildwheel --output-dir wheelhouse
           if [ ! -f wheelhouse/*.whl ]; then echo "Wheel was not created" && exit 1; fi
