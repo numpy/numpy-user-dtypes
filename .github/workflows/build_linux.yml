@@ -3,19 +3,15 @@ name: Build quaddtype wheels for Linux
 on:
   push:
     branches:
-      - sep-workflows
+      - testing-pkg
     tags:
       - "v*"
   pull_request:
 
 jobs:
   build_wheels:
-    name: Build wheels on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-
+    name: Build wheels on Linux
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
 
@@ -24,61 +20,41 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Setup Miniconda
-        uses: conda-incubator/setup-miniconda@v3
-        with:
-          auto-update-conda: true
-          python-version: "3.10"
-          channels: conda-forge
-
-      - name: Install SLEEF
-        shell: bash -l {0}
-        run: |
-          conda install -y -c conda-forge sleef
-          echo $CONDA_PREFIX
-          echo "SLEEF_PATH=$CONDA_PREFIX" >> $GITHUB_ENV
-          ls $CONDA_PREFIX/include/sleef*
-
       - name: Install cibuildwheel
         run: pip install cibuildwheel==2.20.0
 
       - name: Build wheels
         env:
+          CIBW_BUILD: cp310-manylinux_x86_64
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28_x86_64
           CIBW_BUILD_VERBOSITY: "1"
-          CIBW_ARCHS_LINUX: "auto64"
-          CIBW_SKIP: "*-musllinux* pp* cp36-* cp37-* cp38-* cp39-* cp313-*"
-          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
-          CIBW_ENVIRONMENT: >
-            SLEEF_PATH="${{ env.SLEEF_PATH }}"
-            LD_LIBRARY_PATH="${{ env.SLEEF_PATH }}/lib:$LD_LIBRARY_PATH"
-            LIBRARY_PATH="${{ env.SLEEF_PATH }}/lib:$LIBRARY_PATH"
-            CFLAGS="-I${{ env.SLEEF_PATH }}/include $CFLAGS"
-            CXXFLAGS="-I${{ env.SLEEF_PATH }}/include $CXXFLAGS"
-            LDFLAGS="-L${{ env.SLEEF_PATH }}/lib $LDFLAGS"
-          CIBW_REPAIR_WHEEL_COMMAND: "auditwheel repair -w {dest_dir} --plat manylinux_2_28_x86_64 {wheel}"
-          CIBW_TEST_COMMAND: |
-            python -c "import os; print('SLEEF_PATH:', os.environ.get('SLEEF_PATH', 'Not set'))"
-            python -c "import platform; print('Python version:', platform.python_version())"
-            python -c "import sys; print('sys.platform:', sys.platform)"
-            python -c "import quaddtype; print('quaddtype imported successfully')"
-            pip install {package}[test]
-            pytest {project}/tests
-          CIBW_TEST_EXTRAS: "test"
+          CIBW_BEFORE_ALL: |
+            yum install -y wget
+            wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+            bash miniconda.sh -b -p $HOME/miniconda
+            export PATH="$HOME/miniconda/bin:$PATH"
+            conda config --set always_yes yes --set changeps1 no
+            conda update -q conda
+            conda info -a
+            conda config --add channels conda-forge
+            conda config --set channel_priority strict
+            conda create -n build_env python=3.10
+            source activate build_env
+            conda install -y sleef
+            conda list
+          CIBW_ENVIRONMENT: >-
+            PATH="$HOME/miniconda/bin:$PATH"
+            CONDA_PREFIX="$HOME/miniconda/envs/build_env"
+          CIBW_REPAIR_WHEEL_COMMAND: >
+            auditwheel repair -w {dest_dir} --plat manylinux_2_28_x86_64 {wheel}
         run: |
-          echo "SLEEF_PATH: $SLEEF_PATH"
-          ls $SLEEF_PATH/include/sleef*
-          echo "PATH: $PATH"
-          which python
-          python --version
-          which pip
-          pip --version
-          cd quaddtype
           python -m cibuildwheel --output-dir wheelhouse
+        working-directory: ./quaddtype
 
       - uses: actions/upload-artifact@v3
         with:
           path: ./quaddtype/wheelhouse/*.whl
-          name: wheels-${{ matrix.os }}
+          name: wheels-linux
 
   publish_to_testpypi:
     name: Publish to TestPyPI
@@ -103,16 +79,13 @@ jobs:
     needs: build_wheels
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-
       - name: Download all workflow run artifacts
         uses: actions/download-artifact@v3
         with:
           path: artifacts
-
       - name: Create Release
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
