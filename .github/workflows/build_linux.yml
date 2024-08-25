@@ -41,8 +41,6 @@ jobs:
             conda create -n build_env python=3.10
             source activate build_env
             conda install -y sleef
-            conda list
-            echo "SLEEF_PATH=$CONDA_PREFIX" >> $GITHUB_ENV
           CIBW_ENVIRONMENT: >
             PATH="/root/miniconda/envs/build_env/bin:$PATH"
             LD_LIBRARY_PATH="/root/miniconda/envs/build_env/lib:$LD_LIBRARY_PATH"
