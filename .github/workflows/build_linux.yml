@@ -54,10 +54,6 @@ jobs:
             CFLAGS="-I${{ env.SLEEF_PATH }}/include $CFLAGS"
             CXXFLAGS="-I${{ env.SLEEF_PATH }}/include $CXXFLAGS"
             LDFLAGS="-L${{ env.SLEEF_PATH }}/lib $LDFLAGS"
-          CIBW_BEFORE_ALL_LINUX: |
-            yum install -y wget
-            . $SLEEF_PATH/etc/profile.d/conda.sh
-            conda activate base
           CIBW_REPAIR_WHEEL_COMMAND: "auditwheel repair -w {dest_dir} --plat manylinux_2_28_x86_64 {wheel}"
           CIBW_TEST_COMMAND: |
             python -c "import os; print('SLEEF_PATH:', os.environ.get('SLEEF_PATH', 'Not set'))"
