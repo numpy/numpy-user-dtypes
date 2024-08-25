@@ -19,16 +19,12 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.10"
-
-      - name: Install Miniconda
+      - name: Set up Miniconda
         uses: conda-incubator/setup-miniconda@v3
         with:
           auto-update-conda: true
           python-version: "3.10"
+          activate-environment: build-env
 
       - name: Install SLEEF and other dependencies
         shell: bash -l {0}
@@ -45,20 +41,20 @@ jobs:
           ls -l "$CONDA_PREFIX/lib/libsleef"*
 
       - name: Install build dependencies
+        shell: bash -l {0}
         run: |
           pip install -U pip
           pip install cibuildwheel==2.20.0 ninja meson meson-python
 
       - name: Build wheels
+        shell: bash -l {0}
         env:
           CIBW_BUILD: cp310-*
           CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-13' && 'x86_64' || 'arm64' }}
           CIBW_BUILD_VERBOSITY: "1"
           SLEEF_INCLUDE_DIR: ${{ env.CONDA_PREFIX }}/include
           SLEEF_LIBRARY: ${{ env.CONDA_PREFIX }}/lib
-        shell: bash
         run: |
-          export PATH="$CONDA_PREFIX/bin:$PATH"
           python -m cibuildwheel --output-dir wheelhouse
           if [ ! -f wheelhouse/*.whl ]; then echo "Wheel was not created" && exit 1; fi
         working-directory: ./quaddtype
