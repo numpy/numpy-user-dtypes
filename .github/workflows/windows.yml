@@ -19,6 +19,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.architecture }}
+
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:
@@ -46,8 +51,10 @@ jobs:
           ls -l "$CONDA_PREFIX/Library/include/sleef.h"
           ls -l "$CONDA_PREFIX/Library/lib/sleef"*
 
-      - name: Install cibuildwheel
-        run: pip install cibuildwheel==2.20.0
+      - name: Install build dependencies
+        run: |
+          pip install -U pip
+          pip install cibuildwheel==2.20.0 ninja meson meson-python
 
       - name: Build wheels
         env:
@@ -56,10 +63,11 @@ jobs:
           CIBW_BUILD_VERBOSITY: "1"
           SLEEF_INCLUDE_DIR: ${{ env.CONDA_PREFIX }}\Library\include
           SLEEF_LIBRARY: ${{ env.CONDA_PREFIX }}\Library\lib
-          CFLAGS: "-I${{ env.CONDA_PREFIX }}\\Library\\include %CFLAGS%"
-          CXXFLAGS: "-I${{ env.CONDA_PREFIX }}\\Library\\include %CXXFLAGS%"
-          LDFLAGS: "-L${{ env.CONDA_PREFIX }}\\Library\\lib %LDFLAGS%"
+          DISTUTILS_USE_SDK: "1"
+          MSSdk: "1"
+        shell: pwsh
         run: |
+          $env:PATH = "$env:CONDA_PREFIX\Library\bin;$env:PATH"
           python -m cibuildwheel --output-dir wheelhouse
           if (-not (Test-Path wheelhouse/*.whl)) { throw "Wheel was not created" }
         working-directory: ./quaddtype
