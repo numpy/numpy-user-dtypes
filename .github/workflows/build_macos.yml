@@ -19,29 +19,44 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Setup Miniconda
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Setup Miniconda and install SLEEF
         uses: conda-incubator/setup-miniconda@v3
         with:
           auto-update-conda: true
           python-version: "3.10"
           channels: conda-forge
+          activate-environment: sleef_env
 
-      - name: Install dependencies and build wheels
+      - name: Install SLEEF
         shell: bash -l {0}
+        run: |
+          conda install -y -c conda-forge sleef
+          echo "SLEEF_PATH=$CONDA_PREFIX" >> $GITHUB_ENV
+
+      - name: Install cibuildwheel
+        run: pip install cibuildwheel==2.20.0
+
+      - name: Build wheels
         env:
           CIBW_BUILD_VERBOSITY: "1"
           CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-13' && 'x86_64' || 'arm64' }}
           CIBW_SKIP: "pp* cp36-* cp37-* cp38-* cp39-* cp313-*"
           CIBW_ENVIRONMENT: >
-            PATH="$CONDA_PREFIX/bin:$PATH"
-            DYLD_LIBRARY_PATH="$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH"
-            LIBRARY_PATH="$CONDA_PREFIX/lib:$LIBRARY_PATH"
-            CFLAGS="-I$CONDA_PREFIX/include $CFLAGS"
-            CXXFLAGS="-I$CONDA_PREFIX/include $CXXFLAGS"
-            LDFLAGS="-L$CONDA_PREFIX/lib $LDFLAGS"
+            SLEEF_PATH="${{ env.SLEEF_PATH }}"
+            DYLD_LIBRARY_PATH="${{ env.SLEEF_PATH }}/lib:$DYLD_LIBRARY_PATH"
+            LIBRARY_PATH="${{ env.SLEEF_PATH }}/lib:$LIBRARY_PATH"
+            CFLAGS="-I${{ env.SLEEF_PATH }}/include $CFLAGS"
+            CXXFLAGS="-I${{ env.SLEEF_PATH }}/include $CXXFLAGS"
+            LDFLAGS="-L${{ env.SLEEF_PATH }}/lib $LDFLAGS"
             MACOSX_DEPLOYMENT_TARGET="10.13"
           CIBW_REPAIR_WHEEL_COMMAND: "delocate-wheel -w {dest_dir} -v {wheel}"
           CIBW_TEST_COMMAND: |
+            python -c "import os; print('SLEEF_PATH:', os.environ.get('SLEEF_PATH', 'Not set'))"
             python -c "import platform; print('Python version:', platform.python_version())"
             python -c "import sys; print('sys.platform:', sys.platform)"
             python -c "import quaddtype; print('quaddtype imported successfully')"
@@ -49,16 +64,12 @@ jobs:
             pytest {project}/tests
           CIBW_TEST_EXTRAS: "test"
         run: |
-          conda install -y -c conda-forge sleef
-          pip install cibuildwheel==2.20.0
-          if [ ! -f "$CONDA_PREFIX/include/sleef.h" ]; then
-              echo "sleef.h not found. Installation may have failed."
-              exit 1
-          fi
-          ls -l $CONDA_PREFIX/include/sleef.h
-          ls -l $CONDA_PREFIX/lib/libsleef*
-          echo "Using Python: $(which python)"
-          echo "Using pip: $(which pip)"
+          echo "SLEEF_PATH: $SLEEF_PATH"
+          echo "PATH: $PATH"
+          which python
+          python --version
+          which pip
+          pip --version
           cd quaddtype
           python -m cibuildwheel --output-dir wheelhouse
 
