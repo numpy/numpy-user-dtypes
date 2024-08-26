@@ -69,7 +69,7 @@ jobs:
       - name: Install quaddtype
         working-directory: quaddtype
         run: |
-          LDFLAGS="-Wl,-rpath,/usr/lib" python -m pip install . -v --no-build-isolation -Cbuilddir=build -C'compile-args=-v' -Csetup-args="-Dbuildtype=debug -Dsleef_path=/usr"
+          export SLEEF_PATH=/usr && LDFLAGS="-Wl,-rpath,/usr/lib" python -m pip install . -v --no-build-isolation -Cbuilddir=build -C'compile-args=-v' -Csetup-args="-Dbuildtype=debug"
       - name: Run quaddtype tests
         working-directory: quaddtype
         run: |
