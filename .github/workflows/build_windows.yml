@@ -54,7 +54,7 @@ jobs:
       - name: Install build dependencies
         run: |
           pip install -U pip
-          pip install cibuildwheel==2.20.0 ninja meson meson-python
+          pip install cibuildwheel==2.20.0 ninja meson meson-python numpy
 
       - name: Build wheels
         env:

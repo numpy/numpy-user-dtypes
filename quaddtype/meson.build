@@ -56,10 +56,8 @@ incdir_numpy = run_command(py,
     '-c',
     'import numpy; import os; print(os.path.relpath(numpy.get_include()))'
   ],
-  check: false
+  check: true
 ).stdout().strip()
-
-message('numpy directory: ', incdir_numpy)
 
 includes = include_directories(
     [
