@@ -5,12 +5,17 @@ on:
     workflows: ["Build Macos", "Build linux", "Build win"]
     types:
       - completed
+  push:
+    branches:
+      - sep-workflows
+    tags:
+      - "v*"
 
 jobs:
   release_and_publish:
     name: Release and Publish
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' && startsWith(github.ref, 'refs/tags/') }}
+    if: ${{ (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -44,6 +49,7 @@ jobs:
         working-directory: dist
 
       - name: Publish to TestPyPI
+        if: startsWith(github.ref, 'refs/tags/')
         uses: pypa/gh-action-pypi-publish@v1.8.5
         with:
           user: __token__
@@ -52,6 +58,7 @@ jobs:
           packages-dir: dist
 
       - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         uses: softprops/action-gh-release@v1
