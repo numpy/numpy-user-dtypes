@@ -1,15 +1,29 @@
 name: Release and Publish to TestPyPI
 
 on:
+  push:
+    branches:
+      - sep-workflows
+    tags:
+      - "v*"
   workflow_run:
-    workflows: [Build linux", "Build win", "Build Macos"]
+    workflows: ["Build linux", "Build win", "Build Macos"]
     types:
       - completed
 
 jobs:
+  check_tag:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Check if tag
+        run: echo "This is a tag push"
+
   wait_for_workflows:
+    needs: check_tag
     runs-on: ubuntu-latest
     if: >
+      github.event_name == 'workflow_run' &&
       github.event.workflow_run.conclusion == 'success' &&
       startsWith(github.event.workflow_run.head_branch, 'v')
     steps:
@@ -18,7 +32,7 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           check-name: "Build wheels on Linux"
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token: ${{ secrets.ACCESS_TOKEN }}
           wait-interval: 10
 
       - name: Wait for Windows workflow
@@ -26,7 +40,7 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           check-name: "Build wheels on Windows"
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token: ${{ secrets.ACCESS_TOKEN }}
           wait-interval: 10
 
       - name: Wait for macOS-13 workflow
@@ -34,7 +48,7 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           check-name: "Build wheels on macos-13"
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token: ${{ secrets.ACCESS_TOKEN }}
           wait-interval: 10
 
       - name: Wait for macOS-14 workflow
@@ -42,16 +56,17 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           check-name: "Build wheels on macos-14"
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token: ${{ secrets.ACCESS_TOKEN }}
           wait-interval: 10
 
   release_and_publish:
     needs: wait_for_workflows
-    name: Release and Publish
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: Download macOS artifacts (macos-13)
         uses: actions/download-artifact@v3
@@ -91,8 +106,8 @@ jobs:
 
       - name: Create Release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
         uses: softprops/action-gh-release@v1
         with:
           files: ./dist/**/*.whl
-          tag_name: ${{ github.event.workflow_run.head_branch }}
+          tag_name: ${{ github.ref_name }}
