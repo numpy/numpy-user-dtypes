@@ -3,7 +3,7 @@ name: Numpy User DTypes CI
 on:
   push:
     branches:
-      - main
+      - uni-workflow
   pull_request:
   workflow_dispatch:
 
@@ -66,6 +66,7 @@ jobs:
           cmake -S . -B build -DSLEEF_BUILD_QUAD:BOOL=ON -DSLEEF_BUILD_SHARED_LIBS:BOOL=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
           cmake --build build/ --clean-first -j
           sudo cmake --install build --prefix /usr
+          export SLEEF_PATH=/usr
       - name: Install quaddtype
         working-directory: quaddtype
         run: |
