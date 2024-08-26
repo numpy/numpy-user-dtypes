@@ -3,7 +3,7 @@ name: Build Wheels
 on:
   push:
     branches:
-      - uni-workflow
+      - main
     tags:
       - "v*"
   pull_request:

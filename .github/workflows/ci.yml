@@ -3,7 +3,7 @@ name: Numpy User DTypes CI
 on:
   push:
     branches:
-      - uni-workflow
+      - main
   pull_request:
   workflow_dispatch:
 
