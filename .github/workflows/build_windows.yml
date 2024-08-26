@@ -1,4 +1,4 @@
-name: Build quaddtype wheels for Windows
+name: Build win
 
 on:
   push:

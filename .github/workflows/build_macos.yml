@@ -1,4 +1,4 @@
-name: Build quaddtype wheels for macOS
+name: Build Macos
 
 on:
   push:

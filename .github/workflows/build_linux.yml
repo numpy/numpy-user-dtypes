@@ -1,4 +1,4 @@
-name: Build quaddtype wheels for Linux
+name: Build linux
 
 on:
   push:
