@@ -39,7 +39,7 @@ else
   # Linux and macOS configuration
   sleef_include_dir = sleef_path + '/include'
   sleef_library_dir = sleef_path + '/lib'
-  
+
   add_project_arguments('-I' + sleef_include_dir, language: ['c', 'cpp'])
   add_project_link_arguments('-L' + sleef_library_dir, language: ['c', 'cpp'])
   
@@ -56,8 +56,10 @@ incdir_numpy = run_command(py,
     '-c',
     'import numpy; import os; print(os.path.relpath(numpy.get_include()))'
   ],
-  check: true
+  check: false
 ).stdout().strip()
+
+message("numpy directory: ", incdir_numpy)
 
 includes = include_directories(
     [

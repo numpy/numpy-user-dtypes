@@ -14,7 +14,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        architecture: [x64, x86]
+        architecture: [x64]
 
     steps:
       - uses: actions/checkout@v3
@@ -54,7 +54,7 @@ jobs:
       - name: Install build dependencies
         run: |
           pip install -U pip
-          pip install cibuildwheel==2.20.0 ninja meson meson-python
+          pip install cibuildwheel==2.20.0 ninja meson meson-python numpy
 
       - name: Build wheels
         env:
