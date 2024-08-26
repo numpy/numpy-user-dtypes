@@ -25,16 +25,18 @@ if is_windows
   sleef_dep = declare_dependency(include_directories: include_directories(sleef_include_dir),
                                  dependencies: [sleef_lib, sleefquad_lib])
 else
-  # Linux and macOS configuration
-  sleef_path = run_command('bash', '-c', 'echo $SLEEF_PATH', check: false).stdout().strip()
+  sleef_path = get_option('sleef_path')
+  if sleef_path == ''
+    sleef_path = run_command('bash', '-c', 'echo $SLEEF_PATH', check: false).stdout().strip()
+  endif
   if sleef_path == ''
     sleef_path = run_command('bash', '-c', 'echo $CONDA_PREFIX', check: false).stdout().strip()
   endif
   if sleef_path == ''
-    error('SLEEF_PATH or CONDA_PREFIX environment variable is not set')
+    error('SLEEF_PATH or CONDA_PREFIX environment variable is not set, and sleef_path option is not provided')
   endif
 
-  add_project_link_arguments('-L' + sleef_path + '/lib', language: ['c', 'cpp'])
+  message('Using SLEEF path: ' + sleef_path)
 
   sleef_include_dir = sleef_path + '/include'
   sleef_library_dir = sleef_path + '/lib'
@@ -47,8 +49,9 @@ else
 endif
 
 if not sleef_dep.found() or (not is_windows and not sleefquad_dep.found())
-  error('SLEEF library not found. Please ensure it is installed in your conda environment.')
+  error('SLEEF library not found. Please ensure it is installed in your conda environment or specify the correct path.')
 endif
+
 
 # Try to get NumPy include path from environment variable first
 if incdir_numpy == ''
