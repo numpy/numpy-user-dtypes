@@ -2,77 +2,76 @@ name: Release and Publish to TestPyPI
 
 on:
   workflow_run:
-    workflows: ["Build Macos", "Build linux", "Build win"]
+    workflows: [Build linux", "Build win", "Build Macos"]
     types:
       - completed
-  push:
-    branches:
-      - sep-workflows # or whatever your default branch name is
-    tags:
-      - "v*"
 
 jobs:
-  debug_job:
-    name: Debug Job
+  wait_for_workflows:
     runs-on: ubuntu-latest
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      startsWith(github.event.workflow_run.head_branch, 'v')
     steps:
-      - name: Dump GitHub context
-        env:
-          GITHUB_CONTEXT: ${{ toJson(github) }}
-        run: echo "$GITHUB_CONTEXT"
-      - name: Dump job context
-        env:
-          JOB_CONTEXT: ${{ toJson(job) }}
-        run: echo "$JOB_CONTEXT"
-      - name: Dump steps context
-        env:
-          STEPS_CONTEXT: ${{ toJson(steps) }}
-        run: echo "$STEPS_CONTEXT"
-      - name: Dump runner context
-        env:
-          RUNNER_CONTEXT: ${{ toJson(runner) }}
-        run: echo "$RUNNER_CONTEXT"
-      - name: Dump strategy context
-        env:
-          STRATEGY_CONTEXT: ${{ toJson(strategy) }}
-        run: echo "$STRATEGY_CONTEXT"
-      - name: Dump matrix context
-        env:
-          MATRIX_CONTEXT: ${{ toJson(matrix) }}
-        run: echo "$MATRIX_CONTEXT"
+      - name: Wait for Linux workflow
+        uses: lewagon/wait-on-check-action@v1.3.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          check-name: "Build wheels on Linux"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 10
+
+      - name: Wait for Windows workflow
+        uses: lewagon/wait-on-check-action@v1.3.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          check-name: "Build wheels on Windows"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 10
+
+      - name: Wait for macOS-13 workflow
+        uses: lewagon/wait-on-check-action@v1.3.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          check-name: "Build wheels on macos-13"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 10
+
+      - name: Wait for macOS-14 workflow
+        uses: lewagon/wait-on-check-action@v1.3.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          check-name: "Build wheels on macos-14"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 10
 
   release_and_publish:
+    needs: wait_for_workflows
     name: Release and Publish
-    needs: debug_job
     runs-on: ubuntu-latest
-    if: always()
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Download macOS artifacts
-        continue-on-error: true
+      - name: Download macOS artifacts (macos-13)
         uses: actions/download-artifact@v3
         with:
           name: wheels-macos-13
           path: dist/macos-13
 
-      - name: Download macOS artifacts
-        continue-on-error: true
+      - name: Download macOS artifacts (macos-14)
         uses: actions/download-artifact@v3
         with:
           name: wheels-macos-14
           path: dist/macos-14
 
       - name: Download Linux artifacts
-        continue-on-error: true
         uses: actions/download-artifact@v3
         with:
           name: wheels-linux
           path: dist/linux
 
       - name: Download Windows artifacts
-        continue-on-error: true
         uses: actions/download-artifact@v3
         with:
           name: wheels-windows-x64
@@ -83,7 +82,6 @@ jobs:
         working-directory: dist
 
       - name: Publish to TestPyPI
-        if: startsWith(github.ref, 'refs/tags/')
         uses: pypa/gh-action-pypi-publish@v1.8.5
         with:
           user: __token__
@@ -92,9 +90,9 @@ jobs:
           packages-dir: dist
 
       - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         uses: softprops/action-gh-release@v1
         with:
           files: ./dist/**/*.whl
+          tag_name: ${{ github.event.workflow_run.head_branch }}
