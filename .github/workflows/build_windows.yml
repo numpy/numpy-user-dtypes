@@ -50,7 +50,7 @@ jobs:
           fi
           ls -l "$CONDA_PREFIX/Library/include/sleef.h"
           ls -l "$CONDA_PREFIX/Library/lib/sleef"*
-          echo "SLEEF_PATH=$CONDA_PREFIX" >> $GITHUB_ENV
+          echo $CONDA_PREFIX >> $GITHUB_ENV
 
       - name: Install build dependencies
         shell: bash -l {0}
@@ -60,6 +60,7 @@ jobs:
 
       - name: Build wheels
         env:
+          CONDA_PREFIX: ${{ env.CONDA_PREFIX }}
           CIBW_BUILD: cp310-win_${{ matrix.architecture == 'x86' && 'win32' || 'amd64' }}
           CIBW_ARCHS_WINDOWS: ${{ matrix.architecture == 'x86' && 'x86' || 'AMD64' }}
           CIBW_BUILD_VERBOSITY: "1"
