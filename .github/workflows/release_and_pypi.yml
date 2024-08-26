@@ -7,38 +7,72 @@ on:
       - completed
   push:
     branches:
-      - sep-workflows
+      - sep-workflows # or whatever your default branch name is
     tags:
       - "v*"
 
 jobs:
+  debug_job:
+    name: Debug Job
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
+      - name: Dump job context
+        env:
+          JOB_CONTEXT: ${{ toJson(job) }}
+        run: echo "$JOB_CONTEXT"
+      - name: Dump steps context
+        env:
+          STEPS_CONTEXT: ${{ toJson(steps) }}
+        run: echo "$STEPS_CONTEXT"
+      - name: Dump runner context
+        env:
+          RUNNER_CONTEXT: ${{ toJson(runner) }}
+        run: echo "$RUNNER_CONTEXT"
+      - name: Dump strategy context
+        env:
+          STRATEGY_CONTEXT: ${{ toJson(strategy) }}
+        run: echo "$STRATEGY_CONTEXT"
+      - name: Dump matrix context
+        env:
+          MATRIX_CONTEXT: ${{ toJson(matrix) }}
+        run: echo "$MATRIX_CONTEXT"
+
   release_and_publish:
     name: Release and Publish
+    needs: debug_job
     runs-on: ubuntu-latest
-    if: ${{ (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) }}
+    if: always()
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
       - name: Download macOS artifacts
+        continue-on-error: true
         uses: actions/download-artifact@v3
         with:
           name: wheels-macos-13
           path: dist/macos-13
 
       - name: Download macOS artifacts
+        continue-on-error: true
         uses: actions/download-artifact@v3
         with:
           name: wheels-macos-14
           path: dist/macos-14
 
       - name: Download Linux artifacts
+        continue-on-error: true
         uses: actions/download-artifact@v3
         with:
           name: wheels-linux
           path: dist/linux
 
       - name: Download Windows artifacts
+        continue-on-error: true
         uses: actions/download-artifact@v3
         with:
           name: wheels-windows-x64
