@@ -65,16 +65,17 @@ jobs:
 
       - name: Build wheels
         env:
+          CONDA_PREFIX: ${{ env.CONDA_PREFIX }}
+          CIBW_BUILD: cp310-win_${{ matrix.architecture == 'x86' && 'win32' || 'amd64' }}
+          CIBW_ARCHS_WINDOWS: ${{ matrix.architecture == 'x86' && 'x86' || 'AMD64' }}
+          CIBW_BUILD_VERBOSITY: "1"
+          SLEEF_INCLUDE_DIR: ${{ env.CONDA_PREFIX }}\Library\include
+          SLEEF_LIBRARY: ${{ env.CONDA_PREFIX }}\Library\lib
+          DISTUTILS_USE_SDK: "1"
+          MSSdk: "1"
+          NUMPY_INCLUDE_DIR: ${{ env.NUMPY_INCLUDE_DIR }}
           CIBW_ENVIRONMENT: >-
-            CONDA_PREFIX: ${{ env.CONDA_PREFIX }}
-            CIBW_BUILD: cp310-win_${{ matrix.architecture == 'x86' && 'win32' || 'amd64' }}
-            CIBW_ARCHS_WINDOWS: ${{ matrix.architecture == 'x86' && 'x86' || 'AMD64' }}
-            CIBW_BUILD_VERBOSITY: "1"
-            SLEEF_INCLUDE_DIR: ${{ env.CONDA_PREFIX }}\Library\include
-            SLEEF_LIBRARY: ${{ env.CONDA_PREFIX }}\Library\lib
-            DISTUTILS_USE_SDK: "1"
-            MSSdk: "1"
-            NUMPY_INCLUDE_DIR: ${{ env.NUMPY_INCLUDE_DIR }}
+            NUMPY_INCLUDE_DIR="${{ env.NUMPY_INCLUDE_DIR }}"
         shell: pwsh
         run: |
           python -m cibuildwheel --output-dir wheelhouse
