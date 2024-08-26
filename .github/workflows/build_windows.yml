@@ -51,7 +51,7 @@ jobs:
           ls -l "$CONDA_PREFIX/Library/include/sleef.h"
           ls -l "$CONDA_PREFIX/Library/lib/sleef"*
 
-      - name: Set CONDA_PREFIX in GitHub Environment
+      - name: Set environment variables
         shell: pwsh
         run: |
           echo "CONDA_PREFIX=$env:CONDA_PREFIX" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
@@ -62,12 +62,12 @@ jobs:
         shell: bash -l {0}
         run: |
           pip install -U pip
-          pip install cibuildwheel==2.20.0 ninja meson meson-python numpy
+          pip install cibuildwheel==2.20.0 ninja meson meson-python numpy delvewheel pytest
 
       - name: Build wheels
         env:
           CONDA_PREFIX: ${{ env.CONDA_PREFIX }}
-          CIBW_BUILD: cp310-win_${{ matrix.architecture == 'x86' && 'win32' || 'amd64' }}
+          CIBW_BUILD: cp310-win_${{ matrix.architecture == 'x86' && 'win32' || 'amd64' }} cp311-win_${{ matrix.architecture == 'x86' && 'win32' || 'amd64' }} cp312-win_${{ matrix.architecture == 'x86' && 'win32' || 'amd64' }}
           CIBW_ARCHS_WINDOWS: ${{ matrix.architecture == 'x86' && 'x86' || 'AMD64' }}
           CIBW_BUILD_VERBOSITY: "1"
           SLEEF_INCLUDE_DIR: ${{ env.CONDA_PREFIX }}\Library\include
@@ -77,7 +77,17 @@ jobs:
           NUMPY_INCLUDE_DIR: ${{ env.NUMPY_INCLUDE_DIR }}
           CIBW_ENVIRONMENT: >-
             NUMPY_INCLUDE_DIR="${{ env.NUMPY_INCLUDE_DIR }}"
+            SLEEF_INCLUDE_DIR="${{ env.CONDA_PREFIX }}/Library/include"
+            SLEEF_LIBRARY="${{ env.CONDA_PREFIX }}/Library/lib"
           CIBW_BEFORE_BUILD: pip install meson meson-python ninja numpy
+          CIBW_REPAIR_WHEEL_COMMAND: "delvewheel repair -w {dest_dir} {wheel}"
+          CIBW_TEST_COMMAND: |
+            python -c "import platform; print('Python version:', platform.python_version())"
+            python -c "import sys; print('sys.platform:', sys.platform)"
+            python -c "import quaddtype; print('quaddtype imported successfully')"
+            pip install {package}[test]
+            pytest {project}/tests
+          CIBW_TEST_EXTRAS: "test"
         shell: pwsh
         run: |
           python -m cibuildwheel --output-dir wheelhouse
