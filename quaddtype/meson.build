@@ -1,4 +1,4 @@
-project('quaddtype', 'c', 'cpp', default_options : ['cpp_std=c++17', 'b_pie=true'])
+project('quaddtype', 'c', 'cpp', default_options : ['cpp_std=c++20', 'b_pie=true'])
 
 py_mod = import('python')
 py = py_mod.find_installation()
@@ -20,6 +20,7 @@ is_windows = build_machine.system() == 'windows'
 # Add SLEEF lib directory to library path
 add_project_link_arguments('-L' + sleef_path + '/lib', language: ['c', 'cpp'])
 
+incdir_numpy = ''
 if is_windows
   add_project_arguments('-DWIN32', '-D_WINDOWS', language : ['c', 'cpp'])
   
