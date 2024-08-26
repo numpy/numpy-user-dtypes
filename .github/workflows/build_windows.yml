@@ -86,8 +86,9 @@ jobs:
             python -c "import sys; print('sys.platform:', sys.platform)"
             python -c "import quaddtype; print('quaddtype imported successfully')"
             pip install {package}[test]
-            pytest {project}\tests
+            pytest {project}\tests -v || (echo "Tests failed" && exit 1)
           CIBW_TEST_EXTRAS: "test"
+          CIBW_TEST_FAIL_FAST: 1
         shell: pwsh
         run: |
           python -m cibuildwheel --output-dir wheelhouse
