@@ -52,11 +52,13 @@ jobs:
           ls -l "$CONDA_PREFIX/Library/lib/sleef"*
 
       - name: Install build dependencies
+        shell: bash -l {0}
         run: |
           pip install -U pip
           pip install cibuildwheel==2.20.0 ninja meson meson-python numpy
 
       - name: Build wheels
+        shell: bash -l {0}
         env:
           CIBW_BUILD: cp310-win_${{ matrix.architecture == 'x86' && 'win32' || 'amd64' }}
           CIBW_ARCHS_WINDOWS: ${{ matrix.architecture == 'x86' && 'x86' || 'AMD64' }}
@@ -66,7 +68,6 @@ jobs:
           DISTUTILS_USE_SDK: "1"
           MSSdk: "1"
           NUMPY_INCLUDE_DIR: ${{ env.CONDA_PREFIX }}\Lib\site-packages\numpy\core\include
-        shell: pwsh
         run: |
           python -m cibuildwheel --output-dir wheelhouse
           if (-not (Test-Path wheelhouse/*.whl)) { throw "Wheel was not created" }
