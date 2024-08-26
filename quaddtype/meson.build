@@ -26,6 +26,7 @@ if is_windows
   conda_env_dir = run_command('cmd', '/c', 'echo %CONDA_PREFIX%', check: true).stdout().strip()
   sleef_include_dir = conda_env_dir + '\\Library\\include'
   sleef_library_dir = conda_env_dir + '\\Library\\lib'
+  incdir_numpy = run_command('cmd', '/c', 'echo %NUMPY_INCLUDE_DIR%', check: true).stdout().strip()
   
   add_project_arguments('-I' + sleef_include_dir, language: ['c', 'cpp'])
   add_project_link_arguments('-L' + sleef_library_dir, language: ['c', 'cpp'])
@@ -52,9 +53,8 @@ if not sleef_dep.found() or (not is_windows and not sleefquad_dep.found())
 endif
 
 # Try to get NumPy include path from environment variable first
-numpy_include = run_command('cmd', '/c', 'echo %NUMPY_INCLUDE_DIR%', check: true).stdout().strip()
-if numpy_include == ''
-  numpy_include = run_command(py,
+if incdir_numpy == ''
+  incdir_numpy = run_command(py,
     [
       '-c',
       'import numpy; import os; print(os.path.relpath(numpy.get_include()))'
@@ -62,7 +62,7 @@ if numpy_include == ''
     check: false
   ).stdout().strip()
   
-  if numpy_include == ''
+  if incdir_numpy == ''
     error('NumPy include directory not found. Please set NUMPY_INCLUDE_DIR or ensure NumPy is installed.')
   endif
 endif
