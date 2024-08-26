@@ -1,55 +1,43 @@
 name: Release and Publish to TestPyPI
 
 on:
-  push:
-    branches:
-      - sep-workflows
-    tags:
-      - "v*"
-  workflow_dispatch:
+  workflow_run:
+    workflows: ["Build Macos", "Build linux", "Build win"]
+    types:
+      - completed
 
 jobs:
-  wait_for_builds:
-    name: Wait for build workflows
+  release_and_publish:
+    name: Release and Publish
     runs-on: ubuntu-latest
-    steps:
-      - name: Wait for Windows build
-        uses: lewagon/wait-on-check-action@v1.3.1
-        with:
-          ref: ${{ github.ref }}
-          check-name: "build_windows.yml"
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 10
-
-      - name: Wait for macOS build
-        uses: lewagon/wait-on-check-action@v1.3.1
-        with:
-          ref: ${{ github.ref }}
-          check-name: "build_macos.yml"
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 10
-
-      - name: Wait for Linux build
-        uses: lewagon/wait-on-check-action@v1.3.1
-        with:
-          ref: ${{ github.ref }}
-          check-name: "build_linux.yml"
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 10
-
-  publish_to_testpypi:
-    name: Publish to TestPyPI
-    needs: wait_for_builds
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    if: ${{ github.event.workflow_run.conclusion == 'success' && startsWith(github.ref, 'refs/tags/') }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Download all workflow run artifacts
+      - name: Download macOS artifacts
         uses: actions/download-artifact@v3
         with:
-          path: dist
+          name: wheels-macos-13
+          path: dist/macos-13
+
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: wheels-macos-14
+          path: dist/macos-14
+
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: wheels-linux
+          path: dist/linux
+
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: wheels-windows-x64
+          path: dist/windows
 
       - name: Display structure of downloaded files
         run: ls -R
@@ -61,29 +49,11 @@ jobs:
           user: __token__
           password: ${{ secrets.PYPI_API_TOKEN }}
           repository-url: https://test.pypi.org/legacy/
-          packages-dir: dist/*
-
-  create_release:
-    name: Create Release
-    needs: publish_to_testpypi
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Download all workflow run artifacts
-        uses: actions/download-artifact@v3
-        with:
-          path: artifacts
-
-      - name: Display structure of downloaded files
-        run: ls -R
-        working-directory: artifacts
+          packages-dir: dist
 
       - name: Create Release
         env:
-          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         uses: softprops/action-gh-release@v1
         with:
-          files: ./artifacts/**/*.whl
+          files: ./dist/**/*.whl
