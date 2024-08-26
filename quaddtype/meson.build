@@ -5,20 +5,7 @@ py = py_mod.find_installation()
 
 c = meson.get_compiler('c')
 
-# Get the SLEEF path
-sleef_path = run_command('bash', '-c', 'echo $SLEEF_PATH', check: false).stdout().strip()
-if sleef_path == ''
-  sleef_path = run_command('bash', '-c', 'echo $CONDA_PREFIX', check: false).stdout().strip()
-endif
-
-if sleef_path == ''
-  error('SLEEF_PATH or CONDA_PREFIX environment variable is not set')
-endif
-
 is_windows = build_machine.system() == 'windows'
-
-# Add SLEEF lib directory to library path
-add_project_link_arguments('-L' + sleef_path + '/lib', language: ['c', 'cpp'])
 
 incdir_numpy = ''
 if is_windows
@@ -39,6 +26,19 @@ if is_windows
                                  dependencies: [sleef_lib, sleefquad_lib])
 else
   # Linux and macOS configuration
+
+  # Get the SLEEF path
+  sleef_path = run_command('bash', '-c', 'echo $SLEEF_PATH', check: false).stdout().strip()
+  if sleef_path == ''
+    sleef_path = run_command('bash', '-c', 'echo $CONDA_PREFIX', check: false).stdout().strip()
+  endif
+
+  if sleef_path == ''
+    error('SLEEF_PATH or CONDA_PREFIX environment variable is not set')
+  endif
+
+  add_project_link_arguments('-L' + sleef_path + '/lib', language: ['c', 'cpp'])
+
   sleef_include_dir = sleef_path + '/include'
   sleef_library_dir = sleef_path + '/lib'
 
