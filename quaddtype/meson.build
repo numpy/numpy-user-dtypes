@@ -93,10 +93,11 @@ py.install_sources(
 
 py.extension_module('_quaddtype_main',
   srcs,
-  c_args: ['-g', '-O0'] + (is_windows ? [] : ['-lsleef', '-lsleefquad']),
-  cpp_args: ['-g', '-O0'] + (is_windows ? [] : ['-lsleef', '-lsleefquad']),
-  link_args: is_windows ? ['-DEFAULTLIB:sleef', '-DEFAULTLIB:sleefquad'] : [],
+  c_args: is_windows ? ['/DWIN32', '/D_WINDOWS'] : ['-g', '-O0'],
+  cpp_args: is_windows ? ['/DWIN32', '/D_WINDOWS', '/EHsc'] : ['-g', '-O0'],
+  link_args: is_windows ? ['/DEFAULTLIB:sleef', '/DEFAULTLIB:sleefquad'] : ['-lsleef', '-lsleefquad'],
   dependencies: [sleef_dep] + (is_windows ? [] : [sleefquad_dep]),
+  link_language: 'cpp',
   install: true,
   subdir: 'quaddtype',
   include_directories: includes
