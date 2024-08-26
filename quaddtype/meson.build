@@ -51,13 +51,21 @@ if not sleef_dep.found() or (not is_windows and not sleefquad_dep.found())
   error('SLEEF library not found. Please ensure it is installed in your conda environment.')
 endif
 
-incdir_numpy = run_command(py,
-  [
-    '-c',
-    'import numpy; import os; print(os.path.relpath(numpy.get_include()))'
-  ],
-  check: true
-).stdout().strip()
+# Try to get NumPy include path from environment variable first
+numpy_include = get_option('NUMPY_INCLUDE_DIR')
+if numpy_include == ''
+  numpy_include = run_command(py,
+    [
+      '-c',
+      'import numpy; import os; print(os.path.relpath(numpy.get_include()))'
+    ],
+    check: false
+  ).stdout().strip()
+  
+  if numpy_include == ''
+    error('NumPy include directory not found. Please set NUMPY_INCLUDE_DIR or ensure NumPy is installed.')
+  endif
+endif
 
 includes = include_directories(
     [
