@@ -52,7 +52,7 @@ if not sleef_dep.found() or (not is_windows and not sleefquad_dep.found())
 endif
 
 # Try to get NumPy include path from environment variable first
-numpy_include = get_option('NUMPY_INCLUDE_DIR')
+numpy_include = run_command('cmd', '/c', 'echo %NUMPY_INCLUDE_DIR%', check: true).stdout().strip()
 if numpy_include == ''
   numpy_include = run_command(py,
     [
