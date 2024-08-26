@@ -59,7 +59,7 @@ incdir_numpy = run_command(py,
   check: false
 ).stdout().strip()
 
-message("numpy directory: ", incdir_numpy)
+message('numpy directory: ', incdir_numpy)
 
 includes = include_directories(
     [
