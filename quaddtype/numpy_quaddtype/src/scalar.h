@@ -7,23 +7,26 @@ extern "C" {
 
 #include <Python.h>
 #include <sleef.h>
+#include "quad_common.h"
 
-typedef struct {
-    Sleef_quad value;
-} quad_field;
+typedef union {
+    Sleef_quad sleef_value;
+    long double longdouble_value;
+} quad_value;
 
 typedef struct {
     PyObject_HEAD
-    quad_field quad;
+    quad_value value;
+    QuadBackendType backend;
 } QuadPrecisionObject;
 
 extern PyTypeObject QuadPrecision_Type;
 
 QuadPrecisionObject *
-QuadPrecision_raw_new(void);
+QuadPrecision_raw_new(QuadBackendType backend);
 
 QuadPrecisionObject *
-QuadPrecision_from_object(PyObject *value);
+QuadPrecision_from_object(PyObject *value, QuadBackendType backend);
 
 int
 init_quadprecision_scalar(void);

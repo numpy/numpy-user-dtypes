@@ -9,7 +9,7 @@ requires = [
 build-backend = "mesonpy"
 
 [project]
-name = "quaddtype"
+name = "numpy_quaddtype"
 description = "Quad (128-bit) float dtype for numpy"
 version = "0.0.1"
 readme = 'README.md'

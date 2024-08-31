@@ -9,13 +9,15 @@
 #include "numpy/dtype_api.h"
 #include "numpy/ufuncobject.h"
 
+#include "scalar.h"
 #include "dtype.h"
-#include "umath.h"
+// #include "umath.h"
+#include "quad_common.h"
 
 static struct PyModuleDef moduledef = {
         PyModuleDef_HEAD_INIT,
         .m_name = "_quaddtype_main",
-        .m_doc = "Quad (128-bit) floating point Data Type for Numpy",
+        .m_doc = "Quad (128-bit) floating point Data Type for NumPy with multiple backends",
         .m_size = -1,
 };
 
@@ -25,31 +27,29 @@ PyInit__quaddtype_main(void)
     import_array();
     import_umath();
     PyObject *m = PyModule_Create(&moduledef);
-    if (!m) 
-    {
+    if (!m) {
         return NULL;
     }
 
     if (init_quadprecision_scalar() < 0)
         goto error;
-    
-    if(PyModule_AddObject(m, "QuadPrecision", (PyObject *)&QuadPrecision_Type) < 0)
+
+    if (PyModule_AddObject(m, "QuadPrecision", (PyObject *)&QuadPrecision_Type) < 0)
         goto error;
 
-    if(init_quadprec_dtype() < 0)
+    if (init_quadprec_dtype() < 0)
         goto error;
 
-    if(PyModule_AddObject(m, "QuadPrecDType", (PyObject *)&QuadPrecDType) < 0)
+    if (PyModule_AddObject(m, "QuadPrecDType", (PyObject *)&QuadPrecDType) < 0)
         goto error;
 
-    if (init_quad_umath() < 0) {
-        goto error;
-    }
+    // if (init_quad_umath() < 0) {
+    //     goto error;
+    // }
 
     return m;
-    
 
 error:
-    Py_DECREF(m);
+    Py_XDECREF(m);
     return NULL;
 }

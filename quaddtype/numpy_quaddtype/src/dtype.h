@@ -1,25 +1,23 @@
 #ifndef _QUADDTYPE_DTYPE_H
 #define _QUADDTYPE_DTYPE_H
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include<Python.h>
-#include<sleef.h>
-#include<numpy/ndarraytypes.h>
-#include<numpy/dtype_api.h>
+#include <Python.h>
+#include <numpy/ndarraytypes.h>
+#include <numpy/dtype_api.h>
+#include "quad_common.h"
 
-#include "scalar.h"
-
-typedef struct
-{
+typedef struct {
     PyArray_Descr base;
-    
+    QuadBackendType backend;
 } QuadPrecDTypeObject;
 
 extern PyArray_DTypeMeta QuadPrecDType;
 
-QuadPrecDTypeObject * new_quaddtype_instance(void);
+QuadPrecDTypeObject * new_quaddtype_instance(QuadBackendType backend);
 
 int init_quadprec_dtype(void);
 
