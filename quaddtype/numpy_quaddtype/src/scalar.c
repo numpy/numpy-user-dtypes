@@ -75,8 +75,29 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
             self->value.longdouble_value = (long double)val;
         }
     }
-    else {
-        PyErr_SetString(PyExc_TypeError, "QuadPrecision value must be a float, int or string");
+    else 
+    {
+        PyObject *type_str = PyObject_Str((PyObject *)Py_TYPE(value));
+        if (type_str != NULL) {
+            const char *type_cstr = PyUnicode_AsUTF8(type_str);
+            if (type_cstr != NULL) {
+                PyErr_Format(
+                        PyExc_TypeError,
+                        "QuadPrecision value must be a float, int or string, but got %s instead",
+                        type_cstr);
+            }
+            else {
+                PyErr_SetString(PyExc_TypeError,
+                                "QuadPrecision value must be a float, int or string, but got an "
+                                "unknown type instead");
+            }
+            Py_DECREF(type_str);
+        }
+        else {
+            PyErr_SetString(PyExc_TypeError,
+                            "QuadPrecision value must be a float, int or string, but got an "
+                            "unknown type instead");
+        }
         Py_DECREF(self);
         return NULL;
     }

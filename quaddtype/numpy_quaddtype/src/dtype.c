@@ -201,7 +201,7 @@ QuadPrecDType_repr(QuadPrecDTypeObject *self)
 
 PyArray_DTypeMeta QuadPrecDType = {
         {{
-                PyVarObject_HEAD_INIT(NULL, 0).tp_name = "QuadPrecDType.QuadPrecDType",
+                PyVarObject_HEAD_INIT(NULL, 0).tp_name = "numpy_quaddtype.QuadPrecDType",
                 .tp_basicsize = sizeof(QuadPrecDTypeObject),
                 .tp_new = QuadPrecDType_new,
                 .tp_repr = (reprfunc)QuadPrecDType_repr,
