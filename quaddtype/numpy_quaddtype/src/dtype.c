@@ -154,9 +154,12 @@ quadprec_getitem(QuadPrecDTypeObject *descr, char *dataptr)
 }
 
 static PyArray_Descr *
-quadprec_default_descr(PyArray_DTypeMeta *NPY_UNUSED(cls))
+quadprec_default_descr(PyArray_DTypeMeta *cls)
 {
-    return (PyArray_Descr *)new_quaddtype_instance(BACKEND_SLEEF);
+    QuadPrecDTypeObject *temp = (QuadPrecDTypeObject *)cls;
+    const char *s1 = (temp->backend == BACKEND_SLEEF) ? "SLEEF" : "LONGDOUBLE";
+    printf("called with backend: %s\n", s1);
+    return (PyArray_Descr *)new_quaddtype_instance(temp->backend);
 }
 
 static PyType_Slot QuadPrecDType_Slots[] = {

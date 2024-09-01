@@ -21,6 +21,60 @@ extern "C" {
 #include "umath.h"
 #include "ops.hpp"
 
+// helper debugging function
+static const char *
+get_dtype_name(PyArray_DTypeMeta *dtype)
+{
+    if (dtype == &QuadPrecDType) {
+        return "QuadPrecDType";
+    }
+    else if (dtype == &PyArray_BoolDType) {
+        return "BoolDType";
+    }
+    else if (dtype == &PyArray_ByteDType) {
+        return "ByteDType";
+    }
+    else if (dtype == &PyArray_UByteDType) {
+        return "UByteDType";
+    }
+    else if (dtype == &PyArray_ShortDType) {
+        return "ShortDType";
+    }
+    else if (dtype == &PyArray_UShortDType) {
+        return "UShortDType";
+    }
+    else if (dtype == &PyArray_IntDType) {
+        return "IntDType";
+    }
+    else if (dtype == &PyArray_UIntDType) {
+        return "UIntDType";
+    }
+    else if (dtype == &PyArray_LongDType) {
+        return "LongDType";
+    }
+    else if (dtype == &PyArray_ULongDType) {
+        return "ULongDType";
+    }
+    else if (dtype == &PyArray_LongLongDType) {
+        return "LongLongDType";
+    }
+    else if (dtype == &PyArray_ULongLongDType) {
+        return "ULongLongDType";
+    }
+    else if (dtype == &PyArray_FloatDType) {
+        return "FloatDType";
+    }
+    else if (dtype == &PyArray_DoubleDType) {
+        return "DoubleDType";
+    }
+    else if (dtype == &PyArray_LongDoubleDType) {
+        return "LongDoubleDType";
+    }
+    else {
+        return "UnknownDType";
+    }
+}
+
 static NPY_CASTING
 quad_unary_op_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtypes[],
                                   PyArray_Descr *const given_descrs[], PyArray_Descr *loop_descrs[],
@@ -170,6 +224,7 @@ quad_binary_op_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtyp
                                    PyArray_Descr *const given_descrs[],
                                    PyArray_Descr *loop_descrs[], npy_intp *NPY_UNUSED(view_offset))
 {
+    printf("Descriptor Resolver is calledn\n");
     Py_INCREF(given_descrs[0]);
     loop_descrs[0] = given_descrs[0];
     Py_INCREF(given_descrs[1]);
@@ -177,6 +232,10 @@ quad_binary_op_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtyp
 
     QuadPrecDTypeObject *descr_in1 = (QuadPrecDTypeObject *)given_descrs[0];
     QuadPrecDTypeObject *descr_in2 = (QuadPrecDTypeObject *)given_descrs[1];
+    const char *s1 = (descr_in1->backend == BACKEND_SLEEF) ? "SLEEF" : "LONGDOUBLE";
+    const char *s2 = (descr_in2->backend == BACKEND_SLEEF) ? "SLEEF" : "LONGDOUBLE";
+    printf("1: %s\n", s1);
+    printf("2: %s\n", s2);
 
     if (descr_in1->backend != descr_in2->backend) {
         PyErr_SetString(PyExc_TypeError,
@@ -239,60 +298,6 @@ quad_generic_binop_strided_loop(PyArrayMethod_Context *context, char *const data
         out_ptr += out_stride;
     }
     return 0;
-}
-
-// helper debugging function
-static const char *
-get_dtype_name(PyArray_DTypeMeta *dtype)
-{
-    if (dtype == &QuadPrecDType) {
-        return "QuadPrecDType";
-    }
-    else if (dtype == &PyArray_BoolDType) {
-        return "BoolDType";
-    }
-    else if (dtype == &PyArray_ByteDType) {
-        return "ByteDType";
-    }
-    else if (dtype == &PyArray_UByteDType) {
-        return "UByteDType";
-    }
-    else if (dtype == &PyArray_ShortDType) {
-        return "ShortDType";
-    }
-    else if (dtype == &PyArray_UShortDType) {
-        return "UShortDType";
-    }
-    else if (dtype == &PyArray_IntDType) {
-        return "IntDType";
-    }
-    else if (dtype == &PyArray_UIntDType) {
-        return "UIntDType";
-    }
-    else if (dtype == &PyArray_LongDType) {
-        return "LongDType";
-    }
-    else if (dtype == &PyArray_ULongDType) {
-        return "ULongDType";
-    }
-    else if (dtype == &PyArray_LongLongDType) {
-        return "LongLongDType";
-    }
-    else if (dtype == &PyArray_ULongLongDType) {
-        return "ULongLongDType";
-    }
-    else if (dtype == &PyArray_FloatDType) {
-        return "FloatDType";
-    }
-    else if (dtype == &PyArray_DoubleDType) {
-        return "DoubleDType";
-    }
-    else if (dtype == &PyArray_LongDoubleDType) {
-        return "LongDoubleDType";
-    }
-    else {
-        return "UnknownDType";
-    }
 }
 
 static int
