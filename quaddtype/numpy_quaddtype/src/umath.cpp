@@ -330,7 +330,6 @@ quad_ufunc_promoter(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
     for (int i = 0; i < nin; i++) {
         if (op_dtypes[i] == &QuadPrecDType) {
             has_quad = true;
-            // todo: Why below line always picking the backend as SLEEF
             QuadPrecDTypeObject *descr =
                     (QuadPrecDTypeObject *)PyArray_GetDefaultDescr(op_dtypes[i]);
 
