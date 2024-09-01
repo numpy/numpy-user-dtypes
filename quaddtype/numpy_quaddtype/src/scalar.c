@@ -12,7 +12,7 @@
 #include "numpy/dtype_api.h"
 
 #include "scalar.h"
-// #include "scalar_ops.h"
+#include "scalar_ops.h"
 
 QuadPrecisionObject *
 QuadPrecision_raw_new(QuadBackendType backend)
@@ -168,8 +168,8 @@ PyTypeObject QuadPrecision_Type = {
         .tp_dealloc = (destructor)QuadPrecision_dealloc,
         .tp_repr = (reprfunc)QuadPrecision_repr,
         .tp_str = (reprfunc)QuadPrecision_str,
-        // .tp_as_number = &quad_as_scalar,
-        // .tp_richcompare = (richcmpfunc)quad_richcompare
+        .tp_as_number = &quad_as_scalar,
+        .tp_richcompare = (richcmpfunc)quad_richcompare
 
 };
 

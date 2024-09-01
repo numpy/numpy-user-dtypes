@@ -8,6 +8,6 @@ then
 fi
 
 #meson setup build -Db_sanitize=address,undefined
-python -m pip uninstall -y quaddtype numpy_quaddtype
+python -m pip uninstall -y numpy_quaddtype
 python -m pip install . -v --no-build-isolation -Cbuilddir=build -C'compile-args=-v' -Csetup-args="-Dbuildtype=debug"
 #python -m pip install . -v --no-build-isolation -Cbuilddir=build -C'compile-args=-v'
