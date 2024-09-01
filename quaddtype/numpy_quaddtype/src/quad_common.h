@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 typedef enum {
+    BACKEND_INVALID = -1,
     BACKEND_SLEEF,
     BACKEND_LONGDOUBLE
 } QuadBackendType;

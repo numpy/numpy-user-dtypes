@@ -17,9 +17,11 @@ typedef struct {
 
 extern PyArray_DTypeMeta QuadPrecDType;
 
-QuadPrecDTypeObject * new_quaddtype_instance(QuadBackendType backend);
+QuadPrecDTypeObject *
+new_quaddtype_instance(QuadBackendType backend);
 
-int init_quadprec_dtype(void);
+int
+init_quadprec_dtype(void);
 
 #ifdef __cplusplus
 }

@@ -376,7 +376,7 @@ quad_greaterequal(const Sleef_quad *a, const Sleef_quad *b)
 }
 
 // comparison quad functions
-typedef npy_bool (*cmp_londouble_def)(const long double *, const double *);
+typedef npy_bool (*cmp_londouble_def)(const long double *, const long double *);
 
 static inline npy_bool
 ld_equal(const long double *a, const long double *b)

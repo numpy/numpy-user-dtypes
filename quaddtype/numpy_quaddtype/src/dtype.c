@@ -57,7 +57,6 @@ new_quaddtype_instance(QuadBackendType backend)
     new->base.elsize = (backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
     new->base.alignment = (backend == BACKEND_SLEEF) ? _Alignof(Sleef_quad) : _Alignof(long double);
     new->backend = backend;
-
     return new;
 }
 
@@ -73,7 +72,7 @@ common_instance(QuadPrecDTypeObject *dtype1, QuadPrecDTypeObject *dtype2)
 {
     if (dtype1->backend != dtype2->backend) {
         PyErr_SetString(PyExc_TypeError,
-                        "Cannot combine QuadPrecDType instances with different backends");
+                        "Cannot find common instance for QuadPrecDTypes with different backends");
         return NULL;
     }
     Py_INCREF(dtype1);
@@ -189,7 +188,8 @@ QuadPrecDType_new(PyTypeObject *NPY_UNUSED(cls), PyObject *args, PyObject *kwds)
         return NULL;
     }
 
-    return (PyObject *)new_quaddtype_instance(backend);
+    return (PyObject *)quadprec_discover_descriptor_from_pyobject(
+            &QuadPrecDType, (PyObject *)QuadPrecision_raw_new(backend));
 }
 
 static PyObject *
@@ -217,7 +217,7 @@ init_quadprec_dtype(void)
         return -1;
 
     PyArrayDTypeMeta_Spec QuadPrecDType_DTypeSpec = {
-            .flags = NPY_DT_NUMERIC,
+            .flags = NPY_DT_PARAMETRIC | NPY_DT_NUMERIC,
             .casts = casts,
             .typeobj = &QuadPrecision_Type,
             .slots = QuadPrecDType_Slots,

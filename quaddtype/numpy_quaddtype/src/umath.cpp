@@ -1,5 +1,3 @@
-#include "scalar.h"
-
 #define PY_ARRAY_UNIQUE_SYMBOL QuadPrecType_ARRAY_API
 #define PY_UFUNC_UNIQUE_SYMBOL QuadPrecType_UFUNC_API
 #define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
@@ -17,33 +15,11 @@ extern "C" {
 
 #include "numpy/dtype_api.h"
 }
+#include "quad_common.h"
+#include "scalar.h"
 #include "dtype.h"
 #include "umath.h"
 #include "ops.hpp"
-
-template <unary_op_def unary_op>
-int
-quad_generic_unary_op_strided_loop(PyArrayMethod_Context *context, char *const data[],
-                                   npy_intp const dimensions[], npy_intp const strides[],
-                                   NpyAuxData *auxdata)
-{
-    npy_intp N = dimensions[0];
-    char *in_ptr = data[0];
-    char *out_ptr = data[1];
-    npy_intp in_stride = strides[0];
-    npy_intp out_stride = strides[1];
-
-    Sleef_quad in, out;
-    while (N--) {
-        memcpy(&in, in_ptr, sizeof(Sleef_quad));
-        unary_op(&in, &out);
-        memcpy(out_ptr, &out, sizeof(Sleef_quad));
-
-        in_ptr += in_stride;
-        out_ptr += out_stride;
-    }
-    return 0;
-}
 
 static NPY_CASTING
 quad_unary_op_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtypes[],
@@ -56,15 +32,56 @@ quad_unary_op_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtype
     if (given_descrs[1] == NULL) {
         Py_INCREF(given_descrs[0]);
         loop_descrs[1] = given_descrs[0];
-        return NPY_NO_CASTING;
     }
-    Py_INCREF(given_descrs[1]);
-    loop_descrs[1] = given_descrs[1];
+    else {
+        Py_INCREF(given_descrs[1]);
+        loop_descrs[1] = given_descrs[1];
+    }
+
+    QuadPrecDTypeObject *descr_in = (QuadPrecDTypeObject *)given_descrs[0];
+    QuadPrecDTypeObject *descr_out = (QuadPrecDTypeObject *)loop_descrs[1];
+
+    if (descr_in->backend != descr_out->backend) {
+        return NPY_UNSAFE_CASTING;
+    }
 
     return NPY_NO_CASTING;
 }
 
-template <unary_op_def unary_op>
+template <unary_op_quad_def sleef_op, unary_op_longdouble_def longdouble_op>
+int
+quad_generic_unary_op_strided_loop(PyArrayMethod_Context *context, char *const data[],
+                                   npy_intp const dimensions[], npy_intp const strides[],
+                                   NpyAuxData *auxdata)
+{
+    npy_intp N = dimensions[0];
+    char *in_ptr = data[0];
+    char *out_ptr = data[1];
+    npy_intp in_stride = strides[0];
+    npy_intp out_stride = strides[1];
+
+    QuadPrecDTypeObject *descr = (QuadPrecDTypeObject *)context->descriptors[0];
+    QuadBackendType backend = descr->backend;
+    size_t elem_size = (backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
+
+    quad_value in, out;
+    while (N--) {
+        memcpy(&in, in_ptr, elem_size);
+        if (backend == BACKEND_SLEEF) {
+            sleef_op(&in.sleef_value, &out.sleef_value);
+        }
+        else {
+            longdouble_op(&in.longdouble_value, &out.longdouble_value);
+        }
+        memcpy(out_ptr, &out, elem_size);
+
+        in_ptr += in_stride;
+        out_ptr += out_stride;
+    }
+    return 0;
+}
+
+template <unary_op_quad_def sleef_op, unary_op_longdouble_def longdouble_op>
 int
 create_quad_unary_ufunc(PyObject *numpy, const char *ufunc_name)
 {
@@ -77,7 +94,8 @@ create_quad_unary_ufunc(PyObject *numpy, const char *ufunc_name)
 
     PyType_Slot slots[] = {
             {NPY_METH_resolve_descriptors, (void *)&quad_unary_op_resolve_descriptors},
-            {NPY_METH_strided_loop, (void *)&quad_generic_unary_op_strided_loop<unary_op>},
+            {NPY_METH_strided_loop,
+             (void *)&quad_generic_unary_op_strided_loop<sleef_op, longdouble_op>},
             {0, NULL}};
 
     PyArrayMethod_Spec Spec = {
@@ -100,46 +118,46 @@ create_quad_unary_ufunc(PyObject *numpy, const char *ufunc_name)
 int
 init_quad_unary_ops(PyObject *numpy)
 {
-    if (create_quad_unary_ufunc<quad_negative>(numpy, "negative") < 0) {
+    if (create_quad_unary_ufunc<quad_negative, ld_negative>(numpy, "negative") < 0) {
         return -1;
     }
-    if (create_quad_unary_ufunc<quad_absolute>(numpy, "absolute") < 0) {
+    if (create_quad_unary_ufunc<quad_absolute, ld_absolute>(numpy, "absolute") < 0) {
         return -1;
     }
-    if (create_quad_unary_ufunc<quad_rint>(numpy, "rint") < 0) {
+    if (create_quad_unary_ufunc<quad_rint, ld_rint>(numpy, "rint") < 0) {
         return -1;
     }
-    if (create_quad_unary_ufunc<quad_trunc>(numpy, "trunc") < 0) {
+    if (create_quad_unary_ufunc<quad_trunc, ld_trunc>(numpy, "trunc") < 0) {
         return -1;
     }
-    if (create_quad_unary_ufunc<quad_floor>(numpy, "floor") < 0) {
+    if (create_quad_unary_ufunc<quad_floor, ld_floor>(numpy, "floor") < 0) {
         return -1;
     }
-    if (create_quad_unary_ufunc<quad_ceil>(numpy, "ceil") < 0) {
+    if (create_quad_unary_ufunc<quad_ceil, ld_ceil>(numpy, "ceil") < 0) {
         return -1;
     }
-    if (create_quad_unary_ufunc<quad_sqrt>(numpy, "sqrt") < 0) {
+    if (create_quad_unary_ufunc<quad_sqrt, ld_sqrt>(numpy, "sqrt") < 0) {
         return -1;
     }
-    if (create_quad_unary_ufunc<quad_square>(numpy, "square") < 0) {
+    if (create_quad_unary_ufunc<quad_square, ld_square>(numpy, "square") < 0) {
         return -1;
     }
-    if (create_quad_unary_ufunc<quad_log>(numpy, "log") < 0) {
+    if (create_quad_unary_ufunc<quad_log, ld_log>(numpy, "log") < 0) {
         return -1;
     }
-    if (create_quad_unary_ufunc<quad_log2>(numpy, "log2") < 0) {
+    if (create_quad_unary_ufunc<quad_log2, ld_log2>(numpy, "log2") < 0) {
         return -1;
     }
-    if (create_quad_unary_ufunc<quad_log10>(numpy, "log10") < 0) {
+    if (create_quad_unary_ufunc<quad_log10, ld_log10>(numpy, "log10") < 0) {
         return -1;
     }
-    if (create_quad_unary_ufunc<quad_log1p>(numpy, "log1p") < 0) {
+    if (create_quad_unary_ufunc<quad_log1p, ld_log1p>(numpy, "log1p") < 0) {
         return -1;
     }
-    if (create_quad_unary_ufunc<quad_exp>(numpy, "exp") < 0) {
+    if (create_quad_unary_ufunc<quad_exp, ld_exp>(numpy, "exp") < 0) {
         return -1;
     }
-    if (create_quad_unary_ufunc<quad_exp2>(numpy, "exp2") < 0) {
+    if (create_quad_unary_ufunc<quad_exp2, ld_exp2>(numpy, "exp2") < 0) {
         return -1;
     }
     return 0;
@@ -147,7 +165,47 @@ init_quad_unary_ops(PyObject *numpy)
 
 // Binary ufuncs
 
-template <binop_def binop>
+static NPY_CASTING
+quad_binary_op_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtypes[],
+                                   PyArray_Descr *const given_descrs[],
+                                   PyArray_Descr *loop_descrs[], npy_intp *NPY_UNUSED(view_offset))
+{
+    Py_INCREF(given_descrs[0]);
+    loop_descrs[0] = given_descrs[0];
+    Py_INCREF(given_descrs[1]);
+    loop_descrs[1] = given_descrs[1];
+
+    QuadPrecDTypeObject *descr_in1 = (QuadPrecDTypeObject *)given_descrs[0];
+    QuadPrecDTypeObject *descr_in2 = (QuadPrecDTypeObject *)given_descrs[1];
+
+    if (descr_in1->backend != descr_in2->backend) {
+        PyErr_SetString(PyExc_TypeError,
+                        "Cannot operate on QuadPrecision objects with different backends");
+        return (NPY_CASTING)-1;
+    }
+
+    if (given_descrs[2] == NULL) {
+        loop_descrs[2] = (PyArray_Descr *)new_quaddtype_instance(descr_in1->backend);
+        if (!loop_descrs[2]) {
+            return (NPY_CASTING)-1;
+        }
+    }
+    else {
+        Py_INCREF(given_descrs[2]);
+        loop_descrs[2] = given_descrs[2];
+    }
+
+    QuadPrecDTypeObject *descr_out = (QuadPrecDTypeObject *)loop_descrs[2];
+    if (descr_out->backend != descr_in1->backend) {
+        PyErr_SetString(PyExc_TypeError,
+                        "Output QuadPrecision object must have the same backend as inputs");
+        return (NPY_CASTING)-1;
+    }
+
+    return NPY_NO_CASTING;
+}
+
+template <binary_op_quad_def sleef_op, binary_op_longdouble_def longdouble_op>
 int
 quad_generic_binop_strided_loop(PyArrayMethod_Context *context, char *const data[],
                                 npy_intp const dimensions[], npy_intp const strides[],
@@ -160,44 +218,27 @@ quad_generic_binop_strided_loop(PyArrayMethod_Context *context, char *const data
     npy_intp in2_stride = strides[1];
     npy_intp out_stride = strides[2];
 
-    Sleef_quad in1, in2, out;
+    QuadPrecDTypeObject *descr = (QuadPrecDTypeObject *)context->descriptors[0];
+    QuadBackendType backend = descr->backend;
+    size_t elem_size = (backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
+
+    quad_value in1, in2, out;
     while (N--) {
-        memcpy(&in1, in1_ptr, sizeof(Sleef_quad));
-        memcpy(&in2, in2_ptr, sizeof(Sleef_quad));
-        binop(&out, &in1, &in2);
-        memcpy(out_ptr, &out, sizeof(Sleef_quad));
+        memcpy(&in1, in1_ptr, elem_size);
+        memcpy(&in2, in2_ptr, elem_size);
+        if (backend == BACKEND_SLEEF) {
+            sleef_op(&out.sleef_value, &in1.sleef_value, &in2.sleef_value);
+        }
+        else {
+            longdouble_op(&out.longdouble_value, &in1.longdouble_value, &in2.longdouble_value);
+        }
+        memcpy(out_ptr, &out, elem_size);
 
         in1_ptr += in1_stride;
         in2_ptr += in2_stride;
         out_ptr += out_stride;
     }
     return 0;
-}
-
-static NPY_CASTING
-quad_binary_op_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtypes[],
-                                   PyArray_Descr *const given_descrs[],
-                                   PyArray_Descr *loop_descrs[], npy_intp *NPY_UNUSED(view_offset))
-{
-    Py_INCREF(given_descrs[0]);
-    loop_descrs[0] = given_descrs[0];
-    Py_INCREF(given_descrs[1]);
-    loop_descrs[1] = given_descrs[1];
-
-    if (given_descrs[2] == NULL) {
-        PyArray_Descr *out_descr = (PyArray_Descr *)new_quaddtype_instance();
-        if (!out_descr) {
-            return (NPY_CASTING)-1;
-        }
-        Py_INCREF(given_descrs[0]);
-        loop_descrs[2] = out_descr;
-    }
-    else {
-        Py_INCREF(given_descrs[2]);
-        loop_descrs[2] = given_descrs[2];
-    }
-
-    return NPY_NO_CASTING;
 }
 
 // helper debugging function
@@ -258,15 +299,16 @@ static int
 quad_ufunc_promoter(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
                     PyArray_DTypeMeta *signature[], PyArray_DTypeMeta *new_op_dtypes[])
 {
-    // printf("quad_ufunc_promoter called for ufunc: %s\n", ufunc->name);
-    // printf("Entering quad_ufunc_promoter\n");
-    // printf("Ufunc name: %s\n", ufunc->name);
-    // printf("nin: %d, nargs: %d\n", ufunc->nin, ufunc->nargs);
+    printf("quad_ufunc_promoter called for ufunc: %s\n", ufunc->name);
+    printf("Entering quad_ufunc_promoter\n");
+    printf("Ufunc name: %s\n", ufunc->name);
+    printf("nin: %d, nargs: %d\n", ufunc->nin, ufunc->nargs);
 
     int nin = ufunc->nin;
     int nargs = ufunc->nargs;
     PyArray_DTypeMeta *common = NULL;
     bool has_quad = false;
+    QuadBackendType backend = BACKEND_INVALID;  // Initialize to an invalid state
 
     // Handle the special case for reductions
     if (op_dtypes[0] == NULL) {
@@ -274,55 +316,65 @@ quad_ufunc_promoter(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
         for (int i = 0; i < 3; i++) {
             Py_INCREF(op_dtypes[1]);
             new_op_dtypes[i] = op_dtypes[1];
-            // printf("new_op_dtypes[%d] set to %s\n", i, get_dtype_name(new_op_dtypes[i]));
+            printf("new_op_dtypes[%d] set to %s\n", i, get_dtype_name(new_op_dtypes[i]));
         }
         return 0;
     }
 
     // Check if any input or signature is QuadPrecision
-    for (int i = 0; i < nargs; i++) {
-        if ((i < nin && op_dtypes[i] == &QuadPrecDType) || (signature[i] == &QuadPrecDType)) {
+    for (int i = 0; i < nin; i++) {
+        if (op_dtypes[i] == &QuadPrecDType) {
             has_quad = true;
-            // printf("QuadPrecision detected in input %d or signature\n", i);
+            // todo: Why below line always picking the backend as SLEEF
+            QuadPrecDTypeObject *descr =
+                    (QuadPrecDTypeObject *)PyArray_GetDefaultDescr(op_dtypes[i]);
+
+            const char *s = (descr->backend == BACKEND_SLEEF) ? "SLEEF" : "LONGDOUBLE";
+            printf("QuadPrecision detected in input %d or signature with backend: %s\n", i, s);
+            if (backend == BACKEND_INVALID)
+                backend = descr->backend;
+            else if (backend != BACKEND_INVALID && backend != descr->backend) {
+                PyErr_SetString(PyExc_TypeError,
+                                "Cannot mix QuadPrecDType arrays with different backends");
+                return -1;
+            }
+            Py_DECREF(descr);
             break;
         }
     }
 
     if (has_quad) {
-        // If QuadPrecision is involved, use it for all arguments
         common = &QuadPrecDType;
-        // printf("Using QuadPrecDType as common type\n");
+        printf("Using QuadPrecDType as common type\n");
     }
     else {
-        // Check if output signature is homogeneous
         for (int i = nin; i < nargs; i++) {
             if (signature[i] != NULL) {
                 if (common == NULL) {
                     Py_INCREF(signature[i]);
                     common = signature[i];
-                    // printf("Common type set to %s from signature\n", get_dtype_name(common));
+                    printf("Common type set to %s from signature\n", get_dtype_name(common));
                 }
                 else if (common != signature[i]) {
                     Py_CLEAR(common);  // Not homogeneous, unset common
-                    // printf("Output signature not homogeneous, cleared common type\n");
+                    printf("Output signature not homogeneous, cleared common type\n");
                     break;
                 }
             }
         }
-
-        // If no common output dtype, use standard promotion for inputs
+    }
+    // If no common output dtype, use standard promotion for inputs
+    if (common == NULL) {
+        printf("Using standard promotion for inputs\n");
+        common = PyArray_PromoteDTypeSequence(nin, op_dtypes);
         if (common == NULL) {
-            // printf("Using standard promotion for inputs\n");
-            common = PyArray_PromoteDTypeSequence(nin, op_dtypes);
-            if (common == NULL) {
-                if (PyErr_ExceptionMatches(PyExc_TypeError)) {
-                    PyErr_Clear();  // Do not propagate normal promotion errors
-                }
-                // printf("Exiting quad_ufunc_promoter (promotion failed)\n");
-                return -1;
+            if (PyErr_ExceptionMatches(PyExc_TypeError)) {
+                PyErr_Clear();  // Do not propagate normal promotion errors
             }
-            // printf("Common type after promotion: %s\n", get_dtype_name(common));
+            printf("Exiting quad_ufunc_promoter (promotion failed)\n");
+            return -1;
         }
+        printf("Common type after promotion: %s\n", get_dtype_name(common));
     }
 
     // Set all new_op_dtypes to the common dtype
@@ -331,30 +383,29 @@ quad_ufunc_promoter(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
             // If signature is specified for this argument, use it
             Py_INCREF(signature[i]);
             new_op_dtypes[i] = signature[i];
-            // printf("new_op_dtypes[%d] set to %s (from signature)\n", i,
-            // get_dtype_name(new_op_dtypes[i]));
+            printf("new_op_dtypes[%d] set to %s (from signature)\n", i,
+                   get_dtype_name(new_op_dtypes[i]));
         }
         else {
             // Otherwise, use the common dtype
             Py_INCREF(common);
             new_op_dtypes[i] = common;
-            // printf("new_op_dtypes[%d] set to %s (from common)\n", i,
-            // get_dtype_name(new_op_dtypes[i]));
+            printf("new_op_dtypes[%d] set to %s (from common)\n", i,
+                   get_dtype_name(new_op_dtypes[i]));
         }
     }
 
     Py_XDECREF(common);
-    // printf("Exiting quad_ufunc_promoter\n");
+    printf("Exiting quad_ufunc_promoter\n");
     return 0;
 }
 
-template <binop_def binop>
+template <binary_op_quad_def sleef_op, binary_op_longdouble_def longdouble_op>
 int
 create_quad_binary_ufunc(PyObject *numpy, const char *ufunc_name)
 {
     PyObject *ufunc = PyObject_GetAttrString(numpy, ufunc_name);
     if (ufunc == NULL) {
-        Py_DecRef(ufunc);
         return -1;
     }
 
@@ -362,7 +413,8 @@ create_quad_binary_ufunc(PyObject *numpy, const char *ufunc_name)
 
     PyType_Slot slots[] = {
             {NPY_METH_resolve_descriptors, (void *)&quad_binary_op_resolve_descriptors},
-            {NPY_METH_strided_loop, (void *)&quad_generic_binop_strided_loop<binop>},
+            {NPY_METH_strided_loop,
+             (void *)&quad_generic_binop_strided_loop<sleef_op, longdouble_op>},
             {0, NULL}};
 
     PyArrayMethod_Spec Spec = {
@@ -404,28 +456,28 @@ create_quad_binary_ufunc(PyObject *numpy, const char *ufunc_name)
 int
 init_quad_binary_ops(PyObject *numpy)
 {
-    if (create_quad_binary_ufunc<quad_add>(numpy, "add") < 0) {
+    if (create_quad_binary_ufunc<quad_add, ld_add>(numpy, "add") < 0) {
         return -1;
     }
-    if (create_quad_binary_ufunc<quad_sub>(numpy, "subtract") < 0) {
+    if (create_quad_binary_ufunc<quad_sub, ld_sub>(numpy, "subtract") < 0) {
         return -1;
     }
-    if (create_quad_binary_ufunc<quad_mul>(numpy, "multiply") < 0) {
+    if (create_quad_binary_ufunc<quad_mul, ld_mul>(numpy, "multiply") < 0) {
         return -1;
     }
-    if (create_quad_binary_ufunc<quad_div>(numpy, "divide") < 0) {
+    if (create_quad_binary_ufunc<quad_div, ld_div>(numpy, "divide") < 0) {
         return -1;
     }
-    if (create_quad_binary_ufunc<quad_pow>(numpy, "power") < 0) {
+    if (create_quad_binary_ufunc<quad_pow, ld_pow>(numpy, "power") < 0) {
         return -1;
     }
-    if (create_quad_binary_ufunc<quad_mod>(numpy, "mod") < 0) {
+    if (create_quad_binary_ufunc<quad_mod, ld_mod>(numpy, "mod") < 0) {
         return -1;
     }
-    if (create_quad_binary_ufunc<quad_minimum>(numpy, "minimum") < 0) {
+    if (create_quad_binary_ufunc<quad_minimum, ld_minimum>(numpy, "minimum") < 0) {
         return -1;
     }
-    if (create_quad_binary_ufunc<quad_maximum>(numpy, "maximum") < 0) {
+    if (create_quad_binary_ufunc<quad_maximum, ld_maximum>(numpy, "maximum") < 0) {
         return -1;
     }
     return 0;
@@ -433,7 +485,7 @@ init_quad_binary_ops(PyObject *numpy)
 
 // comparison functions
 
-template <cmp_def comp>
+template <cmp_quad_def sleef_comp, cmp_londouble_def ld_comp>
 int
 quad_generic_comp_strided_loop(PyArrayMethod_Context *context, char *const data[],
                                npy_intp const dimensions[], npy_intp const strides[],
@@ -446,8 +498,19 @@ quad_generic_comp_strided_loop(PyArrayMethod_Context *context, char *const data[
     npy_intp in2_stride = strides[1];
     npy_intp out_stride = strides[2];
 
+    QuadPrecDTypeObject *descr = (QuadPrecDTypeObject *)context->descriptors[0];
+    QuadBackendType backend = descr->backend;
+    size_t elem_size = (backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
+
     while (N--) {
-        *((npy_bool *)out_ptr) = comp((Sleef_quad *)in1_ptr, (Sleef_quad *)in2_ptr);
+        if (backend == BACKEND_SLEEF) {
+            *((npy_bool *)out_ptr) =
+                    sleef_comp((const Sleef_quad *)in1_ptr, (const Sleef_quad *)in2_ptr);
+        }
+        else {
+            *((npy_bool *)out_ptr) =
+                    ld_comp((const long double *)in1_ptr, (const long double *)in2_ptr);
+        }
 
         in1_ptr += in1_stride;
         in2_ptr += in2_stride;
@@ -472,7 +535,7 @@ comparison_ufunc_promoter(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
     return 0;
 }
 
-template <cmp_def comp>
+template <cmp_quad_def sleef_comp, cmp_londouble_def ld_comp>
 int
 create_quad_comparison_ufunc(PyObject *numpy, const char *ufunc_name)
 {
@@ -483,8 +546,10 @@ create_quad_comparison_ufunc(PyObject *numpy, const char *ufunc_name)
 
     PyArray_DTypeMeta *dtypes[3] = {&QuadPrecDType, &QuadPrecDType, &PyArray_BoolDType};
 
-    PyType_Slot slots[] = {{NPY_METH_strided_loop, (void *)&quad_generic_comp_strided_loop<comp>},
-                           {0, NULL}};
+    PyType_Slot slots[] = {
+            {NPY_METH_resolve_descriptors, (void *)&quad_binary_op_resolve_descriptors},
+            {NPY_METH_strided_loop, (void *)&quad_generic_comp_strided_loop<sleef_comp, ld_comp>},
+            {0, NULL}};
 
     PyArrayMethod_Spec Spec = {
             .name = "quad_comp",
@@ -501,7 +566,7 @@ create_quad_comparison_ufunc(PyObject *numpy, const char *ufunc_name)
     }
 
     PyObject *promoter_capsule =
-            PyCapsule_New((void *)&comparison_ufunc_promoter, "numpy._ufunc_promoter", NULL);
+            PyCapsule_New((void *)&quad_ufunc_promoter, "numpy._ufunc_promoter", NULL);
     if (promoter_capsule == NULL) {
         return -1;
     }
@@ -526,22 +591,23 @@ create_quad_comparison_ufunc(PyObject *numpy, const char *ufunc_name)
 int
 init_quad_comps(PyObject *numpy)
 {
-    if (create_quad_comparison_ufunc<quad_equal>(numpy, "equal") < 0) {
+    if (create_quad_comparison_ufunc<quad_equal, ld_equal>(numpy, "equal") < 0) {
         return -1;
     }
-    if (create_quad_comparison_ufunc<quad_notequal>(numpy, "not_equal") < 0) {
+    if (create_quad_comparison_ufunc<quad_notequal, ld_notequal>(numpy, "not_equal") < 0) {
         return -1;
     }
-    if (create_quad_comparison_ufunc<quad_less>(numpy, "less") < 0) {
+    if (create_quad_comparison_ufunc<quad_less, ld_less>(numpy, "less") < 0) {
         return -1;
     }
-    if (create_quad_comparison_ufunc<quad_lessequal>(numpy, "less_equal") < 0) {
+    if (create_quad_comparison_ufunc<quad_lessequal, ld_lessequal>(numpy, "less_equal") < 0) {
         return -1;
     }
-    if (create_quad_comparison_ufunc<quad_greater>(numpy, "greater") < 0) {
+    if (create_quad_comparison_ufunc<quad_greater, ld_greater>(numpy, "greater") < 0) {
         return -1;
     }
-    if (create_quad_comparison_ufunc<quad_greaterequal>(numpy, "greater_equal") < 0) {
+    if (create_quad_comparison_ufunc<quad_greaterequal, ld_greaterequal>(numpy, "greater_equal") <
+        0) {
         return -1;
     }
 
@@ -552,18 +618,23 @@ int
 init_quad_umath(void)
 {
     PyObject *numpy = PyImport_ImportModule("numpy");
-    if (!numpy)
+    if (!numpy) {
+        PyErr_SetString(PyExc_ImportError, "Failed to import numpy module");
         return -1;
+    }
 
     if (init_quad_unary_ops(numpy) < 0) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to initialize quad unary operations");
         goto err;
     }
 
     if (init_quad_binary_ops(numpy) < 0) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to initialize quad binary operations");
         goto err;
     }
 
     if (init_quad_comps(numpy) < 0) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to initialize quad comparison operations");
         goto err;
     }
 

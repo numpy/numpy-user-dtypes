@@ -11,7 +11,7 @@
 
 #include "scalar.h"
 #include "dtype.h"
-// #include "umath.h"
+#include "umath.h"
 #include "quad_common.h"
 
 static struct PyModuleDef moduledef = {
@@ -43,9 +43,9 @@ PyInit__quaddtype_main(void)
     if (PyModule_AddObject(m, "QuadPrecDType", (PyObject *)&QuadPrecDType) < 0)
         goto error;
 
-    // if (init_quad_umath() < 0) {
-    //     goto error;
-    // }
+    if (init_quad_umath() < 0) {
+        goto error;
+    }
 
     return m;
 
