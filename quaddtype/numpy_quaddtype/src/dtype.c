@@ -49,6 +49,13 @@ quad_store(char *data_ptr, void *x, QuadBackendType backend)
 QuadPrecDTypeObject *
 new_quaddtype_instance(QuadBackendType backend)
 {
+    // if (backend != BACKEND_SLEEF && backend != BACKEND_LONGDOUBLE)
+    // {
+    //     PyErr_SetString(PyExc_TypeError,
+    //                     "Backend must be sleef or longdouble");
+    //     return NULL;
+    // }
+    printf("New Quandtype instance is created with backend: %d\n", backend);
     QuadPrecDTypeObject *new = (QuadPrecDTypeObject *)PyArrayDescr_Type.tp_new(
             (PyTypeObject *)&QuadPrecDType, NULL, NULL);
     if (new == NULL) {
@@ -63,6 +70,7 @@ new_quaddtype_instance(QuadBackendType backend)
 static QuadPrecDTypeObject *
 ensure_canonical(QuadPrecDTypeObject *self)
 {
+    printf("Ensure Canonical is called\n");
     Py_INCREF(self);
     return self;
 }
@@ -70,6 +78,7 @@ ensure_canonical(QuadPrecDTypeObject *self)
 static QuadPrecDTypeObject *
 common_instance(QuadPrecDTypeObject *dtype1, QuadPrecDTypeObject *dtype2)
 {
+    printf("Common Instance is called\n");
     if (dtype1->backend != dtype2->backend) {
         PyErr_SetString(PyExc_TypeError,
                         "Cannot find common instance for QuadPrecDTypes with different backends");
@@ -82,6 +91,7 @@ common_instance(QuadPrecDTypeObject *dtype1, QuadPrecDTypeObject *dtype2)
 static PyArray_DTypeMeta *
 common_dtype(PyArray_DTypeMeta *cls, PyArray_DTypeMeta *other)
 {
+    printf("Common dtype is called\n");
     // Promote integer and floating-point types to QuadPrecDType
     if (other->type_num >= 0 &&
         (PyTypeNum_ISINTEGER(other->type_num) || PyTypeNum_ISFLOAT(other->type_num))) {
@@ -105,7 +115,9 @@ quadprec_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls), P
         PyErr_SetString(PyExc_TypeError, "Can only store QuadPrecision in a QuadPrecDType array.");
         return NULL;
     }
+    
     QuadPrecisionObject *quad_obj = (QuadPrecisionObject *)obj;
+    printf("dtype.c: quadprec_discover_descriptor_from_pyobject is called with backend %d\n", quad_obj->backend);
     return (PyArray_Descr *)new_quaddtype_instance(quad_obj->backend);
 }
 
@@ -156,10 +168,11 @@ quadprec_getitem(QuadPrecDTypeObject *descr, char *dataptr)
 static PyArray_Descr *
 quadprec_default_descr(PyArray_DTypeMeta *cls)
 {
-    QuadPrecDTypeObject *temp = (QuadPrecDTypeObject *)cls;
-    const char *s1 = (temp->backend == BACKEND_SLEEF) ? "SLEEF" : "LONGDOUBLE";
-    printf("called with backend: %s\n", s1);
-    return (PyArray_Descr *)new_quaddtype_instance(temp->backend);
+    QuadPrecDTypeObject * a = (QuadPrecDTypeObject *)cls;
+     printf("Default descriptor called with backend: %d\n", a->backend);
+    QuadPrecDTypeObject * temp = new_quaddtype_instance(a->backend);
+    printf("Default descriptor made backend: %d\n", temp->backend);
+    return (PyArray_Descr *)temp;
 }
 
 static PyType_Slot QuadPrecDType_Slots[] = {

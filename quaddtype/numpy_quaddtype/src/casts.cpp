@@ -272,6 +272,7 @@ numpy_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta 
                                   PyArray_Descr *given_descrs[2], PyArray_Descr *loop_descrs[2],
                                   npy_intp *view_offset)
 {
+    printf("cast.cpp: numpy_to_quad_resolve_descriptors is called\n");
     if (given_descrs[1] == NULL) {
         loop_descrs[1] = (PyArray_Descr *)new_quaddtype_instance(BACKEND_SLEEF);
         if (loop_descrs[1] == nullptr) {
@@ -279,6 +280,7 @@ numpy_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta 
         }
     }
     else {
+        printf("cast.cpp: numpy_to_quad_resolve_descriptors, I am in ELSE condition\n");
         Py_INCREF(given_descrs[1]);
         loop_descrs[1] = given_descrs[1];
     }
@@ -297,8 +299,12 @@ numpy_to_quad_strided_loop(PyArrayMethod_Context *context, char *const data[],
     char *in_ptr = data[0];
     char *out_ptr = data[1];
 
+    QuadPrecDTypeObject *descr_out1 = (QuadPrecDTypeObject *)context->descriptors[0];
+    printf("The type of context->descriptor[0] is: %s\n", Py_TYPE(descr_out1)->tp_name);
     QuadPrecDTypeObject *descr_out = (QuadPrecDTypeObject *)context->descriptors[1];
+    printf("The type of context->descriptor[1] is: %s\n", Py_TYPE(descr_out)->tp_name);
     QuadBackendType backend = descr_out->backend;
+    printf("cast.cpp: numpy_to_quad_strided_loop with backend: %d\n", backend);
     size_t elem_size = (backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
 
     while (N--) {

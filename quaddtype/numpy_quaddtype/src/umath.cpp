@@ -175,6 +175,9 @@ init_quad_unary_ops(PyObject *numpy)
     if (create_quad_unary_ufunc<quad_negative, ld_negative>(numpy, "negative") < 0) {
         return -1;
     }
+    if (create_quad_unary_ufunc<quad_positive, ld_positive>(numpy, "positive") < 0) {
+        return -1;
+    }
     if (create_quad_unary_ufunc<quad_absolute, ld_absolute>(numpy, "absolute") < 0) {
         return -1;
     }
@@ -224,44 +227,62 @@ quad_binary_op_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtyp
                                    PyArray_Descr *const given_descrs[],
                                    PyArray_Descr *loop_descrs[], npy_intp *NPY_UNUSED(view_offset))
 {
-    printf("Descriptor Resolver is calledn\n");
-    Py_INCREF(given_descrs[0]);
-    loop_descrs[0] = given_descrs[0];
-    Py_INCREF(given_descrs[1]);
-    loop_descrs[1] = given_descrs[1];
+    printf("Descriptor Resolver is called\n");
 
     QuadPrecDTypeObject *descr_in1 = (QuadPrecDTypeObject *)given_descrs[0];
     QuadPrecDTypeObject *descr_in2 = (QuadPrecDTypeObject *)given_descrs[1];
+    QuadBackendType target_backend;
+
     const char *s1 = (descr_in1->backend == BACKEND_SLEEF) ? "SLEEF" : "LONGDOUBLE";
     const char *s2 = (descr_in2->backend == BACKEND_SLEEF) ? "SLEEF" : "LONGDOUBLE";
-    printf("1: %s\n", s1);
-    printf("2: %s\n", s2);
+    printf("1: %s   %d  %s\n", s1, descr_in1->backend, Py_TYPE(given_descrs[0])->tp_name);
+    printf("2: %s   %d  %s\n", s2, descr_in2->backend, Py_TYPE(given_descrs[1])->tp_name);
 
+    // Determine target backend and if casting is needed
+    NPY_CASTING casting = NPY_NO_CASTING;
     if (descr_in1->backend != descr_in2->backend) {
-        PyErr_SetString(PyExc_TypeError,
-                        "Cannot operate on QuadPrecision objects with different backends");
-        return (NPY_CASTING)-1;
+        target_backend = BACKEND_LONGDOUBLE;
+        casting = NPY_SAFE_CASTING;
+        printf("Different backends detected. Casting to LONGDOUBLE.\n");
+    } else {
+        target_backend = descr_in1->backend;
+        printf("Unified backend: %s\n", (target_backend == BACKEND_SLEEF) ? "SLEEF" : "LONGDOUBLE");
     }
 
+    // Set up input descriptors, casting if necessary
+    for (int i = 0; i < 2; i++) {
+        if (((QuadPrecDTypeObject *)given_descrs[i])->backend != target_backend) {
+            loop_descrs[i] = (PyArray_Descr *)new_quaddtype_instance(target_backend);
+            if (!loop_descrs[i]) {
+                return (NPY_CASTING)-1;
+            }
+        } else {
+            Py_INCREF(given_descrs[i]);
+            loop_descrs[i] = given_descrs[i];
+        }
+    }
+
+    // Set up output descriptor
     if (given_descrs[2] == NULL) {
-        loop_descrs[2] = (PyArray_Descr *)new_quaddtype_instance(descr_in1->backend);
+        loop_descrs[2] = (PyArray_Descr *)new_quaddtype_instance(target_backend);
         if (!loop_descrs[2]) {
             return (NPY_CASTING)-1;
         }
-    }
-    else {
-        Py_INCREF(given_descrs[2]);
-        loop_descrs[2] = given_descrs[2];
+    } else {
+        QuadPrecDTypeObject *descr_out = (QuadPrecDTypeObject *)given_descrs[2];
+        if (descr_out->backend != target_backend) {
+            loop_descrs[2] = (PyArray_Descr *)new_quaddtype_instance(target_backend);
+            if (!loop_descrs[2]) {
+                return (NPY_CASTING)-1;
+            }
+        } else {
+            Py_INCREF(given_descrs[2]);
+            loop_descrs[2] = given_descrs[2];
+        }
     }
 
-    QuadPrecDTypeObject *descr_out = (QuadPrecDTypeObject *)loop_descrs[2];
-    if (descr_out->backend != descr_in1->backend) {
-        PyErr_SetString(PyExc_TypeError,
-                        "Output QuadPrecision object must have the same backend as inputs");
-        return (NPY_CASTING)-1;
-    }
-
-    return NPY_NO_CASTING;
+    printf("Casting result: %d\n", casting);
+    return casting;
 }
 
 template <binary_op_quad_def sleef_op, binary_op_longdouble_def longdouble_op>
@@ -270,6 +291,7 @@ quad_generic_binop_strided_loop(PyArrayMethod_Context *context, char *const data
                                 npy_intp const dimensions[], npy_intp const strides[],
                                 NpyAuxData *auxdata)
 {
+    printf("Umath: Generic Strided loop is calledn\n");
     npy_intp N = dimensions[0];
     char *in1_ptr = data[0], *in2_ptr = data[1];
     char *out_ptr = data[2];
@@ -328,22 +350,10 @@ quad_ufunc_promoter(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
 
     // Check if any input or signature is QuadPrecision
     for (int i = 0; i < nin; i++) {
+        printf("iterating on dtype : %s\n", get_dtype_name(op_dtypes[i]));
         if (op_dtypes[i] == &QuadPrecDType) {
             has_quad = true;
-            QuadPrecDTypeObject *descr =
-                    (QuadPrecDTypeObject *)PyArray_GetDefaultDescr(op_dtypes[i]);
-
-            const char *s = (descr->backend == BACKEND_SLEEF) ? "SLEEF" : "LONGDOUBLE";
-            printf("QuadPrecision detected in input %d or signature with backend: %s\n", i, s);
-            if (backend == BACKEND_INVALID)
-                backend = descr->backend;
-            else if (backend != BACKEND_INVALID && backend != descr->backend) {
-                PyErr_SetString(PyExc_TypeError,
-                                "Cannot mix QuadPrecDType arrays with different backends");
-                return -1;
-            }
-            Py_DECREF(descr);
-            break;
+            printf("QuadPrecision detected in input %d\n", i);
         }
     }
 
