@@ -232,9 +232,6 @@ quad_binary_op_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtyp
     QuadPrecDTypeObject *descr_in2 = (QuadPrecDTypeObject *)given_descrs[1];
     QuadBackendType target_backend;
 
-    const char *s1 = (descr_in1->backend == BACKEND_SLEEF) ? "SLEEF" : "LONGDOUBLE";
-    const char *s2 = (descr_in2->backend == BACKEND_SLEEF) ? "SLEEF" : "LONGDOUBLE";
-
     // Determine target backend and if casting is needed
     NPY_CASTING casting = NPY_NO_CASTING;
     if (descr_in1->backend != descr_in2->backend) {
@@ -323,7 +320,6 @@ quad_ufunc_promoter(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
     int nargs = ufunc->nargs;
     PyArray_DTypeMeta *common = NULL;
     bool has_quad = false;
-    QuadBackendType backend = BACKEND_INVALID;  // Initialize to an invalid state
 
     // Handle the special case for reductions
     if (op_dtypes[0] == NULL) {

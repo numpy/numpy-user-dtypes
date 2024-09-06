@@ -15,6 +15,7 @@
 #include "scalar.h"
 #include "casts.h"
 #include "dtype.h"
+#include "dragon4.h"
 
 static inline int
 quad_load(void *x, char *data_ptr, QuadBackendType backend)
@@ -212,13 +213,22 @@ QuadPrecDType_repr(QuadPrecDTypeObject *self)
     return PyUnicode_FromFormat("QuadPrecDType(backend='%s')", backend_str);
 }
 
+static PyObject *
+QuadPrecDType_str(QuadPrecDTypeObject *self)
+{
+    const char *backend_str = (self->backend == BACKEND_SLEEF) ? "sleef" : "longdouble";
+    return PyUnicode_FromFormat("QuadPrecDType(backend='%s')", backend_str);
+}
+
+
+
 PyArray_DTypeMeta QuadPrecDType = {
         {{
                 PyVarObject_HEAD_INIT(NULL, 0).tp_name = "numpy_quaddtype.QuadPrecDType",
                 .tp_basicsize = sizeof(QuadPrecDTypeObject),
                 .tp_new = QuadPrecDType_new,
                 .tp_repr = (reprfunc)QuadPrecDType_repr,
-                .tp_str = (reprfunc)QuadPrecDType_repr,
+                .tp_str = (reprfunc)QuadPrecDType_str,
         }},
 };
 

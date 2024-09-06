@@ -15,6 +15,7 @@
 #include "quad_common.h"
 #include "float.h"
 
+
 static PyObject* py_is_longdouble_128(PyObject* self, PyObject* args) {
     if(sizeof(long double) == 16 && 
         LDBL_MANT_DIG == 113 && 
