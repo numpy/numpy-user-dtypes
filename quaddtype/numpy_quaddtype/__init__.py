@@ -1,10 +1,11 @@
 from ._quaddtype_main import (
     QuadPrecision,
-    QuadPrecDType
+    QuadPrecDType,
+    is_longdouble_128
 )
 
 __all__ = ['QuadPrecision', 'QuadPrecDType', 'SleefQuadPrecision', 'LongDoubleQuadPrecision',
-           'SleefQuadPrecDType', 'LongDoubleQuadPrecDType']
+           'SleefQuadPrecDType', 'LongDoubleQuadPrecDType', 'is_longdouble_128']
 
 
 def SleefQuadPrecision(value):

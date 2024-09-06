@@ -13,12 +13,29 @@
 #include "dtype.h"
 #include "umath.h"
 #include "quad_common.h"
+#include "float.h"
+
+static PyObject* py_is_longdouble_128(PyObject* self, PyObject* args) {
+    if(sizeof(long double) == 16 && 
+        LDBL_MANT_DIG == 113 && 
+        LDBL_MAX_EXP == 16384) {
+        Py_RETURN_TRUE;
+    } else {
+        Py_RETURN_FALSE;
+    }
+}
+
+static PyMethodDef module_methods[] = {
+    {"is_longdouble_128", py_is_longdouble_128, METH_NOARGS, "Check if long double is 128-bit"},
+    {NULL, NULL, 0, NULL} 
+};
 
 static struct PyModuleDef moduledef = {
         PyModuleDef_HEAD_INIT,
         .m_name = "_quaddtype_main",
         .m_doc = "Quad (128-bit) floating point Data Type for NumPy with multiple backends",
         .m_size = -1,
+        .m_methods = module_methods
 };
 
 PyMODINIT_FUNC
