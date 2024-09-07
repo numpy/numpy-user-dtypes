@@ -415,7 +415,7 @@ create_quad_binary_ufunc(PyObject *numpy, const char *ufunc_name)
             .nin = 2,
             .nout = 1,
             .casting = NPY_NO_CASTING,
-            .flags = (NPY_ARRAYMETHOD_FLAGS)0,
+            .flags = NPY_METH_IS_REORDERABLE,
             .dtypes = dtypes,
             .slots = slots,
     };
