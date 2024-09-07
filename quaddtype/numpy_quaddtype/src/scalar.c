@@ -226,12 +226,12 @@ PyTypeObject QuadPrecision_Type = {
         .tp_repr = (reprfunc)QuadPrecision_repr_dragon4,
         .tp_str = (reprfunc)QuadPrecision_str_dragon4,
         .tp_as_number = &quad_as_scalar,
-        .tp_richcompare = (richcmpfunc)quad_richcompare
-
+        .tp_richcompare = (richcmpfunc)quad_richcompare,
 };
 
 int
 init_quadprecision_scalar(void)
 {
+    QuadPrecision_Type.tp_base = &PyFloat_Type; // this is not working (subclassing to np.floating)
     return PyType_Ready(&QuadPrecision_Type);
 }

@@ -207,6 +207,27 @@ quad_richcompare(QuadPrecisionObject *self, PyObject *other, int cmp_op)
     return PyBool_FromLong(cmp);
 }
 
+static PyObject *
+QuadPrecision_float(QuadPrecisionObject *self)
+{
+    if (self->backend == BACKEND_SLEEF) {
+        return PyFloat_FromDouble(Sleef_cast_to_doubleq1(self->value.sleef_value));
+    } else {
+        return PyFloat_FromDouble((double)self->value.longdouble_value);
+    }
+}
+
+static PyObject *
+QuadPrecision_int(QuadPrecisionObject *self)
+{
+    if (self->backend == BACKEND_SLEEF) {
+        return PyLong_FromLongLong(Sleef_cast_to_int64q1(self->value.sleef_value));
+    } else {
+        return PyLong_FromLongLong((long long)self->value.longdouble_value);
+    }
+}
+
+
 PyNumberMethods quad_as_scalar = {
         .nb_add = (binaryfunc)quad_binary_func<quad_add, ld_add>,
         .nb_subtract = (binaryfunc)quad_binary_func<quad_sub, ld_sub>,
@@ -216,5 +237,7 @@ PyNumberMethods quad_as_scalar = {
         .nb_positive = (unaryfunc)quad_unary_func<quad_positive, ld_positive>,
         .nb_absolute = (unaryfunc)quad_unary_func<quad_absolute, ld_absolute>,
         .nb_bool = (inquiry)quad_nonzero,
+        .nb_int = (unaryfunc)QuadPrecision_int,
+        .nb_float = (unaryfunc)QuadPrecision_float,
         .nb_true_divide = (binaryfunc)quad_binary_func<quad_div, ld_div>,
 };
