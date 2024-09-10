@@ -50,10 +50,8 @@ quad_store(char *data_ptr, void *x, QuadBackendType backend)
 QuadPrecDTypeObject *
 new_quaddtype_instance(QuadBackendType backend)
 {
-    if (backend != BACKEND_SLEEF && backend != BACKEND_LONGDOUBLE)
-    {
-        PyErr_SetString(PyExc_TypeError,
-                        "Backend must be sleef or longdouble");
+    if (backend != BACKEND_SLEEF && backend != BACKEND_LONGDOUBLE) {
+        PyErr_SetString(PyExc_TypeError, "Backend must be sleef or longdouble");
         return NULL;
     }
 
@@ -71,7 +69,6 @@ new_quaddtype_instance(QuadBackendType backend)
 static QuadPrecDTypeObject *
 ensure_canonical(QuadPrecDTypeObject *self)
 {
-
     Py_INCREF(self);
     return self;
 }
@@ -79,7 +76,6 @@ ensure_canonical(QuadPrecDTypeObject *self)
 static QuadPrecDTypeObject *
 common_instance(QuadPrecDTypeObject *dtype1, QuadPrecDTypeObject *dtype2)
 {
-
     if (dtype1->backend != dtype2->backend) {
         PyErr_SetString(PyExc_TypeError,
                         "Cannot find common instance for QuadPrecDTypes with different backends");
@@ -92,7 +88,6 @@ common_instance(QuadPrecDTypeObject *dtype1, QuadPrecDTypeObject *dtype2)
 static PyArray_DTypeMeta *
 common_dtype(PyArray_DTypeMeta *cls, PyArray_DTypeMeta *other)
 {
-
     // Promote integer and floating-point types to QuadPrecDType
     if (other->type_num >= 0 &&
         (PyTypeNum_ISINTEGER(other->type_num) || PyTypeNum_ISFLOAT(other->type_num))) {
@@ -116,7 +111,7 @@ quadprec_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls), P
         PyErr_SetString(PyExc_TypeError, "Can only store QuadPrecision in a QuadPrecDType array.");
         return NULL;
     }
-    
+
     QuadPrecisionObject *quad_obj = (QuadPrecisionObject *)obj;
 
     return (PyArray_Descr *)new_quaddtype_instance(quad_obj->backend);
@@ -169,7 +164,7 @@ quadprec_getitem(QuadPrecDTypeObject *descr, char *dataptr)
 static PyArray_Descr *
 quadprec_default_descr(PyArray_DTypeMeta *cls)
 {
-    QuadPrecDTypeObject * temp = new_quaddtype_instance(BACKEND_SLEEF);
+    QuadPrecDTypeObject *temp = new_quaddtype_instance(BACKEND_SLEEF);
     return (PyArray_Descr *)temp;
 }
 
@@ -181,6 +176,7 @@ static PyType_Slot QuadPrecDType_Slots[] = {
         {NPY_DT_setitem, &quadprec_setitem},
         {NPY_DT_getitem, &quadprec_getitem},
         {NPY_DT_default_descr, &quadprec_default_descr},
+        {NPY_DT_PyArray_ArrFuncs_dotfunc, NULL},
         {0, NULL}};
 
 static PyObject *
@@ -219,8 +215,6 @@ QuadPrecDType_str(QuadPrecDTypeObject *self)
     const char *backend_str = (self->backend == BACKEND_SLEEF) ? "sleef" : "longdouble";
     return PyUnicode_FromFormat("QuadPrecDType(backend='%s')", backend_str);
 }
-
-
 
 PyArray_DTypeMeta QuadPrecDType = {
         {{
