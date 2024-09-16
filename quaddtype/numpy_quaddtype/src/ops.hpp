@@ -110,6 +110,49 @@ quad_exp2(Sleef_quad *op, Sleef_quad *out)
     return 0;
 }
 
+static inline int
+quad_sin(Sleef_quad *op, Sleef_quad *out)
+{
+    *out = Sleef_sinq1_u10(*op);
+    return 0;
+}
+
+static inline int
+quad_cos(Sleef_quad *op, Sleef_quad *out)
+{
+    *out = Sleef_cosq1_u10(*op);
+    return 0;
+}
+
+static inline int
+quad_tan(Sleef_quad *op, Sleef_quad *out)
+{
+    *out = Sleef_tanq1_u10(*op);
+    return 0;
+}
+
+static inline int
+quad_asin(Sleef_quad *op, Sleef_quad *out)
+{
+    *out = Sleef_asinq1_u10(*op);
+    return 0;
+}
+
+static inline int
+quad_acos(Sleef_quad *op, Sleef_quad *out)
+{
+    *out = Sleef_acosq1_u10(*op);
+    return 0;
+}
+
+static inline int
+quad_atan(Sleef_quad *op, Sleef_quad *out)
+{
+    *out = Sleef_atanq1_u10(*op);
+    return 0;
+}
+
+
 // Unary long double operations
 typedef int (*unary_op_longdouble_def)(long double *, long double *);
 
@@ -218,6 +261,48 @@ ld_exp2(long double *op, long double *out)
     return 0;
 }
 
+static inline int
+ld_sin(long double *op, long double *out)
+{
+    *out = sinl(*op);
+    return 0;
+}
+
+static inline int
+ld_cos(long double *op, long double *out)
+{
+    *out = cosl(*op);
+    return 0;
+}
+
+static inline int
+ld_tan(long double *op, long double *out)
+{
+    *out = tanl(*op);
+    return 0;
+}
+
+static inline int
+ld_asin(long double *op, long double *out)
+{
+    *out = asinl(*op);
+    return 0;
+}
+
+static inline int
+ld_acos(long double *op, long double *out)
+{
+    *out = acosl(*op);
+    return 0;
+}
+
+static inline int
+ld_atan(long double *op, long double *out)
+{
+    *out = atanl(*op);
+    return 0;
+}
+
 // Binary Quad operations
 typedef int (*binary_op_quad_def)(Sleef_quad *, Sleef_quad *, Sleef_quad *);
 
@@ -277,6 +362,13 @@ quad_maximum(Sleef_quad *out, Sleef_quad *in1, Sleef_quad *in2)
     return 0;
 }
 
+static inline int
+quad_atan2(Sleef_quad *out, Sleef_quad *in1, Sleef_quad *in2)
+{
+    *out = Sleef_atan2q1_u10(*in1, *in2);
+    return 0;
+}
+
 // Binary long double operations
 typedef int (*binary_op_longdouble_def)(long double *, long double *, long double *);
 
@@ -333,6 +425,13 @@ static inline int
 ld_maximum(long double *out, long double *in1, long double *in2)
 {
     *out = (*in1 > *in2) ? *in1 : *in2;
+    return 0;
+}
+
+static inline int
+ld_atan2(long double *out, long double *in1, long double *in2)
+{
+    *out = atan2l(*in1, *in2);
     return 0;
 }
 

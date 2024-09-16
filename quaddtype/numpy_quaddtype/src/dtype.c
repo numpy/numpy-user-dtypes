@@ -50,9 +50,11 @@ quad_store(char *data_ptr, void *x, QuadBackendType backend)
 QuadPrecDTypeObject *
 new_quaddtype_instance(QuadBackendType backend)
 {
+    QuadBackendType target_backend = backend;
     if (backend != BACKEND_SLEEF && backend != BACKEND_LONGDOUBLE) {
         PyErr_SetString(PyExc_TypeError, "Backend must be sleef or longdouble");
         return NULL;
+        // target_backend = BACKEND_SLEEF;
     }
 
     QuadPrecDTypeObject *new = (QuadPrecDTypeObject *)PyArrayDescr_Type.tp_new(
@@ -60,9 +62,9 @@ new_quaddtype_instance(QuadBackendType backend)
     if (new == NULL) {
         return NULL;
     }
-    new->base.elsize = (backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
-    new->base.alignment = (backend == BACKEND_SLEEF) ? _Alignof(Sleef_quad) : _Alignof(long double);
-    new->backend = backend;
+    new->base.elsize = (target_backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
+    new->base.alignment = (target_backend == BACKEND_SLEEF) ? _Alignof(Sleef_quad) : _Alignof(long double);
+    new->backend = target_backend;
     return new;
 }
 

@@ -232,6 +232,6 @@ PyTypeObject QuadPrecision_Type = {
 int
 init_quadprecision_scalar(void)
 {
-    QuadPrecision_Type.tp_base = &PyFloat_Type; // this is not working (subclassing to np.floating)
+    // QuadPrecision_Type.tp_base = &PyFloatingArrType_Type;
     return PyType_Ready(&QuadPrecision_Type);
 }

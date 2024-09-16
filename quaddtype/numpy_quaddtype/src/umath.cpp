@@ -217,6 +217,24 @@ init_quad_unary_ops(PyObject *numpy)
     if (create_quad_unary_ufunc<quad_exp2, ld_exp2>(numpy, "exp2") < 0) {
         return -1;
     }
+    if (create_quad_unary_ufunc<quad_sin, ld_sin>(numpy, "sin") < 0) {
+        return -1;
+    }
+    if (create_quad_unary_ufunc<quad_cos, ld_cos>(numpy, "cos") < 0) {
+        return -1;
+    }
+    if (create_quad_unary_ufunc<quad_tan, ld_tan>(numpy, "tan") < 0) {
+        return -1;
+    }
+    if (create_quad_unary_ufunc<quad_asin, ld_asin>(numpy, "arcsin") < 0) {
+        return -1;
+    }
+    if (create_quad_unary_ufunc<quad_acos, ld_acos>(numpy, "arccos") < 0) {
+        return -1;
+    }
+    if (create_quad_unary_ufunc<quad_atan, ld_atan>(numpy, "arctan") < 0) {
+        return -1;
+    }
     return 0;
 }
 
@@ -315,7 +333,6 @@ static int
 quad_ufunc_promoter(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
                     PyArray_DTypeMeta *signature[], PyArray_DTypeMeta *new_op_dtypes[])
 {
-
     int nin = ufunc->nin;
     int nargs = ufunc->nargs;
     PyArray_DTypeMeta *common = NULL;
@@ -471,6 +488,9 @@ init_quad_binary_ops(PyObject *numpy)
         return -1;
     }
     if (create_quad_binary_ufunc<quad_maximum, ld_maximum>(numpy, "maximum") < 0) {
+        return -1;
+    }
+    if (create_quad_binary_ufunc<quad_atan2, ld_atan2>(numpy, "arctan2") < 0) {
         return -1;
     }
     return 0;
