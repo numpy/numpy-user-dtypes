@@ -333,7 +333,6 @@ static int
 quad_ufunc_promoter(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
                     PyArray_DTypeMeta *signature[], PyArray_DTypeMeta *new_op_dtypes[])
 {
-    printf("calling promoter for ufunc %s\n", ufunc->name);
     int nin = ufunc->nin;
     int nargs = ufunc->nargs;
     PyArray_DTypeMeta *common = NULL;
