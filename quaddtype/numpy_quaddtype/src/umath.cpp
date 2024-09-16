@@ -333,6 +333,7 @@ static int
 quad_ufunc_promoter(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
                     PyArray_DTypeMeta *signature[], PyArray_DTypeMeta *new_op_dtypes[])
 {
+    printf("calling promoter for ufunc %s\n", ufunc->name);
     int nin = ufunc->nin;
     int nargs = ufunc->nargs;
     PyArray_DTypeMeta *common = NULL;
@@ -560,7 +561,6 @@ create_quad_comparison_ufunc(PyObject *numpy, const char *ufunc_name)
     PyArray_DTypeMeta *dtypes[3] = {&QuadPrecDType, &QuadPrecDType, &PyArray_BoolDType};
 
     PyType_Slot slots[] = {
-            {NPY_METH_resolve_descriptors, (void *)&quad_binary_op_resolve_descriptors},
             {NPY_METH_strided_loop, (void *)&quad_generic_comp_strided_loop<sleef_comp, ld_comp>},
             {0, NULL}};
 
@@ -579,7 +579,7 @@ create_quad_comparison_ufunc(PyObject *numpy, const char *ufunc_name)
     }
 
     PyObject *promoter_capsule =
-            PyCapsule_New((void *)&quad_ufunc_promoter, "numpy._ufunc_promoter", NULL);
+            PyCapsule_New((void *)&comparison_ufunc_promoter, "numpy._ufunc_promoter", NULL);
     if (promoter_capsule == NULL) {
         return -1;
     }
