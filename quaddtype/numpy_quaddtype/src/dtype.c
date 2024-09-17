@@ -63,7 +63,8 @@ new_quaddtype_instance(QuadBackendType backend)
         return NULL;
     }
     new->base.elsize = (target_backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
-    new->base.alignment = (target_backend == BACKEND_SLEEF) ? _Alignof(Sleef_quad) : _Alignof(long double);
+    new->base.alignment =
+            (target_backend == BACKEND_SLEEF) ? _Alignof(Sleef_quad) : _Alignof(long double);
     new->backend = target_backend;
     return new;
 }

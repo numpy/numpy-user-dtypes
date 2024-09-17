@@ -152,7 +152,6 @@ quad_atan(Sleef_quad *op, Sleef_quad *out)
     return 0;
 }
 
-
 // Unary long double operations
 typedef int (*unary_op_longdouble_def)(long double *, long double *);
 

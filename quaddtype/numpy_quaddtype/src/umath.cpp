@@ -397,11 +397,12 @@ static int
 quad_ufunc_promoter(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
                     PyArray_DTypeMeta *signature[], PyArray_DTypeMeta *new_op_dtypes[])
 {
+    printf("called comparison promoter\n");
     int nin = ufunc->nin;
     int nargs = ufunc->nargs;
     PyArray_DTypeMeta *common = NULL;
     bool has_quad = false;
-
+    printf("dtyp1: %s dtype2: %s\n", get_dtype_name(op_dtypes[0]), get_dtype_name(op_dtypes[1]));
     // Handle the special case for reductions
     if (op_dtypes[0] == NULL) {
         assert(nin == 2 && ufunc->nout == 1); /* must be reduction */
@@ -415,6 +416,7 @@ quad_ufunc_promoter(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
     // Check if any input or signature is QuadPrecision
     for (int i = 0; i < nin; i++) {
         if (op_dtypes[i] == &QuadPrecDType) {
+            printf("Quaddtype found at index: %d\n", i);
             has_quad = true;
         }
     }
@@ -431,7 +433,6 @@ quad_ufunc_promoter(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
                 }
                 else if (common != signature[i]) {
                     Py_CLEAR(common);  // Not homogeneous, unset common
-
                     break;
                 }
             }
@@ -459,6 +460,7 @@ quad_ufunc_promoter(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
         else {
             // Otherwise, use the common dtype
             Py_INCREF(common);
+            printf("setting output to %s dtype\n", get_dtype_name(common));
             new_op_dtypes[i] = common;
         }
     }
@@ -560,42 +562,9 @@ init_quad_binary_ops(PyObject *numpy)
 
 template <cmp_quad_def sleef_comp, cmp_londouble_def ld_comp>
 int
-quad_generic_comp_strided_loop_aligned(PyArrayMethod_Context *context, char *const data[],
-                                       npy_intp const dimensions[], npy_intp const strides[],
-                                       NpyAuxData *auxdata)
-{
-    npy_intp N = dimensions[0];
-    char *in1_ptr = data[0], *in2_ptr = data[1];
-    char *out_ptr = data[2];
-    npy_intp in1_stride = strides[0];
-    npy_intp in2_stride = strides[1];
-    npy_intp out_stride = strides[2];
-
-    QuadPrecDTypeObject *descr = (QuadPrecDTypeObject *)context->descriptors[0];
-    QuadBackendType backend = descr->backend;
-
-    while (N--) {
-        if (backend == BACKEND_SLEEF) {
-            *((npy_bool *)out_ptr) =
-                    sleef_comp((const Sleef_quad *)in1_ptr, (const Sleef_quad *)in2_ptr);
-        }
-        else {
-            *((npy_bool *)out_ptr) =
-                    ld_comp((const long double *)in1_ptr, (const long double *)in2_ptr);
-        }
-
-        in1_ptr += in1_stride;
-        in2_ptr += in2_stride;
-        out_ptr += out_stride;
-    }
-    return 0;
-}
-
-template <cmp_quad_def sleef_comp, cmp_londouble_def ld_comp>
-int
-quad_generic_comp_strided_loop_unaligned(PyArrayMethod_Context *context, char *const data[],
-                                         npy_intp const dimensions[], npy_intp const strides[],
-                                         NpyAuxData *auxdata)
+quad_generic_comp_strided_loop(PyArrayMethod_Context *context, char *const data[],
+                               npy_intp const dimensions[], npy_intp const strides[],
+                               NpyAuxData *auxdata)
 {
     npy_intp N = dimensions[0];
     char *in1_ptr = data[0], *in2_ptr = data[1];
@@ -617,6 +586,7 @@ quad_generic_comp_strided_loop_unaligned(PyArrayMethod_Context *context, char *c
             *((npy_bool *)out_ptr) = sleef_comp(&in1.sleef_value, &in2.sleef_value);
         }
         else {
+            printf("%Lf % Lf\n", in1.longdouble_value, in2.longdouble_value);
             *((npy_bool *)out_ptr) = ld_comp(&in1.longdouble_value, &in2.longdouble_value);
         }
 
@@ -632,7 +602,6 @@ comparison_ufunc_promoter(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
                           PyArray_DTypeMeta *signature[], PyArray_DTypeMeta *new_op_dtypes[])
 {
     PyArray_DTypeMeta *new_signature[NPY_MAXARGS];
-
     memcpy(new_signature, signature, 3 * sizeof(PyArray_DTypeMeta *));
     new_signature[2] = NULL;
     int res = quad_ufunc_promoter(ufunc, op_dtypes, new_signature, new_op_dtypes);
@@ -654,11 +623,11 @@ create_quad_comparison_ufunc(PyObject *numpy, const char *ufunc_name)
 
     PyArray_DTypeMeta *dtypes[3] = {&QuadPrecDType, &QuadPrecDType, &PyArray_BoolDType};
 
-    PyType_Slot slots[] = {{NPY_METH_strided_loop,
-                            (void *)&quad_generic_comp_strided_loop_aligned<sleef_comp, ld_comp>},
-                           {NPY_METH_unaligned_strided_loop,
-                            (void *)&quad_generic_comp_strided_loop_unaligned<sleef_comp, ld_comp>},
-                           {0, NULL}};
+    PyType_Slot slots[] = {
+            {NPY_METH_strided_loop, (void *)&quad_generic_comp_strided_loop<sleef_comp, ld_comp>},
+            {NPY_METH_unaligned_strided_loop,
+             (void *)&quad_generic_comp_strided_loop<sleef_comp, ld_comp>},
+            {0, NULL}};
 
     PyArrayMethod_Spec Spec = {
             .name = "quad_comp",

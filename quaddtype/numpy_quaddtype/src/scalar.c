@@ -76,8 +76,7 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
             self->value.longdouble_value = (long double)val;
         }
     }
-    else 
-    {
+    else {
         PyObject *type_str = PyObject_Str((PyObject *)Py_TYPE(value));
         if (type_str != NULL) {
             const char *type_cstr = PyUnicode_AsUTF8(type_str);
@@ -132,23 +131,25 @@ QuadPrecision_new(PyTypeObject *cls, PyObject *args, PyObject *kwargs)
 static PyObject *
 QuadPrecision_str_dragon4(QuadPrecisionObject *self)
 {
-    Dragon4_Options opt = {
-        .scientific = 0,
-        .digit_mode = DigitMode_Unique,
-        .cutoff_mode = CutoffMode_TotalLength,
-        .precision = SLEEF_QUAD_DIG,
-        .sign = 1,
-        .trim_mode = TrimMode_LeaveOneZero,
-        .digits_left = 1,
-        .digits_right = SLEEF_QUAD_DIG
-    };
+    Dragon4_Options opt = {.scientific = 0,
+                           .digit_mode = DigitMode_Unique,
+                           .cutoff_mode = CutoffMode_TotalLength,
+                           .precision = SLEEF_QUAD_DIG,
+                           .sign = 1,
+                           .trim_mode = TrimMode_LeaveOneZero,
+                           .digits_left = 1,
+                           .digits_right = SLEEF_QUAD_DIG};
 
     if (self->backend == BACKEND_SLEEF) {
-        return Dragon4_Positional_QuadDType(&self->value.sleef_value, opt.digit_mode, opt.cutoff_mode, opt.precision, opt.min_digits, opt.sign, opt.trim_mode, opt.digits_left, opt.digits_right);
+        return Dragon4_Positional_QuadDType(
+                &self->value.sleef_value, opt.digit_mode, opt.cutoff_mode, opt.precision,
+                opt.min_digits, opt.sign, opt.trim_mode, opt.digits_left, opt.digits_right);
     }
     else {
         Sleef_quad sleef_val = Sleef_cast_from_doubleq1(self->value.longdouble_value);
-        return Dragon4_Positional_QuadDType(&sleef_val,  opt.digit_mode, opt.cutoff_mode, opt.precision, opt.min_digits, opt.sign, opt.trim_mode, opt.digits_left, opt.digits_right);
+        return Dragon4_Positional_QuadDType(&sleef_val, opt.digit_mode, opt.cutoff_mode,
+                                            opt.precision, opt.min_digits, opt.sign, opt.trim_mode,
+                                            opt.digits_left, opt.digits_right);
     }
 }
 
@@ -181,24 +182,26 @@ QuadPrecision_repr(QuadPrecisionObject *self)
 static PyObject *
 QuadPrecision_repr_dragon4(QuadPrecisionObject *self)
 {
-    Dragon4_Options opt = {
-        .scientific = 1,
-        .digit_mode = DigitMode_Unique,
-        .cutoff_mode = CutoffMode_TotalLength,
-        .precision = SLEEF_QUAD_DIG,
-        .sign = 1,
-        .trim_mode = TrimMode_LeaveOneZero,
-        .digits_left = 1,
-        .exp_digits = 3
-    };
+    Dragon4_Options opt = {.scientific = 1,
+                           .digit_mode = DigitMode_Unique,
+                           .cutoff_mode = CutoffMode_TotalLength,
+                           .precision = SLEEF_QUAD_DIG,
+                           .sign = 1,
+                           .trim_mode = TrimMode_LeaveOneZero,
+                           .digits_left = 1,
+                           .exp_digits = 3};
 
     PyObject *str;
     if (self->backend == BACKEND_SLEEF) {
-        str = Dragon4_Scientific_QuadDType(&self->value.sleef_value, opt.digit_mode, opt.precision, opt.min_digits, opt.sign, opt.trim_mode, opt.digits_left, opt.exp_digits);
+        str = Dragon4_Scientific_QuadDType(&self->value.sleef_value, opt.digit_mode, opt.precision,
+                                           opt.min_digits, opt.sign, opt.trim_mode, opt.digits_left,
+                                           opt.exp_digits);
     }
     else {
         Sleef_quad sleef_val = Sleef_cast_from_doubleq1(self->value.longdouble_value);
-        str = Dragon4_Scientific_QuadDType(&sleef_val, opt.digit_mode, opt.precision, opt.min_digits, opt.sign, opt.trim_mode, opt.digits_left, opt.exp_digits);
+        str = Dragon4_Scientific_QuadDType(&sleef_val, opt.digit_mode, opt.precision,
+                                           opt.min_digits, opt.sign, opt.trim_mode, opt.digits_left,
+                                           opt.exp_digits);
     }
 
     if (str == NULL) {
