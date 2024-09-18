@@ -633,7 +633,51 @@ quad_generic_comp_strided_loop(PyArrayMethod_Context *context, char *const data[
             result = ld_comp(&in1.longdouble_value, &in2.longdouble_value);
         }
 
-        *((npy_bool *)out_ptr) = result;
+        memcpy(out_ptr, &result, sizeof(npy_bool));
+
+        in1_ptr += in1_stride;
+        in2_ptr += in2_stride;
+        out_ptr += out_stride;
+    }
+    return 0;
+}
+
+
+template <cmp_quad_def sleef_comp, cmp_londouble_def ld_comp>
+int
+quad_generic_comp_strided_loop_aligned(PyArrayMethod_Context *context, char *const data[],
+                               npy_intp const dimensions[], npy_intp const strides[],
+                               NpyAuxData *auxdata)
+{
+    npy_intp N = dimensions[0];
+    char *in1_ptr = data[0], *in2_ptr = data[1];
+    char *out_ptr = data[2];
+    npy_intp in1_stride = strides[0];
+    npy_intp in2_stride = strides[1];
+    npy_intp out_stride = strides[2];
+
+    QuadPrecDTypeObject *descr = (QuadPrecDTypeObject *)context->descriptors[0];
+    QuadBackendType backend = descr->backend;
+    size_t elem_size = (backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
+
+    quad_value in1, in2;
+    while (N--) 
+    {
+        quad_value in1 = *(quad_value *)in1_ptr;
+        quad_value in2 = *(quad_value *)in2_ptr;
+
+        npy_bool result;
+
+        if (backend == BACKEND_SLEEF) 
+        {
+            result = sleef_comp(&in1.sleef_value, &in2.sleef_value);
+        } 
+        else 
+        {
+            result = ld_comp(&in1.longdouble_value, &in2.longdouble_value);
+        }
+
+        *(npy_bool *)out_ptr = result;
 
         in1_ptr += in1_stride;
         in2_ptr += in2_stride;
@@ -670,7 +714,7 @@ create_quad_comparison_ufunc(PyObject *numpy, const char *ufunc_name)
 
     PyType_Slot slots[] = {
             {NPY_METH_resolve_descriptors, (void *)&quad_comparison_op_resolve_descriptors},
-            {NPY_METH_strided_loop, (void *)&quad_generic_comp_strided_loop<sleef_comp, ld_comp>},
+            {NPY_METH_strided_loop, (void *)&quad_generic_comp_strided_loop_aligned<sleef_comp, ld_comp>},
             {NPY_METH_unaligned_strided_loop,
              (void *)&quad_generic_comp_strided_loop<sleef_comp, ld_comp>},
             {0, NULL}};
