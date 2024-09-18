@@ -274,7 +274,6 @@ numpy_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta 
 {
     // todo: here it is converting this to SLEEF, losing data and getting 0
     if (given_descrs[1] == NULL) {
-        printf("called\n");
         loop_descrs[1] = (PyArray_Descr *)new_quaddtype_instance(BACKEND_SLEEF);
         if (loop_descrs[1] == nullptr) {
             return (NPY_CASTING)-1;
