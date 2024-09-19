@@ -76,6 +76,19 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
             self->value.longdouble_value = (long double)val;
         }
     }
+    else if (Py_TYPE(value) == &QuadPrecision_Type)
+    {
+        // todo: not working for ld backend, getting garbage value not sure why?
+        QuadPrecisionObject *quad_obj = (QuadPrecisionObject *)value;
+        // printf("%d %d\n", quad_obj->backend, backend);
+        // printf("%Lf\n", quad_obj->value.longdouble_value);
+        if (quad_obj->backend == BACKEND_SLEEF) {
+            self->value.sleef_value = quad_obj->value.sleef_value;
+        }
+        else {
+            self->value.longdouble_value = quad_obj->value.longdouble_value;
+        }
+    }
     else {
         PyObject *type_str = PyObject_Str((PyObject *)Py_TYPE(value));
         if (type_str != NULL) {
