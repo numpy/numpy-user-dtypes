@@ -233,6 +233,27 @@ QuadPrecision_dealloc(QuadPrecisionObject *self)
     Py_TYPE(self)->tp_free((PyObject *)self);
 }
 
+PyObject* QuadPrecision_get_pi(PyObject* self, void* closure) {
+    QuadPrecisionObject* new = QuadPrecision_raw_new(BACKEND_SLEEF);
+    if (new == NULL) return NULL;
+    new->value.sleef_value = SLEEF_M_PIq;
+    return (PyObject*)new;
+}
+
+PyObject* QuadPrecision_get_e(PyObject* self, void* closure) {
+    QuadPrecisionObject* new = QuadPrecision_raw_new(BACKEND_SLEEF);
+    if (new == NULL) return NULL;
+    new->value.sleef_value = SLEEF_M_Eq;
+    return (PyObject*)new;
+}
+
+// Add this to the existing QuadPrecision_Type definition
+static PyGetSetDef QuadPrecision_getset[] = {
+    {"pi", (getter)QuadPrecision_get_pi, NULL, "Pi constant", NULL},
+    {"e", (getter)QuadPrecision_get_e, NULL, "Euler's number", NULL},
+    {NULL}  /* Sentinel */
+};
+
 PyTypeObject QuadPrecision_Type = {
         PyVarObject_HEAD_INIT(NULL, 0).tp_name = "numpy_quaddtype.QuadPrecision",
         .tp_basicsize = sizeof(QuadPrecisionObject),
@@ -243,6 +264,7 @@ PyTypeObject QuadPrecision_Type = {
         .tp_str = (reprfunc)QuadPrecision_str_dragon4,
         .tp_as_number = &quad_as_scalar,
         .tp_richcompare = (richcmpfunc)quad_richcompare,
+        .tp_getset = QuadPrecision_getset,
 };
 
 int

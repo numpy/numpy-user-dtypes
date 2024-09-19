@@ -5,7 +5,11 @@ from ._quaddtype_main import (
 )
 
 __all__ = ['QuadPrecision', 'QuadPrecDType', 'SleefQuadPrecision', 'LongDoubleQuadPrecision',
-           'SleefQuadPrecDType', 'LongDoubleQuadPrecDType', 'is_longdouble_128']
+           'SleefQuadPrecDType', 'LongDoubleQuadPrecDType', 'is_longdouble_128', 'pi', 'e']
+
+
+pi = QuadPrecision.pi
+e = QuadPrecision.e
 
 
 def SleefQuadPrecision(value):
