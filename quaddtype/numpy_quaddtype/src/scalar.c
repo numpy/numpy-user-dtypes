@@ -248,9 +248,44 @@ PyTypeObject QuadPrecision_Type = {
         .tp_richcompare = (richcmpfunc)quad_richcompare,
 };
 
+QuadPrecisionObject* initialize_constants(const Sleef_quad value, QuadBackendType backend)
+{
+    QuadPrecisionObject * obj = QuadPrecision_raw_new(backend);
+    if (backend == BACKEND_SLEEF) {
+        obj->value.sleef_value = value;
+    }
+    else {
+        obj->value.longdouble_value = Sleef_cast_to_doubleq1(value);
+    }
+
+    return obj;
+}
+
 int
 init_quadprecision_scalar(void)
 {
-    // QuadPrecision_Type.tp_base = &PyFloatingArrType_Type;
+    QuadPrecisionObject* QuadPrecision_pi = initialize_constants(SLEEF_M_PIq, BACKEND_SLEEF);
+    QuadPrecisionObject* QuadPrecision_e = initialize_constants(SLEEF_M_Eq, BACKEND_SLEEF);
+    QuadPrecisionObject* QuadPrecision_log2e = initialize_constants(SLEEF_M_LOG2Eq, BACKEND_SLEEF);
+    QuadPrecisionObject* QuadPrecision_log10e = initialize_constants(SLEEF_M_LOG10Eq, BACKEND_SLEEF);
+    QuadPrecisionObject* QuadPrecision_ln2 = initialize_constants(SLEEF_M_LN2q, BACKEND_SLEEF);
+    QuadPrecisionObject* QuadPrecision_ln10 = initialize_constants(SLEEF_M_LN10q, BACKEND_SLEEF);
+    QuadPrecisionObject* QuadPrecision_sqrt2 = initialize_constants(SLEEF_M_SQRT2q, BACKEND_SLEEF);
+    QuadPrecisionObject* QuadPrecision_sqrt3 = initialize_constants(SLEEF_M_SQRT3q, BACKEND_SLEEF);
+    QuadPrecisionObject* QuadPrecision_egamma = initialize_constants(SLEEF_M_EGAMMAq, BACKEND_SLEEF);
+    QuadPrecisionObject* QuadPrecision_phi = initialize_constants(SLEEF_M_PHIq, BACKEND_SLEEF);
+    QuadPrecisionObject* QuadPrecision_quad_max = initialize_constants(SLEEF_QUAD_MAX, BACKEND_SLEEF);
+    QuadPrecisionObject* QuadPrecision_quad_min = initialize_constants(SLEEF_QUAD_MIN, BACKEND_SLEEF);
+    QuadPrecisionObject* QuadPrecision_quad_epsilon = initialize_constants(SLEEF_QUAD_EPSILON, BACKEND_SLEEF);
+    QuadPrecisionObject* QuadPrecision_quad_denorm_min = initialize_constants(SLEEF_QUAD_DENORM_MIN, BACKEND_SLEEF);
+
+    if (!QuadPrecision_pi || !QuadPrecision_e || !QuadPrecision_log2e || !QuadPrecision_log10e || 
+        !QuadPrecision_ln2 || !QuadPrecision_ln10|| !QuadPrecision_sqrt2 || !QuadPrecision_sqrt3 || 
+        !QuadPrecision_egamma || !QuadPrecision_phi || !QuadPrecision_quad_max || !QuadPrecision_quad_min ||
+        !QuadPrecision_quad_epsilon || !QuadPrecision_quad_denorm_min) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to initialize QuadPrecision constants");
+        return -1;
+    }
+
     return PyType_Ready(&QuadPrecision_Type);
 }

@@ -658,9 +658,6 @@ quad_generic_comp_strided_loop_aligned(PyArrayMethod_Context *context, char *con
 
     QuadPrecDTypeObject *descr = (QuadPrecDTypeObject *)context->descriptors[0];
     QuadBackendType backend = descr->backend;
-    size_t elem_size = (backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
-
-    quad_value in1, in2;
     while (N--) 
     {
         quad_value in1 = *(quad_value *)in1_ptr;
