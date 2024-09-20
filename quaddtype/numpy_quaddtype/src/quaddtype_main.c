@@ -1,4 +1,7 @@
 #include <Python.h>
+#include <sleef.h>
+#include <sleefquad.h>
+#include <string.h>
 
 #define PY_ARRAY_UNIQUE_SYMBOL QuadPrecType_ARRAY_API
 #define PY_UFUNC_UNIQUE_SYMBOL QuadPrecType_UFUNC_API
@@ -26,8 +29,48 @@ static PyObject* py_is_longdouble_128(PyObject* self, PyObject* args) {
     }
 }
 
+static PyObject* get_sleef_constant(PyObject* self, PyObject* args) {
+    const char* constant_name;
+    if (!PyArg_ParseTuple(args, "s", &constant_name)) {
+        return NULL;
+    }
+
+    QuadPrecisionObject* result = QuadPrecision_raw_new(BACKEND_SLEEF);
+    if (result == NULL) {
+        return NULL;
+    }
+
+    if (strcmp(constant_name, "pi") == 0) {
+        result->value.sleef_value = SLEEF_M_PIq;
+    } else if (strcmp(constant_name, "e") == 0) {
+        result->value.sleef_value = SLEEF_M_Eq;
+    } else if (strcmp(constant_name, "log2e") == 0) {
+        result->value.sleef_value = SLEEF_M_LOG2Eq;
+    } else if (strcmp(constant_name, "log10e") == 0) {
+        result->value.sleef_value = SLEEF_M_LOG10Eq;
+    } else if (strcmp(constant_name, "ln2") == 0) {
+        result->value.sleef_value = SLEEF_M_LN2q;
+    } else if (strcmp(constant_name, "ln10") == 0) {
+        result->value.sleef_value = SLEEF_M_LN10q;
+    } else if (strcmp(constant_name, "quad_max") == 0) {
+        result->value.sleef_value = SLEEF_QUAD_MAX;
+    } else if (strcmp(constant_name, "quad_min") == 0) {
+        result->value.sleef_value = SLEEF_QUAD_MIN;
+    } else if (strcmp(constant_name, "epsilon") == 0) {
+        result->value.sleef_value = SLEEF_QUAD_EPSILON;
+    }
+    else {
+        PyErr_SetString(PyExc_ValueError, "Unknown constant name");
+        Py_DECREF(result);
+        return NULL;
+    }
+
+    return (PyObject*)result;
+}
+
 static PyMethodDef module_methods[] = {
     {"is_longdouble_128", py_is_longdouble_128, METH_NOARGS, "Check if long double is 128-bit"},
+    {"get_sleef_constant", get_sleef_constant, METH_VARARGS, "Get Sleef constant by name"},
     {NULL, NULL, 0, NULL} 
 };
 
@@ -64,21 +107,6 @@ PyInit__quaddtype_main(void)
     if (init_quad_umath() < 0) {
         goto error;
     }
-
-    if (PyModule_AddObject(m, "pi", (PyObject *)QuadPrecision_pi) < 0) goto error;
-    if (PyModule_AddObject(m, "e", (PyObject *)QuadPrecision_e) < 0) goto error;
-    if (PyModule_AddObject(m, "log2e", (PyObject *)QuadPrecision_log2e) < 0) goto error;
-    if (PyModule_AddObject(m, "log10e", (PyObject *)QuadPrecision_log10e) < 0) goto error;
-    if (PyModule_AddObject(m, "ln2", (PyObject *)QuadPrecision_ln2) < 0) goto error;
-    if (PyModule_AddObject(m, "ln10", (PyObject *)QuadPrecision_ln10) < 0) goto error;
-    if (PyModule_AddObject(m, "sqrt2", (PyObject *)QuadPrecision_sqrt2) < 0) goto error;
-    if (PyModule_AddObject(m, "sqrt3", (PyObject *)QuadPrecision_sqrt3) < 0) goto error;
-    if (PyModule_AddObject(m, "egamma", (PyObject *)QuadPrecision_egamma) < 0) goto error;
-    if (PyModule_AddObject(m, "phi", (PyObject *)QuadPrecision_phi) < 0) goto error;
-    if (PyModule_AddObject(m, "quad_max", (PyObject *)QuadPrecision_quad_max) < 0) goto error;
-    if (PyModule_AddObject(m, "quad_min", (PyObject *)QuadPrecision_quad_min) < 0) goto error;
-    if (PyModule_AddObject(m, "quad_epsilon", (PyObject *)QuadPrecision_quad_epsilon) < 0) goto error;
-    if (PyModule_AddObject(m, "quad_denorm_min", (PyObject *)QuadPrecision_quad_denorm_min) < 0) goto error;
 
     return m;
 
