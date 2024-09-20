@@ -124,7 +124,6 @@ quad_binary_func(PyObject *op1, PyObject *op2)
     return (PyObject *)res;
 }
 
-// todo: add support with float and int
 PyObject *
 quad_richcompare(QuadPrecisionObject *self, PyObject *other, int cmp_op)
 {
@@ -212,7 +211,8 @@ QuadPrecision_float(QuadPrecisionObject *self)
 {
     if (self->backend == BACKEND_SLEEF) {
         return PyFloat_FromDouble(Sleef_cast_to_doubleq1(self->value.sleef_value));
-    } else {
+    }
+    else {
         return PyFloat_FromDouble((double)self->value.longdouble_value);
     }
 }
@@ -222,11 +222,11 @@ QuadPrecision_int(QuadPrecisionObject *self)
 {
     if (self->backend == BACKEND_SLEEF) {
         return PyLong_FromLongLong(Sleef_cast_to_int64q1(self->value.sleef_value));
-    } else {
+    }
+    else {
         return PyLong_FromLongLong((long long)self->value.longdouble_value);
     }
 }
-
 
 PyNumberMethods quad_as_scalar = {
         .nb_add = (binaryfunc)quad_binary_func<quad_add, ld_add>,

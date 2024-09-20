@@ -282,7 +282,6 @@ quad_binary_op_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtyp
     // Determine target backend and if casting is needed
     NPY_CASTING casting = NPY_NO_CASTING;
     if (descr_in1->backend != descr_in2->backend) {
-        
         target_backend = BACKEND_LONGDOUBLE;
         casting = NPY_SAFE_CASTING;
     }
@@ -398,12 +397,11 @@ static int
 quad_ufunc_promoter(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
                     PyArray_DTypeMeta *signature[], PyArray_DTypeMeta *new_op_dtypes[])
 {
-    
     int nin = ufunc->nin;
     int nargs = ufunc->nargs;
     PyArray_DTypeMeta *common = NULL;
     bool has_quad = false;
-    
+
     // Handle the special case for reductions
     if (op_dtypes[0] == NULL) {
         assert(nin == 2 && ufunc->nout == 1); /* must be reduction */
@@ -417,7 +415,6 @@ quad_ufunc_promoter(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
     // Check if any input or signature is QuadPrecision
     for (int i = 0; i < nin; i++) {
         if (op_dtypes[i] == &QuadPrecDType) {
-            
             has_quad = true;
         }
     }
@@ -461,7 +458,7 @@ quad_ufunc_promoter(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
         else {
             // Otherwise, use the common dtype
             Py_INCREF(common);
-            
+
             new_op_dtypes[i] = common;
         }
     }
@@ -563,13 +560,14 @@ init_quad_binary_ops(PyObject *numpy)
 
 static NPY_CASTING
 quad_comparison_op_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtypes[],
-                                   PyArray_Descr *const given_descrs[],
-                                   PyArray_Descr *loop_descrs[], npy_intp *NPY_UNUSED(view_offset))
+                                       PyArray_Descr *const given_descrs[],
+                                       PyArray_Descr *loop_descrs[],
+                                       npy_intp *NPY_UNUSED(view_offset))
 {
     QuadPrecDTypeObject *descr_in1 = (QuadPrecDTypeObject *)given_descrs[0];
     QuadPrecDTypeObject *descr_in2 = (QuadPrecDTypeObject *)given_descrs[1];
     QuadBackendType target_backend;
-    
+
     // As dealing with different backends then cast to boolean
     NPY_CASTING casting = NPY_NO_CASTING;
     if (descr_in1->backend != descr_in2->backend) {
@@ -599,7 +597,7 @@ quad_comparison_op_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const 
     if (!loop_descrs[2]) {
         return (NPY_CASTING)-1;
     }
-        return casting;
+    return casting;
 }
 
 template <cmp_quad_def sleef_comp, cmp_londouble_def ld_comp>
@@ -626,10 +624,9 @@ quad_generic_comp_strided_loop(PyArrayMethod_Context *context, char *const data[
         npy_bool result;
 
         if (backend == BACKEND_SLEEF) {
-           result = sleef_comp(&in1.sleef_value, &in2.sleef_value);
+            result = sleef_comp(&in1.sleef_value, &in2.sleef_value);
         }
         else {
-            
             result = ld_comp(&in1.longdouble_value, &in2.longdouble_value);
         }
 
@@ -642,12 +639,11 @@ quad_generic_comp_strided_loop(PyArrayMethod_Context *context, char *const data[
     return 0;
 }
 
-
 template <cmp_quad_def sleef_comp, cmp_londouble_def ld_comp>
 int
 quad_generic_comp_strided_loop_aligned(PyArrayMethod_Context *context, char *const data[],
-                               npy_intp const dimensions[], npy_intp const strides[],
-                               NpyAuxData *auxdata)
+                                       npy_intp const dimensions[], npy_intp const strides[],
+                                       NpyAuxData *auxdata)
 {
     npy_intp N = dimensions[0];
     char *in1_ptr = data[0], *in2_ptr = data[1];
@@ -658,19 +654,16 @@ quad_generic_comp_strided_loop_aligned(PyArrayMethod_Context *context, char *con
 
     QuadPrecDTypeObject *descr = (QuadPrecDTypeObject *)context->descriptors[0];
     QuadBackendType backend = descr->backend;
-    while (N--) 
-    {
+    while (N--) {
         quad_value in1 = *(quad_value *)in1_ptr;
         quad_value in2 = *(quad_value *)in2_ptr;
 
         npy_bool result;
 
-        if (backend == BACKEND_SLEEF) 
-        {
+        if (backend == BACKEND_SLEEF) {
             result = sleef_comp(&in1.sleef_value, &in2.sleef_value);
-        } 
-        else 
-        {
+        }
+        else {
             result = ld_comp(&in1.longdouble_value, &in2.longdouble_value);
         }
 
@@ -711,7 +704,8 @@ create_quad_comparison_ufunc(PyObject *numpy, const char *ufunc_name)
 
     PyType_Slot slots[] = {
             {NPY_METH_resolve_descriptors, (void *)&quad_comparison_op_resolve_descriptors},
-            {NPY_METH_strided_loop, (void *)&quad_generic_comp_strided_loop_aligned<sleef_comp, ld_comp>},
+            {NPY_METH_strided_loop,
+             (void *)&quad_generic_comp_strided_loop_aligned<sleef_comp, ld_comp>},
             {NPY_METH_unaligned_strided_loop,
              (void *)&quad_generic_comp_strided_loop<sleef_comp, ld_comp>},
             {0, NULL}};
