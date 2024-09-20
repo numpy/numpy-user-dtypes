@@ -65,6 +65,21 @@ PyInit__quaddtype_main(void)
         goto error;
     }
 
+    if (PyModule_AddObject(m, "pi", (PyObject *)QuadPrecision_pi) < 0) goto error;
+    if (PyModule_AddObject(m, "e", (PyObject *)QuadPrecision_e) < 0) goto error;
+    if (PyModule_AddObject(m, "log2e", (PyObject *)QuadPrecision_log2e) < 0) goto error;
+    if (PyModule_AddObject(m, "log10e", (PyObject *)QuadPrecision_log10e) < 0) goto error;
+    if (PyModule_AddObject(m, "ln2", (PyObject *)QuadPrecision_ln2) < 0) goto error;
+    if (PyModule_AddObject(m, "ln10", (PyObject *)QuadPrecision_ln10) < 0) goto error;
+    if (PyModule_AddObject(m, "sqrt2", (PyObject *)QuadPrecision_sqrt2) < 0) goto error;
+    if (PyModule_AddObject(m, "sqrt3", (PyObject *)QuadPrecision_sqrt3) < 0) goto error;
+    if (PyModule_AddObject(m, "egamma", (PyObject *)QuadPrecision_egamma) < 0) goto error;
+    if (PyModule_AddObject(m, "phi", (PyObject *)QuadPrecision_phi) < 0) goto error;
+    if (PyModule_AddObject(m, "quad_max", (PyObject *)QuadPrecision_quad_max) < 0) goto error;
+    if (PyModule_AddObject(m, "quad_min", (PyObject *)QuadPrecision_quad_min) < 0) goto error;
+    if (PyModule_AddObject(m, "quad_epsilon", (PyObject *)QuadPrecision_quad_epsilon) < 0) goto error;
+    if (PyModule_AddObject(m, "quad_denorm_min", (PyObject *)QuadPrecision_quad_denorm_min) < 0) goto error;
+
     return m;
 
 error:

@@ -76,39 +76,42 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
             self->value.longdouble_value = (long double)val;
         }
     }
-    else if (Py_TYPE(value) == &QuadPrecision_Type)
-    {
-        // todo: not working for ld backend, getting garbage value not sure why?
+    else if (Py_TYPE(value) == &QuadPrecision_Type) {
+        Py_DECREF(self);  // discard the default one
         QuadPrecisionObject *quad_obj = (QuadPrecisionObject *)value;
-        // printf("%d %d\n", quad_obj->backend, backend);
-        // printf("%Lf\n", quad_obj->value.longdouble_value);
+
+        // create a new one with the same backend
+        QuadPrecisionObject *self = QuadPrecision_raw_new(quad_obj->backend);
         if (quad_obj->backend == BACKEND_SLEEF) {
             self->value.sleef_value = quad_obj->value.sleef_value;
         }
         else {
             self->value.longdouble_value = quad_obj->value.longdouble_value;
         }
+
+        return self;
     }
     else {
         PyObject *type_str = PyObject_Str((PyObject *)Py_TYPE(value));
         if (type_str != NULL) {
             const char *type_cstr = PyUnicode_AsUTF8(type_str);
             if (type_cstr != NULL) {
-                PyErr_Format(
-                        PyExc_TypeError,
-                        "QuadPrecision value must be a float, int or string, but got %s instead",
-                        type_cstr);
+                PyErr_Format(PyExc_TypeError,
+                             "QuadPrecision value must be a quad, float, int or string, but got %s "
+                             "instead",
+                             type_cstr);
             }
             else {
-                PyErr_SetString(PyExc_TypeError,
-                                "QuadPrecision value must be a float, int or string, but got an "
-                                "unknown type instead");
+                PyErr_SetString(
+                        PyExc_TypeError,
+                        "QuadPrecision value must be a quad, float, int or string, but got an "
+                        "unknown type instead");
             }
             Py_DECREF(type_str);
         }
         else {
             PyErr_SetString(PyExc_TypeError,
-                            "QuadPrecision value must be a float, int or string, but got an "
+                            "QuadPrecision value must be a quad, float, int or string, but got an "
                             "unknown type instead");
         }
         Py_DECREF(self);
@@ -267,9 +270,44 @@ PyTypeObject QuadPrecision_Type = {
         .tp_getset = QuadPrecision_getset,
 };
 
+QuadPrecisionObject* initialize_constants(const Sleef_quad value, QuadBackendType backend)
+{
+    QuadPrecisionObject * obj = QuadPrecision_raw_new(backend);
+    if (backend == BACKEND_SLEEF) {
+        obj->value.sleef_value = value;
+    }
+    else {
+        obj->value.longdouble_value = Sleef_cast_to_doubleq1(value);
+    }
+
+    return obj;
+}
+
 int
 init_quadprecision_scalar(void)
 {
-    // QuadPrecision_Type.tp_base = &PyFloatingArrType_Type;
+    QuadPrecisionObject* QuadPrecision_pi = initialize_constants(SLEEF_M_PIq, BACKEND_SLEEF);
+    QuadPrecisionObject* QuadPrecision_e = initialize_constants(SLEEF_M_Eq, BACKEND_SLEEF);
+    QuadPrecisionObject* QuadPrecision_log2e = initialize_constants(SLEEF_M_LOG2Eq, BACKEND_SLEEF);
+    QuadPrecisionObject* QuadPrecision_log10e = initialize_constants(SLEEF_M_LOG10Eq, BACKEND_SLEEF);
+    QuadPrecisionObject* QuadPrecision_ln2 = initialize_constants(SLEEF_M_LN2q, BACKEND_SLEEF);
+    QuadPrecisionObject* QuadPrecision_ln10 = initialize_constants(SLEEF_M_LN10q, BACKEND_SLEEF);
+    QuadPrecisionObject* QuadPrecision_sqrt2 = initialize_constants(SLEEF_M_SQRT2q, BACKEND_SLEEF);
+    QuadPrecisionObject* QuadPrecision_sqrt3 = initialize_constants(SLEEF_M_SQRT3q, BACKEND_SLEEF);
+    QuadPrecisionObject* QuadPrecision_egamma = initialize_constants(SLEEF_M_EGAMMAq, BACKEND_SLEEF);
+    QuadPrecisionObject* QuadPrecision_phi = initialize_constants(SLEEF_M_PHIq, BACKEND_SLEEF);
+    QuadPrecisionObject* QuadPrecision_quad_max = initialize_constants(SLEEF_QUAD_MAX, BACKEND_SLEEF);
+    QuadPrecisionObject* QuadPrecision_quad_min = initialize_constants(SLEEF_QUAD_MIN, BACKEND_SLEEF);
+    QuadPrecisionObject* QuadPrecision_quad_epsilon = initialize_constants(SLEEF_QUAD_EPSILON, BACKEND_SLEEF);
+    QuadPrecisionObject* QuadPrecision_quad_denorm_min = initialize_constants(SLEEF_QUAD_DENORM_MIN, BACKEND_SLEEF);
+
+    if (!QuadPrecision_pi || !QuadPrecision_e || !QuadPrecision_log2e || !QuadPrecision_log10e || 
+        !QuadPrecision_ln2 || !QuadPrecision_ln10|| !QuadPrecision_sqrt2 || !QuadPrecision_sqrt3 || 
+        !QuadPrecision_egamma || !QuadPrecision_phi || !QuadPrecision_quad_max || !QuadPrecision_quad_min ||
+        !QuadPrecision_quad_epsilon || !QuadPrecision_quad_denorm_min) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to initialize QuadPrecision constants");
+        return -1;
+    }
+
     return PyType_Ready(&QuadPrecision_Type);
 }
