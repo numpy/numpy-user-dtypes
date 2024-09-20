@@ -49,9 +49,9 @@ quad_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self),
 }
 
 static int
-quad_to_quad_strided_loop(PyArrayMethod_Context *context, char *const data[],
-                          npy_intp const dimensions[], npy_intp const strides[],
-                          void *NPY_UNUSED(auxdata))
+quad_to_quad_strided_loop_unaligned(PyArrayMethod_Context *context, char *const data[],
+                                    npy_intp const dimensions[], npy_intp const strides[],
+                                    void *NPY_UNUSED(auxdata))
 {
     npy_intp N = dimensions[0];
     char *in_ptr = data[0];
@@ -76,6 +76,44 @@ quad_to_quad_strided_loop(PyArrayMethod_Context *context, char *const data[],
         in_ptr += in_stride;
         out_ptr += out_stride;
     }
+    return 0;
+}
+
+static int
+quad_to_quad_strided_loop_aligned(PyArrayMethod_Context *context, char *const data[],
+                                  npy_intp const dimensions[], npy_intp const strides[],
+                                  void *NPY_UNUSED(auxdata))
+{
+    npy_intp N = dimensions[0];
+    char *in_ptr = data[0];
+    char *out_ptr = data[1];
+    npy_intp in_stride = strides[0];
+    npy_intp out_stride = strides[1];
+
+    QuadPrecDTypeObject *descr_in = (QuadPrecDTypeObject *)context->descriptors[0];
+    QuadPrecDTypeObject *descr_out = (QuadPrecDTypeObject *)context->descriptors[1];
+
+    if (descr_in->backend != descr_out->backend) {
+        PyErr_SetString(PyExc_TypeError,
+                        "Cannot convert between different quad-precision backends");
+        return -1;
+    }
+
+    if (descr_in->backend == BACKEND_SLEEF) {
+        while (N--) {
+            *(Sleef_quad *)out_ptr = *(Sleef_quad *)in_ptr;
+            in_ptr += in_stride;
+            out_ptr += out_stride;
+        }
+    }
+    else {
+        while (N--) {
+            *(long double *)out_ptr = *(long double *)in_ptr;
+            in_ptr += in_stride;
+            out_ptr += out_stride;
+        }
+    }
+
     return 0;
 }
 
@@ -290,9 +328,9 @@ numpy_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta 
 
 template <typename T>
 static int
-numpy_to_quad_strided_loop(PyArrayMethod_Context *context, char *const data[],
-                           npy_intp const dimensions[], npy_intp const strides[],
-                           void *NPY_UNUSED(auxdata))
+numpy_to_quad_strided_loop_unaligned(PyArrayMethod_Context *context, char *const data[],
+                                     npy_intp const dimensions[], npy_intp const strides[],
+                                     void *NPY_UNUSED(auxdata))
 {
     npy_intp N = dimensions[0];
     char *in_ptr = data[0];
@@ -309,6 +347,36 @@ numpy_to_quad_strided_loop(PyArrayMethod_Context *context, char *const data[],
         memcpy(&in_val, in_ptr, sizeof(T));
         out_val = to_quad<T>(in_val, backend);
         memcpy(out_ptr, &out_val, elem_size);
+
+        in_ptr += strides[0];
+        out_ptr += strides[1];
+    }
+    return 0;
+}
+
+template <typename T>
+static int
+numpy_to_quad_strided_loop_aligned(PyArrayMethod_Context *context, char *const data[],
+                                   npy_intp const dimensions[], npy_intp const strides[],
+                                   void *NPY_UNUSED(auxdata))
+{
+    npy_intp N = dimensions[0];
+    char *in_ptr = data[0];
+    char *out_ptr = data[1];
+
+    QuadPrecDTypeObject *descr_out = (QuadPrecDTypeObject *)context->descriptors[1];
+    QuadBackendType backend = descr_out->backend;
+
+    while (N--) {
+        T in_val = *(T *)in_ptr;
+        quad_value out_val = to_quad<T>(in_val, backend);
+
+        if (backend == BACKEND_SLEEF) {
+            *(Sleef_quad *)(out_ptr) = out_val.sleef_value;
+        }
+        else {
+            *(long double *)(out_ptr) = out_val.longdouble_value;
+        }
 
         in_ptr += strides[0];
         out_ptr += strides[1];
@@ -493,9 +561,9 @@ quad_to_numpy_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta 
 
 template <typename T>
 static int
-quad_to_numpy_strided_loop(PyArrayMethod_Context *context, char *const data[],
-                           npy_intp const dimensions[], npy_intp const strides[],
-                           void *NPY_UNUSED(auxdata))
+quad_to_numpy_strided_loop_unaligned(PyArrayMethod_Context *context, char *const data[],
+                                     npy_intp const dimensions[], npy_intp const strides[],
+                                     void *NPY_UNUSED(auxdata))
 {
     npy_intp N = dimensions[0];
     char *in_ptr = data[0];
@@ -512,6 +580,37 @@ quad_to_numpy_strided_loop(PyArrayMethod_Context *context, char *const data[],
 
         T out_val = from_quad<T>(in_val, backend);
         memcpy(out_ptr, &out_val, sizeof(T));
+
+        in_ptr += strides[0];
+        out_ptr += strides[1];
+    }
+    return 0;
+}
+
+template <typename T>
+static int
+quad_to_numpy_strided_loop_aligned(PyArrayMethod_Context *context, char *const data[],
+                                   npy_intp const dimensions[], npy_intp const strides[],
+                                   void *NPY_UNUSED(auxdata))
+{
+    npy_intp N = dimensions[0];
+    char *in_ptr = data[0];
+    char *out_ptr = data[1];
+
+    QuadPrecDTypeObject *quad_descr = (QuadPrecDTypeObject *)context->descriptors[0];
+    QuadBackendType backend = quad_descr->backend;
+
+    while (N--) {
+        quad_value in_val;
+        if (backend == BACKEND_SLEEF) {
+            in_val.sleef_value = *(Sleef_quad *)in_ptr;
+        }
+        else {
+            in_val.longdouble_value = *(long double *)in_ptr;
+        }
+
+        T out_val = from_quad<T>(in_val, backend);
+        *(T *)(out_ptr) = out_val;
 
         in_ptr += strides[0];
         out_ptr += strides[1];
@@ -537,9 +636,10 @@ add_cast_from(PyArray_DTypeMeta *to)
 {
     PyArray_DTypeMeta **dtypes = new PyArray_DTypeMeta *[2]{&QuadPrecDType, to};
 
-    PyType_Slot *slots = new PyType_Slot[3]{
+    PyType_Slot *slots = new PyType_Slot[]{
             {NPY_METH_resolve_descriptors, (void *)&quad_to_numpy_resolve_descriptors<T>},
-            {NPY_METH_strided_loop, (void *)&quad_to_numpy_strided_loop<T>},
+            {NPY_METH_strided_loop, (void *)&quad_to_numpy_strided_loop_aligned<T>},
+            {NPY_METH_unaligned_strided_loop, (void *)&quad_to_numpy_strided_loop_unaligned<T>},
             {0, nullptr}};
 
     PyArrayMethod_Spec *spec = new PyArrayMethod_Spec{
@@ -547,7 +647,7 @@ add_cast_from(PyArray_DTypeMeta *to)
             .nin = 1,
             .nout = 1,
             .casting = NPY_UNSAFE_CASTING,
-            .flags = (NPY_ARRAYMETHOD_FLAGS)0,
+            .flags = NPY_METH_SUPPORTS_UNALIGNED,
             .dtypes = dtypes,
             .slots = slots,
     };
@@ -560,9 +660,10 @@ add_cast_to(PyArray_DTypeMeta *from)
 {
     PyArray_DTypeMeta **dtypes = new PyArray_DTypeMeta *[2]{from, &QuadPrecDType};
 
-    PyType_Slot *slots = new PyType_Slot[3]{
+    PyType_Slot *slots = new PyType_Slot[]{
             {NPY_METH_resolve_descriptors, (void *)&numpy_to_quad_resolve_descriptors<T>},
-            {NPY_METH_strided_loop, (void *)&numpy_to_quad_strided_loop<T>},
+            {NPY_METH_strided_loop, (void *)&numpy_to_quad_strided_loop_aligned<T>},
+            {NPY_METH_unaligned_strided_loop, (void *)&numpy_to_quad_strided_loop_unaligned<T>},
             {0, nullptr}};
 
     PyArrayMethod_Spec *spec = new PyArrayMethod_Spec{
@@ -570,7 +671,7 @@ add_cast_to(PyArray_DTypeMeta *from)
             .nin = 1,
             .nout = 1,
             .casting = NPY_SAFE_CASTING,
-            .flags = (NPY_ARRAYMETHOD_FLAGS)0,
+            .flags = NPY_METH_SUPPORTS_UNALIGNED,
             .dtypes = dtypes,
             .slots = slots,
     };
@@ -583,10 +684,10 @@ init_casts_internal(void)
 {
     PyArray_DTypeMeta **quad2quad_dtypes =
             new PyArray_DTypeMeta *[2]{&QuadPrecDType, &QuadPrecDType};
-    PyType_Slot *quad2quad_slots = new PyType_Slot[4]{
+    PyType_Slot *quad2quad_slots = new PyType_Slot[]{
             {NPY_METH_resolve_descriptors, (void *)&quad_to_quad_resolve_descriptors},
-            {NPY_METH_strided_loop, (void *)&quad_to_quad_strided_loop},
-            {NPY_METH_unaligned_strided_loop, (void *)&quad_to_quad_strided_loop},
+            {NPY_METH_strided_loop, (void *)&quad_to_quad_strided_loop_aligned},
+            {NPY_METH_unaligned_strided_loop, (void *)&quad_to_quad_strided_loop_unaligned},
             {0, nullptr}};
 
     PyArrayMethod_Spec *quad2quad_spec = new PyArrayMethod_Spec{

@@ -79,7 +79,6 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
     else if (Py_TYPE(value) == &QuadPrecision_Type) {
         Py_DECREF(self);  // discard the default one
         QuadPrecisionObject *quad_obj = (QuadPrecisionObject *)value;
-
         // create a new one with the same backend
         QuadPrecisionObject *self = QuadPrecision_raw_new(quad_obj->backend);
         if (quad_obj->backend == BACKEND_SLEEF) {
