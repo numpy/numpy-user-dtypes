@@ -76,39 +76,42 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
             self->value.longdouble_value = (long double)val;
         }
     }
-    else if (Py_TYPE(value) == &QuadPrecision_Type)
-    {
-        // todo: not working for ld backend, getting garbage value not sure why?
+    else if (Py_TYPE(value) == &QuadPrecision_Type) {
+        Py_DECREF(self);  // discard the default one
         QuadPrecisionObject *quad_obj = (QuadPrecisionObject *)value;
-        // printf("%d %d\n", quad_obj->backend, backend);
-        // printf("%Lf\n", quad_obj->value.longdouble_value);
+
+        // create a new one with the same backend
+        QuadPrecisionObject *self = QuadPrecision_raw_new(quad_obj->backend);
         if (quad_obj->backend == BACKEND_SLEEF) {
             self->value.sleef_value = quad_obj->value.sleef_value;
         }
         else {
             self->value.longdouble_value = quad_obj->value.longdouble_value;
         }
+
+        return self;
     }
     else {
         PyObject *type_str = PyObject_Str((PyObject *)Py_TYPE(value));
         if (type_str != NULL) {
             const char *type_cstr = PyUnicode_AsUTF8(type_str);
             if (type_cstr != NULL) {
-                PyErr_Format(
-                        PyExc_TypeError,
-                        "QuadPrecision value must be a float, int or string, but got %s instead",
-                        type_cstr);
+                PyErr_Format(PyExc_TypeError,
+                             "QuadPrecision value must be a quad, float, int or string, but got %s "
+                             "instead",
+                             type_cstr);
             }
             else {
-                PyErr_SetString(PyExc_TypeError,
-                                "QuadPrecision value must be a float, int or string, but got an "
-                                "unknown type instead");
+                PyErr_SetString(
+                        PyExc_TypeError,
+                        "QuadPrecision value must be a quad, float, int or string, but got an "
+                        "unknown type instead");
             }
             Py_DECREF(type_str);
         }
         else {
             PyErr_SetString(PyExc_TypeError,
-                            "QuadPrecision value must be a float, int or string, but got an "
+                            "QuadPrecision value must be a quad, float, int or string, but got an "
                             "unknown type instead");
         }
         Py_DECREF(self);

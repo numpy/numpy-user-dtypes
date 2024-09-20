@@ -79,10 +79,15 @@ ensure_canonical(QuadPrecDTypeObject *self)
 static QuadPrecDTypeObject *
 common_instance(QuadPrecDTypeObject *dtype1, QuadPrecDTypeObject *dtype2)
 {
+    // if backend mismatch then return SLEEF one (safe to cast ld to quad)
     if (dtype1->backend != dtype2->backend) {
-        PyErr_SetString(PyExc_TypeError,
-                        "Cannot find common instance for QuadPrecDTypes with different backends");
-        return NULL;
+        if (dtype1->backend == BACKEND_SLEEF) {
+            Py_INCREF(dtype1);
+            return dtype1;
+        }
+
+        Py_INCREF(dtype2);
+        return dtype2;
     }
     Py_INCREF(dtype1);
     return dtype1;

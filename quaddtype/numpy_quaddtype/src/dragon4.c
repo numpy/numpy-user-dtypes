@@ -1,3 +1,8 @@
+/*
+This code was extracted from NumPy and the original author was Allan Haldane(@ahaldane)
+Modifications are specific to support the SLEEF_QUAD
+*/
+
 #include <numpy/npy_common.h>
 #include <math.h>
 #include <stdio.h>
