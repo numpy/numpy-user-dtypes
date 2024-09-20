@@ -31,9 +31,6 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend);
 int
 init_quadprecision_scalar(void);
 
-PyObject* QuadPrecision_get_pi(PyObject* self, void* closure);
-PyObject* QuadPrecision_get_e(PyObject* self, void* closure);
-
 #define PyArray_IsScalar(obj, QuadPrecDType) PyObject_TypeCheck(obj, &QuadPrecision_Type)
 #define PyArrayScalar_VAL(obj, QuadPrecDType) (((QuadPrecisionObject *)obj)->value)
 
