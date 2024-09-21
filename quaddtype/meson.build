@@ -24,7 +24,7 @@ includes = include_directories(
 )
 
 srcs = [
-    'numpy_quaddtype/src/quad_common.h'
+    'numpy_quaddtype/src/quad_common.h',
     'numpy_quaddtype/src/casts.h',
     'numpy_quaddtype/src/casts.cpp',
     'numpy_quaddtype/src/scalar.h',
