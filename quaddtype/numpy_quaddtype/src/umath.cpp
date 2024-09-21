@@ -122,10 +122,10 @@ quad_generic_unary_op_strided_loop_unaligned(PyArrayMethod_Context *context, cha
     while (N--) {
         memcpy(&in, in_ptr, elem_size);
         if (backend == BACKEND_SLEEF) {
-            sleef_op(&in.sleef_value, &out.sleef_value);
+            out.sleef_value = sleef_op(&in.sleef_value);
         }
         else {
-            longdouble_op(&in.longdouble_value, &out.longdouble_value);
+            out.longdouble_value = longdouble_op(&in.longdouble_value);
         }
         memcpy(out_ptr, &out, elem_size);
 
@@ -152,10 +152,10 @@ quad_generic_unary_op_strided_loop_aligned(PyArrayMethod_Context *context, char 
 
     while (N--) {
         if (backend == BACKEND_SLEEF) {
-            sleef_op((Sleef_quad *)in_ptr, (Sleef_quad *)out_ptr);
+            *(Sleef_quad *)out_ptr = sleef_op((Sleef_quad *)in_ptr);
         }
         else {
-            longdouble_op((long double *)in_ptr, (long double *)out_ptr);
+            *(long double *)out_ptr = longdouble_op((long double *)in_ptr);
         }
         in_ptr += in_stride;
         out_ptr += out_stride;
@@ -348,10 +348,10 @@ quad_generic_binop_strided_loop_unaligned(PyArrayMethod_Context *context, char *
         memcpy(&in1, in1_ptr, elem_size);
         memcpy(&in2, in2_ptr, elem_size);
         if (backend == BACKEND_SLEEF) {
-            sleef_op(&out.sleef_value, &in1.sleef_value, &in2.sleef_value);
+            out.sleef_value = sleef_op(&in1.sleef_value, &in2.sleef_value);
         }
         else {
-            longdouble_op(&out.longdouble_value, &in1.longdouble_value, &in2.longdouble_value);
+            out.longdouble_value = longdouble_op(&in1.longdouble_value, &in2.longdouble_value);
         }
         memcpy(out_ptr, &out, elem_size);
 
@@ -380,10 +380,10 @@ quad_generic_binop_strided_loop_aligned(PyArrayMethod_Context *context, char *co
 
     while (N--) {
         if (backend == BACKEND_SLEEF) {
-            sleef_op((Sleef_quad *)out_ptr, (Sleef_quad *)in1_ptr, (Sleef_quad *)in2_ptr);
+            *(Sleef_quad *)out_ptr = sleef_op((Sleef_quad *)in1_ptr, (Sleef_quad *)in2_ptr);
         }
         else {
-            longdouble_op((long double *)out_ptr, (long double *)in1_ptr, (long double *)in2_ptr);
+            *(long double *)out_ptr = longdouble_op((long double *)in1_ptr, (long double *)in2_ptr);
         }
 
         in1_ptr += in1_stride;

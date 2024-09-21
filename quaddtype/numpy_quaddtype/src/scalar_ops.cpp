@@ -28,10 +28,10 @@ quad_unary_func(QuadPrecisionObject *self)
     }
 
     if (self->backend == BACKEND_SLEEF) {
-        sleef_op(&self->value.sleef_value, &res->value.sleef_value);
+        res->value.sleef_value = sleef_op(&self->value.sleef_value);
     }
     else {
-        longdouble_op(&self->value.longdouble_value, &res->value.longdouble_value);
+        res->value.longdouble_value = longdouble_op(&self->value.longdouble_value);
     }
     return (PyObject *)res;
 }
@@ -100,22 +100,22 @@ quad_binary_func(PyObject *op1, PyObject *op2)
 
     if (backend == BACKEND_SLEEF) {
         if (is_forward) {
-            sleef_op(&res->value.sleef_value, &self->value.sleef_value,
-                     &other_quad->value.sleef_value);
+            res->value.sleef_value =
+                    sleef_op(&self->value.sleef_value, &other_quad->value.sleef_value);
         }
         else {
-            sleef_op(&res->value.sleef_value, &other_quad->value.sleef_value,
-                     &self->value.sleef_value);
+            res->value.sleef_value =
+                    sleef_op(&other_quad->value.sleef_value, &self->value.sleef_value);
         }
     }
     else {
         if (is_forward) {
-            longdouble_op(&res->value.longdouble_value, &self->value.longdouble_value,
-                          &other_quad->value.longdouble_value);
+            res->value.longdouble_value = longdouble_op(&self->value.longdouble_value,
+                                                        &other_quad->value.longdouble_value);
         }
         else {
-            longdouble_op(&res->value.longdouble_value, &other_quad->value.longdouble_value,
-                          &self->value.longdouble_value);
+            res->value.longdouble_value = longdouble_op(&other_quad->value.longdouble_value,
+                                                        &self->value.longdouble_value);
         }
     }
 

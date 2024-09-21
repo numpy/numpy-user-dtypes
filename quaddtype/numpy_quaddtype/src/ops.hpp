@@ -3,435 +3,375 @@
 #include <cmath>
 
 // Unary Quad Operations
-typedef int (*unary_op_quad_def)(Sleef_quad *, Sleef_quad *);
+typedef Sleef_quad (*unary_op_quad_def)(Sleef_quad *);
 
-static int
-quad_negative(Sleef_quad *op, Sleef_quad *out)
+static Sleef_quad
+quad_negative(Sleef_quad *op)
 {
-    *out = Sleef_negq1(*op);
-    return 0;
+    return Sleef_negq1(*op);
 }
 
-static int
-quad_positive(Sleef_quad *op, Sleef_quad *out)
+static Sleef_quad
+quad_positive(Sleef_quad *op)
 {
-    *out = *op;
-    return 0;
+    return *op;
 }
 
-static inline int
-quad_absolute(Sleef_quad *op, Sleef_quad *out)
+static inline Sleef_quad
+quad_absolute(Sleef_quad *op)
 {
-    *out = Sleef_fabsq1(*op);
-    return 0;
+    return Sleef_fabsq1(*op);
 }
 
-static inline int
-quad_rint(Sleef_quad *op, Sleef_quad *out)
+static inline Sleef_quad
+quad_rint(Sleef_quad *op)
 {
-    *out = Sleef_rintq1(*op);
-    return 0;
+    return Sleef_rintq1(*op);
 }
 
-static inline int
-quad_trunc(Sleef_quad *op, Sleef_quad *out)
+static inline Sleef_quad
+quad_trunc(Sleef_quad *op)
 {
-    *out = Sleef_truncq1(*op);
-    return 0;
+    return Sleef_truncq1(*op);
 }
 
-static inline int
-quad_floor(Sleef_quad *op, Sleef_quad *out)
+static inline Sleef_quad
+quad_floor(Sleef_quad *op)
 {
-    *out = Sleef_floorq1(*op);
-    return 0;
+    return Sleef_floorq1(*op);
 }
 
-static inline int
-quad_ceil(Sleef_quad *op, Sleef_quad *out)
+static inline Sleef_quad
+quad_ceil(Sleef_quad *op)
 {
-    *out = Sleef_ceilq1(*op);
-    return 0;
+    return Sleef_ceilq1(*op);
 }
 
-static inline int
-quad_sqrt(Sleef_quad *op, Sleef_quad *out)
+static inline Sleef_quad
+quad_sqrt(Sleef_quad *op)
 {
-    *out = Sleef_sqrtq1_u05(*op);
-    return 0;
+    return Sleef_sqrtq1_u05(*op);
 }
 
-static inline int
-quad_square(Sleef_quad *op, Sleef_quad *out)
+static inline Sleef_quad
+quad_square(Sleef_quad *op)
 {
-    *out = Sleef_mulq1_u05(*op, *op);
-    return 0;
+    return Sleef_mulq1_u05(*op, *op);
 }
 
-static inline int
-quad_log(Sleef_quad *op, Sleef_quad *out)
+static inline Sleef_quad
+quad_log(Sleef_quad *op)
 {
-    *out = Sleef_logq1_u10(*op);
-    return 0;
+    return Sleef_logq1_u10(*op);
 }
 
-static inline int
-quad_log2(Sleef_quad *op, Sleef_quad *out)
+static inline Sleef_quad
+quad_log2(Sleef_quad *op)
 {
-    *out = Sleef_log2q1_u10(*op);
-    return 0;
+    return Sleef_log2q1_u10(*op);
 }
 
-static inline int
-quad_log10(Sleef_quad *op, Sleef_quad *out)
+static inline Sleef_quad
+quad_log10(Sleef_quad *op)
 {
-    *out = Sleef_log10q1_u10(*op);
-    return 0;
+    return Sleef_log10q1_u10(*op);
 }
 
-static inline int
-quad_log1p(Sleef_quad *op, Sleef_quad *out)
+static inline Sleef_quad
+quad_log1p(Sleef_quad *op)
 {
-    *out = Sleef_log1pq1_u10(*op);
-    return 0;
+    return Sleef_log1pq1_u10(*op);
 }
 
-static inline int
-quad_exp(Sleef_quad *op, Sleef_quad *out)
+static inline Sleef_quad
+quad_exp(Sleef_quad *op)
 {
-    *out = Sleef_expq1_u10(*op);
-    return 0;
+    return Sleef_expq1_u10(*op);
 }
 
-static inline int
-quad_exp2(Sleef_quad *op, Sleef_quad *out)
+static inline Sleef_quad
+quad_exp2(Sleef_quad *op)
 {
-    *out = Sleef_exp2q1_u10(*op);
-    return 0;
+    return Sleef_exp2q1_u10(*op);
 }
 
-static inline int
-quad_sin(Sleef_quad *op, Sleef_quad *out)
+static inline Sleef_quad
+quad_sin(Sleef_quad *op)
 {
-    *out = Sleef_sinq1_u10(*op);
-    return 0;
+    return Sleef_sinq1_u10(*op);
 }
 
-static inline int
-quad_cos(Sleef_quad *op, Sleef_quad *out)
+static inline Sleef_quad
+quad_cos(Sleef_quad *op)
 {
-    *out = Sleef_cosq1_u10(*op);
-    return 0;
+    return Sleef_cosq1_u10(*op);
 }
 
-static inline int
-quad_tan(Sleef_quad *op, Sleef_quad *out)
+static inline Sleef_quad
+quad_tan(Sleef_quad *op)
 {
-    *out = Sleef_tanq1_u10(*op);
-    return 0;
+    return Sleef_tanq1_u10(*op);
 }
 
-static inline int
-quad_asin(Sleef_quad *op, Sleef_quad *out)
+static inline Sleef_quad
+quad_asin(Sleef_quad *op)
 {
-    *out = Sleef_asinq1_u10(*op);
-    return 0;
+    return Sleef_asinq1_u10(*op);
 }
 
-static inline int
-quad_acos(Sleef_quad *op, Sleef_quad *out)
+static inline Sleef_quad
+quad_acos(Sleef_quad *op)
 {
-    *out = Sleef_acosq1_u10(*op);
-    return 0;
+    return Sleef_acosq1_u10(*op);
 }
 
-static inline int
-quad_atan(Sleef_quad *op, Sleef_quad *out)
+static inline Sleef_quad
+quad_atan(Sleef_quad *op)
 {
-    *out = Sleef_atanq1_u10(*op);
-    return 0;
+    return Sleef_atanq1_u10(*op);
 }
 
 // Unary long double operations
-typedef int (*unary_op_longdouble_def)(long double *, long double *);
+typedef long double (*unary_op_longdouble_def)(long double *);
 
-static int
-ld_negative(long double *op, long double *out)
+static inline long double
+ld_negative(long double *op)
 {
-    *out = -(*op);
-    return 0;
+    return -(*op);
 }
 
-static int
-ld_positive(long double *op, long double *out)
+static inline long double
+ld_positive(long double *op)
 {
-    *out = *op;
-    return 0;
+    return *op;
 }
 
-static inline int
-ld_absolute(long double *op, long double *out)
+static inline long double
+ld_absolute(long double *op)
 {
-    *out = fabsl(*op);
-    return 0;
+    return fabsl(*op);
 }
 
-static inline int
-ld_rint(long double *op, long double *out)
+static inline long double
+ld_rint(long double *op)
 {
-    *out = rintl(*op);
-    return 0;
+    return rintl(*op);
 }
 
-static inline int
-ld_trunc(long double *op, long double *out)
+static inline long double
+ld_trunc(long double *op)
 {
-    *out = truncl(*op);
-    return 0;
+    return truncl(*op);
 }
 
-static inline int
-ld_floor(long double *op, long double *out)
+static inline long double
+ld_floor(long double *op)
 {
-    *out = floorl(*op);
-    return 0;
+    return floorl(*op);
 }
 
-static inline int
-ld_ceil(long double *op, long double *out)
+static inline long double
+ld_ceil(long double *op)
 {
-    *out = ceill(*op);
-    return 0;
+    return ceill(*op);
 }
 
-static inline int
-ld_sqrt(long double *op, long double *out)
+static inline long double
+ld_sqrt(long double *op)
 {
-    *out = sqrtl(*op);
-    return 0;
+    return sqrtl(*op);
 }
 
-static inline int
-ld_square(long double *op, long double *out)
+static inline long double
+ld_square(long double *op)
 {
-    *out = (*op) * (*op);
-    return 0;
+    return (*op) * (*op);
 }
 
-static inline int
-ld_log(long double *op, long double *out)
+static inline long double
+ld_log(long double *op)
 {
-    *out = logl(*op);
-    return 0;
+    return logl(*op);
 }
 
-static inline int
-ld_log2(long double *op, long double *out)
+static inline long double
+ld_log2(long double *op)
 {
-    *out = log2l(*op);
-    return 0;
+    return log2l(*op);
 }
 
-static inline int
-ld_log10(long double *op, long double *out)
+static inline long double
+ld_log10(long double *op)
 {
-    *out = log10l(*op);
-    return 0;
+    return log10l(*op);
 }
 
-static inline int
-ld_log1p(long double *op, long double *out)
+static inline long double
+ld_log1p(long double *op)
 {
-    *out = log1pl(*op);
-    return 0;
+    return log1pl(*op);
 }
 
-static inline int
-ld_exp(long double *op, long double *out)
+static inline long double
+ld_exp(long double *op)
 {
-    *out = expl(*op);
-    return 0;
+    return expl(*op);
 }
 
-static inline int
-ld_exp2(long double *op, long double *out)
+static inline long double
+ld_exp2(long double *op)
 {
-    *out = exp2l(*op);
-    return 0;
+    return exp2l(*op);
 }
 
-static inline int
-ld_sin(long double *op, long double *out)
+static inline long double
+ld_sin(long double *op)
 {
-    *out = sinl(*op);
-    return 0;
+    return sinl(*op);
 }
 
-static inline int
-ld_cos(long double *op, long double *out)
+static inline long double
+ld_cos(long double *op)
 {
-    *out = cosl(*op);
-    return 0;
+    return cosl(*op);
 }
 
-static inline int
-ld_tan(long double *op, long double *out)
+static inline long double
+ld_tan(long double *op)
 {
-    *out = tanl(*op);
-    return 0;
+    return tanl(*op);
 }
 
-static inline int
-ld_asin(long double *op, long double *out)
+static inline long double
+ld_asin(long double *op)
 {
-    *out = asinl(*op);
-    return 0;
+    return asinl(*op);
 }
 
-static inline int
-ld_acos(long double *op, long double *out)
+static inline long double
+ld_acos(long double *op)
 {
-    *out = acosl(*op);
-    return 0;
+    return acosl(*op);
 }
 
-static inline int
-ld_atan(long double *op, long double *out)
+static inline long double
+ld_atan(long double *op)
 {
-    *out = atanl(*op);
-    return 0;
+    return atanl(*op);
 }
 
 // Binary Quad operations
-typedef int (*binary_op_quad_def)(Sleef_quad *, Sleef_quad *, Sleef_quad *);
+typedef Sleef_quad (*binary_op_quad_def)(Sleef_quad *, Sleef_quad *);
 
-static inline int
-quad_add(Sleef_quad *out, Sleef_quad *in1, Sleef_quad *in2)
+static inline Sleef_quad
+quad_add(Sleef_quad *in1, Sleef_quad *in2)
 {
-    *out = Sleef_addq1_u05(*in1, *in2);
-    return 0;
+    return Sleef_addq1_u05(*in1, *in2);
 }
 
-static inline int
-quad_sub(Sleef_quad *out, Sleef_quad *in1, Sleef_quad *in2)
+static inline Sleef_quad
+quad_sub(Sleef_quad *in1, Sleef_quad *in2)
 {
-    *out = Sleef_subq1_u05(*in1, *in2);
-    return 0;
+    return Sleef_subq1_u05(*in1, *in2);
 }
 
-static inline int
-quad_mul(Sleef_quad *res, Sleef_quad *a, Sleef_quad *b)
+static inline Sleef_quad
+quad_mul(Sleef_quad *a, Sleef_quad *b)
 {
-    *res = Sleef_mulq1_u05(*a, *b);
-    return 0;
+    return Sleef_mulq1_u05(*a, *b);
 }
 
-static inline int
-quad_div(Sleef_quad *res, Sleef_quad *a, Sleef_quad *b)
+static inline Sleef_quad
+quad_div(Sleef_quad *a, Sleef_quad *b)
 {
-    *res = Sleef_divq1_u05(*a, *b);
-    return 0;
+    return Sleef_divq1_u05(*a, *b);
 }
 
-static inline int
-quad_pow(Sleef_quad *res, Sleef_quad *a, Sleef_quad *b)
+static inline Sleef_quad
+quad_pow(Sleef_quad *a, Sleef_quad *b)
 {
-    *res = Sleef_powq1_u10(*a, *b);
-    return 0;
+    return Sleef_powq1_u10(*a, *b);
 }
 
-static inline int
-quad_mod(Sleef_quad *res, Sleef_quad *a, Sleef_quad *b)
+static inline Sleef_quad
+quad_mod(Sleef_quad *a, Sleef_quad *b)
 {
-    *res = Sleef_fmodq1(*a, *b);
-    return 0;
+    return Sleef_fmodq1(*a, *b);
 }
 
-static inline int
-quad_minimum(Sleef_quad *out, Sleef_quad *in1, Sleef_quad *in2)
+static inline Sleef_quad
+quad_minimum(Sleef_quad *in1, Sleef_quad *in2)
 {
-    *out = Sleef_icmpleq1(*in1, *in2) ? *in1 : *in2;
-    return 0;
+    return Sleef_icmpleq1(*in1, *in2) ? *in1 : *in2;
 }
 
-static inline int
-quad_maximum(Sleef_quad *out, Sleef_quad *in1, Sleef_quad *in2)
+static inline Sleef_quad
+quad_maximum(Sleef_quad *in1, Sleef_quad *in2)
 {
-    *out = Sleef_icmpgeq1(*in1, *in2) ? *in1 : *in2;
-    return 0;
+    return Sleef_icmpgeq1(*in1, *in2) ? *in1 : *in2;
 }
 
-static inline int
-quad_atan2(Sleef_quad *out, Sleef_quad *in1, Sleef_quad *in2)
+static inline Sleef_quad
+quad_atan2(Sleef_quad *in1, Sleef_quad *in2)
 {
-    *out = Sleef_atan2q1_u10(*in1, *in2);
-    return 0;
+    return Sleef_atan2q1_u10(*in1, *in2);
 }
 
 // Binary long double operations
-typedef int (*binary_op_longdouble_def)(long double *, long double *, long double *);
+typedef long double (*binary_op_longdouble_def)(long double *, long double *);
 
-static inline int
-ld_add(long double *out, long double *in1, long double *in2)
+static inline long double
+ld_add(long double *in1, long double *in2)
 {
-    *out = (*in1) + (*in2);
-    return 0;
+    return (*in1) + (*in2);
 }
 
-static inline int
-ld_sub(long double *out, long double *in1, long double *in2)
+static inline long double
+ld_sub(long double *in1, long double *in2)
 {
-    *out = (*in1) - (*in2);
-    return 0;
+    return (*in1) - (*in2);
 }
 
-static inline int
-ld_mul(long double *res, long double *a, long double *b)
+static inline long double
+ld_mul(long double *a, long double *b)
 {
-    *res = (*a) * (*b);
-    return 0;
+    return (*a) * (*b);
 }
 
-static inline int
-ld_div(long double *res, long double *a, long double *b)
+static inline long double
+ld_div(long double *a, long double *b)
 {
-    *res = (*a) / (*b);
-    return 0;
+    return (*a) / (*b);
 }
 
-static inline int
-ld_pow(long double *res, long double *a, long double *b)
+static inline long double
+ld_pow(long double *a, long double *b)
 {
-    *res = powl(*a, *b);
-    return 0;
+    return powl(*a, *b);
 }
 
-static inline int
-ld_mod(long double *res, long double *a, long double *b)
+static inline long double
+ld_mod(long double *a, long double *b)
 {
-    *res = fmodl(*a, *b);
-    return 0;
+    return fmodl(*a, *b);
 }
 
-static inline int
-ld_minimum(long double *out, long double *in1, long double *in2)
+static inline long double
+ld_minimum(long double *in1, long double *in2)
 {
-    *out = (*in1 < *in2) ? *in1 : *in2;
-    return 0;
+    return (*in1 < *in2) ? *in1 : *in2;
 }
 
-static inline int
-ld_maximum(long double *out, long double *in1, long double *in2)
+static inline long double
+ld_maximum(long double *in1, long double *in2)
 {
-    *out = (*in1 > *in2) ? *in1 : *in2;
-    return 0;
+    return (*in1 > *in2) ? *in1 : *in2;
 }
 
-static inline int
-ld_atan2(long double *out, long double *in1, long double *in2)
+static inline long double
+ld_atan2(long double *in1, long double *in2)
 {
-    *out = atan2l(*in1, *in2);
-    return 0;
+    return atan2l(*in1, *in2);
 }
 
 // comparison quad functions
