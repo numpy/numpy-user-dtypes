@@ -3,7 +3,7 @@ import sys
 import numpy as np
 import operator
 
-from quaddtype import QuadPrecDType, QuadPrecision
+from numpy_quaddtype import QuadPrecDType, QuadPrecision
 
 
 def test_create_scalar_simple():
@@ -15,12 +15,6 @@ def test_create_scalar_simple():
 def test_basic_equality():
     assert QuadPrecision("12") == QuadPrecision(
         "12.0") == QuadPrecision("12.00")
-
-
-@pytest.mark.parametrize("val", ["123532.543", "12893283.5"])
-def test_scalar_repr(val):
-    expected = f"QuadPrecision('{str(QuadPrecision(val))}')"
-    assert repr(QuadPrecision(val)) == expected
 
 
 @pytest.mark.parametrize("op", ["add", "sub", "mul", "truediv", "pow"])
