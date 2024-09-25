@@ -1,4 +1,4 @@
-project('quaddtype', 'c', 'cpp', default_options : ['cpp_std=c++20', 'b_pie=true'])
+project('numpy_quaddtype', 'c', 'cpp', default_options : ['cpp_std=c++17', 'b_pie=true'])
 
 py_mod = import('python')
 py = py_mod.find_installation()
@@ -71,41 +71,41 @@ endif
 includes = include_directories(
     [
         incdir_numpy,
-        'quaddtype/src',
+        'numpy_quaddtype/src',
     ]
 )
 
 srcs = [
-    'quaddtype/src/casts.h',
-    'quaddtype/src/casts.cpp',
-    'quaddtype/src/scalar.h',
-    'quaddtype/src/scalar.c',
-    'quaddtype/src/dtype.h',
-    'quaddtype/src/dtype.c',
-    'quaddtype/src/quaddtype_main.c',
-    'quaddtype/src/scalar_ops.h',
-    'quaddtype/src/scalar_ops.cpp',
-    'quaddtype/src/ops.hpp',
-    'quaddtype/src/umath.h',
-    'quaddtype/src/umath.cpp'
+    'numpy_quaddtype/src/quad_common.h',
+    'numpy_quaddtype/src/casts.h',
+    'numpy_quaddtype/src/casts.cpp',
+    'numpy_quaddtype/src/scalar.h',
+    'numpy_quaddtype/src/scalar.c',
+    'numpy_quaddtype/src/dtype.h',
+    'numpy_quaddtype/src/dtype.c',
+    'numpy_quaddtype/src/quaddtype_main.c',
+    'numpy_quaddtype/src/scalar_ops.h',
+    'numpy_quaddtype/src/scalar_ops.cpp',
+    'numpy_quaddtype/src/ops.hpp',
+    'numpy_quaddtype/src/umath.h',
+    'numpy_quaddtype/src/umath.cpp',
+    'numpy_quaddtype/src/dragon4.h',
+    'numpy_quaddtype/src/dragon4.c'
 ]
 
 py.install_sources(
     [
-        'quaddtype/__init__.py',
+        'numpy_quaddtype/__init__.py',
     ],
-    subdir: 'quaddtype',
+    subdir: 'numpy_quaddtype',
     pure: false
 )
 
 py.extension_module('_quaddtype_main',
-  srcs,
-  c_args: is_windows ? ['/DWIN32', '/D_WINDOWS'] : ['-g', '-O0'],
-  cpp_args: is_windows ? ['/DWIN32', '/D_WINDOWS', '/EHsc'] : ['-g', '-O0'],
-  link_args: is_windows ? ['/DEFAULTLIB:sleef', '/DEFAULTLIB:sleefquad'] : ['-lsleef', '-lsleefquad'],
-  dependencies: [sleef_dep] + (is_windows ? [] : [sleefquad_dep]),
-  link_language: 'cpp',
-  install: true,
-  subdir: 'quaddtype',
-  include_directories: includes
+srcs,
+c_args: ['-g', '-O0', '-lsleef', '-lsleefquad'],
+dependencies: [sleef_dep, sleefquad_dep],
+install: true,
+subdir: 'numpy_quaddtype',
+include_directories: includes
 )
