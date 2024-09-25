@@ -5,8 +5,13 @@ on:
     branches:
       - main
     tags:
-      - "v*"
+      - "quaddtype-v*"
+    paths:
+      - "quaddtype/**"
   pull_request:
+    paths:
+      - "quaddtype/**"
+  workflow_dispatch:
 
 jobs:
   build_wheels_linux:
@@ -29,32 +34,19 @@ jobs:
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
           CIBW_BUILD_VERBOSITY: "3"
           CIBW_BEFORE_ALL: |
-            yum install -y wget
-            wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
-            bash miniconda.sh -b -p /root/miniconda
-            export PATH="/root/miniconda/bin:$PATH"
-            conda config --set always_yes yes --set changeps1 no
-            conda update -q conda
-            conda info -a
-            conda config --add channels conda-forge
-            conda config --set channel_priority strict
-            conda create -n build_env python=3.10
-            source activate build_env
-            conda install -y sleef
+            git clone https://github.com/shibatch/sleef.git
+            cd sleef
+            cmake -S . -B build -DSLEEF_BUILD_QUAD:BOOL=ON -DSLEEF_BUILD_SHARED_LIBS:BOOL=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+            cmake --build build/ --clean-first -j
+            cmake --install build --prefix /usr/local
           CIBW_ENVIRONMENT: >
-            LD_LIBRARY_PATH="/root/miniconda/envs/build_env/lib:$LD_LIBRARY_PATH"
-            LIBRARY_PATH="/root/miniconda/envs/build_env/lib:$LIBRARY_PATH"
-            CFLAGS="-I/root/miniconda/envs/build_env/include $CFLAGS"
-            CXXFLAGS="-I/root/miniconda/envs/build_env/include $CXXFLAGS"
-            LDFLAGS="-L/root/miniconda/envs/build_env/lib $LDFLAGS"
-            SLEEF_PATH="/root/miniconda/envs/build_env"
-          CIBW_REPAIR_WHEEL_COMMAND: >
+            CFLAGS="-I/usr/local/include $CFLAGS"
+            CXXFLAGS="-I/usr/local/include $CXXFLAGS"
+            LDFLAGS="-L/usr/local/lib64 $LDFLAGS"
+            LD_LIBRARY_PATH="/usr/local/lib64:$LD_LIBRARY_PATH"
+          CIBW_REPAIR_WHEEL_COMMAND: |
             auditwheel repair -w {dest_dir} --plat manylinux_2_28_x86_64 {wheel}
           CIBW_TEST_COMMAND: |
-            python -c "import os; print('SLEEF_PATH:', os.environ.get('SLEEF_PATH', 'Not set'))"
-            python -c "import platform; print('Python version:', platform.python_version())"
-            python -c "import sys; print('sys.platform:', sys.platform)"
-            python -c "import quaddtype; print('quaddtype imported successfully')"
             pip install {package}[test]
             pytest {project}/tests
           CIBW_TEST_EXTRAS: "test"
@@ -62,7 +54,7 @@ jobs:
           python -m cibuildwheel --output-dir wheelhouse
         working-directory: ./quaddtype
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           path: ./quaddtype/wheelhouse/*.whl
           name: wheels-linux
@@ -80,59 +72,48 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: ">=3.10.0"
-
-      - name: Setup Miniconda
-        uses: conda-incubator/setup-miniconda@v3
-        with:
-          auto-update-conda: true
           python-version: "3.10"
-          channels: conda-forge
 
       - name: Install SLEEF
-        shell: bash -l {0}
+        env:
+          MACOSX_DEPLOYMENT_TARGET: "11.0"
         run: |
-          conda install -y -c conda-forge sleef
-          echo $CONDA_PREFIX
-          echo "SLEEF_PATH=$CONDA_PREFIX" >> $GITHUB_ENV
-
+          git clone https://github.com/shibatch/sleef.git
+          cd sleef
+          cmake -S . -B build \
+            -DSLEEF_BUILD_QUAD:BOOL=ON \
+            -DSLEEF_BUILD_SHARED_LIBS:BOOL=ON \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
+            -DCMAKE_INSTALL_RPATH="@loader_path/../lib" \
+            -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON
+          cmake --build build/ --clean-first -j
+          sudo cmake --install build --prefix /usr/local
       - name: Install cibuildwheel
         run: pip install cibuildwheel==2.20.0
 
       - name: Build wheels
         env:
-          CIBW_BUILD_VERBOSITY: "1"
+          CIBW_BUILD: "cp310-* cp311-* cp312-*"
           CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-13' && 'x86_64' || 'arm64' }}
-          CIBW_SKIP: "pp* cp36-* cp37-* cp38-* cp39-* cp313-*"
+          CIBW_BUILD_VERBOSITY: "1"
           CIBW_ENVIRONMENT: >
-            SLEEF_PATH="${{ env.SLEEF_PATH }}"
-            DYLD_LIBRARY_PATH="${{ env.SLEEF_PATH }}/lib:$DYLD_LIBRARY_PATH"
-            LIBRARY_PATH="${{ env.SLEEF_PATH }}/lib:$LIBRARY_PATH"
-            CFLAGS="-I${{ env.SLEEF_PATH }}/include $CFLAGS"
-            CXXFLAGS="-I${{ env.SLEEF_PATH }}/include $CXXFLAGS"
-            LDFLAGS="-L${{ env.SLEEF_PATH }}/lib $LDFLAGS"
-            MACOSX_DEPLOYMENT_TARGET="10.13"
-          CIBW_REPAIR_WHEEL_COMMAND: "delocate-wheel -w {dest_dir} -v {wheel}"
+            MACOSX_DEPLOYMENT_TARGET="11.0"
+            DYLD_LIBRARY_PATH="/usr/local/lib:$DYLD_LIBRARY_PATH"
+            CFLAGS="-I/usr/local/include $CFLAGS"
+            CXXFLAGS="-I/usr/local/include $CXXFLAGS"
+            LDFLAGS="-L/usr/local/lib $LDFLAGS"
+          CIBW_REPAIR_WHEEL_COMMAND: >
+            delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}
           CIBW_TEST_COMMAND: |
-            python -c "import os; print('SLEEF_PATH:', os.environ.get('SLEEF_PATH', 'Not set'))"
-            python -c "import platform; print('Python version:', platform.python_version())"
-            python -c "import sys; print('sys.platform:', sys.platform)"
-            python -c "import quaddtype; print('quaddtype imported successfully')"
             pip install {package}[test]
             pytest {project}/tests
           CIBW_TEST_EXTRAS: "test"
         run: |
-          echo "SLEEF_PATH: $SLEEF_PATH"
-          ls $SLEEF_PATH/include/sleef*
-          echo "PATH: $PATH"
-          which python
-          python --version
-          which pip
-          pip --version
-          cd quaddtype
           python -m cibuildwheel --output-dir wheelhouse
+        working-directory: ./quaddtype
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           path: ./quaddtype/wheelhouse/*.whl
           name: wheels-${{ matrix.os }}
@@ -171,20 +152,16 @@ jobs:
           conda config --add channels conda-forge
           conda config --set channel_priority strict
           conda install -y sleef numpy
-          conda list
-          if [ ! -f "$CONDA_PREFIX/Library/include/sleef.h" ]; then
-            echo "sleef.h not found. Installation may have failed."
-            exit 1
-          fi
-          ls -l "$CONDA_PREFIX/Library/include/sleef.h"
-          ls -l "$CONDA_PREFIX/Library/lib/sleef"*
 
-      - name: Set environment variables
+      - name: Setup build environment
         shell: pwsh
         run: |
-          echo "CONDA_PREFIX=$env:CONDA_PREFIX" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          $numpy_path = python -c "import numpy; import os; print(os.path.abspath(numpy.get_include()).replace(os.sep, '/'))"
-          echo "NUMPY_INCLUDE_DIR=$numpy_path" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $env:INCLUDE += ";$env:CONDA_PREFIX\Library\include"
+          $env:LIB += ";$env:CONDA_PREFIX\Library\lib"
+          $env:PATH = "$env:CONDA_PREFIX\Library\bin;$env:PATH"
+          echo "INCLUDE=$env:INCLUDE" >> $env:GITHUB_ENV
+          echo "LIB=$env:LIB" >> $env:GITHUB_ENV
+          echo "PATH=$env:PATH" >> $env:GITHUB_ENV
 
       - name: Install build dependencies
         shell: bash -l {0}
@@ -194,28 +171,19 @@ jobs:
 
       - name: Build wheels
         env:
-          CONDA_PREFIX: ${{ env.CONDA_PREFIX }}
+          CIBW_BUILD: "cp310-* cp311-* cp312-*"
           CIBW_SKIP: "pp* cp36-* cp37-* cp38-* cp39-* cp313-*"
           CIBW_ARCHS_WINDOWS: ${{ matrix.architecture == 'x86' && 'x86' || 'AMD64' }}
-          CIBW_BUILD_VERBOSITY: "1"
-          SLEEF_INCLUDE_DIR: ${{ env.CONDA_PREFIX }}\Library\include
-          SLEEF_LIBRARY: ${{ env.CONDA_PREFIX }}\Library\lib
+          CIBW_BUILD_VERBOSITY: "3"
           DISTUTILS_USE_SDK: "1"
           MSSdk: "1"
-          NUMPY_INCLUDE_DIR: ${{ env.NUMPY_INCLUDE_DIR }}
-          CIBW_ENVIRONMENT: >-
-            NUMPY_INCLUDE_DIR="${{ env.NUMPY_INCLUDE_DIR }}"
-            SLEEF_INCLUDE_DIR="${{ env.CONDA_PREFIX }}/Library/include"
-            SLEEF_LIBRARY="${{ env.CONDA_PREFIX }}/Library/lib"
-          CIBW_BEFORE_BUILD: pip install meson meson-python ninja numpy
+          CIBW_BEFORE_BUILD: |
+            pip install meson meson-python ninja numpy
           CIBW_REPAIR_WHEEL_COMMAND: "delvewheel repair -w {dest_dir} {wheel}"
           CIBW_TEST_COMMAND: |
-            python -c "import platform; print('Python version:', platform.python_version())"
-            python -c "import sys; print('sys.platform:', sys.platform)"
-            python -c "import quaddtype; print('quaddtype imported successfully')"
             pip install {package}[test]
-            pytest {project}\tests -v || (echo "Tests failed" && exit 1)
-          CIBW_TEST_EXTRAS: "test"
+            python -m pytest -v {project}/test
+          CIBW_TEST_EXTRAS: test
           CIBW_TEST_FAIL_FAST: 1
         shell: pwsh
         run: |
@@ -223,7 +191,7 @@ jobs:
           if (-not (Test-Path wheelhouse/*.whl)) { throw "Wheel was not created" }
         working-directory: ./quaddtype
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           path: ./quaddtype/wheelhouse/*.whl
           name: wheels-windows-${{ matrix.architecture }}
@@ -232,10 +200,10 @@ jobs:
     name: Publish to TestPyPI
     needs: [build_wheels_linux, build_wheels_macos, build_wheels_windows]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/quaddtype-v')
     steps:
       - name: Download all workflow run artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           path: dist
       - name: Publish to TestPyPI
@@ -250,14 +218,14 @@ jobs:
     name: Create Release
     needs: [build_wheels_linux, build_wheels_macos, build_wheels_windows]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/quaddtype-v')
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
 
       - name: Download all workflow run artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
 

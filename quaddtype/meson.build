@@ -1,72 +1,27 @@
-project('numpy_quaddtype', 'c', 'cpp', default_options : ['cpp_std=c++17', 'b_pie=true'])
+project('numpy_quaddtype', 'c', 'cpp', default_options : ['cpp_std=c++20', 'b_pie=true'])
 
 py_mod = import('python')
 py = py_mod.find_installation()
+py_dep = py.dependency()
 
 c = meson.get_compiler('c')
+cpp = meson.get_compiler('cpp')
 
 is_windows = build_machine.system() == 'windows'
 
-incdir_numpy = ''
 if is_windows
   add_project_arguments('-DWIN32', '-D_WINDOWS', language : ['c', 'cpp'])
-  
-  conda_env_dir = run_command('cmd', '/c', 'echo %CONDA_PREFIX%', check: true).stdout().strip()
-  sleef_include_dir = conda_env_dir + '\\Library\\include'
-  sleef_library_dir = conda_env_dir + '\\Library\\lib'
-  incdir_numpy = run_command('cmd', '/c', 'echo %NUMPY_INCLUDE_DIR%', check: true).stdout().strip()
-  
-  add_project_arguments('-I' + sleef_include_dir, language: ['c', 'cpp'])
-  add_project_link_arguments('-L' + sleef_library_dir, language: ['c', 'cpp'])
-  
-  sleef_lib = c.find_library('sleef', dirs: [sleef_library_dir])
-  sleefquad_lib = c.find_library('sleefquad', dirs: [sleef_library_dir])
-  
-  sleef_dep = declare_dependency(include_directories: include_directories(sleef_include_dir),
-                                 dependencies: [sleef_lib, sleefquad_lib])
-else
-  # Linux and macOS configuration
-
-  # Get the SLEEF path
-  sleef_path = run_command('bash', '-c', 'echo $SLEEF_PATH', check: false).stdout().strip()
-  if sleef_path == ''
-    sleef_path = run_command('bash', '-c', 'echo $CONDA_PREFIX', check: false).stdout().strip()
-  endif
-
-  if sleef_path == ''
-    error('SLEEF_PATH or CONDA_PREFIX environment variable is not set')
-  endif
-
-  add_project_link_arguments('-L' + sleef_path + '/lib', language: ['c', 'cpp'])
-
-  sleef_include_dir = sleef_path + '/include'
-  sleef_library_dir = sleef_path + '/lib'
-
-  add_project_arguments('-I' + sleef_include_dir, language: ['c', 'cpp'])
-  add_project_link_arguments('-L' + sleef_library_dir, language: ['c', 'cpp'])
-  
-  sleef_dep = c.find_library('sleef', dirs: [sleef_library_dir])
-  sleefquad_dep = c.find_library('sleefquad', dirs: [sleef_library_dir])
 endif
 
-if not sleef_dep.found() or (not is_windows and not sleefquad_dep.found())
-  error('SLEEF library not found. Please ensure it is installed in your conda environment.')
-endif
+sleef_dep = [
+  c.find_library('sleef', required : true),
+  c.find_library('sleefquad', required : true)
+]
 
-# Try to get NumPy include path from environment variable first
-if incdir_numpy == ''
-  incdir_numpy = run_command(py,
-    [
-      '-c',
-      'import numpy; import os; print(os.path.relpath(numpy.get_include()))'
-    ],
-    check: false
-  ).stdout().strip()
-  
-  if incdir_numpy == ''
-    error('NumPy include directory not found. Please set NUMPY_INCLUDE_DIR or ensure NumPy is installed.')
-  endif
-endif
+incdir_numpy = run_command(py,
+  ['-c', 'import numpy; print(numpy.get_include())'],
+  check : true
+).stdout().strip()
 
 includes = include_directories(
     [
@@ -102,10 +57,11 @@ py.install_sources(
 )
 
 py.extension_module('_quaddtype_main',
-srcs,
-c_args: ['-g', '-O0', '-lsleef', '-lsleefquad'],
-dependencies: [sleef_dep, sleefquad_dep],
-install: true,
-subdir: 'numpy_quaddtype',
-include_directories: includes
+  srcs,
+  link_args: is_windows ? ['/DEFAULTLIB:sleef', '/DEFAULTLIB:sleefquad'] : ['-lsleef', '-lsleefquad'],
+  link_language: 'cpp',
+  dependencies: [sleef_dep, py_dep],
+  install: true,
+  subdir: 'numpy_quaddtype',
+  include_directories: includes
 )
