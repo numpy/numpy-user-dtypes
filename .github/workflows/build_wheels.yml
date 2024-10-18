@@ -48,7 +48,7 @@ jobs:
             auditwheel repair -w {dest_dir} --plat manylinux_2_28_x86_64 {wheel}
           CIBW_TEST_COMMAND: |
             pip install {package}[test]
-            pytest {project}/tests
+            pytest -s {project}/tests
           CIBW_TEST_EXTRAS: "test"
         run: |
           python -m cibuildwheel --output-dir wheelhouse
