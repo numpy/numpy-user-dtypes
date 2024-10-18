@@ -135,3 +135,5 @@ compile_commands.json
 .asv
 .vscode/
 *.whl
+.DS_Store
+.idea/
