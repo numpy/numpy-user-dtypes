@@ -103,6 +103,7 @@ def test_array_operations():
     print("\n" + "#"*50 + "\n")
     print(f"result: {result}")
     print(f"expected: {expected}")
+    print(f"NumPy version: {np.__version__}")
     print(f"np.all result: {np.all(result == expected)}")
     print("\n" + "#"*50 + "\n")
     assert np.all(result == expected)
