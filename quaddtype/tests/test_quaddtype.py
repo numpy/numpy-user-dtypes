@@ -100,6 +100,9 @@ def test_array_operations():
     expected = np.array(
         [QuadPrecision("2.0"), QuadPrecision("3.5"), QuadPrecision("5.0")])
     # adding print statements in pytest
+    print("\n" + "#"*50 + "\n")
     print(f"result: {result}")
     print(f"expected: {expected}")
+    print(f"np.all result: {np.all(result == expected)}")
+    print("\n" + "#"*50 + "\n")
     assert np.all(result == expected)
