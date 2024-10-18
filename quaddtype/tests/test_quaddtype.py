@@ -99,11 +99,4 @@ def test_array_operations():
     result = arr1 + arr2
     expected = np.array(
         [QuadPrecision("2.0"), QuadPrecision("3.5"), QuadPrecision("5.0")])
-    # adding print statements in pytest
-    print("\n" + "#"*50 + "\n")
-    print(f"result: {result}")
-    print(f"expected: {expected}")
-    print(f"NumPy version: {np.__version__}")
-    print(f"np.all result: {np.all(result == expected)}")
-    print("\n" + "#"*50 + "\n")
-    assert np.all(result == expected)
+    assert all(x == y for x, y in zip(result, expected))
