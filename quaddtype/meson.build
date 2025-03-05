@@ -1,19 +1,26 @@
-project('numpy_quaddtype', 'c', 'cpp', default_options : ['cpp_std=c++17', 'b_pie=true'])
+project('numpy_quaddtype', 'c', 'cpp', default_options : ['cpp_std=c++20', 'b_pie=true'])
 
 py_mod = import('python')
 py = py_mod.find_installation()
+py_dep = py.dependency()
 
 c = meson.get_compiler('c')
+cpp = meson.get_compiler('cpp')
 
-sleef_dep = c.find_library('sleef')
-sleefquad_dep = c.find_library('sleefquad')
+is_windows = build_machine.system() == 'windows'
+
+if is_windows
+  add_project_arguments('-DWIN32', '-D_WINDOWS', language : ['c', 'cpp'])
+endif
+
+sleef_dep = [
+  c.find_library('sleef', required : true),
+  c.find_library('sleefquad', required : true)
+]
 
 incdir_numpy = run_command(py,
-  [
-    '-c',
-    'import numpy; import os; print(os.path.relpath(numpy.get_include()))'
-  ],
-  check: true
+  ['-c', 'import numpy; print(numpy.get_include())'],
+  check : true
 ).stdout().strip()
 
 includes = include_directories(
@@ -50,10 +57,11 @@ py.install_sources(
 )
 
 py.extension_module('_quaddtype_main',
-srcs,
-c_args: ['-g', '-O0', '-lsleef', '-lsleefquad'],
-dependencies: [sleef_dep, sleefquad_dep],
-install: true,
-subdir: 'numpy_quaddtype',
-include_directories: includes
+  srcs,
+  link_args: is_windows ? ['/DEFAULTLIB:sleef', '/DEFAULTLIB:sleefquad'] : ['-lsleef', '-lsleefquad'],
+  link_language: 'cpp',
+  dependencies: [sleef_dep, py_dep],
+  install: true,
+  subdir: 'numpy_quaddtype',
+  include_directories: includes
 )
