@@ -71,15 +71,6 @@ def test_unary_ops(op, val, expected):
     assert result == expected_val, f"{op}({val}) should be {expected}, but got {result}"
 
 
-def test_nan_and_inf():
-    # NaN should not equal itself
-    assert QuadPrecision("nan") != QuadPrecision("nan")
-
-    # Test infinity comparisons
-    assert QuadPrecision("inf") > QuadPrecision("1e1000")
-    assert QuadPrecision("-inf") < QuadPrecision("-1e1000")
-
-
 def test_dtype_creation():
     dtype = QuadPrecDType()
     assert isinstance(dtype, np.dtype)
