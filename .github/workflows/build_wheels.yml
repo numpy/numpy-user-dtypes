@@ -3,7 +3,7 @@ name: Build Wheels
 on:
   push:
     branches:
-      - testing-pkg
+      - main
     tags:
       - "quaddtype-v*"
     paths:
