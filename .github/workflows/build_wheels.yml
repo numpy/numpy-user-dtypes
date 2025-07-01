@@ -34,9 +34,9 @@ jobs:
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
           CIBW_BUILD_VERBOSITY: "3"
           CIBW_BEFORE_ALL: |
-            git clone https://github.com/shibatch/sleef.git
+            git clone --branch 3.8 https://github.com/shibatch/sleef.git
             cd sleef
-            cmake -S . -B build -DSLEEF_BUILD_QUAD:BOOL=ON -DSLEEF_BUILD_SHARED_LIBS:BOOL=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_INSTALL_PREFIX=../../install
+            cmake -S . -B build -DSLEEF_BUILD_QUAD:BOOL=ON -DSLEEF_BUILD_SHARED_LIBS:BOOL=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
             cmake --build build/ --clean-first -j
             cmake --install build --prefix /usr/local
           CIBW_ENVIRONMENT: >
@@ -78,7 +78,7 @@ jobs:
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.0"
         run: |
-          git clone https://github.com/shibatch/sleef.git
+          git clone --branch 3.8 https://github.com/shibatch/sleef.git
           cd sleef
           cmake -S . -B build \
             -DSLEEF_BUILD_QUAD:BOOL=ON \
@@ -86,7 +86,7 @@ jobs:
             -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
             -DCMAKE_INSTALL_RPATH="@loader_path/../lib" \
-            -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON
+            -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON \
           cmake --build build/ --clean-first -j
           sudo cmake --install build --prefix /usr/local
       - name: Install cibuildwheel
@@ -145,7 +145,7 @@ jobs:
       - name: Clone and Build SLEEF
         shell: pwsh
         run: |
-          git clone https://github.com/shibatch/sleef.git
+          git clone --branch 3.8 https://github.com/shibatch/sleef.git
           cd sleef
           cmake -S . -B build -G "Visual Studio 17 2022" -A ${{ matrix.architecture == 'x86' && 'Win32' || 'x64' }} -DSLEEF_BUILD_QUAD:BOOL=ON -DSLEEF_BUILD_SHARED_LIBS:BOOL=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
           cmake --build build --config Release --parallel
