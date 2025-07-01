@@ -72,8 +72,10 @@ def test_unary_ops(op, val, expected):
 
 
 def test_nan_and_inf():
-    assert (QuadPrecision("nan") != QuadPrecision("nan")) == (
-        QuadPrecision("nan") == QuadPrecision("nan"))
+    # NaN should not equal itself
+    assert QuadPrecision("nan") != QuadPrecision("nan")
+
+    # Test infinity comparisons
     assert QuadPrecision("inf") > QuadPrecision("1e1000")
     assert QuadPrecision("-inf") < QuadPrecision("-1e1000")
 
