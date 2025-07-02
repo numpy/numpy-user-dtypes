@@ -134,3 +134,6 @@ compile_commands.json
 .ruff-cache/
 .asv
 .vscode/
+*.whl
+.DS_Store
+.idea/
