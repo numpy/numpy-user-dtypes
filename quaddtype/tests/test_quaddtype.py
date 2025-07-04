@@ -45,6 +45,19 @@ def test_comparisons(op, a, b):
     assert op_func(quad_a, quad_b) == op_func(float_a, float_b)
 
 
+@pytest.mark.parametrize("op", ["eq", "ne", "le", "lt", "ge", "gt"])
+@pytest.mark.parametrize("a", ["3.0", "12.5", "100.0", "inf", "-inf", "nan", "-nan"])
+@pytest.mark.parametrize("b", ["3.0", "12.5", "100.0", "inf", "-inf", "nan", "-nan"])
+def test_array_comparisons(op, a, b):
+    op_func = getattr(operator, op)
+    quad_a = np.array(QuadPrecision(a))
+    quad_b = np.array(QuadPrecision(b))
+    float_a = np.array(float(a))
+    float_b = np.array(float(b))
+
+    assert np.array_equal(op_func(quad_a, quad_b), op_func(float_a, float_b))
+
+
 @pytest.mark.parametrize("op, val, expected", [
     ("neg", "3.0", "-3.0"),
     ("neg", "-3.0", "3.0"),

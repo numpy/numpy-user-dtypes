@@ -386,7 +386,7 @@ quad_equal(const Sleef_quad *a, const Sleef_quad *b)
 static inline npy_bool
 quad_notequal(const Sleef_quad *a, const Sleef_quad *b)
 {
-    return Sleef_icmpneq1(*a, *b) | Sleef_iunordq1(*a, *b);
+    return Sleef_icmpneq1(*a, *b) || Sleef_iunordq1(*a, *b);
 }
 
 static inline npy_bool
