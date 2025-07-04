@@ -33,13 +33,14 @@ def test_binary_ops(op, other):
 
 
 @pytest.mark.parametrize("op", ["eq", "ne", "le", "lt", "ge", "gt"])
-@pytest.mark.parametrize("other", ["3.0", "12.5", "100.0"])
-def test_comparisons(op, other):
+@pytest.mark.parametrize("a", ["3.0", "12.5", "100.0", "inf", "-inf", "nan", "-nan"])
+@pytest.mark.parametrize("b", ["3.0", "12.5", "100.0", "inf", "-inf", "nan", "-nan"])
+def test_comparisons(op, a, b):
     op_func = getattr(operator, op)
-    quad_a = QuadPrecision("12.5")
-    quad_b = QuadPrecision(other)
-    float_a = 12.5
-    float_b = float(other)
+    quad_a = QuadPrecision(a)
+    quad_b = QuadPrecision(b)
+    float_a = float(a)
+    float_b = float(b)
 
     assert op_func(quad_a, quad_b) == op_func(float_a, float_b)
 
