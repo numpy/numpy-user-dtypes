@@ -163,7 +163,7 @@ quad_richcompare(QuadPrecisionObject *self, PyObject *other, int cmp_op)
                 cmp = Sleef_icmpeqq1(self->value.sleef_value, other_quad->value.sleef_value);
                 break;
             case Py_NE:
-                cmp = Sleef_icmpneq1(self->value.sleef_value, other_quad->value.sleef_value);
+                cmp = Sleef_icmpneq1(self->value.sleef_value, other_quad->value.sleef_value) || Sleef_iunordq1(self->value.sleef_value, other_quad->value.sleef_value);
                 break;
             case Py_GT:
                 cmp = Sleef_icmpgtq1(self->value.sleef_value, other_quad->value.sleef_value);
