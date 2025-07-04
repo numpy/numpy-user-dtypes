@@ -46,9 +46,18 @@ export LIBRARY_PATH=$SLEEF_DIR/lib
 export C_INCLUDE_PATH=$SLEEF_DIR/include
 export CPLUS_INCLUDE_PATH=$SLEEF_DIR/include
 
+# setup the virtual env
+python3 -m venv temp
+source temp/bin/activate
+
 # Install the package
 pip install meson-python numpy pytest
-pip install -e . -v --no-build-isolation
-export LD_LIBRARY_PATH=$SLEEF_DIR/lib
+
+export LDFLAGS="-Wl,-rpath,$SLEEF_DIR/lib"
+python -m pip install . -v --no-build-isolation -Cbuilddir=build -C'compile-args=-v'
+
+# Run the tests
+cd ..
+python -m pytest
 ```
 
