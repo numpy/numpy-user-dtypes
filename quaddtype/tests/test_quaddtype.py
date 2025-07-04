@@ -18,8 +18,11 @@ def test_basic_equality():
 
 
 @pytest.mark.parametrize("op", ["add", "sub", "mul", "truediv", "pow"])
-@pytest.mark.parametrize("other", ["3.0", "12.5", "100.0"])
+@pytest.mark.parametrize("other", ["3.0", "12.5", "100.0", "0.0", "-0.0", "inf", "-inf", "nan", "-nan"])
 def test_binary_ops(op, other):
+    if op == "truediv" and float(other) == 0:
+        pytest.xfail("float division by zero")
+
     op_func = getattr(operator, op)
     quad_a = QuadPrecision("12.5")
     quad_b = QuadPrecision(other)
@@ -29,12 +32,17 @@ def test_binary_ops(op, other):
     quad_result = op_func(quad_a, quad_b)
     float_result = op_func(float_a, float_b)
 
-    assert np.abs(np.float64(quad_result) - float_result) < 1e-10
+    with np.errstate(invalid="ignore"):
+        assert (
+            (np.float64(quad_result) == float_result) or
+            (np.abs(np.float64(quad_result) - float_result) < 1e-10) or
+            ((float_result != float_result) and (quad_result != quad_result))
+        )
 
 
 @pytest.mark.parametrize("op", ["eq", "ne", "le", "lt", "ge", "gt"])
-@pytest.mark.parametrize("a", ["3.0", "12.5", "100.0", "inf", "-inf", "nan", "-nan"])
-@pytest.mark.parametrize("b", ["3.0", "12.5", "100.0", "inf", "-inf", "nan", "-nan"])
+@pytest.mark.parametrize("a", ["3.0", "12.5", "100.0", "0.0", "-0.0", "inf", "-inf", "nan", "-nan"])
+@pytest.mark.parametrize("b", ["3.0", "12.5", "100.0", "0.0", "-0.0", "inf", "-inf", "nan", "-nan"])
 def test_comparisons(op, a, b):
     op_func = getattr(operator, op)
     quad_a = QuadPrecision(a)
@@ -46,8 +54,8 @@ def test_comparisons(op, a, b):
 
 
 @pytest.mark.parametrize("op", ["eq", "ne", "le", "lt", "ge", "gt"])
-@pytest.mark.parametrize("a", ["3.0", "12.5", "100.0", "inf", "-inf", "nan", "-nan"])
-@pytest.mark.parametrize("b", ["3.0", "12.5", "100.0", "inf", "-inf", "nan", "-nan"])
+@pytest.mark.parametrize("a", ["3.0", "12.5", "100.0", "0.0", "-0.0", "inf", "-inf", "nan", "-nan"])
+@pytest.mark.parametrize("b", ["3.0", "12.5", "100.0", "0.0", "-0.0", "inf", "-inf", "nan", "-nan"])
 def test_array_comparisons(op, a, b):
     op_func = getattr(operator, op)
     quad_a = np.array(QuadPrecision(a))
@@ -56,6 +64,46 @@ def test_array_comparisons(op, a, b):
     float_b = np.array(float(b))
 
     assert np.array_equal(op_func(quad_a, quad_b), op_func(float_a, float_b))
+
+
+@pytest.mark.parametrize("op", ["minimum", "maximum", "fmin", "fmax"])
+@pytest.mark.parametrize("a", ["3.0", "12.5", "100.0", "0.0", "-0.0", "inf", "-inf", "nan", "-nan"])
+@pytest.mark.parametrize("b", ["3.0", "12.5", "100.0", "0.0", "-0.0", "inf", "-inf", "nan", "-nan"])
+def test_array_minmax(op, a, b):
+    if op in ["fmin", "fmax"]:
+        pytest.skip("fmin and fmax ufuncs are not yet supported")
+
+    op_func = getattr(np, op)
+    quad_a = np.array([QuadPrecision(a)])
+    quad_b = np.array([QuadPrecision(b)])
+    float_a = np.array([float(a)])
+    float_b = np.array([float(b)])
+
+    quad_res = op_func(quad_a, quad_b)
+    float_res = op_func(float_a, float_b)
+
+    # FIXME: @juntyr: replace with array_equal once isnan is supported
+    with np.errstate(invalid="ignore"):
+        assert np.all((quad_res == float_res) | ((quad_res != quad_res) & (float_res != float_res)))
+
+
+@pytest.mark.parametrize("op", ["amin", "amax", "nanmin", "nanmax"])
+@pytest.mark.parametrize("a", ["3.0", "12.5", "100.0", "0.0", "-0.0", "inf", "-inf", "nan", "-nan"])
+@pytest.mark.parametrize("b", ["3.0", "12.5", "100.0", "0.0", "-0.0", "inf", "-inf", "nan", "-nan"])
+def test_array_aminmax(op, a, b):
+    if op in ["nanmin", "nanmax"]:
+        pytest.skip("fmin and fmax ufuncs are not yet supported")
+
+    op_func = getattr(np, op)
+    quad_ab = np.array([QuadPrecision(a), QuadPrecision(b)])
+    float_ab = np.array([float(a), float(b)])
+
+    quad_res = op_func(quad_ab)
+    float_res = op_func(float_ab)
+
+    # FIXME: @juntyr: replace with array_equal once isnan is supported
+    with np.errstate(invalid="ignore"):
+        assert np.all((quad_res == float_res) | ((quad_res != quad_res) & (float_res != float_res)))
 
 
 @pytest.mark.parametrize("op, val, expected", [
