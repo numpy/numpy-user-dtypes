@@ -148,7 +148,7 @@ jobs:
           git clone --branch 3.8 https://github.com/shibatch/sleef.git
           cd sleef
           cmake -S . -B build -G "Visual Studio 17 2022" -A ${{ matrix.architecture == 'x86' && 'Win32' || 'x64' }} -DSLEEF_BUILD_QUAD:BOOL=ON -DSLEEF_BUILD_SHARED_LIBS:BOOL=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-          cmake --build build --config Release --parallel
+          cmake --build build --config Release
           cmake --install build --prefix "C:/sleef" --config Release
 
       - name: Setup build environment
@@ -194,54 +194,61 @@ jobs:
           path: ./quaddtype/wheelhouse/*.whl
           name: wheels-windows-${{ matrix.architecture }}
 
-  publish_to_testpypi:
-    name: Publish to TestPyPI
+  publish_to_pypi:
+    name: Publish to PyPI
     needs: [build_wheels_linux, build_wheels_macos, build_wheels_windows]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/quaddtype-v')
+    
+    environment:
+      name: quadtype_release
+      url: https://pypi.org/p/numpy-quaddtype
+    
+    permissions:
+      id-token: write  # IMPORTANT: mandatory for trusted publishing
+    
     steps:
       - name: Download all workflow run artifacts
         uses: actions/download-artifact@v4
         with:
           path: dist
-      - name: Publish to TestPyPI
-        uses: pypa/gh-action-pypi-publish@v1.9.0
+      
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          user: __token__
-          password: ${{ secrets.PYPI_API_TOKEN }}
-          repository-url: https://test.pypi.org/legacy/
           packages-dir: dist/*
 
-  create_release:
-    name: Create Release
-    needs: [build_wheels_linux, build_wheels_macos, build_wheels_windows]
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/quaddtype-v')
+  # With the current setup, we are not creating a release on GitHub.
+  # create_release:
+  #   name: Create Release
+  #   needs: [build_wheels_linux, build_wheels_macos, build_wheels_windows]
+  #   runs-on: ubuntu-latest
+  #   if: startsWith(github.ref, 'refs/tags/quaddtype-v')
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v2
 
-      - name: Download all workflow run artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
+  #     - name: Download all workflow run artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         path: artifacts
 
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
-          prerelease: false
+  #     - name: Create Release
+  #       id: create_release
+  #       uses: actions/create-release@v1
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.QUADDTYPE_GITHUB_TOKEN }}
+  #       with:
+  #         tag_name: ${{ github.ref }}
+  #         release_name: Release ${{ github.ref }}
+  #         draft: false
+  #         prerelease: false
 
-      - name: Upload Release Assets
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: ./artifacts/**/*.whl
-        env:
-          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+  #     - name: Upload Release Assets
+  #       uses: softprops/action-gh-release@v1
+  #       if: startsWith(github.ref, 'refs/tags/')
+  #       with:
+  #         files: ./artifacts/**/*.whl
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.QUADDTYPE_GITHUB_TOKEN }}

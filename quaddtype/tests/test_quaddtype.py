@@ -70,6 +70,10 @@ def test_unary_ops(op, val, expected):
 
     assert result == expected_val, f"{op}({val}) should be {expected}, but got {result}"
 
+def test_inf():
+    assert QuadPrecision("inf") > QuadPrecision("1e1000")
+    assert QuadPrecision("-inf") < QuadPrecision("-1e1000")
+
 
 def test_dtype_creation():
     dtype = QuadPrecDType()
