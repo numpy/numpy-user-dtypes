@@ -3,7 +3,7 @@ name: Build Wheels
 on:
   push:
     branches:
-      - main
+      - dot
     tags:
       - "quaddtype-v*"
     paths:
@@ -19,11 +19,43 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: recursive
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: ">=3.10.0"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential libomp-dev git pkg-config
+
+      - name: Verify QuadBLAS submodule
+        run: |
+          ls -la QuadBLAS/
+          ls -la QuadBLAS/include/quadblas/
+
+      - name: Install SLEEF and setup QuadBLAS
+        run: |
+          # Install SLEEF
+          git clone --branch 3.8 --depth 1 https://github.com/shibatch/sleef.git
+          cd sleef
+          cmake -S . -B build \
+            -DSLEEF_BUILD_QUAD:BOOL=ON \
+            -DSLEEF_BUILD_SHARED_LIBS:BOOL=ON \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+          cmake --build build/ --clean-first -j
+          sudo cmake --install build --prefix /usr/local
+          cd ..
+          
+          # Install QuadBLAS headers from submodule (header-only)
+          sudo cp -r QuadBLAS/include/quadblas /usr/local/include/
+          
+          # Verify installation
+          ls -la /usr/local/include/quadblas/
+          ls -la /usr/local/lib/
 
       - name: Install cibuildwheel
         run: pip install cibuildwheel==2.20.0
@@ -34,16 +66,25 @@ jobs:
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
           CIBW_BUILD_VERBOSITY: "3"
           CIBW_BEFORE_ALL: |
-            git clone --branch 3.8 https://github.com/shibatch/sleef.git
+            # Install SLEEF
+            git clone --branch 3.8 --depth 1 https://github.com/shibatch/sleef.git
             cd sleef
-            cmake -S . -B build -DSLEEF_BUILD_QUAD:BOOL=ON -DSLEEF_BUILD_SHARED_LIBS:BOOL=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+            cmake -S . -B build \
+              -DSLEEF_BUILD_QUAD:BOOL=ON \
+              -DSLEEF_BUILD_SHARED_LIBS:BOOL=ON \
+              -DCMAKE_POSITION_INDEPENDENT_CODE=ON
             cmake --build build/ --clean-first -j
             cmake --install build --prefix /usr/local
+            cd ..
+            
+            # Install QuadBLAS headers from submodule
+            cp -r QuadBLAS/include/quadblas /usr/local/include/
           CIBW_ENVIRONMENT: >
-            CFLAGS="-I/usr/local/include $CFLAGS"
-            CXXFLAGS="-I/usr/local/include $CXXFLAGS"
-            LDFLAGS="-L/usr/local/lib64 $LDFLAGS"
-            LD_LIBRARY_PATH="/usr/local/lib64:$LD_LIBRARY_PATH"
+            CFLAGS="-I/usr/local/include -I/usr/local/include/quadblas $CFLAGS"
+            CXXFLAGS="-I/usr/local/include -I/usr/local/include/quadblas -std=c++17 $CXXFLAGS"
+            LDFLAGS="-L/usr/local/lib64 -Wl,-rpath,/usr/local/lib64 -lsleef -lsleefquad -fopenmp -latomic -lpthread $LDFLAGS"
+            LD_LIBRARY_PATH="/usr/local/lib64:/usr/local/lib:$LD_LIBRARY_PATH"
+            PKG_CONFIG_PATH="/usr/local/lib64/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
           CIBW_REPAIR_WHEEL_COMMAND: |
             auditwheel repair -w {dest_dir} --plat manylinux_2_28_x86_64 {wheel}
           CIBW_TEST_COMMAND: |
@@ -68,17 +109,29 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: recursive
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.10"
 
-      - name: Install SLEEF
+      - name: Install dependencies
+        run: |
+          brew install cmake libomp git
+
+      - name: Verify QuadBLAS submodule
+        run: |
+          ls -la QuadBLAS/
+          ls -la QuadBLAS/include/quadblas/
+
+      - name: Install SLEEF and setup QuadBLAS
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.0"
         run: |
-          git clone --branch 3.8 https://github.com/shibatch/sleef.git
+          # Install SLEEF
+          git clone --branch 3.8 --depth 1 https://github.com/shibatch/sleef.git
           cd sleef
           cmake -S . -B build \
             -DSLEEF_BUILD_QUAD:BOOL=ON \
@@ -89,6 +142,11 @@ jobs:
             -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON
           cmake --build build/ --clean-first -j
           sudo cmake --install build --prefix /usr/local
+          cd ..
+          
+          # Install QuadBLAS headers from submodule
+          sudo cp -r QuadBLAS/include/quadblas /usr/local/include/
+
       - name: Install cibuildwheel
         run: pip install cibuildwheel==2.20.0
 
@@ -97,12 +155,30 @@ jobs:
           CIBW_BUILD: "cp310-* cp311-* cp312-*"
           CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-13' && 'x86_64' || 'arm64' }}
           CIBW_BUILD_VERBOSITY: "1"
+          CIBW_BEFORE_ALL: |
+            # Install SLEEF
+            git clone --branch 3.8 --depth 1 https://github.com/shibatch/sleef.git
+            cd sleef
+            cmake -S . -B build \
+              -DSLEEF_BUILD_QUAD:BOOL=ON \
+              -DSLEEF_BUILD_SHARED_LIBS:BOOL=ON \
+              -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+              -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
+              -DCMAKE_INSTALL_RPATH="@loader_path/../lib" \
+              -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON
+            cmake --build build/ --clean-first -j
+            cmake --install build --prefix /usr/local
+            cd ..
+            
+            # Install QuadBLAS headers from submodule
+            cp -r QuadBLAS/include/quadblas /usr/local/include/
           CIBW_ENVIRONMENT: >
             MACOSX_DEPLOYMENT_TARGET="11.0"
             DYLD_LIBRARY_PATH="/usr/local/lib:$DYLD_LIBRARY_PATH"
-            CFLAGS="-I/usr/local/include $CFLAGS"
-            CXXFLAGS="-I/usr/local/include $CXXFLAGS"
-            LDFLAGS="-L/usr/local/lib $LDFLAGS"
+            CFLAGS="-I/usr/local/include -I/usr/local/include/quadblas $CFLAGS"
+            CXXFLAGS="-I/usr/local/include -I/usr/local/include/quadblas -std=c++17 $CXXFLAGS"
+            LDFLAGS="-L/usr/local/lib -lsleef -lsleefquad $LDFLAGS"
+            PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
           CIBW_REPAIR_WHEEL_COMMAND: >
             delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}
           CIBW_TEST_COMMAND: |
@@ -127,6 +203,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: recursive
 
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
@@ -142,19 +220,31 @@ jobs:
       - name: Install CMake
         uses: lukka/get-cmake@latest
 
+      - name: Verify QuadBLAS submodule
+        shell: pwsh
+        run: |
+          Get-ChildItem QuadBLAS/
+          Get-ChildItem QuadBLAS/include/quadblas/
+
       - name: Clone and Build SLEEF
         shell: pwsh
         run: |
-          git clone --branch 3.8 https://github.com/shibatch/sleef.git
+          git clone --branch 3.8 --depth 1 https://github.com/shibatch/sleef.git
           cd sleef
           cmake -S . -B build -G "Visual Studio 17 2022" -A ${{ matrix.architecture == 'x86' && 'Win32' || 'x64' }} -DSLEEF_BUILD_QUAD:BOOL=ON -DSLEEF_BUILD_SHARED_LIBS:BOOL=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
           cmake --build build --config Release
           cmake --install build --prefix "C:/sleef" --config Release
 
+      - name: Install QuadBLAS headers from submodule
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "C:/quadblas/include"
+          Copy-Item -Recurse -Force "QuadBLAS/include/quadblas" "C:/quadblas/include/"
+
       - name: Setup build environment
         shell: pwsh
         run: |
-          $env:INCLUDE += ";C:\sleef\include"
+          $env:INCLUDE += ";C:\sleef\include;C:\quadblas\include"
           $env:LIB += ";C:\sleef\lib"
           $env:PATH = "C:\sleef\bin;$env:PATH"
           echo "INCLUDE=$env:INCLUDE" >> $env:GITHUB_ENV
@@ -175,8 +265,24 @@ jobs:
           CIBW_BUILD_VERBOSITY: "3"
           DISTUTILS_USE_SDK: "1"
           MSSdk: "1"
+          CIBW_BEFORE_ALL: |
+            git clone --branch 3.8 --depth 1 https://github.com/shibatch/sleef.git
+            cd sleef
+            cmake -S . -B build -G "Visual Studio 17 2022" -A ${{ matrix.architecture == 'x86' && 'Win32' || 'x64' }} -DSLEEF_BUILD_QUAD:BOOL=ON -DSLEEF_BUILD_SHARED_LIBS:BOOL=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+            cmake --build build --config Release
+            cmake --install build --prefix "C:/sleef" --config Release
+            cd ..
+            mkdir -p C:/quadblas/include
+            cp -r QuadBLAS/include/quadblas C:/quadblas/include/
           CIBW_BEFORE_BUILD: |
             pip install meson meson-python ninja numpy
+          CIBW_ENVIRONMENT: >
+            INCLUDE="C:/sleef/include;C:/quadblas/include;$INCLUDE"
+            LIB="C:/sleef/lib;$LIB"
+            PATH="C:/sleef/bin;$PATH"
+            CFLAGS="/IC:/sleef/include /IC:/quadblas/include $CFLAGS"
+            CXXFLAGS="/IC:/sleef/include /IC:/quadblas/include /std:c++17 $CXXFLAGS"
+            LDFLAGS="C:/sleef/lib/sleef.lib C:/sleef/lib/sleefquad.lib $LDFLAGS"
           CIBW_REPAIR_WHEEL_COMMAND: 'delvewheel repair -w {dest_dir} {wheel} --add-path C:\sleef\bin'
           CIBW_TEST_COMMAND: |
             pip install {package}[test]
@@ -217,38 +323,3 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/*
-
-  # With the current setup, we are not creating a release on GitHub.
-  # create_release:
-  #   name: Create Release
-  #   needs: [build_wheels_linux, build_wheels_macos, build_wheels_windows]
-  #   runs-on: ubuntu-latest
-  #   if: startsWith(github.ref, 'refs/tags/quaddtype-v')
-
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v2
-
-  #     - name: Download all workflow run artifacts
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         path: artifacts
-
-  #     - name: Create Release
-  #       id: create_release
-  #       uses: actions/create-release@v1
-  #       env:
-  #         GITHUB_TOKEN: ${{ secrets.QUADDTYPE_GITHUB_TOKEN }}
-  #       with:
-  #         tag_name: ${{ github.ref }}
-  #         release_name: Release ${{ github.ref }}
-  #         draft: false
-  #         prerelease: false
-
-  #     - name: Upload Release Assets
-  #       uses: softprops/action-gh-release@v1
-  #       if: startsWith(github.ref, 'refs/tags/')
-  #       with:
-  #         files: ./artifacts/**/*.whl
-  #       env:
-  #         GITHUB_TOKEN: ${{ secrets.QUADDTYPE_GITHUB_TOKEN }}

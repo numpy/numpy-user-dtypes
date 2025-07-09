@@ -53,7 +53,10 @@ source temp/bin/activate
 # Install the package
 pip install meson-python numpy pytest
 
-export LDFLAGS="-Wl,-rpath,$SLEEF_DIR/lib"
+export LDFLAGS="-Wl,-rpath,$SLEEF_DIR/lib -fopenmp -latomic -lpthread"
+export CFLAGS="-fPIC"
+export CXXFLAGS="-fPIC"
+
 python -m pip install . -v --no-build-isolation -Cbuilddir=build -C'compile-args=-v'
 
 # Run the tests
