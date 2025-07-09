@@ -9,8 +9,8 @@ on:
     paths:
       - "quaddtype/**"
   pull_request:
-    paths:
-      - "quaddtype/**"
+    # paths:
+    #   - "quaddtype/**"
   workflow_dispatch:
 
 jobs:
