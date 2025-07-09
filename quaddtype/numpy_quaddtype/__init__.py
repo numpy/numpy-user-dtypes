@@ -3,11 +3,13 @@ from ._quaddtype_main import (
     QuadPrecDType,
     is_longdouble_128,
     get_sleef_constant,
-    dot,
+    qblas_dot as dot,
     set_num_threads,
     get_num_threads,
     get_quadblas_version
 )
+
+import multiprocessing
 
 __all__ = [
     'QuadPrecision', 'QuadPrecDType', 'SleefQuadPrecision', 'LongDoubleQuadPrecision',
@@ -39,3 +41,7 @@ ln10 = get_sleef_constant("ln10")
 max_value = get_sleef_constant("quad_max")
 min_value = get_sleef_constant("quad_min")
 epsilon = get_sleef_constant("epsilon")
+
+num_cores = multiprocessing.cpu_count()
+# set default number of threads for QuadBLAS
+set_num_threads(num_cores)
