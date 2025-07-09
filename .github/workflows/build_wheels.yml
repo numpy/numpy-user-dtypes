@@ -6,8 +6,8 @@ on:
       - dot
     tags:
       - "quaddtype-v*"
-    paths:
-      - "quaddtype/**"
+    # paths:
+    #   - "quaddtype/**"
   pull_request:
     # paths:
     #   - "quaddtype/**"
