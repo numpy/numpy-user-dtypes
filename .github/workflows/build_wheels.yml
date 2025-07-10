@@ -145,6 +145,7 @@ jobs:
           path: ./quaddtype/wheelhouse/*.whl
           name: wheels-${{ matrix.os }}
 
+  # disabling QBLAS optimization for windows due to incompatibility with MSVC
   build_wheels_windows:
     name: Build wheels on Windows
     runs-on: windows-latest
@@ -206,8 +207,8 @@ jobs:
             INCLUDE="C:/sleef/include;{project}/numpy_quaddtype/QBLAS/include;$INCLUDE"
             LIB="C:/sleef/lib;$LIB"
             PATH="C:/sleef/bin;$PATH"
-            CFLAGS="/IC:/sleef/include /I{project}/numpy_quaddtype/QBLAS/include $CFLAGS"
-            CXXFLAGS="/IC:/sleef/include /I{project}/numpy_quaddtype/QBLAS/include $CXXFLAGS"
+            CFLAGS="/IC:/sleef/include /I{project}/numpy_quaddtype/QBLAS/include /DDISABLE_QUADBLAS $CFLAGS"
+            CXXFLAGS="/IC:/sleef/include /I{project}/numpy_quaddtype/QBLAS/include /DDISABLE_QUADBLAS $CXXFLAGS"
             LDFLAGS="C:/sleef/lib/sleef.lib C:/sleef/lib/sleefquad.lib $LDFLAGS"
           CIBW_REPAIR_WHEEL_COMMAND: 'delvewheel repair -w {dest_dir} {wheel} --add-path C:\sleef\bin'
           CIBW_TEST_COMMAND: |
@@ -226,26 +227,26 @@ jobs:
           path: ./quaddtype/wheelhouse/*.whl
           name: wheels-windows-${{ matrix.architecture }}
 
-  # publish_to_pypi:
-  #   name: Publish to PyPI
-  #   needs: [build_wheels_linux, build_wheels_macos, build_wheels_windows]
-  #   runs-on: ubuntu-latest
-  #   if: startsWith(github.ref, 'refs/tags/quaddtype-v')
+  publish_to_pypi:
+    name: Publish to PyPI
+    needs: [build_wheels_linux, build_wheels_macos, build_wheels_windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/quaddtype-v')
 
-  #   environment:
-  #     name: quadtype_release
-  #     url: https://pypi.org/p/numpy-quaddtype
+    environment:
+      name: quadtype_release
+      url: https://pypi.org/p/numpy-quaddtype
 
-  #   permissions:
-  #     id-token: write  # IMPORTANT: mandatory for trusted publishing
+    permissions:
+      id-token: write # IMPORTANT: mandatory for trusted publishing
 
-  #   steps:
-  #     - name: Download all workflow run artifacts
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         path: dist
+    steps:
+      - name: Download all workflow run artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
 
-  #     - name: Publish to PyPI
-  #       uses: pypa/gh-action-pypi-publish@release/v1
-  #       with:
-  #         packages-dir: dist/*
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/*
