@@ -47,8 +47,7 @@ jobs:
           CIBW_BUILD_VERBOSITY: "3"
           CIBW_BEFORE_ALL: |
             # Install SLEEF in container
-            yum install -y cmake git gcc gcc-c++ make
-            git clone --branch 3.8 --depth 1 https://github.com/shibatch/sleef.git
+            git clone --branch 3.8 https://github.com/shibatch/sleef.git
             cd sleef
             cmake -S . -B build \
               -DSLEEF_BUILD_QUAD:BOOL=ON \
@@ -56,8 +55,6 @@ jobs:
               -DCMAKE_POSITION_INDEPENDENT_CODE=ON
             cmake --build build/ --clean-first -j
             cmake --install build --prefix /usr/local
-            cd ..
-            rm -rf sleef
           CIBW_ENVIRONMENT: >
             CFLAGS="-I/usr/local/include -I{project}/numpy_quaddtype/QBLAS/include $CFLAGS"
             CXXFLAGS="-I/usr/local/include -I{project}/numpy_quaddtype/QBLAS/include -std=c++17 $CXXFLAGS"
