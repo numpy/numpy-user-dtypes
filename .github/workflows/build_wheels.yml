@@ -96,7 +96,7 @@ jobs:
 
       - name: Install SLEEF
         env:
-          MACOSX_DEPLOYMENT_TARGET: "11.0"
+          MACOSX_DEPLOYMENT_TARGET: "14.0"
         run: |
           git clone --branch 3.8 https://github.com/shibatch/sleef.git
           cd sleef
