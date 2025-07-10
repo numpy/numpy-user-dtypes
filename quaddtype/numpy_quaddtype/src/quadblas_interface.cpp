@@ -290,6 +290,9 @@ dot_matrix_matrix(PyArrayObject *a, PyArrayObject *b)
     }
 
     Sleef_quad *result_data = (Sleef_quad *)PyArray_DATA(result);
+    for (npy_intp i = 0; i < m * n; i++) {
+        result_data[i] = Sleef_cast_from_doubleq1(0.0);
+    }
 
     npy_intp lda, ldb, ldc;
 
