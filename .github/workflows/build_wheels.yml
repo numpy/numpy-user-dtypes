@@ -54,7 +54,7 @@ jobs:
             cmake --install build --prefix /usr/local
           CIBW_ENVIRONMENT: >
             CFLAGS="-I/usr/local/include -I{project}/numpy_quaddtype/QBLAS/include $CFLAGS"
-            CXXFLAGS="-I/usr/local/include -I{project}/numpy_quaddtype/QBLAS/include -std=c++17 $CXXFLAGS"
+            CXXFLAGS="-I/usr/local/include -I{project}/numpy_quaddtype/QBLAS/include -fext-numeric-literals $CXXFLAGS"
             LDFLAGS="-L/usr/local/lib64 -L/usr/local/lib -Wl,-rpath,/usr/local/lib64 -Wl,-rpath,/usr/local/lib -fopenmp $LDFLAGS"
             LD_LIBRARY_PATH="/usr/local/lib64:/usr/local/lib:$LD_LIBRARY_PATH"
             PKG_CONFIG_PATH="/usr/local/lib64/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
