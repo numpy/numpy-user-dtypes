@@ -104,7 +104,7 @@ jobs:
             -DSLEEF_BUILD_QUAD:BOOL=ON \
             -DSLEEF_BUILD_SHARED_LIBS:BOOL=ON \
             -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0 \
             -DCMAKE_INSTALL_RPATH="@loader_path/../lib" \
             -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON
           cmake --build build/ --clean-first -j
@@ -124,7 +124,7 @@ jobs:
           CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-13' && 'x86_64' || 'arm64' }}
           CIBW_BUILD_VERBOSITY: "3"
           CIBW_ENVIRONMENT: >
-            MACOSX_DEPLOYMENT_TARGET="11.0"
+            MACOSX_DEPLOYMENT_TARGET="14.0"
             DYLD_LIBRARY_PATH="/usr/local/lib:$DYLD_LIBRARY_PATH"
             CFLAGS="-I/usr/local/include -I{project}/numpy_quaddtype/QBLAS/include $CFLAGS"
             CXXFLAGS="-I/usr/local/include -I{project}/numpy_quaddtype/QBLAS/include $CXXFLAGS"
