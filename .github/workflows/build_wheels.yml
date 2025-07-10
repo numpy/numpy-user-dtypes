@@ -73,99 +73,77 @@ jobs:
           path: ./quaddtype/wheelhouse/*.whl
           name: wheels-linux
 
-  # build_wheels_macos:
-  #   name: Build wheels on ${{ matrix.os }}
-  #   runs-on: ${{ matrix.os }}
-  #   strategy:
-  #     matrix:
-  #       os: [macos-13, macos-14]
+  build_wheels_macos:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-13, macos-14]
 
-  #   steps:
-  #     - uses: actions/checkout@v3
-  #       with:
-  #         submodules: recursive
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
 
-  #     - name: Set up Python
-  #       uses: actions/setup-python@v4
-  #       with:
-  #         python-version: "3.10"
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
 
-  #     - name: Install dependencies
-  #       run: |
-  #         brew install cmake libomp git
+      - name: Install dependencies
+        run: |
+          brew install cmake libomp git
 
-  #     - name: Verify QuadBLAS submodule
-  #       run: |
-  #         ls -la quaddtype/numpy_quaddtype/QBLAS/
-  #         ls -la quaddtype/numpy_quaddtype/QBLAS/include/quadblas/
+      - name: Install SLEEF
+        env:
+          MACOSX_DEPLOYMENT_TARGET: "11.0"
+        run: |
+          git clone --branch 3.8 https://github.com/shibatch/sleef.git
+          cd sleef
+          cmake -S . -B build \
+            -DSLEEF_BUILD_QUAD:BOOL=ON \
+            -DSLEEF_BUILD_SHARED_LIBS:BOOL=ON \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
+            -DCMAKE_INSTALL_RPATH="@loader_path/../lib" \
+            -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON
+          cmake --build build/ --clean-first -j
+          sudo cmake --install build --prefix /usr/local
 
-  #     - name: Install SLEEF and setup QuadBLAS
-  #       env:
-  #         MACOSX_DEPLOYMENT_TARGET: "11.0"
-  #       run: |
-  #         # Install SLEEF
-  #         git clone --branch 3.8 --depth 1 https://github.com/shibatch/sleef.git
-  #         cd sleef
-  #         cmake -S . -B build \
-  #           -DSLEEF_BUILD_QUAD:BOOL=ON \
-  #           -DSLEEF_BUILD_SHARED_LIBS:BOOL=ON \
-  #           -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-  #           -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
-  #           -DCMAKE_INSTALL_RPATH="@loader_path/../lib" \
-  #           -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON
-  #         cmake --build build/ --clean-first -j
-  #         sudo cmake --install build --prefix /usr/local
-  #         cd ..
+      - name: Verify QuadBLAS submodule
+        run: |
+          ls -la quaddtype/numpy_quaddtype/QBLAS/
+          ls -la quaddtype/numpy_quaddtype/QBLAS/include/quadblas/
 
-  #         # Install QuadBLAS headers from submodule
-  #         sudo cp -r quaddtype/numpy_quaddtype/QBLAS/include/quadblas /usr/local/include/
+      - name: Install cibuildwheel
+        run: pip install cibuildwheel==2.20.0
 
-  #     - name: Install cibuildwheel
-  #       run: pip install cibuildwheel==2.20.0
+      - name: Build wheels
+        env:
+          CIBW_BUILD: "cp310-* cp311-* cp312-*"
+          CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-13' && 'x86_64' || 'arm64' }}
+          CIBW_BUILD_VERBOSITY: "3"
+          CIBW_ENVIRONMENT: >
+            MACOSX_DEPLOYMENT_TARGET="11.0"
+            DYLD_LIBRARY_PATH="/usr/local/lib:$DYLD_LIBRARY_PATH"
+            CFLAGS="-I/usr/local/include -I{project}/numpy_quaddtype/QBLAS/include $CFLAGS"
+            CXXFLAGS="-I/usr/local/include -I{project}/numpy_quaddtype/QBLAS/include $CXXFLAGS"
+            LDFLAGS="-L/usr/local/lib $LDFLAGS"
+            PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
+          CIBW_REPAIR_WHEEL_COMMAND: >
+            delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}
+          CIBW_TEST_COMMAND: |
+            pip install {package}[test]
+            pytest -s {project}/tests
+          CIBW_TEST_EXTRAS: "test"
+        run: |
+          python -m cibuildwheel --output-dir wheelhouse
+        working-directory: ./quaddtype
 
-  #     - name: Build wheels
-  #       env:
-  #         CIBW_BUILD: "cp310-* cp311-* cp312-*"
-  #         CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-13' && 'x86_64' || 'arm64' }}
-  #         CIBW_BUILD_VERBOSITY: "1"
-  #         CIBW_BEFORE_ALL: |
-  #           # Install SLEEF
-  #           git clone --branch 3.8 --depth 1 https://github.com/shibatch/sleef.git
-  #           cd sleef
-  #           cmake -S . -B build \
-  #             -DSLEEF_BUILD_QUAD:BOOL=ON \
-  #             -DSLEEF_BUILD_SHARED_LIBS:BOOL=ON \
-  #             -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-  #             -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
-  #             -DCMAKE_INSTALL_RPATH="@loader_path/../lib" \
-  #             -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON
-  #           cmake --build build/ --clean-first -j
-  #           cmake --install build --prefix /usr/local
-  #           cd ..
-
-  #           # Install QuadBLAS headers from submodule
-  #           cp -r quaddtype/numpy_quaddtype/QBLAS/include/quadblas /usr/local/include/
-  #         CIBW_ENVIRONMENT: >
-  #           MACOSX_DEPLOYMENT_TARGET="11.0"
-  #           DYLD_LIBRARY_PATH="/usr/local/lib:$DYLD_LIBRARY_PATH"
-  #           CFLAGS="-I/usr/local/include -I/usr/local/include/quadblas $CFLAGS"
-  #           CXXFLAGS="-I/usr/local/include -I/usr/local/include/quadblas -std=c++17 $CXXFLAGS"
-  #           LDFLAGS="-L/usr/local/lib -lsleef -lsleefquad $LDFLAGS"
-  #           PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
-  #         CIBW_REPAIR_WHEEL_COMMAND: >
-  #           delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}
-  #         CIBW_TEST_COMMAND: |
-  #           pip install {package}[test]
-  #           pytest {project}/tests
-  #         CIBW_TEST_EXTRAS: "test"
-  #       run: |
-  #         python -m cibuildwheel --output-dir wheelhouse
-  #       working-directory: ./quaddtype
-
-  #     - uses: actions/upload-artifact@v4
-  #       with:
-  #         path: ./quaddtype/wheelhouse/*.whl
-  #         name: wheels-${{ matrix.os }}
+      - uses: actions/upload-artifact@v4
+        with:
+          path: ./quaddtype/wheelhouse/*.whl
+          name: wheels-${{ matrix.os }}
 
   # build_wheels_windows:
   #   name: Build wheels on Windows
