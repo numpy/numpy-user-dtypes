@@ -41,8 +41,8 @@ jobs:
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
           CIBW_BUILD_VERBOSITY: "3"
           CIBW_BEFORE_ALL: |
-            sudo apt-get update
-            sudo apt-get install -y cmake build-essential libomp-dev git pkg-config gcc g++
+            apt-get update
+            apt-get install -y cmake build-essential libomp-dev git pkg-config gcc g++
             # Install SLEEF in container
             git clone --branch 3.8 https://github.com/shibatch/sleef.git
             cd sleef
