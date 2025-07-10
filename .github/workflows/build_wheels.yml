@@ -27,11 +27,6 @@ jobs:
         with:
           python-version: ">=3.10.0"
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake build-essential libomp-dev git pkg-config
-
       - name: Verify QuadBLAS submodule
         run: |
           ls -la quaddtype/numpy_quaddtype/QBLAS/
@@ -46,6 +41,8 @@ jobs:
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
           CIBW_BUILD_VERBOSITY: "3"
           CIBW_BEFORE_ALL: |
+            sudo apt-get update
+            sudo apt-get install -y cmake build-essential libomp-dev git pkg-config gcc g++
             # Install SLEEF in container
             git clone --branch 3.8 https://github.com/shibatch/sleef.git
             cd sleef
