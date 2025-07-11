@@ -23,9 +23,17 @@ incdir_numpy = run_command(py,
   check : true
 ).stdout().strip()
 
+# Add OpenMP dependency (optional, for threading)
+openmp_dep = dependency('openmp', required: false)
+dependencies = [sleef_dep, py_dep]
+if openmp_dep.found()
+    dependencies += openmp_dep
+endif
+
 includes = include_directories(
     [
         incdir_numpy,
+        'numpy_quaddtype/QBLAS/include',
         'numpy_quaddtype/src',
     ]
 )
@@ -45,7 +53,9 @@ srcs = [
     'numpy_quaddtype/src/umath.h',
     'numpy_quaddtype/src/umath.cpp',
     'numpy_quaddtype/src/dragon4.h',
-    'numpy_quaddtype/src/dragon4.c'
+    'numpy_quaddtype/src/dragon4.c',
+    'numpy_quaddtype/src/quadblas_interface.h',
+    'numpy_quaddtype/src/quadblas_interface.cpp'
 ]
 
 py.install_sources(
@@ -60,7 +70,7 @@ py.extension_module('_quaddtype_main',
   srcs,
   link_args: is_windows ? ['/DEFAULTLIB:sleef', '/DEFAULTLIB:sleefquad'] : ['-lsleef', '-lsleefquad'],
   link_language: 'cpp',
-  dependencies: [sleef_dep, py_dep],
+  dependencies: dependencies,
   install: true,
   subdir: 'numpy_quaddtype',
   include_directories: includes

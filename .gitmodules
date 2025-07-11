@@ -1,0 +1,3 @@
+[submodule "quaddtype/numpy_quaddtype/QBLAS"]
+	path = quaddtype/numpy_quaddtype/QBLAS
+	url = https://github.com/SwayamInSync/QBLAS
