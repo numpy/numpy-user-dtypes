@@ -3,7 +3,7 @@ name: Build Wheels
 on:
   push:
     branches:
-      - dot
+      - main
     tags:
       - "quaddtype-v*"
     paths:
