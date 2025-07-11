@@ -6,11 +6,13 @@ on:
       - dot
     tags:
       - "quaddtype-v*"
-    # paths:
-    #   - "quaddtype/**"
+    paths:
+      - "quaddtype/**"
+      - ".github/workflows"
   pull_request:
-    # paths:
-    #   - "quaddtype/**"
+    paths:
+      - "quaddtype/**"
+      - ".github/workflows"
   workflow_dispatch:
 
 jobs:
