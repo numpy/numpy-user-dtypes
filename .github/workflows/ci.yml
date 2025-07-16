@@ -59,6 +59,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libmpfr-dev libssl-dev libfftw3-dev
+
       - name: Install SLEEF
         run: |
           sudo apt-get update -y
@@ -68,17 +69,27 @@ jobs:
           cmake -S . -B build -DSLEEF_BUILD_QUAD:BOOL=ON -DSLEEF_BUILD_SHARED_LIBS:BOOL=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
           cmake --build build/ --clean-first -j
           sudo cmake --install build --prefix /usr/local
+
       - name: Install quaddtype
         working-directory: quaddtype
         run: |
-            CFLAGS="-I/usr/local/include -I{project}/numpy_quaddtype/QBLAS/include $CFLAGS"
-            CXXFLAGS="-I/usr/local/include -I{project}/numpy_quaddtype/QBLAS/include -fext-numeric-literals $CXXFLAGS"
-            LDFLAGS="-L/usr/local/lib64 -L/usr/local/lib -Wl,-rpath,/usr/local/lib64 -Wl,-rpath,/usr/local/lib -fopenmp $LDFLAGS"
-            LD_LIBRARY_PATH="/usr/local/lib64:/usr/local/lib:$LD_LIBRARY_PATH"
-            
-            git submodule update --init --recursive
-            ls -la numpy_quaddtype/QBLAS/
-            python -m pip install . -v --no-build-isolation -Cbuilddir=build -C'compile-args=-v' -Csetup-args="-Dbuildtype=debug"
+          # Initialize submodules first
+          git submodule update --init --recursive
+          ls -la numpy_quaddtype/QBLAS/
+          
+          # Set environment variables with proper export and correct paths
+          export CFLAGS="-I/usr/local/include -I$(pwd)/numpy_quaddtype/QBLAS/include"
+          export CXXFLAGS="-I/usr/local/include -I$(pwd)/numpy_quaddtype/QBLAS/include -fext-numeric-literals"
+          export LDFLAGS="-L/usr/local/lib64 -L/usr/local/lib -Wl,-rpath,/usr/local/lib64 -Wl,-rpath,/usr/local/lib -fopenmp"
+          export LD_LIBRARY_PATH="/usr/local/lib64:/usr/local/lib:$LD_LIBRARY_PATH"
+          
+          # Install with meson args to ensure the C++ flags are passed through
+          python -m pip install . -v --no-build-isolation \
+            -Cbuilddir=build \
+            -C'compile-args=-v' \
+            -Csetup-args="-Dbuildtype=debug" \
+            -Csetup-args="-Dcpp_args=-fext-numeric-literals"
+
       - name: Run quaddtype tests
         working-directory: quaddtype
         run: |
