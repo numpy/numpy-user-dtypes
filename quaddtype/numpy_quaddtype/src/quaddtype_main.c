@@ -14,7 +14,7 @@
 
 #include "scalar.h"
 #include "dtype.h"
-#include "umath.h"
+#include "umath/umath.h"
 #include "quad_common.h"
 #include "quadblas_interface.h"
 #include "float.h"
