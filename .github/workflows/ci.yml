@@ -61,8 +61,8 @@ jobs:
           sudo apt-get install -y libmpfr-dev libssl-dev libfftw3-dev
       - name: Install SLEEF
         run: |
-          yum update -y
-          yum install -y cmake gcc gcc-c++ make git pkgconfig
+          sudo apt-get update -y
+          sudo apt-get install -y cmake gcc g++ make git pkg-config
           git clone --branch 3.8 https://github.com/shibatch/sleef.git
           cd sleef
           cmake -S . -B build -DSLEEF_BUILD_QUAD:BOOL=ON -DSLEEF_BUILD_SHARED_LIBS:BOOL=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
