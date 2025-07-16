@@ -75,6 +75,9 @@ jobs:
             CXXFLAGS="-I/usr/local/include -I{project}/numpy_quaddtype/QBLAS/include -fext-numeric-literals $CXXFLAGS"
             LDFLAGS="-L/usr/local/lib64 -L/usr/local/lib -Wl,-rpath,/usr/local/lib64 -Wl,-rpath,/usr/local/lib -fopenmp $LDFLAGS"
             LD_LIBRARY_PATH="/usr/local/lib64:/usr/local/lib:$LD_LIBRARY_PATH"
+            
+            git submodule update --init --recursive
+            ls -la quaddtype/numpy_quaddtype/QBLAS/
             python -m pip install . -v --no-build-isolation -Cbuilddir=build -C'compile-args=-v' -Csetup-args="-Dbuildtype=debug"
       - name: Run quaddtype tests
         working-directory: quaddtype
