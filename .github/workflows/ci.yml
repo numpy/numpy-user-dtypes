@@ -3,7 +3,7 @@ name: Numpy User DTypes CI
 on:
   push:
     branches:
-      - main
+      - matmul-ufunc
   pull_request:
   workflow_dispatch:
 
@@ -61,15 +61,21 @@ jobs:
           sudo apt-get install -y libmpfr-dev libssl-dev libfftw3-dev
       - name: Install SLEEF
         run: |
+          yum update -y
+          yum install -y cmake gcc gcc-c++ make git pkgconfig
           git clone --branch 3.8 https://github.com/shibatch/sleef.git
           cd sleef
           cmake -S . -B build -DSLEEF_BUILD_QUAD:BOOL=ON -DSLEEF_BUILD_SHARED_LIBS:BOOL=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
           cmake --build build/ --clean-first -j
-          sudo cmake --install build --prefix /usr
+          sudo cmake --install build --prefix /usr/local
       - name: Install quaddtype
         working-directory: quaddtype
         run: |
-          LDFLAGS="-Wl,-rpath,/usr/lib" python -m pip install . -v --no-build-isolation -Cbuilddir=build -C'compile-args=-v' -Csetup-args="-Dbuildtype=debug"
+            CFLAGS="-I/usr/local/include -I{project}/numpy_quaddtype/QBLAS/include $CFLAGS"
+            CXXFLAGS="-I/usr/local/include -I{project}/numpy_quaddtype/QBLAS/include -fext-numeric-literals $CXXFLAGS"
+            LDFLAGS="-L/usr/local/lib64 -L/usr/local/lib -Wl,-rpath,/usr/local/lib64 -Wl,-rpath,/usr/local/lib -fopenmp $LDFLAGS"
+            LD_LIBRARY_PATH="/usr/local/lib64:/usr/local/lib:$LD_LIBRARY_PATH"
+            python -m pip install . -v --no-build-isolation -Cbuilddir=build -C'compile-args=-v' -Csetup-args="-Dbuildtype=debug"
       - name: Run quaddtype tests
         working-directory: quaddtype
         run: |
