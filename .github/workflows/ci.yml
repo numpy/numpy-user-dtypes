@@ -77,7 +77,7 @@ jobs:
             LD_LIBRARY_PATH="/usr/local/lib64:/usr/local/lib:$LD_LIBRARY_PATH"
             
             git submodule update --init --recursive
-            ls -la quaddtype/numpy_quaddtype/QBLAS/
+            ls -la numpy_quaddtype/QBLAS/
             python -m pip install . -v --no-build-isolation -Cbuilddir=build -C'compile-args=-v' -Csetup-args="-Dbuildtype=debug"
       - name: Run quaddtype tests
         working-directory: quaddtype
