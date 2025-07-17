@@ -5,7 +5,6 @@
 #define NO_IMPORT_ARRAY
 #define NO_IMPORT_UFUNC
 
-
 #include <Python.h>
 #include <cstdio>
 
@@ -25,20 +24,19 @@
 
 static NPY_CASTING
 quad_matmul_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtypes[],
-                                   PyArray_Descr *const given_descrs[],
-                                   PyArray_Descr *loop_descrs[], npy_intp *NPY_UNUSED(view_offset))
+                                PyArray_Descr *const given_descrs[], PyArray_Descr *loop_descrs[],
+                                npy_intp *NPY_UNUSED(view_offset))
 {
-
-  NPY_CASTING casting = NPY_NO_CASTING;    
-  std::cout << "exiting the descriptor";
-  return casting;
+    NPY_CASTING casting = NPY_NO_CASTING;
+    std::cout << "exiting the descriptor";
+    return casting;
 }
 
 template <binary_op_quad_def sleef_op, binary_op_longdouble_def longdouble_op>
 int
 quad_generic_matmul_strided_loop_unaligned(PyArrayMethod_Context *context, char *const data[],
-                                          npy_intp const dimensions[], npy_intp const strides[],
-                                          NpyAuxData *auxdata)
+                                           npy_intp const dimensions[], npy_intp const strides[],
+                                           NpyAuxData *auxdata)
 {
     npy_intp N = dimensions[0];
     char *in1_ptr = data[0], *in2_ptr = data[1];
@@ -73,8 +71,8 @@ quad_generic_matmul_strided_loop_unaligned(PyArrayMethod_Context *context, char 
 template <binary_op_quad_def sleef_op, binary_op_longdouble_def longdouble_op>
 int
 quad_generic_matmul_strided_loop_aligned(PyArrayMethod_Context *context, char *const data[],
-                                        npy_intp const dimensions[], npy_intp const strides[],
-                                        NpyAuxData *auxdata)
+                                         npy_intp const dimensions[], npy_intp const strides[],
+                                         NpyAuxData *auxdata)
 {
     npy_intp N = dimensions[0];
     char *in1_ptr = data[0], *in2_ptr = data[1];
@@ -101,6 +99,7 @@ quad_generic_matmul_strided_loop_aligned(PyArrayMethod_Context *context, char *c
     return 0;
 }
 
+template <binary_op_quad_def sleef_op, binary_op_longdouble_def longdouble_op>
 int
 create_matmul_ufunc(PyObject *numpy, const char *ufunc_name)
 {
@@ -136,13 +135,11 @@ create_matmul_ufunc(PyObject *numpy, const char *ufunc_name)
     return 0;
 }
 
-
 int
 init_matmul_ops(PyObject *numpy)
 {
-    if (create_matmul_ufunc<quad_add>(numpy, "matmul") < 0) {
+    if (create_matmul_ufunc<quad_add, ld_add>(numpy, "matmul") < 0) {
         return -1;
     }
     return 0;
 }
-
