@@ -3,7 +3,7 @@ name: Numpy User DTypes CI
 on:
   push:
     branches:
-      - matmul-ufunc
+      - dot
   pull_request:
   workflow_dispatch:
 
@@ -76,13 +76,13 @@ jobs:
           # Initialize submodules first
           git submodule update --init --recursive
           ls -la numpy_quaddtype/QBLAS/
-          
+
           # Set environment variables with proper export and correct paths
           export CFLAGS="-I/usr/local/include -I$(pwd)/numpy_quaddtype/QBLAS/include"
           export CXXFLAGS="-I/usr/local/include -I$(pwd)/numpy_quaddtype/QBLAS/include -fext-numeric-literals"
           export LDFLAGS="-L/usr/local/lib64 -L/usr/local/lib -Wl,-rpath,/usr/local/lib64 -Wl,-rpath,/usr/local/lib -fopenmp"
           export LD_LIBRARY_PATH="/usr/local/lib64:/usr/local/lib:$LD_LIBRARY_PATH"
-          
+
           # Install with meson args to ensure the C++ flags are passed through
           python -m pip install . -v --no-build-isolation \
             -Cbuilddir=build \

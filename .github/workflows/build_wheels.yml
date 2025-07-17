@@ -3,7 +3,7 @@ name: Build Wheels
 on:
   push:
     branches:
-      - matmul-ufunc
+      - dot
     tags:
       - "quaddtype-v*"
     paths:
