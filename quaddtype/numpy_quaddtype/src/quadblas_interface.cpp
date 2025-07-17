@@ -786,4 +786,95 @@ py_quadblas_get_version(PyObject *self, PyObject *args)
     return PyUnicode_FromString(QuadBLAS::VERSION);
 }
 
+void matmul_op(Sleef_quad * inp1, Sleef_quad *inp2, Sleef_quad *out)
+{
+    Sleef_quad *data_a, *data_b;
+    QuadBackendType backend_a, backend_b;
+    QuadBLAS::Layout layout_a, layout_b;
+
+    if (!extract_quad_array_info(a, &data_a, &backend_a, &layout_a) ||
+        !extract_quad_array_info(b, &data_b, &backend_b, &layout_b)) {
+        return nullptr;
+    }
+
+    Sleef_quad *temp_a = nullptr, *temp_b = nullptr;
+    Sleef_quad *sleef_a = ensure_sleef_backend(a, backend_a, &temp_a);
+    Sleef_quad *sleef_b = ensure_sleef_backend(b, backend_b, &temp_b);
+
+    if (!sleef_a || !sleef_b) {
+        QuadBLAS::aligned_free(temp_a);
+        QuadBLAS::aligned_free(temp_b);
+        return nullptr;
+    }
+
+    QuadBackendType result_backend = BACKEND_SLEEF;
+    if (backend_a == BACKEND_LONGDOUBLE && backend_b == BACKEND_LONGDOUBLE) {
+        result_backend = BACKEND_LONGDOUBLE;
+    }
+
+    npy_intp result_dims[2] = {m, n};
+    QuadPrecDTypeObject *result_dtype = new_quaddtype_instance(result_backend);
+    if (!result_dtype) {
+        QuadBLAS::aligned_free(temp_a);
+        QuadBLAS::aligned_free(temp_b);
+        return nullptr;
+    }
+
+    PyArrayObject *result =
+            (PyArrayObject *)PyArray_Empty(2, result_dims, (PyArray_Descr *)result_dtype, 0);
+    if (!result) {
+        QuadBLAS::aligned_free(temp_a);
+        QuadBLAS::aligned_free(temp_b);
+        Py_DECREF(result_dtype);
+        return nullptr;
+    }
+
+    Sleef_quad *result_data = (Sleef_quad *)PyArray_DATA(result);
+    for (npy_intp i = 0; i < m * n; i++) {
+        result_data[i] = Sleef_cast_from_doubleq1(0.0);
+    }
+
+    npy_intp lda, ldb, ldc;
+
+    if (layout_a == QuadBLAS::Layout::RowMajor) {
+        lda = k;
+    }
+    else {
+        lda = m;
+    }
+
+    if (layout_b == QuadBLAS::Layout::RowMajor) {
+        ldb = n;
+    }
+    else {
+        ldb = k;
+    }
+
+    QuadBLAS::Layout result_layout = layout_a;
+    if (result_layout == QuadBLAS::Layout::RowMajor) {
+        ldc = n;
+    }
+    else {
+        ldc = m;
+    }
+
+    Sleef_quad alpha = Sleef_cast_from_doubleq1(1.0);
+    Sleef_quad beta = Sleef_cast_from_doubleq1(0.0);
+
+    QuadBLAS::gemm(result_layout, m, n, k, alpha, sleef_a, lda, sleef_b, ldb, beta, result_data,
+                   ldc);
+
+    if (result_backend == BACKEND_LONGDOUBLE) {
+        long double *ld_result = (long double *)PyArray_DATA(result);
+        for (npy_intp i = 0; i < m * n; i++) {
+            ld_result[i] = (long double)Sleef_cast_to_doubleq1(result_data[i]);
+        }
+    }
+
+    QuadBLAS::aligned_free(temp_a);
+    QuadBLAS::aligned_free(temp_b);
+
+    return (PyObject *)result;
+}
+
 #endif  // DISABLE_QUADBLAS

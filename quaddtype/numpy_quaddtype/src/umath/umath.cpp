@@ -22,6 +22,7 @@ extern "C" {
 #include "unary_ops.h"
 #include "binary_ops.h"
 #include "comparison_ops.h"
+#include "matmul.h"
 
 // helper debugging function
 static const char *
@@ -101,10 +102,10 @@ init_quad_umath(void)
         goto err;
     }
 
-    // if (init_quad_matmul(numpy) < 0) {
-    //     PyErr_SetString(PyExc_RuntimeError, "Failed to initialize quad matrix multiplication operations");
-    //     goto err;
-    // }
+    if (init_matmul_ops(numpy) < 0) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to initialize quad matrix multiplication operations");
+        goto err;
+    }
 
     Py_DECREF(numpy);
     return 0;

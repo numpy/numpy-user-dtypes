@@ -63,6 +63,8 @@ srcs = [
     'numpy_quaddtype/src/umath/comparison_ops.h',
     'numpy_quaddtype/src/umath/comparison_ops.cpp',
     'numpy_quaddtype/src/umath/promoters.hpp',
+    'numpy_quaddtype/src/umath/matmul.h',
+    'numpy_quaddtype/src/umath/matmul.cpp',
 ]
 
 py.install_sources(
