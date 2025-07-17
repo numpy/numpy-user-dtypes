@@ -3,7 +3,6 @@ from ._quaddtype_main import (
     QuadPrecDType,
     is_longdouble_128,
     get_sleef_constant,
-    qblas_dot as dot,
     set_num_threads,
     get_num_threads,
     get_quadblas_version
@@ -17,7 +16,7 @@ __all__ = [
     # Constants
     'pi', 'e', 'log2e', 'log10e', 'ln2', 'ln10', 'max_value', 'min_value', 'epsilon', 
     # QuadBLAS related functions
-    'dot', 'set_num_threads', 'get_num_threads', 'get_quadblas_version'
+    'set_num_threads', 'get_num_threads', 'get_quadblas_version'
 ]
 
 def SleefQuadPrecision(value):
