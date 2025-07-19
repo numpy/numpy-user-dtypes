@@ -290,7 +290,7 @@ init_matmul_ops(PyObject *numpy)
     PyArray_DTypeMeta *dtypes[3] = {&QuadPrecDType, &QuadPrecDType, &QuadPrecDType};
 
     PyType_Slot slots[] = {{NPY_METH_resolve_descriptors, (void *)&quad_matmul_resolve_descriptors},
-                           {NPY_METH_strided_loop, (void *)&naive_matmul_strided_loop},
+                           {NPY_METH_strided_loop, (void *)&quad_matmul_strided_loop},
                            {NPY_METH_unaligned_strided_loop, (void *)&naive_matmul_strided_loop},
                            {0, NULL}};
 
