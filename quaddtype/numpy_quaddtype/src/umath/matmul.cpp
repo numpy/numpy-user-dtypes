@@ -22,43 +22,36 @@ extern "C" {
 #include "../ops.hpp"
 #include "matmul.h"
 #include "promoters.hpp"
+#include "../quadblas_interface.h"
 
 /**
  * Resolve descriptors for matmul operation.
- * Follows the same pattern as binary_ops.cpp
+ * Only supports SLEEF backend when QBLAS is enabled.
  */
 static NPY_CASTING
 quad_matmul_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtypes[],
                                 PyArray_Descr *const given_descrs[], PyArray_Descr *loop_descrs[],
                                 npy_intp *NPY_UNUSED(view_offset))
 {
-    // Follow the exact same pattern as quad_binary_op_resolve_descriptors
     QuadPrecDTypeObject *descr_in1 = (QuadPrecDTypeObject *)given_descrs[0];
     QuadPrecDTypeObject *descr_in2 = (QuadPrecDTypeObject *)given_descrs[1];
-    QuadBackendType target_backend;
 
-    // Determine target backend and if casting is needed
+    // QBLAS only supports SLEEF backend
+    if (descr_in1->backend != BACKEND_SLEEF || descr_in2->backend != BACKEND_SLEEF) {
+        PyErr_SetString(PyExc_NotImplementedError,
+                        "QBLAS-accelerated matmul only supports SLEEF backend. "
+                        "Other backends are not supported with QBLAS.");
+        return (NPY_CASTING)-1;
+    }
+
+    // Both inputs must use SLEEF backend
+    QuadBackendType target_backend = BACKEND_SLEEF;
     NPY_CASTING casting = NPY_NO_CASTING;
-    if (descr_in1->backend != descr_in2->backend) {
-        target_backend = BACKEND_LONGDOUBLE;
-        casting = NPY_SAFE_CASTING;
-    }
-    else {
-        target_backend = descr_in1->backend;
-    }
 
-    // Set up input descriptors, casting if necessary
+    // Set up input descriptors
     for (int i = 0; i < 2; i++) {
-        if (((QuadPrecDTypeObject *)given_descrs[i])->backend != target_backend) {
-            loop_descrs[i] = (PyArray_Descr *)new_quaddtype_instance(target_backend);
-            if (!loop_descrs[i]) {
-                return (NPY_CASTING)-1;
-            }
-        }
-        else {
-            Py_INCREF(given_descrs[i]);
-            loop_descrs[i] = given_descrs[i];
-        }
+        Py_INCREF(given_descrs[i]);
+        loop_descrs[i] = given_descrs[i];
     }
 
     // Set up output descriptor
@@ -71,10 +64,9 @@ quad_matmul_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtypes[
     else {
         QuadPrecDTypeObject *descr_out = (QuadPrecDTypeObject *)given_descrs[2];
         if (descr_out->backend != target_backend) {
-            loop_descrs[2] = (PyArray_Descr *)new_quaddtype_instance(target_backend);
-            if (!loop_descrs[2]) {
-                return (NPY_CASTING)-1;
-            }
+            PyErr_SetString(PyExc_NotImplementedError,
+                            "QBLAS-accelerated matmul only supports SLEEF backend for output.");
+            return (NPY_CASTING)-1;
         }
         else {
             Py_INCREF(given_descrs[2]);
@@ -85,117 +77,166 @@ quad_matmul_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtypes[
 }
 
 /**
- * Matrix multiplication strided loop using NumPy 2.0 API.
- * Implements general matrix multiplication for arbitrary dimensions.
- *
- * For matmul with signature (m?,n),(n,p?)->(m?,p?):
- * - dimensions[0] = N (loop dimension, number of batch operations)
- * - dimensions[1] = m (rows of first matrix)
- * - dimensions[2] = n (cols of first matrix / rows of second matrix)
- * - dimensions[3] = p (cols of second matrix)
- *
- * - strides[0], strides[1], strides[2] = batch strides for A, B, C
- * - strides[3], strides[4] = row stride, col stride for A (m, n)
- * - strides[5], strides[6] = row stride, col stride for B (n, p)
- * - strides[7], strides[8] = row stride, col stride for C (m, p)
+ * Determine the type of operation based on input dimensions
+ */
+enum MatmulOperationType {
+    MATMUL_DOT,   // 1D x 1D -> scalar
+    MATMUL_GEMV,  // 2D x 1D -> 1D
+    MATMUL_GEMM   // 2D x 2D -> 2D
+};
+
+static MatmulOperationType
+determine_operation_type(npy_intp m, npy_intp n, npy_intp p)
+{
+    // For matmul signature (m?,n),(n,p?)->(m?,p?):
+    // - If m=1 and p=1: vector dot product (1D x 1D)
+    // - If p=1: matrix-vector multiplication (2D x 1D)
+    // - Otherwise: matrix-matrix multiplication (2D x 2D)
+
+    if (m == 1 && p == 1) {
+        return MATMUL_DOT;
+    }
+    else if (p == 1) {
+        return MATMUL_GEMV;
+    }
+    else {
+        return MATMUL_GEMM;
+    }
+}
+
+/**
+ * Matrix multiplication strided loop using QBLAS.
+ * Automatically selects the appropriate QBLAS operation based on input dimensions.
  */
 static int
 quad_matmul_strided_loop(PyArrayMethod_Context *context, char *const data[],
                          npy_intp const dimensions[], npy_intp const strides[], NpyAuxData *auxdata)
 {
     // Extract dimensions
-    npy_intp N = dimensions[0];  // Number of batch operations
+    npy_intp N = dimensions[0];  // Batch size, this remains always 1 for matmul afaik
     npy_intp m = dimensions[1];  // Rows of first matrix
     npy_intp n = dimensions[2];  // Cols of first matrix / rows of second matrix
     npy_intp p = dimensions[3];  // Cols of second matrix
 
     // Extract batch strides
-    npy_intp A_batch_stride = strides[0];
-    npy_intp B_batch_stride = strides[1];
-    npy_intp C_batch_stride = strides[2];
+    npy_intp A_stride = strides[0];
+    npy_intp B_stride = strides[1];
+    npy_intp C_stride = strides[2];
 
     // Extract core strides for matrix dimensions
-    npy_intp A_row_stride = strides[3];  // Stride along m dimension of A
-    npy_intp A_col_stride = strides[4];  // Stride along n dimension of A
-    npy_intp B_row_stride = strides[5];  // Stride along n dimension of B
-    npy_intp B_col_stride = strides[6];  // Stride along p dimension of B
-    npy_intp C_row_stride = strides[7];  // Stride along m dimension of C
-    npy_intp C_col_stride = strides[8];  // Stride along p dimension of C
+    npy_intp A_row_stride = strides[3];
+    npy_intp A_col_stride = strides[4];
+    npy_intp B_row_stride = strides[5];
+    npy_intp B_col_stride = strides[6];
+    npy_intp C_row_stride = strides[7];
+    npy_intp C_col_stride = strides[8];
 
-    // Get backend from descriptor
+    // Note: B_col_stride and C_col_stride not needed for row-major QBLAS calls
+
+    // Get backend from descriptor (should be SLEEF only)
     QuadPrecDTypeObject *descr = (QuadPrecDTypeObject *)context->descriptors[0];
-    QuadBackendType backend = descr->backend;
-    size_t elem_size = (backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
+    if (descr->backend != BACKEND_SLEEF) {
+        PyErr_SetString(PyExc_RuntimeError, "Internal error: non-SLEEF backend in QBLAS matmul");
+        return -1;
+    }
 
-    // Process each batch
-    for (npy_intp batch = 0; batch < N; batch++) {
-        char *A_batch = data[0] + batch * A_batch_stride;
-        char *B_batch = data[1] + batch * B_batch_stride;
-        char *C_batch = data[2] + batch * C_batch_stride;
+    // Determine operation type
+    MatmulOperationType op_type = determine_operation_type(m, n, p);
 
-        // Perform matrix multiplication: C = A @ B
-        // C[i,j] = sum_k(A[i,k] * B[k,j])
-        for (npy_intp i = 0; i < m; i++) {
-            for (npy_intp j = 0; j < p; j++) {
-                char *C_ij = C_batch + i * C_row_stride + j * C_col_stride;
+    // Constants for QBLAS
+    Sleef_quad alpha = Sleef_cast_from_doubleq1(1.0);
+    Sleef_quad beta = Sleef_cast_from_doubleq1(0.0);
 
-                if (backend == BACKEND_SLEEF) {
-                    Sleef_quad sum = Sleef_cast_from_doubleq1(0.0);  // Initialize to 0
+    // print all information for debugging
+    printf("DEBUG: Performing %ld batch operations with dimensions (%ld, %ld, %ld)\n", (long)N,
+           (long)m, (long)n, (long)p);
+    printf("DEBUG: Strides - A: (%ld, %ld), B: (%ld, %ld), C: (%ld, %ld)\n", (long)A_row_stride,
+           (long)A_col_stride, (long)B_row_stride, (long)B_col_stride, (long)C_row_stride,
+           (long)C_col_stride);
+    printf("DEBUG: Operation type: %d\n", op_type);
 
-                    for (npy_intp k = 0; k < n; k++) {
-                        char *A_ik = A_batch + i * A_row_stride + k * A_col_stride;
-                        char *B_kj = B_batch + k * B_row_stride + j * B_col_stride;
+    char *A = data[0];
+    char *B = data[1];
+    char *C = data[2];
 
-                        Sleef_quad a_val, b_val;
-                        memcpy(&a_val, A_ik, sizeof(Sleef_quad));
-                        memcpy(&b_val, B_kj, sizeof(Sleef_quad));
+    Sleef_quad *A_ptr = (Sleef_quad *)A;
+    Sleef_quad *B_ptr = (Sleef_quad *)B;
+    Sleef_quad *C_ptr = (Sleef_quad *)C;
 
-                        // sum += A[i,k] * B[k,j]
-                        sum = Sleef_addq1_u05(sum, Sleef_mulq1_u05(a_val, b_val));
-                    }
+    int result = -1;
 
-                    memcpy(C_ij, &sum, sizeof(Sleef_quad));
-                }
-                else {
-                    // Long double backend
-                    long double sum = 0.0L;
+    switch (op_type) {
+        case MATMUL_DOT: {
+            // Vector dot product: C = A^T * B (both are vectors)
+            // A has shape (1, n), B has shape (n, 1), C has shape (1, 1)
 
-                    for (npy_intp k = 0; k < n; k++) {
-                        char *A_ik = A_batch + i * A_row_stride + k * A_col_stride;
-                        char *B_kj = B_batch + k * B_row_stride + j * B_col_stride;
+            printf("DEBUG: Using QBLAS dot product for %ld elements\n", (long)n);
 
-                        long double a_val, b_val;
-                        memcpy(&a_val, A_ik, sizeof(long double));
-                        memcpy(&b_val, B_kj, sizeof(long double));
+            // A is effectively a vector of length n
+            // B is effectively a vector of length n
+            size_t incx = A_col_stride / sizeof(Sleef_quad);
+            size_t incy = B_row_stride / sizeof(Sleef_quad);
 
-                        sum += a_val * b_val;
-                    }
-
-                    memcpy(C_ij, &sum, sizeof(long double));
-                }
-            }
+            result = qblas_dot(n, A_ptr, incx, B_ptr, incy, C_ptr);
+            break;
         }
+
+        case MATMUL_GEMV: {
+            // Matrix-vector multiplication: C = A * B
+            // A has shape (m, n), B has shape (n, 1), C has shape (m, 1)
+
+            printf("DEBUG: Using QBLAS GEMV for %ldx%ld matrix times %ld vector\n", (long)m,
+                   (long)n, (long)n);
+
+            size_t lda = A_row_stride / sizeof(Sleef_quad);
+            size_t incx = B_row_stride / sizeof(Sleef_quad);
+            size_t incy = C_row_stride / sizeof(Sleef_quad);
+
+            result =
+                    qblas_gemv('R', 'N', m, n, &alpha, A_ptr, lda, B_ptr, incx, &beta, C_ptr, incy);
+            break;
+        }
+
+        case MATMUL_GEMM: {
+            // Matrix-matrix multiplication: C = A * B
+            // A has shape (m, n), B has shape (n, p), C has shape (m, p)
+
+            printf("DEBUG: Using QBLAS GEMM for %ldx%ldx%ld matrices\n", (long)m, (long)n, (long)p);
+
+            size_t lda = A_row_stride / sizeof(Sleef_quad);
+            size_t ldb = B_row_stride / sizeof(Sleef_quad);
+            size_t ldc = C_row_stride / sizeof(Sleef_quad);
+
+            result = qblas_gemm('R', 'N', 'N', m, p, n, &alpha, A_ptr, lda, B_ptr, ldb, &beta,
+                                C_ptr, ldc);
+            break;
+        }
+    }
+
+    if (result != 0) {
+        PyErr_SetString(PyExc_RuntimeError, "QBLAS operation failed");
+        return -1;
     }
 
     return 0;
 }
 
 /**
- * Register matmul support following the exact same pattern as binary_ops.cpp
+ * Register matmul support with QBLAS acceleration
  */
 int
 init_matmul_ops(PyObject *numpy)
 {
-    printf("DEBUG: init_matmul_ops - registering matmul using NumPy 2.0 API\n");
+    printf("DEBUG: init_matmul_ops - registering QBLAS-accelerated matmul\n");
 
-    // Get the existing matmul ufunc - same pattern as binary_ops
+    // Get the existing matmul ufunc
     PyObject *ufunc = PyObject_GetAttrString(numpy, "matmul");
     if (ufunc == NULL) {
         printf("DEBUG: Failed to get numpy.matmul\n");
         return -1;
     }
 
-    // Use the same pattern as binary_ops.cpp
+    // Setup method specification for QBLAS-accelerated matmul
     PyArray_DTypeMeta *dtypes[3] = {&QuadPrecDType, &QuadPrecDType, &QuadPrecDType};
 
     PyType_Slot slots[] = {{NPY_METH_resolve_descriptors, (void *)&quad_matmul_resolve_descriptors},
@@ -204,7 +245,7 @@ init_matmul_ops(PyObject *numpy)
                            {0, NULL}};
 
     PyArrayMethod_Spec Spec = {
-            .name = "quad_matmul",
+            .name = "quad_matmul_qblas",
             .nin = 2,
             .nout = 1,
             .casting = NPY_NO_CASTING,
@@ -213,17 +254,17 @@ init_matmul_ops(PyObject *numpy)
             .slots = slots,
     };
 
-    printf("DEBUG: About to add loop to matmul ufunc...\n");
+    printf("DEBUG: About to add QBLAS loop to matmul ufunc...\n");
 
     if (PyUFunc_AddLoopFromSpec(ufunc, &Spec) < 0) {
-        printf("DEBUG: Failed to add loop to matmul ufunc\n");
+        printf("DEBUG: Failed to add QBLAS loop to matmul ufunc\n");
         Py_DECREF(ufunc);
         return -1;
     }
 
-    printf("DEBUG: Successfully added matmul loop!\n");
+    printf("DEBUG: Successfully added QBLAS matmul loop!\n");
 
-    // Add promoter following binary_ops pattern
+    // Add promoter
     PyObject *promoter_capsule =
             PyCapsule_New((void *)&quad_ufunc_promoter, "numpy._ufunc_promoter", NULL);
     if (promoter_capsule == NULL) {
@@ -250,6 +291,6 @@ init_matmul_ops(PyObject *numpy)
     Py_DECREF(promoter_capsule);
     Py_DECREF(ufunc);
 
-    printf("DEBUG: init_matmul_ops completed successfully\n");
+    printf("DEBUG: init_matmul_ops completed successfully with QBLAS acceleration\n");
     return 0;
 }
