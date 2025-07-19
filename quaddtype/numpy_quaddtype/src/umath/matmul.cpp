@@ -93,8 +93,9 @@ determine_operation_type(npy_intp m, npy_intp n, npy_intp p)
 }
 
 static int
-quad_matmul_strided_loop(PyArrayMethod_Context *context, char *const data[],
-                         npy_intp const dimensions[], npy_intp const strides[], NpyAuxData *auxdata)
+quad_matmul_strided_loop_aligned(PyArrayMethod_Context *context, char *const data[],
+                                 npy_intp const dimensions[], npy_intp const strides[],
+                                 NpyAuxData *auxdata)
 {
     // Extract dimensions
     npy_intp N = dimensions[0];  // Batch size, this remains always 1 for matmul afaik
@@ -149,6 +150,8 @@ quad_matmul_strided_loop(PyArrayMethod_Context *context, char *const data[],
             size_t incx = B_row_stride / sizeof(Sleef_quad);
             size_t incy = C_row_stride / sizeof(Sleef_quad);
 
+            memset(C_ptr, 0, m * p * sizeof(Sleef_quad));
+
             result =
                     qblas_gemv('R', 'N', m, n, &alpha, A_ptr, lda, B_ptr, incx, &beta, C_ptr, incy);
             break;
@@ -159,31 +162,131 @@ quad_matmul_strided_loop(PyArrayMethod_Context *context, char *const data[],
             size_t ldb = B_row_stride / sizeof(Sleef_quad);
             size_t ldc_numpy = C_row_stride / sizeof(Sleef_quad);
 
+            memset(C_ptr, 0, m * p * sizeof(Sleef_quad));
+
+            size_t ldc_temp = p;
+
+            result = qblas_gemm('R', 'N', 'N', m, p, n, &alpha, A_ptr, lda, B_ptr, ldb, &beta,
+                                C_ptr, ldc_numpy);
+            break;
+        }
+    }
+
+    if (result != 0) {
+        PyErr_SetString(PyExc_RuntimeError, "QBLAS operation failed");
+        return -1;
+    }
+
+    return 0;
+}
+
+static int
+quad_matmul_strided_loop_unaligned(PyArrayMethod_Context *context, char *const data[],
+                                   npy_intp const dimensions[], npy_intp const strides[],
+                                   NpyAuxData *auxdata)
+{
+    // Extract dimensions
+    npy_intp N = dimensions[0];  // Batch size, this remains always 1 for matmul afaik
+    npy_intp m = dimensions[1];  // Rows of first matrix
+    npy_intp n = dimensions[2];  // Cols of first matrix / rows of second matrix
+    npy_intp p = dimensions[3];  // Cols of second matrix
+
+    // batch strides
+    npy_intp A_stride = strides[0];
+    npy_intp B_stride = strides[1];
+    npy_intp C_stride = strides[2];
+
+    // core strides for matrix dimensions
+    npy_intp A_row_stride = strides[3];
+    npy_intp A_col_stride = strides[4];
+    npy_intp B_row_stride = strides[5];
+    npy_intp B_col_stride = strides[6];
+    npy_intp C_row_stride = strides[7];
+    npy_intp C_col_stride = strides[8];
+
+    QuadPrecDTypeObject *descr = (QuadPrecDTypeObject *)context->descriptors[0];
+    if (descr->backend != BACKEND_SLEEF) {
+        PyErr_SetString(PyExc_RuntimeError, "Internal error: non-SLEEF backend in QBLAS matmul");
+        return -1;
+    }
+
+    MatmulOperationType op_type = determine_operation_type(m, n, p);
+    Sleef_quad alpha = Sleef_cast_from_doubleq1(1.0);
+    Sleef_quad beta = Sleef_cast_from_doubleq1(0.0);
+
+    char *A = data[0];
+    char *B = data[1];
+    char *C = data[2];
+
+    Sleef_quad *A_ptr = (Sleef_quad *)A;
+    Sleef_quad *B_ptr = (Sleef_quad *)B;
+    Sleef_quad *C_ptr = (Sleef_quad *)C;
+
+    int result = -1;
+
+    switch (op_type) {
+        case MATMUL_DOT: {
+            Sleef_quad *temp_A_buffer = new Sleef_quad[n];
+            Sleef_quad *temp_B_buffer = new Sleef_quad[n];
+
+            memcpy(temp_A_buffer, A_ptr, n * sizeof(Sleef_quad));
+            memcpy(temp_B_buffer, B_ptr, n * sizeof(Sleef_quad));
+
+            size_t incx = 1;
+            size_t incy = 1;
+
+            result = qblas_dot(n, temp_A_buffer, incx, temp_B_buffer, incy, C_ptr);
+
+            delete[] temp_A_buffer;
+            delete[] temp_B_buffer;
+            break;
+        }
+
+        case MATMUL_GEMV: {
+            size_t lda = A_row_stride / sizeof(Sleef_quad);
+            size_t incx = B_row_stride / sizeof(Sleef_quad);
+            size_t incy = C_row_stride / sizeof(Sleef_quad);
+
             Sleef_quad *temp_A_buffer = new Sleef_quad[m * n];
-            if (!temp_A_buffer) {
-                PyErr_SetString(PyExc_MemoryError, "Failed to allocate temporary buffer for GEMM");
-                delete[] temp_A_buffer;
-                return -1;
-            }
             Sleef_quad *temp_B_buffer = new Sleef_quad[n * p];
-            if (!temp_B_buffer) {
-                PyErr_SetString(PyExc_MemoryError, "Failed to allocate temporary buffer for GEMM");
-                delete[] temp_A_buffer;
-                return -1;
-            }
             memcpy(temp_A_buffer, A_ptr, m * n * sizeof(Sleef_quad));
             memcpy(temp_B_buffer, B_ptr, n * p * sizeof(Sleef_quad));
             A_ptr = temp_A_buffer;
             B_ptr = temp_B_buffer;
 
+            // Use temp_C_buffer to avoid unaligned writes
             Sleef_quad *temp_C_buffer = new Sleef_quad[m * p];
-            if (!temp_C_buffer) {
-                PyErr_SetString(PyExc_MemoryError,
-                                "Failed to allocate temporary buffer for GEMM result");
-                return -1;
-            }
 
+            lda = n;
+            incx = 1;
+            incy = 1;
+
+            memset(temp_C_buffer, 0, m * p * sizeof(Sleef_quad));
+
+            result = qblas_gemv('R', 'N', m, n, &alpha, A_ptr, lda, B_ptr, incx, &beta,
+                                temp_C_buffer, incy);
+            break;
+        }
+
+        case MATMUL_GEMM: {
+            size_t lda = A_row_stride / sizeof(Sleef_quad);
+            size_t ldb = B_row_stride / sizeof(Sleef_quad);
+            size_t ldc_numpy = C_row_stride / sizeof(Sleef_quad);
+
+            Sleef_quad *temp_A_buffer = new Sleef_quad[m * n];
+            Sleef_quad *temp_B_buffer = new Sleef_quad[n * p];
+            memcpy(temp_A_buffer, A_ptr, m * n * sizeof(Sleef_quad));
+            memcpy(temp_B_buffer, B_ptr, n * p * sizeof(Sleef_quad));
+            A_ptr = temp_A_buffer;
+            B_ptr = temp_B_buffer;
+
+            // since these are now contiguous so,
+            lda = n;
+            ldb = p;
             size_t ldc_temp = p;
+
+            Sleef_quad *temp_C_buffer = new Sleef_quad[m * p];
+            memset(temp_C_buffer, 0, m * p * sizeof(Sleef_quad));
 
             result = qblas_gemm('R', 'N', 'N', m, p, n, &alpha, A_ptr, lda, B_ptr, ldb, &beta,
                                 temp_C_buffer, ldc_temp);
@@ -218,8 +321,8 @@ naive_matmul_strided_loop(PyArrayMethod_Context *context, char *const data[],
     npy_intp p = dimensions[3];
 
     npy_intp A_batch_stride = strides[0];
-    npy_intp B_batch_stride = strides[1];
-    npy_intp C_batch_stride = strides[2];
+    npy_intp B_stride = strides[1];
+    npy_intp C_stride = strides[2];
 
     npy_intp A_row_stride = strides[3];
     npy_intp A_col_stride = strides[4];
@@ -232,46 +335,44 @@ naive_matmul_strided_loop(PyArrayMethod_Context *context, char *const data[],
     QuadBackendType backend = descr->backend;
     size_t elem_size = (backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
 
-    for (npy_intp batch = 0; batch < N; batch++) {
-        char *A_batch = data[0] + batch * A_batch_stride;
-        char *B_batch = data[1] + batch * B_batch_stride;
-        char *C_batch = data[2] + batch * C_batch_stride;
+    char *A = data[0];
+    char *B = data[1];
+    char *C = data[2];
 
-        for (npy_intp i = 0; i < m; i++) {
-            for (npy_intp j = 0; j < p; j++) {
-                char *C_ij = C_batch + i * C_row_stride + j * C_col_stride;
+    for (npy_intp i = 0; i < m; i++) {
+        for (npy_intp j = 0; j < p; j++) {
+            char *C_ij = C + i * C_row_stride + j * C_col_stride;
 
-                if (backend == BACKEND_SLEEF) {
-                    Sleef_quad sum = Sleef_cast_from_doubleq1(0.0);
+            if (backend == BACKEND_SLEEF) {
+                Sleef_quad sum = Sleef_cast_from_doubleq1(0.0);
 
-                    for (npy_intp k = 0; k < n; k++) {
-                        char *A_ik = A_batch + i * A_row_stride + k * A_col_stride;
-                        char *B_kj = B_batch + k * B_row_stride + j * B_col_stride;
+                for (npy_intp k = 0; k < n; k++) {
+                    char *A_ik = A + i * A_row_stride + k * A_col_stride;
+                    char *B_kj = B + k * B_row_stride + j * B_col_stride;
 
-                        Sleef_quad a_val, b_val;
-                        memcpy(&a_val, A_ik, sizeof(Sleef_quad));
-                        memcpy(&b_val, B_kj, sizeof(Sleef_quad));
-                        sum = Sleef_fmaq1_u05(a_val, b_val, sum);
-                    }
-
-                    memcpy(C_ij, &sum, sizeof(Sleef_quad));
+                    Sleef_quad a_val, b_val;
+                    memcpy(&a_val, A_ik, sizeof(Sleef_quad));
+                    memcpy(&b_val, B_kj, sizeof(Sleef_quad));
+                    sum = Sleef_fmaq1_u05(a_val, b_val, sum);
                 }
-                else {
-                    long double sum = 0.0L;
 
-                    for (npy_intp k = 0; k < n; k++) {
-                        char *A_ik = A_batch + i * A_row_stride + k * A_col_stride;
-                        char *B_kj = B_batch + k * B_row_stride + j * B_col_stride;
+                memcpy(C_ij, &sum, sizeof(Sleef_quad));
+            }
+            else {
+                long double sum = 0.0L;
 
-                        long double a_val, b_val;
-                        memcpy(&a_val, A_ik, sizeof(long double));
-                        memcpy(&b_val, B_kj, sizeof(long double));
+                for (npy_intp k = 0; k < n; k++) {
+                    char *A_ik = A + i * A_row_stride + k * A_col_stride;
+                    char *B_kj = B + k * B_row_stride + j * B_col_stride;
 
-                        sum += a_val * b_val;
-                    }
+                    long double a_val, b_val;
+                    memcpy(&a_val, A_ik, sizeof(long double));
+                    memcpy(&b_val, B_kj, sizeof(long double));
 
-                    memcpy(C_ij, &sum, sizeof(long double));
+                    sum += a_val * b_val;
                 }
+
+                memcpy(C_ij, &sum, sizeof(long double));
             }
         }
     }
@@ -289,21 +390,22 @@ init_matmul_ops(PyObject *numpy)
 
     PyArray_DTypeMeta *dtypes[3] = {&QuadPrecDType, &QuadPrecDType, &QuadPrecDType};
 
-    #ifndef DISABLE_QUADBLAS
+#ifndef DISABLE_QUADBLAS
     // set threading to max
     int num_threads = _quadblas_get_num_threads();
     _quadblas_set_num_threads(num_threads);
 
-    PyType_Slot slots[] = {{NPY_METH_resolve_descriptors, (void *)&quad_matmul_resolve_descriptors},
-                           {NPY_METH_strided_loop, (void *)&quad_matmul_strided_loop},
-                           {NPY_METH_unaligned_strided_loop, (void *)&naive_matmul_strided_loop},
-                           {0, NULL}};
-    #else
+    PyType_Slot slots[] = {
+            {NPY_METH_resolve_descriptors, (void *)&quad_matmul_resolve_descriptors},
+            {NPY_METH_strided_loop, (void *)&quad_matmul_strided_loop_aligned},
+            {NPY_METH_unaligned_strided_loop, (void *)&quad_matmul_strided_loop_unaligned},
+            {0, NULL}};
+#else
     PyType_Slot slots[] = {{NPY_METH_resolve_descriptors, (void *)&quad_matmul_resolve_descriptors},
                            {NPY_METH_strided_loop, (void *)&naive_matmul_strided_loop},
                            {NPY_METH_unaligned_strided_loop, (void *)&naive_matmul_strided_loop},
                            {0, NULL}};
-    #endif // DISABLE_QUADBLAS
+#endif  // DISABLE_QUADBLAS
 
     PyArrayMethod_Spec Spec = {
             .name = "quad_matmul_qblas",
@@ -335,7 +437,7 @@ init_matmul_ops(PyObject *numpy)
     }
 
     if (PyUFunc_AddPromoter(ufunc, DTypes, promoter_capsule) < 0) {
-        PyErr_Clear();  // Don't fail if promoter fails
+        PyErr_Clear();
     }
     else {
     }
