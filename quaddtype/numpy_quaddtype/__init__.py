@@ -40,7 +40,3 @@ ln10 = get_sleef_constant("ln10")
 max_value = get_sleef_constant("quad_max")
 min_value = get_sleef_constant("quad_min")
 epsilon = get_sleef_constant("epsilon")
-
-num_cores = multiprocessing.cpu_count()
-# set default number of threads for QuadBLAS
-set_num_threads(num_cores)

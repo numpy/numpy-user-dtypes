@@ -1,9 +1,15 @@
 #include "quadblas_interface.h"
-#include "../QBLAS/include/quadblas/quadblas.hpp"
 #include <cstring>
 #include <algorithm>
 
+#ifndef DISABLE_QUADBLAS
+#include "../QBLAS/include/quadblas/quadblas.hpp"
+#endif // DISABLE_QUADBLAS
+
 extern "C" {
+
+
+#ifndef  DISABLE_QUADBLAS
 
 int
 qblas_dot(size_t n, Sleef_quad *x, size_t incx, Sleef_quad *y, size_t incy, Sleef_quad *result)
@@ -137,5 +143,91 @@ py_quadblas_get_version(PyObject *self, PyObject *args)
 {
     return PyUnicode_FromString("QuadBLAS 1.0.0 - High Performance Quad Precision BLAS");
 }
+
+int
+quadblas_set_num_threads(int num_threads)
+{
+    QuadBLAS::set_num_threads(num_threads);
+    return 0;
+}
+
+int
+quadblas_get_num_threads(void)
+{
+    int num_threads = QuadBLAS::get_num_threads();
+    return num_threads;
+}
+
+#else  // DISABLE_QUADBLAS
+
+
+int
+qblas_dot(size_t n, Sleef_quad *x, size_t incx, Sleef_quad *y, size_t incy, Sleef_quad *result)
+{
+    return -1;  // QBLAS is disabled, dot product not available
+}
+
+int
+qblas_gemv(char layout, char trans, size_t m, size_t n, Sleef_quad *alpha, Sleef_quad *A,
+           size_t lda, Sleef_quad *x, size_t incx, Sleef_quad *beta, Sleef_quad *y, size_t incy)
+{
+    return -1;  // QBLAS is disabled, GEMV not available
+}
+
+int
+qblas_gemm(char layout, char transa, char transb, size_t m, size_t n, size_t k, Sleef_quad *alpha,
+           Sleef_quad *A, size_t lda, Sleef_quad *B, size_t ldb, Sleef_quad *beta, Sleef_quad *C,
+           size_t ldc)
+{
+    return -1;  // QBLAS is disabled, GEMM not available
+}
+
+int
+qblas_supports_backend(QuadBackendType backend)
+{
+    return -1; // QBLAS is disabled, backend support not available
+}
+
+PyObject *
+py_quadblas_set_num_threads(PyObject *self, PyObject *args)
+{
+    // raise error
+    PyErr_SetString(PyExc_NotImplementedError, "QuadBLAS is disabled");
+    return NULL;
+}
+
+PyObject *
+py_quadblas_get_num_threads(PyObject *self, PyObject *args)
+{
+    // raise error
+    PyErr_SetString(PyExc_NotImplementedError, "QuadBLAS is disabled");
+    return NULL;
+}
+
+PyObject *
+py_quadblas_get_version(PyObject *self, PyObject *args)
+{
+    // raise error
+    PyErr_SetString(PyExc_NotImplementedError, "QuadBLAS is disabled");
+    return NULL;
+}
+
+int
+quadblas_set_num_threads(int num_threads)
+{
+    // raise error
+    PyErr_SetString(PyExc_NotImplementedError, "QuadBLAS is disabled");
+    return -1;
+}
+
+int
+quadblas_get_num_threads(void)
+{
+    // raise error
+    PyErr_SetString(PyExc_NotImplementedError, "QuadBLAS is disabled");
+    return -1;
+}
+
+#endif // DISABLE_QUADBLAS
 
 }  // extern "C"
