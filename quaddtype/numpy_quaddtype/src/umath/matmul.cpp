@@ -291,9 +291,9 @@ init_matmul_ops(PyObject *numpy)
 
     #ifndef DISABLE_QUADBLAS
     // set threading to max
-    int num_threads = quadblas_get_num_threads();
-    quadblas_set_num_threads(num_threads);
-    
+    int num_threads = _quadblas_get_num_threads();
+    _quadblas_set_num_threads(num_threads);
+
     PyType_Slot slots[] = {{NPY_METH_resolve_descriptors, (void *)&quad_matmul_resolve_descriptors},
                            {NPY_METH_strided_loop, (void *)&quad_matmul_strided_loop},
                            {NPY_METH_unaligned_strided_loop, (void *)&naive_matmul_strided_loop},

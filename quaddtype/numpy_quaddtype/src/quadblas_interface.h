@@ -33,9 +33,9 @@ PyObject *
 py_quadblas_get_version(PyObject *self, PyObject *args);
 
 int
-quadblas_set_num_threads(int num_threads);
+_quadblas_set_num_threads(int num_threads);
 int
-quadblas_get_num_threads(void);
+_quadblas_get_num_threads(void);
 
 #ifdef __cplusplus
 }

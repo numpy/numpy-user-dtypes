@@ -145,14 +145,14 @@ py_quadblas_get_version(PyObject *self, PyObject *args)
 }
 
 int
-quadblas_set_num_threads(int num_threads)
+_quadblas_set_num_threads(int num_threads)
 {
     QuadBLAS::set_num_threads(num_threads);
     return 0;
 }
 
 int
-quadblas_get_num_threads(void)
+_quadblas_get_num_threads(void)
 {
     int num_threads = QuadBLAS::get_num_threads();
     return num_threads;
@@ -213,7 +213,7 @@ py_quadblas_get_version(PyObject *self, PyObject *args)
 }
 
 int
-quadblas_set_num_threads(int num_threads)
+_quadblas_set_num_threads(int num_threads)
 {
     // raise error
     PyErr_SetString(PyExc_NotImplementedError, "QuadBLAS is disabled");
@@ -221,7 +221,7 @@ quadblas_set_num_threads(int num_threads)
 }
 
 int
-quadblas_get_num_threads(void)
+_quadblas_get_num_threads(void)
 {
     // raise error
     PyErr_SetString(PyExc_NotImplementedError, "QuadBLAS is disabled");
