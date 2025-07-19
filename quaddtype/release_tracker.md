@@ -91,5 +91,3 @@
 | floor         | ✅    |
 | ceil          | ✅    |
 | trunc         | ✅    |
-
-- Fixing QBLAS integration to work unaligned arrays without or recovering from bad allocation fallback

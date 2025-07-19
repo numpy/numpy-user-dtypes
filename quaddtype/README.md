@@ -27,7 +27,7 @@ np.array([1,2,3], dtype=QuadPrecDType("longdouble"))
 
 The code needs the quad precision pieces of the sleef library, which
 is not available on most systems by default, so we have to generate
-that first.  The below assumes one has the required pieces to build
+that first. The below assumes one has the required pieces to build
 sleef (cmake and libmpfr-dev), and that one is in the package
 directory locally.
 
@@ -40,6 +40,7 @@ cd ..
 ```
 
 Building the `numpy-quaddtype` package from locally installed sleef:
+
 ```bash
 export SLEEF_DIR=$PWD/sleef/build
 export LIBRARY_PATH=$SLEEF_DIR/lib
@@ -57,10 +58,13 @@ export LDFLAGS="-Wl,-rpath,$SLEEF_DIR/lib -fopenmp -latomic -lpthread"
 export CFLAGS="-fPIC"
 export CXXFLAGS="-fPIC"
 
+# To build without QBLAS (default for MSVC)
+# export CFLAGS="-fPIC -DDISABLE_QUADBLAS"
+# export CXXFLAGS="-fPIC -DDISABLE_QUADBLAS"
+
 python -m pip install . -v --no-build-isolation -Cbuilddir=build -C'compile-args=-v'
 
 # Run the tests
 cd ..
 python -m pytest
 ```
-
