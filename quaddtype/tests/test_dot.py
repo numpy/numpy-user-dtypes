@@ -340,7 +340,7 @@ class TestBasicErrorHandling:
         x = create_quad_array([1, 2])
         y = create_quad_array([1, 2, 3])
         
-        with pytest.raises(ValueError, match="same length"):
+        with pytest.raises(ValueError, match=r"matmul: Input operand 1 has a mismatch in its core dimension 0"):
             np.matmul(x, y)
     
     def test_dimension_mismatch_matrix_vector(self):
@@ -348,7 +348,7 @@ class TestBasicErrorHandling:
         A = create_quad_array([1, 2, 3, 4], shape=(2, 2))
         x = create_quad_array([1, 2, 3])  # Wrong size
         
-        with pytest.raises(ValueError, match="columns must match"):
+        with pytest.raises(ValueError, match=r"matmul: Input operand 1 has a mismatch in its core dimension 0"):
             np.matmul(A, x)
     
     def test_dimension_mismatch_matrices(self):
@@ -356,7 +356,7 @@ class TestBasicErrorHandling:
         A = create_quad_array([1, 2, 3, 4], shape=(2, 2))
         B = create_quad_array([1, 2, 3, 4, 5, 6], shape=(3, 2))  # Wrong size
         
-        with pytest.raises(ValueError, match="Matrix inner dimensions must match"):
+        with pytest.raises(ValueError, match=r"matmul: Input operand 1 has a mismatch in its core dimension 0"):
             np.matmul(A, B)
 
 
