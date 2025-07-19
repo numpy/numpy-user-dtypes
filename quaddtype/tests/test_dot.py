@@ -1,19 +1,6 @@
-"""
-Focused test suite for the dot function in numpy_quaddtype
-
-This module tests the QuadBLAS dot function for:
-- Vector-vector dot products
-- Matrix-vector multiplication  
-- Matrix-matrix multiplication
-- Small and large matrix operations
-- Basic correctness validation
-
-Uses only the Sleef backend for simplicity.
-"""
-
 import pytest
 import numpy as np
-from numpy_quaddtype import QuadPrecision, QuadPrecDType, dot
+from numpy_quaddtype import QuadPrecision, QuadPrecDType
 
 
 # ================================================================================
@@ -81,14 +68,14 @@ def create_quad_array(values, shape=None):
 # ================================================================================
 
 class TestVectorVectorDot:
-    """Test vector-vector dot products"""
+    """Test vector-vector np.matmul products"""
     
     def test_simple_dot_product(self):
-        """Test basic vector dot product"""
+        """Test basic vector np.matmul product"""
         x = create_quad_array([1, 2, 3])
         y = create_quad_array([4, 5, 6])
         
-        result = dot(x, y)
+        result = np.matmul(x, y)
         expected = 1*4 + 2*5 + 3*6  # = 32
         
         assert isinstance(result, QuadPrecision)
@@ -99,14 +86,14 @@ class TestVectorVectorDot:
         x = create_quad_array([1, 0, 0])
         y = create_quad_array([0, 1, 0])
         
-        result = dot(x, y)
+        result = np.matmul(x, y)
         assert_quad_equal(result, 0.0)
     
     def test_same_vector(self):
-        """Test dot product of vector with itself"""
+        """Test np.matmul product of vector with itself"""
         x = create_quad_array([2, 3, 4])
         
-        result = dot(x, x)
+        result = np.matmul(x, x)
         expected = 2*2 + 3*3 + 4*4  # = 29
         
         assert_quad_equal(result, expected)
@@ -121,7 +108,7 @@ class TestVectorVectorDot:
         x = create_quad_array(x_vals)
         y = create_quad_array(y_vals)
         
-        result = dot(x, y)
+        result = np.matmul(x, y)
         expected = sum(x_vals[i] * y_vals[i] for i in range(size))
         
         assert_quad_equal(result, expected)
@@ -131,7 +118,7 @@ class TestVectorVectorDot:
         x = create_quad_array([1.5, -2.5, 3.25])
         y = create_quad_array([-1.25, 2.75, -3.5])
         
-        result = dot(x, y)
+        result = np.matmul(x, y)
         expected = 1.5*(-1.25) + (-2.5)*2.75 + 3.25*(-3.5)
         
         assert_quad_equal(result, expected)
@@ -151,7 +138,7 @@ class TestMatrixVectorDot:
         # 3x1 vector  
         x = create_quad_array([1, 1, 1])
         
-        result = dot(A, x)
+        result = np.matmul(A, x)
         expected = [1+2+3, 4+5+6]  # [6, 15]
         
         assert result.shape == (2,)
@@ -164,7 +151,7 @@ class TestMatrixVectorDot:
         I = create_quad_array([1, 0, 0, 0, 1, 0, 0, 0, 1], shape=(3, 3))
         x = create_quad_array([2, 3, 4])
         
-        result = dot(I, x)
+        result = np.matmul(I, x)
         
         assert result.shape == (3,)
         for i in range(3):
@@ -181,7 +168,7 @@ class TestMatrixVectorDot:
         x_vals = [i + 1 for i in range(n)]
         x = create_quad_array(x_vals)
         
-        result = dot(A, x)
+        result = np.matmul(A, x)
         
         assert result.shape == (m,)
         
@@ -205,7 +192,7 @@ class TestMatrixMatrixDot:
         A = create_quad_array([1, 2, 3, 4], shape=(2, 2))
         B = create_quad_array([5, 6, 7, 8], shape=(2, 2))
         
-        result = dot(A, B)
+        result = np.matmul(A, B)
         
         # Expected: [[1*5+2*7, 1*6+2*8], [3*5+4*7, 3*6+4*8]] = [[19, 22], [43, 50]]
         expected = [[19, 22], [43, 50]]
@@ -221,11 +208,11 @@ class TestMatrixMatrixDot:
         I = create_quad_array([1, 0, 0, 1], shape=(2, 2))
         
         # A * I should equal A
-        result1 = dot(A, I)
+        result1 = np.matmul(A, I)
         assert_quad_array_equal(result1, A)
         
         # I * A should equal A  
-        result2 = dot(I, A)
+        result2 = np.matmul(I, A)
         assert_quad_array_equal(result2, A)
     
     @pytest.mark.parametrize("m,n,k", [(2,2,2), (2,3,4), (3,2,5), (4,4,4), (5,6,7)])
@@ -239,7 +226,7 @@ class TestMatrixMatrixDot:
         B_vals = [(i*n + j + 1) for i in range(k) for j in range(n)]
         B = create_quad_array(B_vals, shape=(k, n))
         
-        result = dot(A, B)
+        result = np.matmul(A, B)
         
         assert result.shape == (m, n)
         
@@ -258,12 +245,12 @@ class TestMatrixMatrixDot:
         C = create_quad_array([1, 1, 2, 1], shape=(2, 2))
         
         # Compute (A*B)*C
-        AB = dot(A, B)
-        result1 = dot(AB, C)
+        AB = np.matmul(A, B)
+        result1 = np.matmul(AB, C)
         
         # Compute A*(B*C)
-        BC = dot(B, C)
-        result2 = dot(A, BC)
+        BC = np.matmul(B, C)
+        result2 = np.matmul(A, BC)
         
         assert_quad_array_equal(result1, result2, rtol=1e-25)
 
@@ -285,7 +272,7 @@ class TestLargeMatrices:
         A = create_quad_array(A_vals, shape=(size, size))
         B = create_quad_array(B_vals, shape=(size, size))
         
-        result = dot(A, B)
+        result = np.matmul(A, B)
         
         assert result.shape == (size, size)
         
@@ -303,7 +290,7 @@ class TestLargeMatrices:
             assert_quad_equal(result[size//2, size//2], expected_value, rtol=1e-15, atol=1e-15)
     
     def test_large_vector_operations(self):
-        """Test large vector dot products"""
+        """Test large vector np.matmul products"""
         size = 1000
         
         # Create vectors with known sum
@@ -313,7 +300,7 @@ class TestLargeMatrices:
         x = create_quad_array(x_vals)
         y = create_quad_array(y_vals)
         
-        result = dot(x, y)
+        result = np.matmul(x, y)
         expected = size * 1.0 * 2.0  # = 2000.0
         
         assert_quad_equal(result, expected)
@@ -329,7 +316,7 @@ class TestLargeMatrices:
         A = create_quad_array(A_vals, shape=(m, k))
         B = create_quad_array(B_vals, shape=(k, n))
         
-        result = dot(A, B)
+        result = np.matmul(A, B)
         
         assert result.shape == (m, n)
         
@@ -353,24 +340,24 @@ class TestBasicErrorHandling:
         x = create_quad_array([1, 2])
         y = create_quad_array([1, 2, 3])
         
-        with pytest.raises(ValueError, match="same length"):
-            dot(x, y)
+        with pytest.raises(ValueError, match=r"matmul: Input operand 1 has a mismatch in its core dimension 0"):
+            np.matmul(x, y)
     
     def test_dimension_mismatch_matrix_vector(self):
         """Test dimension mismatch in matrix-vector"""
         A = create_quad_array([1, 2, 3, 4], shape=(2, 2))
         x = create_quad_array([1, 2, 3])  # Wrong size
         
-        with pytest.raises(ValueError, match="columns must match"):
-            dot(A, x)
+        with pytest.raises(ValueError, match=r"matmul: Input operand 1 has a mismatch in its core dimension 0"):
+            np.matmul(A, x)
     
     def test_dimension_mismatch_matrices(self):
         """Test dimension mismatch in matrix-matrix"""
         A = create_quad_array([1, 2, 3, 4], shape=(2, 2))
         B = create_quad_array([1, 2, 3, 4, 5, 6], shape=(3, 2))  # Wrong size
         
-        with pytest.raises(ValueError, match="Matrix inner dimensions must match"):
-            dot(A, B)
+        with pytest.raises(ValueError, match=r"matmul: Input operand 1 has a mismatch in its core dimension 0"):
+            np.matmul(A, B)
 
 
 if __name__ == "__main__":

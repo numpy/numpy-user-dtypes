@@ -50,12 +50,21 @@ srcs = [
     'numpy_quaddtype/src/scalar_ops.h',
     'numpy_quaddtype/src/scalar_ops.cpp',
     'numpy_quaddtype/src/ops.hpp',
-    'numpy_quaddtype/src/umath.h',
-    'numpy_quaddtype/src/umath.cpp',
     'numpy_quaddtype/src/dragon4.h',
     'numpy_quaddtype/src/dragon4.c',
     'numpy_quaddtype/src/quadblas_interface.h',
-    'numpy_quaddtype/src/quadblas_interface.cpp'
+    'numpy_quaddtype/src/quadblas_interface.cpp',
+    'numpy_quaddtype/src/umath/umath.h',
+    'numpy_quaddtype/src/umath/umath.cpp',
+    'numpy_quaddtype/src/umath/binary_ops.h',
+    'numpy_quaddtype/src/umath/binary_ops.cpp',
+    'numpy_quaddtype/src/umath/unary_ops.h',
+    'numpy_quaddtype/src/umath/unary_ops.cpp',
+    'numpy_quaddtype/src/umath/comparison_ops.h',
+    'numpy_quaddtype/src/umath/comparison_ops.cpp',
+    'numpy_quaddtype/src/umath/promoters.hpp',
+    'numpy_quaddtype/src/umath/matmul.h',
+    'numpy_quaddtype/src/umath/matmul.cpp',
 ]
 
 py.install_sources(
