@@ -1,4 +1,4 @@
-# Plan for `numpy-quaddtype` v1.5
+# Plan for `numpy-quaddtype` v1.0.0
 
 | ufunc name    | Added |
 | ------------- | ----- |
@@ -91,3 +91,5 @@
 | floor         | ✅    |
 | ceil          | ✅    |
 | trunc         | ✅    |
+
+- Fixing QBLAS integration to work unaligned arrays without or recovering from bad allocation fallback
