@@ -75,7 +75,6 @@ qblas_gemm(char layout, char transa, char transb, size_t m, size_t n, size_t k, 
     }
 
     try {
-        // Convert layout
         QuadBLAS::Layout qblas_layout;
         if (layout == 'R' || layout == 'r') {
             qblas_layout = QuadBLAS::Layout::RowMajor;
@@ -93,7 +92,6 @@ qblas_gemm(char layout, char transa, char transb, size_t m, size_t n, size_t k, 
             return -1;  // Transpose not implemented yet
         }
 
-        // Call QBLAS GEMM
         QuadBLAS::gemm(qblas_layout, m, n, k, *alpha, A, lda, B, ldb, *beta, C, ldc);
 
         return 0;

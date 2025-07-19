@@ -24,10 +24,6 @@ extern "C" {
 #include "promoters.hpp"
 #include "../quadblas_interface.h"
 
-/**
- * Resolve descriptors for matmul operation.
- * Only supports SLEEF backend when QBLAS is enabled.
- */
 static NPY_CASTING
 quad_matmul_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtypes[],
                                 PyArray_Descr *const given_descrs[], PyArray_Descr *loop_descrs[],
@@ -76,23 +72,15 @@ quad_matmul_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtypes[
     return casting;
 }
 
-/**
- * Determine the type of operation based on input dimensions
- */
 enum MatmulOperationType {
-    MATMUL_DOT,   // 1D x 1D -> scalar
-    MATMUL_GEMV,  // 2D x 1D -> 1D
-    MATMUL_GEMM   // 2D x 2D -> 2D
+    MATMUL_DOT,
+    MATMUL_GEMV,
+    MATMUL_GEMM
 };
 
 static MatmulOperationType
 determine_operation_type(npy_intp m, npy_intp n, npy_intp p)
 {
-    // For matmul signature (m?,n),(n,p?)->(m?,p?):
-    // - If m=1 and p=1: vector dot product (1D x 1D)
-    // - If p=1: matrix-vector multiplication (2D x 1D)
-    // - Otherwise: matrix-matrix multiplication (2D x 2D)
-
     if (m == 1 && p == 1) {
         return MATMUL_DOT;
     }
@@ -104,10 +92,6 @@ determine_operation_type(npy_intp m, npy_intp n, npy_intp p)
     }
 }
 
-/**
- * Matrix multiplication strided loop using QBLAS.
- * Automatically selects the appropriate QBLAS operation based on input dimensions.
- */
 static int
 quad_matmul_strided_loop(PyArrayMethod_Context *context, char *const data[],
                          npy_intp const dimensions[], npy_intp const strides[], NpyAuxData *auxdata)
@@ -118,12 +102,12 @@ quad_matmul_strided_loop(PyArrayMethod_Context *context, char *const data[],
     npy_intp n = dimensions[2];  // Cols of first matrix / rows of second matrix
     npy_intp p = dimensions[3];  // Cols of second matrix
 
-    // Extract batch strides
+    // batch strides
     npy_intp A_stride = strides[0];
     npy_intp B_stride = strides[1];
     npy_intp C_stride = strides[2];
 
-    // Extract core strides for matrix dimensions
+    // core strides for matrix dimensions
     npy_intp A_row_stride = strides[3];
     npy_intp A_col_stride = strides[4];
     npy_intp B_row_stride = strides[5];
@@ -131,29 +115,15 @@ quad_matmul_strided_loop(PyArrayMethod_Context *context, char *const data[],
     npy_intp C_row_stride = strides[7];
     npy_intp C_col_stride = strides[8];
 
-    // Note: B_col_stride and C_col_stride not needed for row-major QBLAS calls
-
-    // Get backend from descriptor (should be SLEEF only)
     QuadPrecDTypeObject *descr = (QuadPrecDTypeObject *)context->descriptors[0];
     if (descr->backend != BACKEND_SLEEF) {
         PyErr_SetString(PyExc_RuntimeError, "Internal error: non-SLEEF backend in QBLAS matmul");
         return -1;
     }
 
-    // Determine operation type
     MatmulOperationType op_type = determine_operation_type(m, n, p);
-
-    // Constants for QBLAS
     Sleef_quad alpha = Sleef_cast_from_doubleq1(1.0);
     Sleef_quad beta = Sleef_cast_from_doubleq1(0.0);
-
-    // print all information for debugging
-    printf("DEBUG: Performing %ld batch operations with dimensions (%ld, %ld, %ld)\n", (long)N,
-           (long)m, (long)n, (long)p);
-    printf("DEBUG: Strides - A: (%ld, %ld), B: (%ld, %ld), C: (%ld, %ld)\n", (long)A_row_stride,
-           (long)A_col_stride, (long)B_row_stride, (long)B_col_stride, (long)C_row_stride,
-           (long)C_col_stride);
-    printf("DEBUG: Operation type: %d\n", op_type);
 
     char *A = data[0];
     char *B = data[1];
@@ -167,13 +137,6 @@ quad_matmul_strided_loop(PyArrayMethod_Context *context, char *const data[],
 
     switch (op_type) {
         case MATMUL_DOT: {
-            // Vector dot product: C = A^T * B (both are vectors)
-            // A has shape (1, n), B has shape (n, 1), C has shape (1, 1)
-
-            printf("DEBUG: Using QBLAS dot product for %ld elements\n", (long)n);
-
-            // A is effectively a vector of length n
-            // B is effectively a vector of length n
             size_t incx = A_col_stride / sizeof(Sleef_quad);
             size_t incy = B_row_stride / sizeof(Sleef_quad);
 
@@ -182,12 +145,6 @@ quad_matmul_strided_loop(PyArrayMethod_Context *context, char *const data[],
         }
 
         case MATMUL_GEMV: {
-            // Matrix-vector multiplication: C = A * B
-            // A has shape (m, n), B has shape (n, 1), C has shape (m, 1)
-
-            printf("DEBUG: Using QBLAS GEMV for %ldx%ld matrix times %ld vector\n", (long)m,
-                   (long)n, (long)n);
-
             size_t lda = A_row_stride / sizeof(Sleef_quad);
             size_t incx = B_row_stride / sizeof(Sleef_quad);
             size_t incy = C_row_stride / sizeof(Sleef_quad);
@@ -198,17 +155,46 @@ quad_matmul_strided_loop(PyArrayMethod_Context *context, char *const data[],
         }
 
         case MATMUL_GEMM: {
-            // Matrix-matrix multiplication: C = A * B
-            // A has shape (m, n), B has shape (n, p), C has shape (m, p)
-
-            printf("DEBUG: Using QBLAS GEMM for %ldx%ldx%ld matrices\n", (long)m, (long)n, (long)p);
-
             size_t lda = A_row_stride / sizeof(Sleef_quad);
             size_t ldb = B_row_stride / sizeof(Sleef_quad);
-            size_t ldc = C_row_stride / sizeof(Sleef_quad);
+            size_t ldc_numpy = C_row_stride / sizeof(Sleef_quad);
+
+            Sleef_quad *temp_A_buffer = new Sleef_quad[m * n];
+            if (!temp_A_buffer) {
+                PyErr_SetString(PyExc_MemoryError, "Failed to allocate temporary buffer for GEMM");
+                delete[] temp_A_buffer;
+                return -1;
+            }
+            Sleef_quad *temp_B_buffer = new Sleef_quad[n * p];
+            if (!temp_B_buffer) {
+                PyErr_SetString(PyExc_MemoryError, "Failed to allocate temporary buffer for GEMM");
+                delete[] temp_A_buffer;
+                return -1;
+            }
+            memcpy(temp_A_buffer, A_ptr, m * n * sizeof(Sleef_quad));
+            memcpy(temp_B_buffer, B_ptr, n * p * sizeof(Sleef_quad));
+            A_ptr = temp_A_buffer;
+            B_ptr = temp_B_buffer;
+
+            Sleef_quad *temp_C_buffer = new Sleef_quad[m * p];
+            if (!temp_C_buffer) {
+                PyErr_SetString(PyExc_MemoryError,
+                                "Failed to allocate temporary buffer for GEMM result");
+                return -1;
+            }
+
+            size_t ldc_temp = p;
 
             result = qblas_gemm('R', 'N', 'N', m, p, n, &alpha, A_ptr, lda, B_ptr, ldb, &beta,
-                                C_ptr, ldc);
+                                temp_C_buffer, ldc_temp);
+
+            if (result == 0) {
+                memcpy(C_ptr, temp_C_buffer, m * p * sizeof(Sleef_quad));
+            }
+
+            delete[] temp_C_buffer;
+            delete[] temp_A_buffer;
+            delete[] temp_B_buffer;
             break;
         }
     }
@@ -221,27 +207,91 @@ quad_matmul_strided_loop(PyArrayMethod_Context *context, char *const data[],
     return 0;
 }
 
-/**
- * Register matmul support with QBLAS acceleration
- */
+static int
+naive_matmul_strided_loop(PyArrayMethod_Context *context, char *const data[],
+                          npy_intp const dimensions[], npy_intp const strides[],
+                          NpyAuxData *auxdata)
+{
+    npy_intp N = dimensions[0];
+    npy_intp m = dimensions[1];
+    npy_intp n = dimensions[2];
+    npy_intp p = dimensions[3];
+
+    npy_intp A_batch_stride = strides[0];
+    npy_intp B_batch_stride = strides[1];
+    npy_intp C_batch_stride = strides[2];
+
+    npy_intp A_row_stride = strides[3];
+    npy_intp A_col_stride = strides[4];
+    npy_intp B_row_stride = strides[5];
+    npy_intp B_col_stride = strides[6];
+    npy_intp C_row_stride = strides[7];
+    npy_intp C_col_stride = strides[8];
+
+    QuadPrecDTypeObject *descr = (QuadPrecDTypeObject *)context->descriptors[0];
+    QuadBackendType backend = descr->backend;
+    size_t elem_size = (backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
+
+    for (npy_intp batch = 0; batch < N; batch++) {
+        char *A_batch = data[0] + batch * A_batch_stride;
+        char *B_batch = data[1] + batch * B_batch_stride;
+        char *C_batch = data[2] + batch * C_batch_stride;
+
+        for (npy_intp i = 0; i < m; i++) {
+            for (npy_intp j = 0; j < p; j++) {
+                char *C_ij = C_batch + i * C_row_stride + j * C_col_stride;
+
+                if (backend == BACKEND_SLEEF) {
+                    Sleef_quad sum = Sleef_cast_from_doubleq1(0.0);
+
+                    for (npy_intp k = 0; k < n; k++) {
+                        char *A_ik = A_batch + i * A_row_stride + k * A_col_stride;
+                        char *B_kj = B_batch + k * B_row_stride + j * B_col_stride;
+
+                        Sleef_quad a_val, b_val;
+                        memcpy(&a_val, A_ik, sizeof(Sleef_quad));
+                        memcpy(&b_val, B_kj, sizeof(Sleef_quad));
+                        sum = Sleef_fmaq1_u05(a_val, b_val, sum);
+                    }
+
+                    memcpy(C_ij, &sum, sizeof(Sleef_quad));
+                }
+                else {
+                    long double sum = 0.0L;
+
+                    for (npy_intp k = 0; k < n; k++) {
+                        char *A_ik = A_batch + i * A_row_stride + k * A_col_stride;
+                        char *B_kj = B_batch + k * B_row_stride + j * B_col_stride;
+
+                        long double a_val, b_val;
+                        memcpy(&a_val, A_ik, sizeof(long double));
+                        memcpy(&b_val, B_kj, sizeof(long double));
+
+                        sum += a_val * b_val;
+                    }
+
+                    memcpy(C_ij, &sum, sizeof(long double));
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
 int
 init_matmul_ops(PyObject *numpy)
 {
-    printf("DEBUG: init_matmul_ops - registering QBLAS-accelerated matmul\n");
-
-    // Get the existing matmul ufunc
     PyObject *ufunc = PyObject_GetAttrString(numpy, "matmul");
     if (ufunc == NULL) {
-        printf("DEBUG: Failed to get numpy.matmul\n");
         return -1;
     }
 
-    // Setup method specification for QBLAS-accelerated matmul
     PyArray_DTypeMeta *dtypes[3] = {&QuadPrecDType, &QuadPrecDType, &QuadPrecDType};
 
     PyType_Slot slots[] = {{NPY_METH_resolve_descriptors, (void *)&quad_matmul_resolve_descriptors},
-                           {NPY_METH_strided_loop, (void *)&quad_matmul_strided_loop},
-                           {NPY_METH_unaligned_strided_loop, (void *)&quad_matmul_strided_loop},
+                           {NPY_METH_strided_loop, (void *)&naive_matmul_strided_loop},
+                           {NPY_METH_unaligned_strided_loop, (void *)&naive_matmul_strided_loop},
                            {0, NULL}};
 
     PyArrayMethod_Spec Spec = {
@@ -254,17 +304,11 @@ init_matmul_ops(PyObject *numpy)
             .slots = slots,
     };
 
-    printf("DEBUG: About to add QBLAS loop to matmul ufunc...\n");
-
     if (PyUFunc_AddLoopFromSpec(ufunc, &Spec) < 0) {
-        printf("DEBUG: Failed to add QBLAS loop to matmul ufunc\n");
         Py_DECREF(ufunc);
         return -1;
     }
 
-    printf("DEBUG: Successfully added QBLAS matmul loop!\n");
-
-    // Add promoter
     PyObject *promoter_capsule =
             PyCapsule_New((void *)&quad_ufunc_promoter, "numpy._ufunc_promoter", NULL);
     if (promoter_capsule == NULL) {
@@ -280,17 +324,14 @@ init_matmul_ops(PyObject *numpy)
     }
 
     if (PyUFunc_AddPromoter(ufunc, DTypes, promoter_capsule) < 0) {
-        printf("DEBUG: Failed to add promoter (continuing anyway)\n");
         PyErr_Clear();  // Don't fail if promoter fails
     }
     else {
-        printf("DEBUG: Successfully added promoter\n");
     }
 
     Py_DECREF(DTypes);
     Py_DECREF(promoter_capsule);
     Py_DECREF(ufunc);
 
-    printf("DEBUG: init_matmul_ops completed successfully with QBLAS acceleration\n");
     return 0;
 }
