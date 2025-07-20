@@ -163,11 +163,11 @@ ld_absolute(long double *op)
 static inline long double
 ld_sign(long double *op)
 {
-    if (x < 0.0) return -1.0;
-    if (x == 0.0) return 0.0;
-    if (x > 0.0) return 1.0;
+    if (*op < 0.0) return -1.0;
+    if (*op == 0.0) return 0.0;
+    if (*op > 0.0) return 1.0;
     // sign(x=NaN) = x
-    return x;
+    return *op;
 }
 
 static inline long double
