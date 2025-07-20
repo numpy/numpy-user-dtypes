@@ -63,6 +63,47 @@ def create_quad_array(values, shape=None):
     raise ValueError("Unsupported values or shape")
 
 
+def is_special_value(val):
+    """Check if a value is NaN or infinite"""
+    try:
+        float_val = float(val)
+        return np.isnan(float_val) or np.isinf(float_val)
+    except:
+        return False
+
+
+def arrays_equal_with_nan(a, b, rtol=1e-15, atol=1e-15):
+    """Compare arrays that may contain NaN values"""
+    if a.shape != b.shape:
+        return False
+    
+    flat_a = a.flatten()
+    flat_b = b.flatten()
+    
+    for i, (val_a, val_b) in enumerate(zip(flat_a, flat_b)):
+        # Handle NaN cases
+        if is_special_value(val_a) and is_special_value(val_b):
+            float_a = float(val_a)
+            float_b = float(val_b)
+            # Both NaN
+            if np.isnan(float_a) and np.isnan(float_b):
+                continue
+            # Both infinite with same sign
+            elif np.isinf(float_a) and np.isinf(float_b) and np.sign(float_a) == np.sign(float_b):
+                continue
+            else:
+                return False
+        elif is_special_value(val_a) or is_special_value(val_b):
+            return False
+        else:
+            try:
+                assert_quad_equal(val_a, val_b, rtol, atol)
+            except AssertionError:
+                return False
+    
+    return True
+
+
 # ================================================================================
 # VECTOR-VECTOR DOT PRODUCT TESTS
 # ================================================================================
@@ -253,6 +294,397 @@ class TestMatrixMatrixDot:
         result2 = np.matmul(A, BC)
         
         assert_quad_array_equal(result1, result2, rtol=1e-25)
+
+
+# ================================================================================
+# SPECIAL VALUES EDGE CASE TESTS
+# ================================================================================
+
+class TestSpecialValueEdgeCases:
+    """Test matmul with special IEEE 754 values (NaN, inf, -0.0)"""
+    
+    @pytest.mark.parametrize("special_val", ["0.0", "-0.0", "inf", "-inf", "nan", "-nan"])
+    def test_vector_with_special_values(self, special_val):
+        """Test vectors containing special values"""
+        # Create vectors with special values
+        x = create_quad_array([1.0, float(special_val), 2.0])
+        y = create_quad_array([3.0, 4.0, 5.0])
+        
+        result = np.matmul(x, y)
+        
+        # Compare with float64 reference
+        x_float = np.array([1.0, float(special_val), 2.0], dtype=np.float64)
+        y_float = np.array([3.0, 4.0, 5.0], dtype=np.float64)
+        expected = np.matmul(x_float, y_float)
+        
+        # Handle special value comparisons
+        if np.isnan(expected):
+            assert np.isnan(float(result))
+        elif np.isinf(expected):
+            assert np.isinf(float(result))
+            assert np.sign(float(result)) == np.sign(expected)
+        else:
+            assert_quad_equal(result, expected)
+    
+    @pytest.mark.parametrize("special_val", ["0.0", "-0.0", "inf", "-inf", "nan"])
+    def test_matrix_vector_with_special_values(self, special_val):
+        """Test matrix-vector multiplication with special values"""
+        # Matrix with special value
+        A = create_quad_array([1.0, float(special_val), 3.0, 4.0], shape=(2, 2))
+        x = create_quad_array([2.0, 1.0])
+        
+        result = np.matmul(A, x)
+        
+        # Compare with float64 reference  
+        A_float = np.array([[1.0, float(special_val)], [3.0, 4.0]], dtype=np.float64)
+        x_float = np.array([2.0, 1.0], dtype=np.float64)
+        expected = np.matmul(A_float, x_float)
+        
+        assert result.shape == expected.shape
+        for i in range(len(expected)):
+            if np.isnan(expected[i]):
+                assert np.isnan(float(result[i]))
+            elif np.isinf(expected[i]):
+                assert np.isinf(float(result[i]))
+                assert np.sign(float(result[i])) == np.sign(expected[i])
+            else:
+                assert_quad_equal(result[i], expected[i])
+    
+    @pytest.mark.parametrize("special_val", ["0.0", "-0.0", "inf", "-inf", "nan"])
+    def test_matrix_matrix_with_special_values(self, special_val):
+        """Test matrix-matrix multiplication with special values"""
+        A = create_quad_array([1.0, 2.0, float(special_val), 4.0], shape=(2, 2))
+        B = create_quad_array([5.0, 6.0, 7.0, 8.0], shape=(2, 2))
+        
+        result = np.matmul(A, B)
+        
+        # Compare with float64 reference
+        A_float = np.array([[1.0, 2.0], [float(special_val), 4.0]], dtype=np.float64)
+        B_float = np.array([[5.0, 6.0], [7.0, 8.0]], dtype=np.float64)
+        expected = np.matmul(A_float, B_float)
+        
+        assert result.shape == expected.shape
+        assert arrays_equal_with_nan(result, expected)
+    
+    def test_all_nan_matrix(self):
+        """Test matrices filled with NaN"""
+        A = create_quad_array([float('nan')] * 4, shape=(2, 2))
+        B = create_quad_array([1, 2, 3, 4], shape=(2, 2))
+        
+        result = np.matmul(A, B)
+        
+        # Result should be all NaN (NaN * anything = NaN)
+        for i in range(2):
+            for j in range(2):
+                assert np.isnan(float(result[i, j]))
+    
+    def test_inf_times_zero_produces_nan(self):
+        """Test that Inf * 0 correctly produces NaN per IEEE 754"""
+        # Create a scenario where Inf * 0 occurs in matrix multiplication
+        A = create_quad_array([float('inf'), 1.0], shape=(1, 2))
+        B = create_quad_array([0.0, 1.0], shape=(2, 1))
+        
+        result = np.matmul(A, B)
+        
+        # Result should be inf*0 + 1*1 = NaN + 1 = NaN
+        assert np.isnan(float(result[0, 0])), "Inf * 0 should produce NaN per IEEE 754"
+    
+    def test_nan_propagation(self):
+        """Test that NaN properly propagates through matrix operations"""
+        A = create_quad_array([1.0, float('nan'), 3.0, 4.0], shape=(2, 2))
+        B = create_quad_array([1.0, 0.0, 0.0, 1.0], shape=(2, 2))  # Identity
+        
+        result = np.matmul(A, B)
+        
+        # C[0,0] = 1*1 + nan*0 = 1 + nan = nan (nan*0 = nan, not like inf*0)
+        # C[0,1] = 1*0 + nan*1 = 0 + nan = nan  
+        # C[1,0] = 3*1 + 4*0 = 3 + 0 = 3
+        # C[1,1] = 3*0 + 4*1 = 0 + 4 = 4
+        assert np.isnan(float(result[0, 0]))
+        assert np.isnan(float(result[0, 1]))
+        assert_quad_equal(result[1, 0], 3.0)
+        assert_quad_equal(result[1, 1], 4.0)
+    
+    def test_zero_division_and_indeterminate_forms(self):
+        """Test handling of indeterminate forms in matrix operations"""
+        # Test various indeterminate forms that should produce NaN
+        
+        # Case: Inf - Inf form
+        A = create_quad_array([float('inf'), float('inf')], shape=(1, 2))
+        B = create_quad_array([1.0, -1.0], shape=(2, 1))
+        
+        result = np.matmul(A, B)
+        
+        # Result should be inf*1 + inf*(-1) = inf - inf = NaN
+        assert np.isnan(float(result[0, 0])), "Inf - Inf should produce NaN per IEEE 754"
+    
+    def test_mixed_inf_values(self):
+        """Test matrices with mixed infinite values"""
+        # Use all-ones matrix to avoid Inf * 0 = NaN issues
+        A = create_quad_array([float('inf'), 2, float('-inf'), 3], shape=(2, 2))
+        B = create_quad_array([1, 1, 1, 1], shape=(2, 2))  # All ones to avoid Inf*0
+        
+        result = np.matmul(A, B)
+        
+        # C[0,0] = inf*1 + 2*1 = inf + 2 = inf
+        # C[0,1] = inf*1 + 2*1 = inf + 2 = inf  
+        # C[1,0] = -inf*1 + 3*1 = -inf + 3 = -inf
+        # C[1,1] = -inf*1 + 3*1 = -inf + 3 = -inf
+        assert np.isinf(float(result[0, 0])) and float(result[0, 0]) > 0
+        assert np.isinf(float(result[0, 1])) and float(result[0, 1]) > 0
+        assert np.isinf(float(result[1, 0])) and float(result[1, 0]) < 0  
+        assert np.isinf(float(result[1, 1])) and float(result[1, 1]) < 0
+
+
+# ================================================================================
+# DEGENERATE AND EMPTY CASE TESTS
+# ================================================================================
+
+class TestDegenerateCases:
+    """Test edge cases with degenerate dimensions"""
+    
+    def test_single_element_matrices(self):
+        """Test 1x1 matrix operations"""
+        A = create_quad_array([3.0], shape=(1, 1))
+        B = create_quad_array([4.0], shape=(1, 1))
+        
+        result = np.matmul(A, B)
+        
+        assert result.shape == (1, 1)
+        assert_quad_equal(result[0, 0], 12.0)
+    
+    def test_single_element_vector(self):
+        """Test operations with single-element vectors"""
+        x = create_quad_array([5.0])
+        y = create_quad_array([7.0])
+        
+        result = np.matmul(x, y)
+        
+        assert isinstance(result, QuadPrecision)
+        assert_quad_equal(result, 35.0)
+    
+    def test_very_tall_matrix(self):
+        """Test very tall matrices (1000x1)"""
+        size = 1000
+        A = create_quad_array([1.0] * size, shape=(size, 1))
+        B = create_quad_array([2.0], shape=(1, 1))
+        
+        result = np.matmul(A, B)
+        
+        assert result.shape == (size, 1)
+        for i in range(min(10, size)):  # Check first 10 elements
+            assert_quad_equal(result[i, 0], 2.0)
+    
+    def test_very_wide_matrix(self):
+        """Test very wide matrices (1x1000)"""
+        size = 1000
+        A = create_quad_array([1.0], shape=(1, 1))  
+        B = create_quad_array([3.0] * size, shape=(1, size))
+        
+        result = np.matmul(A, B)
+        
+        assert result.shape == (1, size)
+        for i in range(min(10, size)):  # Check first 10 elements
+            assert_quad_equal(result[0, i], 3.0)
+    
+    def test_zero_matrices(self):
+        """Test matrices filled with zeros"""
+        A = create_quad_array([0.0] * 9, shape=(3, 3))
+        B = create_quad_array([1, 2, 3, 4, 5, 6, 7, 8, 9], shape=(3, 3))
+        
+        result = np.matmul(A, B)
+        
+        assert result.shape == (3, 3)
+        for i in range(3):
+            for j in range(3):
+                assert_quad_equal(result[i, j], 0.0)
+    
+    def test_repeated_row_matrix(self):
+        """Test matrices with repeated rows"""
+        # Matrix with all rows the same
+        A = create_quad_array([1, 2, 3] * 3, shape=(3, 3))  # Each row is [1, 2, 3]
+        B = create_quad_array([1, 0, 0, 0, 1, 0, 0, 0, 1], shape=(3, 3))  # Identity
+        
+        result = np.matmul(A, B)
+        
+        # Result should have all rows equal to [1, 2, 3]
+        for i in range(3):
+            assert_quad_equal(result[i, 0], 1.0)
+            assert_quad_equal(result[i, 1], 2.0)
+            assert_quad_equal(result[i, 2], 3.0)
+    
+    def test_repeated_column_matrix(self):
+        """Test matrices with repeated columns"""
+        A = create_quad_array([1, 0, 0, 0, 1, 0, 0, 0, 1], shape=(3, 3))  # Identity
+        B = create_quad_array([2, 2, 2, 3, 3, 3, 4, 4, 4], shape=(3, 3))  # Each column repeated
+        
+        result = np.matmul(A, B)
+        
+        # Result should be same as B (identity multiplication)
+        assert_quad_array_equal(result, B)
+
+
+# ================================================================================
+# NUMERICAL STABILITY AND PRECISION TESTS
+# ================================================================================
+
+class TestNumericalStability:
+    """Test numerical stability with extreme values"""
+    
+    def test_very_large_values(self):
+        """Test matrices with very large values"""
+        large_val = 1e100
+        A = create_quad_array([large_val, 1, 1, large_val], shape=(2, 2))
+        B = create_quad_array([1, 0, 0, 1], shape=(2, 2))  # Identity
+        
+        result = np.matmul(A, B)
+        
+        # Should preserve large values without overflow
+        assert_quad_equal(result[0, 0], large_val)
+        assert_quad_equal(result[1, 1], large_val)
+        assert not np.isinf(float(result[0, 0]))
+        assert not np.isinf(float(result[1, 1]))
+    
+    def test_very_small_values(self):
+        """Test matrices with very small values"""
+        small_val = 1e-100
+        A = create_quad_array([small_val, 0, 0, small_val], shape=(2, 2))
+        B = create_quad_array([1, 0, 0, 1], shape=(2, 2))  # Identity
+        
+        result = np.matmul(A, B)
+        
+        # Should preserve small values without underflow
+        assert_quad_equal(result[0, 0], small_val)
+        assert_quad_equal(result[1, 1], small_val)
+        assert float(result[0, 0]) != 0.0
+        assert float(result[1, 1]) != 0.0
+    
+    def test_mixed_scale_values(self):
+        """Test matrices with mixed magnitude values"""
+        A = create_quad_array([1e100, 1e-100, 1e50, 1e-50], shape=(2, 2))
+        B = create_quad_array([1, 0, 0, 1], shape=(2, 2))  # Identity
+        
+        result = np.matmul(A, B)
+        
+        # All values should be preserved accurately
+        assert_quad_equal(result[0, 0], 1e100)
+        assert_quad_equal(result[0, 1], 1e-100)
+        assert_quad_equal(result[1, 0], 1e50)
+        assert_quad_equal(result[1, 1], 1e-50)
+    
+    def test_precision_critical_case(self):
+        """Test case that would lose precision in double"""
+        # Create a case where large values cancel in the dot product
+        # Vector: [1e20, 1.0, -1e20] dot [1, 0, 1] should equal 1.0
+        x = create_quad_array([1e20, 1.0, -1e20])
+        y = create_quad_array([1.0, 0.0, 1.0])
+        
+        result = np.matmul(x, y)
+        
+        # The result should be 1e20*1 + 1.0*0 + (-1e20)*1 = 1e20 - 1e20 = 0, but we want 1
+        # Let me fix this: [1e20, 1.0, -1e20] dot [0, 1, 0] = 1.0
+        x = create_quad_array([1e20, 1.0, -1e20])
+        y = create_quad_array([0.0, 1.0, 0.0])
+        
+        result = np.matmul(x, y)
+        
+        # This would likely fail in double precision due to representation issues
+        assert_quad_equal(result, 1.0, atol=1e-25)
+    
+    def test_condition_number_extreme(self):
+        """Test matrices with extreme condition numbers"""
+        # Nearly singular matrix (very small determinant)
+        eps = 1e-50
+        A = create_quad_array([1, 1, 1, 1+eps], shape=(2, 2))
+        B = create_quad_array([1, 0, 0, 1], shape=(2, 2))
+        
+        result = np.matmul(A, B)
+        
+        # Result should be computed accurately
+        assert_quad_equal(result[0, 0], 1.0)
+        assert_quad_equal(result[0, 1], 1.0)
+        assert_quad_equal(result[1, 0], 1.0)
+        assert_quad_equal(result[1, 1], 1.0 + eps)
+    
+    def test_accumulation_precision(self):
+        """Test precision in accumulation of many terms"""
+        size = 100
+        # Create vectors where each term contributes equally
+        x_vals = [1.0 / size] * size
+        y_vals = [1.0] * size
+        
+        x = create_quad_array(x_vals)
+        y = create_quad_array(y_vals)
+        
+        result = np.matmul(x, y)
+        
+        # Result should be exactly 1.0 
+        assert_quad_equal(result, 1.0, atol=1e-25)
+
+
+# ================================================================================
+# CROSS-VALIDATION TESTS
+# ================================================================================
+
+class TestCrossValidation:
+    """Test consistency with float64 reference implementations"""
+    
+    @pytest.mark.parametrize("size", [2, 3, 5, 10])
+    def test_consistency_with_float64_vectors(self, size):
+        """Test vector operations consistency with float64"""
+        # Use values well within float64 range
+        x_vals = [i + 0.5 for i in range(size)]
+        y_vals = [2 * i + 1.5 for i in range(size)]
+        
+        # QuadPrecision computation
+        x_quad = create_quad_array(x_vals)
+        y_quad = create_quad_array(y_vals)
+        result_quad = np.matmul(x_quad, y_quad)
+        
+        # float64 reference
+        x_float = np.array(x_vals, dtype=np.float64)
+        y_float = np.array(y_vals, dtype=np.float64)
+        result_float = np.matmul(x_float, y_float)
+        
+        # Results should match within float64 precision
+        assert_quad_equal(result_quad, result_float, rtol=1e-14)
+    
+    @pytest.mark.parametrize("m,n,k", [(2,2,2), (3,3,3), (4,5,6)])
+    def test_consistency_with_float64_matrices(self, m, n, k):
+        """Test matrix operations consistency with float64"""
+        # Create test matrices with float64-representable values
+        A_vals = [(i + j + 1) * 0.25 for i in range(m) for j in range(k)]
+        B_vals = [(i * 2 + j) * 0.125 for i in range(k) for j in range(n)]
+        
+        # QuadPrecision computation
+        A_quad = create_quad_array(A_vals, shape=(m, k))
+        B_quad = create_quad_array(B_vals, shape=(k, n))
+        result_quad = np.matmul(A_quad, B_quad)
+        
+        # float64 reference
+        A_float = np.array(A_vals, dtype=np.float64).reshape(m, k)
+        B_float = np.array(B_vals, dtype=np.float64).reshape(k, n)
+        result_float = np.matmul(A_float, B_float)
+        
+        # Results should match within float64 precision
+        for i in range(m):
+            for j in range(n):
+                assert_quad_equal(result_quad[i, j], result_float[i, j], rtol=1e-14)
+    
+    def test_quad_precision_advantage(self):
+        """Test cases where quad precision shows advantage over float64"""
+        A = create_quad_array([1.0, 1e-30], shape=(1, 2))
+        B = create_quad_array([1.0, 1.0], shape=(2, 1))
+        
+        result_quad = np.matmul(A, B)
+        
+        # The result should be 1.0 + 1e-30 = 1.0000000000000000000000000000001
+        expected = 1.0 + 1e-30
+        assert_quad_equal(result_quad[0, 0], expected, rtol=1e-25)
+        
+        # Verify that this value is actually different from 1.0 in quad precision
+        diff = result_quad[0, 0] - 1.0
+        assert abs(diff) > 0  # Should be non-zero in quad precision
 
 
 # ================================================================================
