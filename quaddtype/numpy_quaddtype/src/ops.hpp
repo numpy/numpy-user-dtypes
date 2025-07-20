@@ -18,6 +18,14 @@ quad_positive(Sleef_quad *op)
 }
 
 static inline Sleef_quad
+quad_sign(Sleef_quad *op)
+{
+    int32_t sign = Sleef_icmpq1(*op, Sleef_cast_from_doubleq1(0.0));
+    // sign(x=NaN) = x; otherwise sign(x) in { -1.0; 0.0; +1.0 }
+    return Sleef_iunordq1(*op, *op) ? *op : Sleef_cast_from_int64q1(sign);
+}
+
+static inline Sleef_quad
 quad_absolute(Sleef_quad *op)
 {
     return Sleef_fabsq1(*op);
@@ -150,6 +158,16 @@ static inline long double
 ld_absolute(long double *op)
 {
     return fabsl(*op);
+}
+
+static inline long double
+ld_sign(long double *op)
+{
+    if (x < 0.0) return -1.0;
+    if (x == 0.0) return 0.0;
+    if (x > 0.0) return 1.0;
+    // sign(x=NaN) = x
+    return x;
 }
 
 static inline long double

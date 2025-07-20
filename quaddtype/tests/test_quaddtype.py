@@ -32,6 +32,7 @@ def test_binary_ops(op, other):
     quad_result = op_func(quad_a, quad_b)
     float_result = op_func(float_a, float_b)
 
+    # FIXME: @juntyr: replace with array_equal once isnan is supported
     with np.errstate(invalid="ignore"):
         assert (
             (np.float64(quad_result) == float_result) or
@@ -106,31 +107,30 @@ def test_array_aminmax(op, a, b):
         assert np.all((quad_res == float_res) | ((quad_res != quad_res) & (float_res != float_res)))
 
 
-@pytest.mark.parametrize("op, val, expected", [
-    ("neg", "3.0", "-3.0"),
-    ("neg", "-3.0", "3.0"),
-    ("pos", "3.0", "3.0"),
-    ("pos", "-3.0", "-3.0"),
-    ("abs", "3.0", "3.0"),
-    ("abs", "-3.0", "3.0"),
-    ("neg", "12.5", "-12.5"),
-    ("pos", "100.0", "100.0"),
-    ("abs", "-25.5", "25.5"),
-])
-def test_unary_ops(op, val, expected):
+@pytest.mark.parametrize("op,nop", [("neg", "negative"), ("pos", "positive"), ("abs", "absolute"), (None, "sign")])
+@pytest.mark.parametrize("val", ["3.0", "-3.0", "12.5", "100.0", "0.0", "-0.0", "inf", "-inf", "nan", "-nan"])
+def test_unary_ops(op, nop, val):
+    op_func = None if op is None else getattr(operator, op)
+    nop_func = getattr(np, nop)
+    
     quad_val = QuadPrecision(val)
-    expected_val = QuadPrecision(expected)
+    float_val = float(val)
 
-    if op == "neg":
-        result = -quad_val
-    elif op == "pos":
-        result = +quad_val
-    elif op == "abs":
-        result = abs(quad_val)
-    else:
-        raise ValueError(f"Unsupported operation: {op}")
+    for op_func in [op_func, nop_func]:
+        if op_func is None:
+            continue
 
-    assert result == expected_val, f"{op}({val}) should be {expected}, but got {result}"
+        quad_result = op_func(quad_val)
+        float_result = op_func(float_val)
+
+        # FIXME: @juntyr: replace with array_equal once isnan is supported
+        # FIXME: @juntyr: also check the signbit once that is supported
+        with np.errstate(invalid="ignore"):
+            assert (
+                (np.float64(quad_result) == float_result) or
+                ((float_result != float_result) and (quad_result != quad_result))
+            ), f"{op}({val}) should be {float_result}, but got {quad_result}"
+
 
 def test_inf():
     assert QuadPrecision("inf") > QuadPrecision("1e1000")
