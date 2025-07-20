@@ -339,6 +339,12 @@ quad_atan2(Sleef_quad *in1, Sleef_quad *in2)
     return Sleef_atan2q1_u10(*in1, *in2);
 }
 
+static inline Sleef_quad
+quad_copysign(Sleef_quad *in1, Sleef_quad *in2)
+{
+    return Sleef_copysignq1(*in1, *in2);
+}
+
 // Binary long double operations
 typedef long double (*binary_op_longdouble_def)(long double *, long double *);
 
@@ -394,6 +400,12 @@ static inline long double
 ld_atan2(long double *in1, long double *in2)
 {
     return atan2l(*in1, *in2);
+}
+
+static inline long double
+ld_copysign(long double *in1, long double *in2)
+{
+    return copysignl(*in1, *in2);
 }
 
 // comparison quad functions

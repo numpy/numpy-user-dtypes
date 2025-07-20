@@ -17,13 +17,13 @@ def test_basic_equality():
         "12.0") == QuadPrecision("12.00")
 
 
-@pytest.mark.parametrize("op", ["add", "sub", "mul", "truediv", "pow"])
+@pytest.mark.parametrize("op", ["add", "sub", "mul", "truediv", "pow", "copysign"])
 @pytest.mark.parametrize("other", ["3.0", "12.5", "100.0", "0.0", "-0.0", "inf", "-inf", "nan", "-nan"])
 def test_binary_ops(op, other):
     if op == "truediv" and float(other) == 0:
         pytest.xfail("float division by zero")
 
-    op_func = getattr(operator, op)
+    op_func = getattr(operator, op, None) or getattr(np, op)
     quad_a = QuadPrecision("12.5")
     quad_b = QuadPrecision(other)
     float_a = 12.5
