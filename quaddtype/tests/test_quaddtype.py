@@ -107,7 +107,7 @@ def test_array_aminmax(op, a, b):
         assert np.all((quad_res == float_res) | ((quad_res != quad_res) & (float_res != float_res)))
 
 
-@pytest.mark.parametrize("op,nop", [("neg", "negative"), ("pos", "positive"), ("abs", "absolute"), (None, "sign")])
+@pytest.mark.parametrize("op,nop", [("neg", "negative"), ("pos", "positive"), ("abs", "absolute"), (None, "sign"), (None, "signbit")])
 @pytest.mark.parametrize("val", ["3.0", "-3.0", "12.5", "100.0", "0.0", "-0.0", "inf", "-inf", "nan", "-nan"])
 def test_unary_ops(op, nop, val):
     op_func = None if op is None else getattr(operator, op)
@@ -124,11 +124,12 @@ def test_unary_ops(op, nop, val):
         float_result = op_func(float_val)
 
         # FIXME: @juntyr: replace with array_equal once isnan is supported
-        # FIXME: @juntyr: also check the signbit once that is supported
         with np.errstate(invalid="ignore"):
             assert (
                 (np.float64(quad_result) == float_result) or
                 ((float_result != float_result) and (quad_result != quad_result))
+            ) and (
+                np.signbit(float_result) == np.signbit(quad_result)
             ), f"{op}({val}) should be {float_result}, but got {quad_result}"
 
 

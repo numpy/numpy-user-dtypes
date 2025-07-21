@@ -214,6 +214,9 @@ init_quad_unary_ops(PyObject *numpy)
     if (create_quad_unary_ufunc<quad_sign, ld_sign>(numpy, "sign") < 0) {
         return -1;
     }
+    if (create_quad_unary_ufunc<quad_signbit, ld_signbit>(numpy, "signbit") < 0) {
+        return -1;
+    }
     if (create_quad_unary_ufunc<quad_rint, ld_rint>(numpy, "rint") < 0) {
         return -1;
     }
