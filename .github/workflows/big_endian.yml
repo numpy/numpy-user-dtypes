@@ -1,0 +1,207 @@
+name: Test Big-Endian Systems
+
+on:
+  push:
+    branches:
+      - big-endian-ci
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test-big-endian:
+    name: Test Big-Endian Systems
+    runs-on: ubuntu-latest
+    timeout-minutes: 120 # Big-endian emulation is slower
+    strategy:
+      fail-fast: false # Continue testing other architectures if one fails
+      matrix:
+        include:
+          - arch: s390x
+            platform: linux/s390x
+            name: "IBM Z (s390x)"
+            continue-on-error: true # Allow failures initially
+          - arch: ppc64
+            platform: linux/ppc64
+            name: "PowerPC 64-bit"
+            continue-on-error: true # Allow failures initially
+
+    continue-on-error: ${{ matrix.continue-on-error }}
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: ${{ matrix.platform }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Create test script
+        run: |
+          cat > test_script.sh << 'EOF'
+          #!/bin/bash
+          set -ex
+
+          echo "=== Starting Big-Endian Test for ${{ matrix.name }} ==="
+
+          # Update package list and install dependencies
+          echo "=== Installing System Dependencies ==="
+          apt-get update
+          apt-get install -y python3 python3-pip python3-dev python3-venv
+          apt-get install -y gcc g++ cmake make git pkg-config
+          apt-get install -y libmpfr-dev libssl-dev libfftw3-dev
+
+          # Create and activate virtual environment
+          echo "=== Setting up Python Environment ==="
+          python3 -m venv /tmp/venv
+          source /tmp/venv/bin/activate
+
+          # Install Python dependencies
+          pip install -U pip build pytest unyt wheel meson ninja meson-python patchelf pandas numpy
+
+          # Verify we're on big-endian system
+          echo "=== Endianness Check ==="
+          python3 -c "
+          import sys
+          import struct
+          print(f'Byte order: {sys.byteorder}')
+          is_little = struct.pack('@I', 1) == struct.pack('<I', 1)
+          print(f'Little endian: {is_little}')
+          if is_little:
+              print('ERROR: Expected big-endian system!')
+              exit(1)
+          else:
+              print('SUCCESS: Confirmed big-endian system')
+          "
+
+          # Install SLEEF
+          echo "=== Building SLEEF ==="
+          git clone --branch 3.8 https://github.com/shibatch/sleef.git
+          cd sleef
+          cmake -S . -B build \
+            -DSLEEF_BUILD_QUAD:BOOL=ON \
+            -DSLEEF_BUILD_SHARED_LIBS:BOOL=ON \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/ --clean-first -j$(nproc)
+          cmake --install build --prefix /usr/local
+          cd /workspace
+
+          # Verify SLEEF installation
+          echo "=== Verifying SLEEF Installation ==="
+          ls -la /usr/local/lib*/libsleef*
+          ls -la /usr/local/include/sleef*
+
+          # Install and test quaddtype
+          echo "=== Building and Testing QuadDType ==="
+          cd quaddtype
+
+          # Verify submodules are present
+          echo "=== Checking Submodules ==="
+          ls -la numpy_quaddtype/QBLAS/
+          ls -la numpy_quaddtype/QBLAS/include/quadblas/ || true
+
+          # Set up environment
+          export CFLAGS="-I/usr/local/include -I$(pwd)/numpy_quaddtype/QBLAS/include"
+          export CXXFLAGS="-I/usr/local/include -I$(pwd)/numpy_quaddtype/QBLAS/include -fext-numeric-literals"
+          export LDFLAGS="-L/usr/local/lib64 -L/usr/local/lib -Wl,-rpath,/usr/local/lib64 -Wl,-rpath,/usr/local/lib -fopenmp"
+          export LD_LIBRARY_PATH="/usr/local/lib64:/usr/local/lib:$LD_LIBRARY_PATH"
+
+          echo "Build environment:"
+          echo "CFLAGS=$CFLAGS"
+          echo "CXXFLAGS=$CXXFLAGS"
+          echo "LDFLAGS=$LDFLAGS"
+          echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
+
+          # Install
+          echo "=== Installing QuadDType ==="
+          python -m pip install . -v --no-build-isolation \
+            -Cbuilddir=build \
+            -C'compile-args=-v' \
+            -Csetup-args="-Dbuildtype=debug" \
+            -Csetup-args="-Dcpp_args=-fext-numeric-literals" || {
+              echo "=== Installation failed, showing build logs ==="
+              find . -name "*.log" -exec cat {} \; || true
+              exit 1
+            }
+
+          # Test basic functionality
+          echo "=== Basic QuadDType Test ==="
+          python3 -c "
+          import sys
+          print(f'Python version: {sys.version}')
+          print(f'Python executable: {sys.executable}')
+
+          import numpy as np
+          print(f'NumPy version: {np.__version__}')
+
+          try:
+              from numpy_quaddtype import QuadPrecDType
+              print('✓ Successfully imported QuadPrecDType')
+              
+              # Test basic array creation
+              arr = np.array([1.0, 2.0, 3.0], dtype=QuadPrecDType())
+              print(f'✓ Created array: {arr}')
+              print(f'✓ Array dtype: {arr.dtype}')
+              
+              # Test basic operations
+              result = arr + arr
+              print(f'✓ Addition result: {result}')
+              
+              # Test multiplication
+              mult_result = arr * 2.0
+              print(f'✓ Multiplication result: {mult_result}')
+              
+              print('✓ SUCCESS: Basic QuadDType operations work on big-endian!')
+              
+          except Exception as e:
+              print(f'✗ ERROR in basic test: {e}')
+              import traceback
+              traceback.print_exc()
+              exit(1)
+          "
+
+          # Run full test suite (with timeout protection)
+          echo "=== Running Full Test Suite ==="
+          timeout 1800 pytest -xvs --tb=short || {
+            echo "=== Test suite failed or timed out ==="
+            echo "This might be expected on big-endian systems during initial development"
+            echo "Check the test output above for specific failures"
+            exit 1
+          }
+
+          echo "=== All Tests Completed Successfully ==="
+          EOF
+
+          chmod +x test_script.sh
+
+      - name: Test on ${{ matrix.name }}
+        run: |
+          docker run --rm --platform=${{ matrix.platform }} \
+            -v ${{ github.workspace }}:/workspace \
+            -w /workspace \
+            ubuntu:22.04 \
+            bash -c "
+              echo 'Container started for ${{ matrix.name }}'
+              echo 'Architecture info:'
+              uname -a
+              cat /proc/cpuinfo | head -20 || true
+              echo 'Starting test script...'
+              ./test_script.sh
+            "
+
+      - name: Report Results
+        if: always()
+        run: |
+          echo "Big-endian testing completed for ${{ matrix.name }}"
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "✅ Tests passed!"
+          elif [ "${{ matrix.continue-on-error }}" = "true" ]; then
+            echo "⚠️  Tests failed, but continuing (expected during development)"
+          else
+            echo "❌ Tests failed!"
+          fi
