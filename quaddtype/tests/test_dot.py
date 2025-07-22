@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from test_utils import create_quad_array, assert_quad_equal, assert_quad_array_equal, arrays_equal_with_nan
+from utils import create_quad_array, assert_quad_equal, assert_quad_array_equal, arrays_equal_with_nan
 from numpy_quaddtype import QuadPrecision, QuadPrecDType
 
 
