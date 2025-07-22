@@ -8,8 +8,6 @@ from ._quaddtype_main import (
     get_quadblas_version
 )
 
-import multiprocessing
-
 __all__ = [
     'QuadPrecision', 'QuadPrecDType', 'SleefQuadPrecision', 'LongDoubleQuadPrecision',
     'SleefQuadPrecDType', 'LongDoubleQuadPrecDType', 'is_longdouble_128', 
