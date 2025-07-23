@@ -268,7 +268,7 @@ class TestSpecialValueEdgeCases:
     
     def test_all_nan_matrix(self):
         """Test matrices filled with NaN"""
-        A = create_quad_array([float('nan')] * 4, shape=(2, 2))
+        A = create_quad_array([float("nan")] * 4, shape=(2, 2))
         B = create_quad_array([1, 2, 3, 4], shape=(2, 2))
         
         result = np.matmul(A, B)
@@ -281,7 +281,7 @@ class TestSpecialValueEdgeCases:
     def test_inf_times_zero_produces_nan(self):
         """Test that Inf * 0 correctly produces NaN per IEEE 754"""
         # Create a scenario where Inf * 0 occurs in matrix multiplication
-        A = create_quad_array([float('inf'), 1.0], shape=(1, 2))
+        A = create_quad_array([float("inf"), 1.0], shape=(1, 2))
         B = create_quad_array([0.0, 1.0], shape=(2, 1))
         
         result = np.matmul(A, B)
@@ -291,7 +291,7 @@ class TestSpecialValueEdgeCases:
     
     def test_nan_propagation(self):
         """Test that NaN properly propagates through matrix operations"""
-        A = create_quad_array([1.0, float('nan'), 3.0, 4.0], shape=(2, 2))
+        A = create_quad_array([1.0, float("nan"), 3.0, 4.0], shape=(2, 2))
         B = create_quad_array([1.0, 0.0, 0.0, 1.0], shape=(2, 2))  # Identity
         
         result = np.matmul(A, B)
@@ -310,7 +310,7 @@ class TestSpecialValueEdgeCases:
         # Test various indeterminate forms that should produce NaN
         
         # Case: Inf - Inf form
-        A = create_quad_array([float('inf'), float('inf')], shape=(1, 2))
+        A = create_quad_array([float("inf"), float("inf")], shape=(1, 2))
         B = create_quad_array([1.0, -1.0], shape=(2, 1))
         
         result = np.matmul(A, B)
@@ -321,7 +321,7 @@ class TestSpecialValueEdgeCases:
     def test_mixed_inf_values(self):
         """Test matrices with mixed infinite values"""
         # Use all-ones matrix to avoid Inf * 0 = NaN issues
-        A = create_quad_array([float('inf'), 2, float('-inf'), 3], shape=(2, 2))
+        A = create_quad_array([float("inf"), 2, float("-inf"), 3], shape=(2, 2))
         B = create_quad_array([1, 1, 1, 1], shape=(2, 2))  # All ones to avoid Inf*0
         
         result = np.matmul(A, B)

@@ -61,14 +61,17 @@ get_sleef_constant(PyObject *self, PyObject *args)
     else if (strcmp(constant_name, "ln10") == 0) {
         result->value.sleef_value = SLEEF_M_LN10q;
     }
-    else if (strcmp(constant_name, "quad_max") == 0) {
+    else if (strcmp(constant_name, "max_value") == 0) {
         result->value.sleef_value = SLEEF_QUAD_MAX;
-    }
-    else if (strcmp(constant_name, "quad_min") == 0) {
-        result->value.sleef_value = SLEEF_QUAD_MIN;
     }
     else if (strcmp(constant_name, "epsilon") == 0) {
         result->value.sleef_value = SLEEF_QUAD_EPSILON;
+    }
+    else if (strcmp(constant_name, "smallest_normal") == 0) {
+        result->value.sleef_value = SLEEF_QUAD_MIN;
+    }
+    else if (strcmp(constant_name, "smallest_subnormal") == 0) {
+        result->value.sleef_value = SLEEF_QUAD_DENORM_MIN;
     }
     else {
         PyErr_SetString(PyExc_ValueError, "Unknown constant name");
