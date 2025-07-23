@@ -231,5 +231,8 @@ init_quad_binary_ops(PyObject *numpy)
     if (create_quad_binary_ufunc<quad_atan2, ld_atan2>(numpy, "arctan2") < 0) {
         return -1;
     }
+    if (create_quad_binary_ufunc<quad_copysign, ld_copysign>(numpy, "copysign") < 0) {
+        return -1;
+    }
     return 0;
 }

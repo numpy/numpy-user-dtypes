@@ -60,6 +60,8 @@ srcs = [
     'numpy_quaddtype/src/umath/binary_ops.cpp',
     'numpy_quaddtype/src/umath/unary_ops.h',
     'numpy_quaddtype/src/umath/unary_ops.cpp',
+    'numpy_quaddtype/src/umath/unary_props.h',
+    'numpy_quaddtype/src/umath/unary_props.cpp',
     'numpy_quaddtype/src/umath/comparison_ops.h',
     'numpy_quaddtype/src/umath/comparison_ops.cpp',
     'numpy_quaddtype/src/umath/promoters.hpp',
