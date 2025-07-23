@@ -22,7 +22,7 @@
 | absolute      | ✅    | ✅                                                                      |
 | fabs          |       |                                                                         |
 | rint          | ✅    | ❌ _Need: basic tests + edge cases (NaN/inf/±0.0/halfway cases)_        |
-| sign          |       |                                                                         |
+| sign          | #122  | ✅                                                                      |
 | heaviside     |       |                                                                         |
 | conj          |       |                                                                         |
 | conjugate     |       |                                                                         |
@@ -81,8 +81,8 @@
 | isinf         |       |                                                                         |
 | isnan         |       |                                                                         |
 | isnat         |       |                                                                         |
-| signbit       |       |                                                                         |
-| copysign      |       |                                                                         |
+| signbit       | #122  | ✅                                                                      |
+| copysign      | #122  | ✅                                                                      |
 | nextafter     |       |                                                                         |
 | spacing       |       |                                                                         |
 | modf          |       |                                                                         |
