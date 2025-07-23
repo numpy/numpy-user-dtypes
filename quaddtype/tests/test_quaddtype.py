@@ -3,6 +3,7 @@ import sys
 import numpy as np
 import operator
 
+import numpy_quaddtype
 from numpy_quaddtype import QuadPrecDType, QuadPrecision
 
 
@@ -10,6 +11,17 @@ def test_create_scalar_simple():
     assert isinstance(QuadPrecision("12.0"), QuadPrecision)
     assert isinstance(QuadPrecision(1.63), QuadPrecision)
     assert isinstance(QuadPrecision(1), QuadPrecision)
+
+@pytest.mark.parametrize("name,expected", [("pi", np.pi), ("e", np.e), ("log2e", np.log2(np.e)), ("log10e", np.log10(np.e)), ("ln2", np.log(2.0)), ("ln10", np.log(10.0))])
+def test_math_constant(name, expected):
+    assert isinstance(getattr(numpy_quaddtype, name), QuadPrecision)
+
+    assert np.float64(getattr(numpy_quaddtype, name)) == expected
+
+
+@pytest.mark.parametrize("name", ["max_value", "epsilon", "smallest_normal", "smallest_subnormal"])
+def test_finfo_constant(name):
+    assert isinstance(getattr(numpy_quaddtype, name), QuadPrecision)
 
 
 def test_basic_equality():
@@ -141,12 +153,12 @@ def test_inf():
 def test_dtype_creation():
     dtype = QuadPrecDType()
     assert isinstance(dtype, np.dtype)
-    assert dtype.name == 'QuadPrecDType128'
+    assert dtype.name == "QuadPrecDType128"
 
 
 def test_array_creation():
     arr = np.array([1, 2, 3], dtype=QuadPrecDType())
-    assert arr.dtype.name == 'QuadPrecDType128'
+    assert arr.dtype.name == "QuadPrecDType128"
     assert all(isinstance(x, QuadPrecision) for x in arr)
 
 
