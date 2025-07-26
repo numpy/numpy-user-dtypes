@@ -405,7 +405,7 @@ quad_maximum(const Sleef_quad *in1, const Sleef_quad *in2)
 static inline Sleef_quad
 quad_fmin(const Sleef_quad *in1, const Sleef_quad *in2)
 {
-    return Sleef_iunordq1(*in1, *in1) ? (
+    return Sleef_iunordq1(*in1, *in2) ? (
         Sleef_iunordq1(*in2, *in2) ? *in1 : *in2
     ) : Sleef_icmpleq1(*in1, *in2) ? *in1 : *in2;
 }
@@ -413,7 +413,7 @@ quad_fmin(const Sleef_quad *in1, const Sleef_quad *in2)
 static inline Sleef_quad
 quad_fmax(const Sleef_quad *in1, const Sleef_quad *in2)
 {
-    return Sleef_iunordq1(*in1, *in1) ? (
+    return Sleef_iunordq1(*in1, *in2) ? (
         Sleef_iunordq1(*in2, *in2) ? *in1 : *in2
     ) : Sleef_icmpgeq1(*in1, *in2) ? *in1 : *in2;
 }
