@@ -128,12 +128,12 @@ def test_unary_ops(op, val):
     quad_val = QuadPrecision(val)
     float_val = float(val)
 
-    for op_func in [op_func, nop_func]:
-        if op_func is None:
+    for of in [op_func, nop_func]:
+        if of is None:
             continue
 
-        quad_result = op_func(quad_val)
-        float_result = op_func(float_val)
+        quad_result = of(quad_val)
+        float_result = of(float_val)
 
         # FIXME: @juntyr: replace with array_equal once isnan is supported
         with np.errstate(invalid="ignore"):
