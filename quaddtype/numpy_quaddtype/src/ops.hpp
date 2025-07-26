@@ -1,7 +1,6 @@
 #include <sleef.h>
 #include <sleefquad.h>
 #include <cmath>
-#include <limits>
 
 // Quad Constants, generated with qutil
 #define QUAD_ZERO sleef_q(+0x0000000000000LL, 0x0000000000000000ULL, -16383)
@@ -26,8 +25,7 @@ quad_positive(const Sleef_quad *op)
 static inline Sleef_quad
 quad_sign(const Sleef_quad *op)
 {
-    Sleef_quad zero = Sleef_cast_from_doubleq1(0.0);
-    int32_t sign = Sleef_icmpq1(*op, zero);
+    int32_t sign = Sleef_icmpq1(*op, QUAD_ZERO);
     // sign(x=NaN) = x; otherwise sign(x) in { -1.0; 0.0; +1.0 }
     return Sleef_iunordq1(*op, *op) ? *op : Sleef_cast_from_int64q1(sign);
 }
@@ -293,11 +291,9 @@ quad_signbit(const Sleef_quad *op)
 {
     // FIXME @juntyr or @SwayamInSync: replace with binary implementation
     //  once we test big and little endian in CI
-    Sleef_quad zero = Sleef_cast_from_doubleq1(0.0);
-    Sleef_quad one = Sleef_cast_from_doubleq1(1.0);
-    Sleef_quad one_signed = Sleef_copysignq1(one, *op);
+    Sleef_quad one_signed = Sleef_copysignq1(QUAD_ONE, *op);
     // signbit(x) = 1 iff copysign(1, x) == -1
-    return Sleef_icmpltq1(one_signed, zero);
+    return Sleef_icmpltq1(one_signed, QUAD_ZERO);
 }
 
 static inline npy_bool
