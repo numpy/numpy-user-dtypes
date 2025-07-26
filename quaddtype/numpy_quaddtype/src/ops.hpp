@@ -2,6 +2,11 @@
 #include <sleefquad.h>
 #include <cmath>
 
+// Quad Constants, generated with qutil
+#define QUAD_ZERO sleef_q(+0x0000000000000LL, 0x0000000000000000ULL, -16383)
+#define QUAD_ONE sleef_q(+0x1000000000000LL, 0x0000000000000000ULL, 0)
+#define QUAD_POS_INF sleef_q(+0x1000000000000LL, 0x0000000000000000ULL, 16384)
+
 // Unary Quad Operations
 typedef Sleef_quad (*unary_op_quad_def)(const Sleef_quad *);
 
@@ -20,8 +25,7 @@ quad_positive(const Sleef_quad *op)
 static inline Sleef_quad
 quad_sign(const Sleef_quad *op)
 {
-    Sleef_quad zero = Sleef_cast_from_doubleq1(0.0);
-    int32_t sign = Sleef_icmpq1(*op, zero);
+    int32_t sign = Sleef_icmpq1(*op, QUAD_ZERO);
     // sign(x=NaN) = x; otherwise sign(x) in { -1.0; 0.0; +1.0 }
     return Sleef_iunordq1(*op, *op) ? *op : Sleef_cast_from_int64q1(sign);
 }
@@ -287,20 +291,56 @@ quad_signbit(const Sleef_quad *op)
 {
     // FIXME @juntyr or @SwayamInSync: replace with binary implementation
     //  once we test big and little endian in CI
-    Sleef_quad zero = Sleef_cast_from_doubleq1(0.0);
-    Sleef_quad one = Sleef_cast_from_doubleq1(1.0);
-    Sleef_quad one_signed = Sleef_copysignq1(one, *op);
+    Sleef_quad one_signed = Sleef_copysignq1(QUAD_ONE, *op);
     // signbit(x) = 1 iff copysign(1, x) == -1
-    return Sleef_icmpltq1(one_signed, zero);
+    return Sleef_icmpltq1(one_signed, QUAD_ZERO);
 }
 
-// Unary Quad properties
+static inline npy_bool
+quad_isfinite(const Sleef_quad *op)
+{
+    // isfinite(x) = abs(x) < inf
+    return Sleef_icmpltq1(Sleef_fabsq1(*op), QUAD_POS_INF);
+}
+
+static inline npy_bool
+quad_isinf(const Sleef_quad *op)
+{
+    // isinf(x) = abs(x) == inf
+    return Sleef_icmpeqq1(Sleef_fabsq1(*op), QUAD_POS_INF);
+}
+
+static inline npy_bool
+quad_isnan(const Sleef_quad *op)
+{
+    return Sleef_iunordq1(*op, *op);
+}
+
+// Unary long double properties
 typedef npy_bool (*unary_prop_longdouble_def)(const long double *);
 
 static inline npy_bool
 ld_signbit(const long double *op)
 {
     return signbit(*op);
+}
+
+static inline npy_bool
+ld_isfinite(const long double *op)
+{
+    return isfinite(*op);
+}
+
+static inline npy_bool
+ld_isinf(const long double *op)
+{
+    return isinf(*op);
+}
+
+static inline npy_bool
+ld_isnan(const long double *op)
+{
+    return isnan(*op);
 }
 
 // Binary Quad operations
@@ -359,6 +399,22 @@ quad_maximum(const Sleef_quad *in1, const Sleef_quad *in2)
 }
 
 static inline Sleef_quad
+quad_fmin(const Sleef_quad *in1, const Sleef_quad *in2)
+{
+    return Sleef_iunordq1(*in1, *in2) ? (
+        Sleef_iunordq1(*in2, *in2) ? *in1 : *in2
+    ) : Sleef_icmpleq1(*in1, *in2) ? *in1 : *in2;
+}
+
+static inline Sleef_quad
+quad_fmax(const Sleef_quad *in1, const Sleef_quad *in2)
+{
+    return Sleef_iunordq1(*in1, *in2) ? (
+        Sleef_iunordq1(*in2, *in2) ? *in1 : *in2
+    ) : Sleef_icmpgeq1(*in1, *in2) ? *in1 : *in2;
+}
+
+static inline Sleef_quad
 quad_atan2(const Sleef_quad *in1, const Sleef_quad *in2)
 {
     return Sleef_atan2q1_u10(*in1, *in2);
@@ -412,13 +468,25 @@ ld_mod(const long double *a, const long double *b)
 static inline long double
 ld_minimum(const long double *in1, const long double *in2)
 {
-    return (*in1 < *in2) ? *in1 : *in2;
+    return isnan(*in1) ? *in1 : (*in1 < *in2) ? *in1 : *in2;
 }
 
 static inline long double
 ld_maximum(const long double *in1, const long double *in2)
 {
-    return (*in1 > *in2) ? *in1 : *in2;
+    return isnan(*in1) ? *in1 : (*in1 > *in2) ? *in1 : *in2;
+}
+
+static inline long double
+ld_fmin(const long double *in1, const long double *in2)
+{
+    return fmin(*in1, *in2);
+}
+
+static inline long double
+ld_fmax(const long double *in1, const long double *in2)
+{
+    return fmax(*in1, *in2);
 }
 
 static inline long double

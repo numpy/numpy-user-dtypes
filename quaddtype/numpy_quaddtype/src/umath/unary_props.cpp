@@ -136,6 +136,15 @@ create_quad_unary_prop_ufunc(PyObject *numpy, const char *ufunc_name)
 int
 init_quad_unary_props(PyObject *numpy)
 {
+    if (create_quad_unary_prop_ufunc<quad_isfinite, ld_isfinite>(numpy, "isfinite") < 0) {
+        return -1;
+    }
+    if (create_quad_unary_prop_ufunc<quad_isinf, ld_isinf>(numpy, "isinf") < 0) {
+        return -1;
+    }
+    if (create_quad_unary_prop_ufunc<quad_isnan, ld_isnan>(numpy, "isnan") < 0) {
+        return -1;
+    }
     if (create_quad_unary_prop_ufunc<quad_signbit, ld_signbit>(numpy, "signbit") < 0) {
         return -1;
     }

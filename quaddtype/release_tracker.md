@@ -75,11 +75,11 @@
 | logical_not   |       |                                                                         |
 | maximum       | ✅    | ✅                                                                      |
 | minimum       | ✅    | ✅                                                                      |
-| fmax          |       |                                                                         |
-| fmin          |       |                                                                         |
-| isfinite      |       |                                                                         |
-| isinf         |       |                                                                         |
-| isnan         |       |                                                                         |
+| fmax          | #123  | ✅                                                                      |
+| fmin          | #123  | ✅                                                                      |
+| isfinite      | #121  | ✅                                                                      |
+| isinf         | #121  | ✅                                                                      |
+| isnan         | #221  | ✅                                                                      |
 | isnat         |       |                                                                         |
 | signbit       | #122  | ✅                                                                      |
 | copysign      | #122  | ✅                                                                      |

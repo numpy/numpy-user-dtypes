@@ -44,13 +44,7 @@ def test_binary_ops(op, other):
     quad_result = op_func(quad_a, quad_b)
     float_result = op_func(float_a, float_b)
 
-    # FIXME: @juntyr: replace with array_equal once isnan is supported
-    with np.errstate(invalid="ignore"):
-        assert (
-            (np.float64(quad_result) == float_result) or
-            (np.abs(np.float64(quad_result) - float_result) < 1e-10) or
-            ((float_result != float_result) and (quad_result != quad_result))
-        )
+    np.testing.assert_allclose(np.float64(quad_result), float_result, atol=1e-10, rtol=0, equal_nan=True)
 
 
 @pytest.mark.parametrize("op", ["eq", "ne", "le", "lt", "ge", "gt"])
@@ -83,9 +77,6 @@ def test_array_comparisons(op, a, b):
 @pytest.mark.parametrize("a", ["3.0", "12.5", "100.0", "0.0", "-0.0", "inf", "-inf", "nan", "-nan"])
 @pytest.mark.parametrize("b", ["3.0", "12.5", "100.0", "0.0", "-0.0", "inf", "-inf", "nan", "-nan"])
 def test_array_minmax(op, a, b):
-    if op in ["fmin", "fmax"]:
-        pytest.skip("fmin and fmax ufuncs are not yet supported")
-
     op_func = getattr(np, op)
     quad_a = np.array([QuadPrecision(a)])
     quad_b = np.array([QuadPrecision(b)])
@@ -95,18 +86,13 @@ def test_array_minmax(op, a, b):
     quad_res = op_func(quad_a, quad_b)
     float_res = op_func(float_a, float_b)
 
-    # FIXME: @juntyr: replace with array_equal once isnan is supported
-    with np.errstate(invalid="ignore"):
-        assert np.all((quad_res == float_res) | ((quad_res != quad_res) & (float_res != float_res)))
+    np.testing.assert_array_equal(quad_res.astype(float), float_res)
 
 
 @pytest.mark.parametrize("op", ["amin", "amax", "nanmin", "nanmax"])
 @pytest.mark.parametrize("a", ["3.0", "12.5", "100.0", "0.0", "-0.0", "inf", "-inf", "nan", "-nan"])
 @pytest.mark.parametrize("b", ["3.0", "12.5", "100.0", "0.0", "-0.0", "inf", "-inf", "nan", "-nan"])
 def test_array_aminmax(op, a, b):
-    if op in ["nanmin", "nanmax"]:
-        pytest.skip("fmin and fmax ufuncs are not yet supported")
-
     op_func = getattr(np, op)
     quad_ab = np.array([QuadPrecision(a), QuadPrecision(b)])
     float_ab = np.array([float(a), float(b)])
@@ -114,12 +100,10 @@ def test_array_aminmax(op, a, b):
     quad_res = op_func(quad_ab)
     float_res = op_func(float_ab)
 
-    # FIXME: @juntyr: replace with array_equal once isnan is supported
-    with np.errstate(invalid="ignore"):
-        assert np.all((quad_res == float_res) | ((quad_res != quad_res) & (float_res != float_res)))
+    np.testing.assert_array_equal(np.array(quad_res).astype(float), float_res)
 
 
-@pytest.mark.parametrize("op", ["negative", "positive", "absolute", "sign", "signbit"])
+@pytest.mark.parametrize("op", ["negative", "positive", "absolute", "sign", "signbit", "isfinite", "isinf", "isnan"])
 @pytest.mark.parametrize("val", ["3.0", "-3.0", "12.5", "100.0", "0.0", "-0.0", "inf", "-inf", "nan", "-nan"])
 def test_unary_ops(op, val):
     op_func = dict(negative=operator.neg, positive=operator.pos, absolute=operator.abs).get(op, None)
@@ -135,14 +119,8 @@ def test_unary_ops(op, val):
         quad_result = of(quad_val)
         float_result = of(float_val)
 
-        # FIXME: @juntyr: replace with array_equal once isnan is supported
-        with np.errstate(invalid="ignore"):
-            assert (
-                (np.float64(quad_result) == float_result) or
-                ((float_result != float_result) and (quad_result != quad_result))
-            ) and (
-                np.signbit(float_result) == np.signbit(quad_result)
-            ), f"{op}({val}) should be {float_result}, but got {quad_result}"
+        np.testing.assert_array_equal(np.array(quad_result).astype(float), float_result)
+        assert np.signbit(float_result) == np.signbit(quad_result)
 
 
 def test_inf():
