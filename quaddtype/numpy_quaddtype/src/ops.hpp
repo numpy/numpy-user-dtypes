@@ -1,6 +1,12 @@
 #include <sleef.h>
 #include <sleefquad.h>
 #include <cmath>
+#include <limits>
+
+// Quad Constants, generated with qutil
+#define QUAD_ZERO sleef_q(+0x0000000000000LL, 0x0000000000000000ULL, -16383)
+#define QUAD_ONE sleef_q(+0x1000000000000LL, 0x0000000000000000ULL, 0)
+#define QUAD_POS_INF sleef_q(+0x1000000000000LL, 0x0000000000000000ULL, 16384)
 
 // Unary Quad Operations
 typedef Sleef_quad (*unary_op_quad_def)(const Sleef_quad *);
@@ -294,13 +300,51 @@ quad_signbit(const Sleef_quad *op)
     return Sleef_icmpltq1(one_signed, zero);
 }
 
-// Unary Quad properties
+static inline npy_bool
+quad_isfinite(const Sleef_quad *op)
+{
+    // isfinite(x) = abs(x) < inf
+    return Sleef_icmpltq1(Sleef_fabsq1(*op), QUAD_POS_INF);
+}
+
+static inline npy_bool
+quad_isinf(const Sleef_quad *op)
+{
+    // isinf(x) = abs(x) == inf
+    return Sleef_icmpeqq1(Sleef_fabsq1(*op), QUAD_POS_INF);
+}
+
+static inline npy_bool
+quad_isnan(const Sleef_quad *op)
+{
+    return Sleef_iunordq1(*op, *op);
+}
+
+// Unary long double properties
 typedef npy_bool (*unary_prop_longdouble_def)(const long double *);
 
 static inline npy_bool
 ld_signbit(const long double *op)
 {
     return signbit(*op);
+}
+
+static inline npy_bool
+ld_isfinite(const long double *op)
+{
+    return isfinite(*op);
+}
+
+static inline npy_bool
+ld_isinf(const long double *op)
+{
+    return isinf(*op);
+}
+
+static inline npy_bool
+ld_isnan(const long double *op)
+{
+    return isnan(*op);
 }
 
 // Binary Quad operations
