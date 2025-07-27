@@ -77,9 +77,9 @@
 | minimum       | ✅    | ✅                                                                      |
 | fmax          |       |                                                                         |
 | fmin          |       |                                                                         |
-| isfinite      |       |                                                                         |
-| isinf         |       |                                                                         |
-| isnan         |       |                                                                         |
+| isfinite      | #121  | ✅                                                                      |
+| isinf         | #121  | ✅                                                                      |
+| isnan         | #221  | ✅                                                                      |
 | isnat         |       |                                                                         |
 | signbit       | #122  | ✅                                                                      |
 | copysign      | #122  | ✅                                                                      |
