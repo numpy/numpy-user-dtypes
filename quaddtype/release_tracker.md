@@ -75,8 +75,8 @@
 | logical_not   |       |                                                                         |
 | maximum       | ✅    | ✅                                                                      |
 | minimum       | ✅    | ✅                                                                      |
-| fmax          |       |                                                                         |
-| fmin          |       |                                                                         |
+| fmax          | #123  | ✅                                                                      |
+| fmin          | #123  | ✅                                                                      |
 | isfinite      | #121  | ✅                                                                      |
 | isinf         | #121  | ✅                                                                      |
 | isnan         | #221  | ✅                                                                      |

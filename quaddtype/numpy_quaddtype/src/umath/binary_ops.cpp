@@ -228,6 +228,12 @@ init_quad_binary_ops(PyObject *numpy)
     if (create_quad_binary_ufunc<quad_maximum, ld_maximum>(numpy, "maximum") < 0) {
         return -1;
     }
+    if (create_quad_binary_ufunc<quad_fmin, ld_fmin>(numpy, "fmin") < 0) {
+        return -1;
+    }
+    if (create_quad_binary_ufunc<quad_fmax, ld_fmax>(numpy, "fmax") < 0) {
+        return -1;
+    }
     if (create_quad_binary_ufunc<quad_atan2, ld_atan2>(numpy, "arctan2") < 0) {
         return -1;
     }

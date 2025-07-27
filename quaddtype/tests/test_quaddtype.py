@@ -77,9 +77,6 @@ def test_array_comparisons(op, a, b):
 @pytest.mark.parametrize("a", ["3.0", "12.5", "100.0", "0.0", "-0.0", "inf", "-inf", "nan", "-nan"])
 @pytest.mark.parametrize("b", ["3.0", "12.5", "100.0", "0.0", "-0.0", "inf", "-inf", "nan", "-nan"])
 def test_array_minmax(op, a, b):
-    if op in ["fmin", "fmax"]:
-        pytest.skip("fmin and fmax ufuncs are not yet supported")
-
     op_func = getattr(np, op)
     quad_a = np.array([QuadPrecision(a)])
     quad_b = np.array([QuadPrecision(b)])
@@ -96,9 +93,6 @@ def test_array_minmax(op, a, b):
 @pytest.mark.parametrize("a", ["3.0", "12.5", "100.0", "0.0", "-0.0", "inf", "-inf", "nan", "-nan"])
 @pytest.mark.parametrize("b", ["3.0", "12.5", "100.0", "0.0", "-0.0", "inf", "-inf", "nan", "-nan"])
 def test_array_aminmax(op, a, b):
-    if op in ["nanmin", "nanmax"]:
-        pytest.skip("fmin and fmax ufuncs are not yet supported")
-
     op_func = getattr(np, op)
     quad_ab = np.array([QuadPrecision(a), QuadPrecision(b)])
     float_ab = np.array([float(a), float(b)])
