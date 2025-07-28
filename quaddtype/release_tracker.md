@@ -1,11 +1,13 @@
 # Plan for `numpy-quaddtype` v1.0.0
+- [ ] High-Endian System support
+- [ ] Complete Documentation
 
 | ufunc name    | Added | Edge Cases Tested\*                                                     |
 | ------------- | ----- | ----------------------------------------------------------------------- |
 | add           | ✅    | ✅                                                                      |
 | subtract      | ✅    | ✅                                                                      |
 | multiply      | ✅    | ✅                                                                      |
-| matmul        | #116  | ✅                                                                      |
+| matmul        | ✅  | ✅                                                                      |
 | divide        | ✅    | ✅                                                                      |
 | logaddexp     |       |                                                                         |
 | logaddexp2    |       |                                                                         |
@@ -22,7 +24,7 @@
 | absolute      | ✅    | ✅                                                                      |
 | fabs          |       |                                                                         |
 | rint          | ✅    | ❌ _Need: basic tests + edge cases (NaN/inf/±0.0/halfway cases)_        |
-| sign          | #122  | ✅                                                                      |
+| sign          | ✅  | ✅                                                                      |
 | heaviside     |       |                                                                         |
 | conj          |       |                                                                         |
 | conjugate     |       |                                                                         |
@@ -75,14 +77,14 @@
 | logical_not   |       |                                                                         |
 | maximum       | ✅    | ✅                                                                      |
 | minimum       | ✅    | ✅                                                                      |
-| fmax          | #123  | ✅                                                                      |
-| fmin          | #123  | ✅                                                                      |
-| isfinite      | #121  | ✅                                                                      |
-| isinf         | #121  | ✅                                                                      |
-| isnan         | #221  | ✅                                                                      |
+| fmax          | ✅  | ✅                                                                      |
+| fmin          | ✅  | ✅                                                                      |
+| isfinite      | ✅  | ✅                                                                      |
+| isinf         | ✅  | ✅                                                                      |
+| isnan         | ✅  | ✅                                                                      |
 | isnat         |       |                                                                         |
-| signbit       | #122  | ✅                                                                      |
-| copysign      | #122  | ✅                                                                      |
+| signbit       | ✅  | ✅                                                                      |
+| copysign      | ✅  | ✅                                                                      |
 | nextafter     |       |                                                                         |
 | spacing       |       |                                                                         |
 | modf          |       |                                                                         |
