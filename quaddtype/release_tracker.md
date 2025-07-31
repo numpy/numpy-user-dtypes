@@ -7,7 +7,7 @@
 | add           | ✅    | ✅                                                                      |
 | subtract      | ✅    | ✅                                                                      |
 | multiply      | ✅    | ✅                                                                      |
-| matmul        | ✅  | ✅                                                                      |
+| matmul        | ✅    | ✅                                                                      |
 | divide        | ✅    | ✅                                                                      |
 | logaddexp     |       |                                                                         |
 | logaddexp2    |       |                                                                         |
@@ -24,7 +24,7 @@
 | absolute      | ✅    | ✅                                                                      |
 | fabs          |       |                                                                         |
 | rint          | ✅    | ❌ _Need: basic tests + edge cases (NaN/inf/±0.0/halfway cases)_        |
-| sign          | ✅  | ✅                                                                      |
+| sign          | ✅    | ✅                                                                      |
 | heaviside     |       |                                                                         |
 | conj          |       |                                                                         |
 | conjugate     |       |                                                                         |
@@ -35,10 +35,10 @@
 | log10         | ✅    | ❌ _Need: basic tests + edge cases (NaN/inf/0/-values/1)_               |
 | expm1         |       |                                                                         |
 | log1p         | ✅    | ❌ _Need: basic tests + edge cases (NaN/inf/-1/small values)_           |
-| sqrt          | ✅    | ❌ _Need: basic tests + edge cases (NaN/inf/0/-values)_                 |
-| square        | ✅    | ❌ _Need: basic tests + edge cases (NaN/inf/0/large values)_            |
+| sqrt          | ✅    | ✅                                                                      |
+| square        | ✅    | ✅                                                                      |
 | cbrt          |       |                                                                         |
-| reciprocal    |       |                                                                         |
+| reciprocal    | ✅    | ✅                                                                      |
 | gcd           |       |                                                                         |
 | lcm           |       |                                                                         |
 | sin           | ✅    | ❌ _Need: basic tests + edge cases (NaN/inf/0/π multiples/2π range)_    |
@@ -77,14 +77,14 @@
 | logical_not   |       |                                                                         |
 | maximum       | ✅    | ✅                                                                      |
 | minimum       | ✅    | ✅                                                                      |
-| fmax          | ✅  | ✅                                                                      |
-| fmin          | ✅  | ✅                                                                      |
-| isfinite      | ✅  | ✅                                                                      |
-| isinf         | ✅  | ✅                                                                      |
-| isnan         | ✅  | ✅                                                                      |
+| fmax          | ✅    | ✅                                                                      |
+| fmin          | ✅    | ✅                                                                      |
+| isfinite      | ✅    | ✅                                                                      |
+| isinf         | ✅    | ✅                                                                      |
+| isnan         | ✅    | ✅                                                                      |
 | isnat         |       |                                                                         |
-| signbit       | ✅  | ✅                                                                      |
-| copysign      | ✅  | ✅                                                                      |
+| signbit       | ✅    | ✅                                                                      |
+| copysign      | ✅    | ✅                                                                      |
 | nextafter     |       |                                                                         |
 | spacing       |       |                                                                         |
 | modf          |       |                                                                         |
