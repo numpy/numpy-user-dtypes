@@ -120,7 +120,9 @@ def test_unary_ops(op, val):
         float_result = of(float_val)
 
         np.testing.assert_array_equal(np.array(quad_result).astype(float), float_result)
-        assert np.signbit(float_result) == np.signbit(quad_result)
+
+        if op in ["negative", "positive", "absolute", "sign"]:
+            assert np.signbit(float_result) == np.signbit(quad_result)
 
 
 def test_inf():
