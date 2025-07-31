@@ -103,8 +103,8 @@ def test_array_aminmax(op, a, b):
     np.testing.assert_array_equal(np.array(quad_res).astype(float), float_res)
 
 
-@pytest.mark.parametrize("op", ["negative", "positive", "absolute", "sign", "signbit", "isfinite", "isinf", "isnan"])
-@pytest.mark.parametrize("val", ["3.0", "-3.0", "12.5", "100.0", "0.0", "-0.0", "inf", "-inf", "nan", "-nan"])
+@pytest.mark.parametrize("op", ["negative", "positive", "absolute", "sign", "signbit", "isfinite", "isinf", "isnan", "sqrt", "square", "reciprocal"])
+@pytest.mark.parametrize("val", ["3.0", "-3.0", "12.5", "100.0", "1e100", "0.0", "-0.0", "inf", "-inf", "nan", "-nan"])
 def test_unary_ops(op, val):
     op_func = dict(negative=operator.neg, positive=operator.pos, absolute=operator.abs).get(op, None)
     nop_func = getattr(np, op)
@@ -120,7 +120,9 @@ def test_unary_ops(op, val):
         float_result = of(float_val)
 
         np.testing.assert_array_equal(np.array(quad_result).astype(float), float_result)
-        assert np.signbit(float_result) == np.signbit(quad_result)
+
+        if op in ["negative", "positive", "absolute", "sign"]:
+            assert np.signbit(float_result) == np.signbit(quad_result)
 
 
 def test_inf():

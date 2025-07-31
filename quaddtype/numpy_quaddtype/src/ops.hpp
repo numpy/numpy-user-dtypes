@@ -73,6 +73,12 @@ quad_square(const Sleef_quad *op)
 }
 
 static inline Sleef_quad
+quad_reciprocal(const Sleef_quad *op)
+{
+    return Sleef_divq1_u05(QUAD_ONE, *op);
+}
+
+static inline Sleef_quad
 quad_log(const Sleef_quad *op)
 {
     return Sleef_logq1_u10(*op);
@@ -209,6 +215,12 @@ static inline long double
 ld_square(const long double *op)
 {
     return (*op) * (*op);
+}
+
+static inline long double
+ld_reciprocal(const long double *op)
+{
+    return 1.0L / (*op);
 }
 
 static inline long double

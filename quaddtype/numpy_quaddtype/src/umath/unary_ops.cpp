@@ -177,6 +177,9 @@ init_quad_unary_ops(PyObject *numpy)
     if (create_quad_unary_ufunc<quad_square, ld_square>(numpy, "square") < 0) {
         return -1;
     }
+    if (create_quad_unary_ufunc<quad_reciprocal, ld_reciprocal>(numpy, "reciprocal") < 0) {
+        return -1;
+    }
     if (create_quad_unary_ufunc<quad_log, ld_log>(numpy, "log") < 0) {
         return -1;
     }
