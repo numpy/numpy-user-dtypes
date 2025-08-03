@@ -189,7 +189,7 @@ def test_array_operations():
     (float('inf'), 3.0), (float('-inf'), 3.0),
     (float('inf'), float('inf')), (float('-inf'), float('-inf')),
 ])
-def test_mod_comprehensive(a, b, backend, op):
+def test_mod(a, b, backend, op):
     """Comprehensive test for mod operation against NumPy behavior"""
     if backend == "sleef":
         quad_a = QuadPrecision(str(a))
