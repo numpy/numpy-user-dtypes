@@ -6,7 +6,7 @@
 #define QUAD_ZERO sleef_q(+0x0000000000000LL, 0x0000000000000000ULL, -16383)
 #define QUAD_ONE sleef_q(+0x1000000000000LL, 0x0000000000000000ULL, 0)
 #define QUAD_POS_INF sleef_q(+0x1000000000000LL, 0x0000000000000000ULL, 16384)
-#define QUAD_NAN sleef_q(+0x180000000000LL, 0x0000000000000000ULL, 16384)
+#define QUAD_NAN sleef_q(+0x1ffffffffffffLL, 0xffffffffffffffffULL, 16384)
 
 // Unary Quad Operations
 typedef Sleef_quad (*unary_op_quad_def)(const Sleef_quad *);
