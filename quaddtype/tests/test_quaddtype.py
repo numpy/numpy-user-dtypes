@@ -125,6 +125,217 @@ def test_unary_ops(op, val):
             assert np.signbit(float_result) == np.signbit(quad_result)
 
 
+@pytest.mark.parametrize("op", ["floor", "ceil", "trunc", "rint"])
+@pytest.mark.parametrize("val", [
+    # Basic cases
+    "3.2", "-3.2", "3.8", "-3.8", "0.1", "-0.1",
+    # Edge cases around integers
+    "3.0", "-3.0", "0.0", "-0.0", "1.0", "-1.0",
+    # Halfway cases (important for rint)
+    "2.5", "-2.5", "3.5", "-3.5", "0.5", "-0.5",
+    # Large numbers
+    "1e10", "-1e10", "1e15", "-1e15",
+    # Small fractional numbers
+    "1e-10", "-1e-10", "1e-15", "-1e-15",
+    # Special values
+    "inf", "-inf", "nan", "-nan"
+])
+def test_rounding_functions(op, val):
+    """Comprehensive test for rounding functions: floor, ceil, trunc, rint"""
+    op_func = getattr(np, op)
+
+    quad_val = QuadPrecision(val)
+    float_val = float(val)
+
+    quad_result = op_func(quad_val)
+    float_result = op_func(float_val)
+
+    # Handle NaN cases
+    if np.isnan(float_result):
+        assert np.isnan(
+            float(quad_result)), f"Expected NaN for {op}({val}), got {float(quad_result)}"
+        return
+
+    # Handle infinity cases
+    if np.isinf(float_result):
+        assert np.isinf(
+            float(quad_result)), f"Expected inf for {op}({val}), got {float(quad_result)}"
+        assert np.sign(float_result) == np.sign(
+            float(quad_result)), f"Infinity sign mismatch for {op}({val})"
+        return
+
+    # For finite results, check value and sign
+    np.testing.assert_allclose(float(quad_result), float_result, rtol=1e-15, atol=1e-15,
+                               err_msg=f"Value mismatch for {op}({val})")
+
+    # Check sign for zero results
+    if float_result == 0.0:
+        assert np.signbit(float_result) == np.signbit(
+            quad_result), f"Zero sign mismatch for {op}({val})"
+
+
+@pytest.mark.parametrize("op", ["exp", "exp2"])
+@pytest.mark.parametrize("val", [
+    # Basic cases
+    "0.0", "-0.0", "1.0", "-1.0", "2.0", "-2.0",
+    # Small values (should be close to 1)
+    "1e-10", "-1e-10", "1e-15", "-1e-15",
+    # Medium values
+    "10.0", "-10.0", "20.0", "-20.0",
+    # Values that might cause overflow
+    "100.0", "200.0", "700.0", "1000.0",
+    # Values that might cause underflow
+    "-100.0", "-200.0", "-700.0", "-1000.0",
+    # Fractional values
+    "0.5", "-0.5", "1.5", "-1.5", "2.5", "-2.5",
+    # Special values
+    "inf", "-inf", "nan", "-nan"
+])
+def test_exponential_functions(op, val):
+    """Comprehensive test for exponential functions: exp, exp2"""
+    op_func = getattr(np, op)
+
+    quad_val = QuadPrecision(val)
+    float_val = float(val)
+
+    quad_result = op_func(quad_val)
+    float_result = op_func(float_val)
+
+    # Handle NaN cases
+    if np.isnan(float_result):
+        assert np.isnan(
+            float(quad_result)), f"Expected NaN for {op}({val}), got {float(quad_result)}"
+        return
+
+    # Handle infinity cases
+    if np.isinf(float_result):
+        assert np.isinf(
+            float(quad_result)), f"Expected inf for {op}({val}), got {float(quad_result)}"
+        assert np.sign(float_result) == np.sign(
+            float(quad_result)), f"Infinity sign mismatch for {op}({val})"
+        return
+
+    # Handle underflow to zero
+    if float_result == 0.0:
+        assert float(
+            quad_result) == 0.0, f"Expected 0 for {op}({val}), got {float(quad_result)}"
+        assert np.signbit(float_result) == np.signbit(
+            quad_result), f"Zero sign mismatch for {op}({val})"
+        return
+
+    # For finite non-zero results
+    # Use relative tolerance for exponential functions due to their rapid growth
+    rtol = 1e-14 if abs(float_result) < 1e100 else 1e-10
+    np.testing.assert_allclose(float(quad_result), float_result, rtol=rtol, atol=1e-15,
+                               err_msg=f"Value mismatch for {op}({val})")
+
+
+@pytest.mark.parametrize("op", ["log", "log2", "log10"])
+@pytest.mark.parametrize("val", [
+    # Basic positive cases
+    "1.0", "2.0", "10.0", "100.0", "1000.0",
+    # Values close to 1 (important for log accuracy)
+    "1.01", "0.99", "1.001", "0.999", "1.0001", "0.9999",
+    # Small positive values
+    "1e-10", "1e-15", "1e-100", "1e-300",
+    # Large positive values
+    "1e10", "1e15", "1e100", "1e300",
+    # Fractional values
+    "0.5", "0.1", "0.01", "2.5", "5.5", "25.0",
+    # Edge cases
+    "0.0", "-0.0",  # Should give -inf
+    # Invalid domain (negative values) - should give NaN
+    "-1.0", "-2.0", "-0.5", "-10.0",
+    # Special values
+    "inf", "-inf", "nan", "-nan"
+])
+def test_logarithmic_functions(op, val):
+    """Comprehensive test for logarithmic functions: log, log2, log10"""
+    op_func = getattr(np, op)
+
+    quad_val = QuadPrecision(val)
+    float_val = float(val)
+
+    quad_result = op_func(quad_val)
+    float_result = op_func(float_val)
+
+    # Handle NaN cases (negative values, NaN input)
+    if np.isnan(float_result):
+        assert np.isnan(
+            float(quad_result)), f"Expected NaN for {op}({val}), got {float(quad_result)}"
+        return
+
+    # Handle infinity cases
+    if np.isinf(float_result):
+        assert np.isinf(
+            float(quad_result)), f"Expected inf for {op}({val}), got {float(quad_result)}"
+        assert np.sign(float_result) == np.sign(
+            float(quad_result)), f"Infinity sign mismatch for {op}({val})"
+        return
+
+    # For finite results
+    # Use higher tolerance for values very close to 1 where log is close to 0
+    if abs(float(val) - 1.0) < 1e-10:
+        rtol = 1e-10
+        atol = 1e-15
+    else:
+        rtol = 1e-14
+        atol = 1e-15
+
+    np.testing.assert_allclose(float(quad_result), float_result, rtol=rtol, atol=atol,
+                               err_msg=f"Value mismatch for {op}({val})")
+
+
+@pytest.mark.parametrize("val", [
+    # Basic cases around -1 (critical point for log1p)
+    "-0.5", "-0.1", "-0.01", "-0.001", "-0.0001",
+    # Cases close to 0 (where log1p is most accurate)
+    "1e-10", "-1e-10", "1e-15", "-1e-15", "1e-20", "-1e-20",
+    # Larger positive values
+    "0.1", "0.5", "1.0", "2.0", "10.0", "100.0",
+    # Edge case at -1 (should give -inf)
+    "-1.0",
+    # Invalid domain (< -1) - should give NaN
+    "-1.1", "-2.0", "-10.0",
+    # Large positive values
+    "1e10", "1e15", "1e100",
+    # Special values
+    "inf", "-inf", "nan", "-nan"
+])
+def test_log1p(val):
+    """Comprehensive test for log1p function"""
+    quad_val = QuadPrecision(val)
+    float_val = float(val)
+
+    quad_result = np.log1p(quad_val)
+    float_result = np.log1p(float_val)
+
+    # Handle NaN cases (values < -1, NaN input)
+    if np.isnan(float_result):
+        assert np.isnan(
+            float(quad_result)), f"Expected NaN for log1p({val}), got {float(quad_result)}"
+        return
+
+    # Handle infinity cases
+    if np.isinf(float_result):
+        assert np.isinf(
+            float(quad_result)), f"Expected inf for log1p({val}), got {float(quad_result)}"
+        assert np.sign(float_result) == np.sign(
+            float(quad_result)), f"Infinity sign mismatch for log1p({val})"
+        return
+
+    # For finite results
+    # log1p is designed for high accuracy near 0, so use tight tolerances
+    if abs(float(val)) < 1e-10:
+        rtol = 1e-15
+        atol = 1e-20
+    else:
+        rtol = 1e-14
+        atol = 1e-15
+
+    np.testing.assert_allclose(float(quad_result), float_result, rtol=rtol, atol=atol,
+                               err_msg=f"Value mismatch for log1p({val})")
+
 def test_inf():
     assert QuadPrecision("inf") > QuadPrecision("1e1000")
     assert QuadPrecision("-inf") < QuadPrecision("-1e1000")
