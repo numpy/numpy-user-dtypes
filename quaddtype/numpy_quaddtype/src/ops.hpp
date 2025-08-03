@@ -6,6 +6,7 @@
 #define QUAD_ZERO sleef_q(+0x0000000000000LL, 0x0000000000000000ULL, -16383)
 #define QUAD_ONE sleef_q(+0x1000000000000LL, 0x0000000000000000ULL, 0)
 #define QUAD_POS_INF sleef_q(+0x1000000000000LL, 0x0000000000000000ULL, 16384)
+#define QUAD_NAN sleef_q(+0x1ffffffffffffLL, 0xffffffffffffffffULL, 16384)
 
 // Unary Quad Operations
 typedef Sleef_quad (*unary_op_quad_def)(const Sleef_quad *);
@@ -174,9 +175,12 @@ ld_absolute(const long double *op)
 static inline long double
 ld_sign(const long double *op)
 {
-    if (*op < 0.0) return -1.0;
-    if (*op == 0.0) return 0.0;
-    if (*op > 0.0) return 1.0;
+    if (*op < 0.0)
+        return -1.0;
+    if (*op == 0.0)
+        return 0.0;
+    if (*op > 0.0)
+        return 1.0;
     // sign(x=NaN) = x
     return *op;
 }
@@ -391,39 +395,80 @@ quad_pow(const Sleef_quad *a, const Sleef_quad *b)
 static inline Sleef_quad
 quad_mod(const Sleef_quad *a, const Sleef_quad *b)
 {
-    return Sleef_fmodq1(*a, *b);
+    // division by zero
+    if (Sleef_icmpeqq1(*b, QUAD_ZERO)) {
+        return QUAD_NAN;
+    }
+
+    // NaN inputs
+    if (Sleef_iunordq1(*a, *b)) {
+        return Sleef_iunordq1(*a, *a) ? *a : *b;  // Return the NaN
+    }
+
+    // infinity dividend -> NaN
+    if (quad_isinf(a)) {
+        return QUAD_NAN;
+    }
+
+    // finite % inf
+    if (quad_isfinite(a) && quad_isinf(b)) {
+        int sign_a = quad_signbit(a);
+        int sign_b = quad_signbit(b);
+
+        // return a if sign_a == sign_b
+        return (sign_a == sign_b) ? *a : *b;
+    }
+
+    // NumPy mod formula: a % b = a - floor(a/b) * b
+    Sleef_quad quotient = Sleef_divq1_u05(*a, *b);
+    Sleef_quad floored = Sleef_floorq1(quotient);
+    Sleef_quad product = Sleef_mulq1_u05(floored, *b);
+    Sleef_quad result = Sleef_subq1_u05(*a, product);
+
+    // Handle zero result sign: when result is exactly zero,
+    // it should have the same sign as the divisor (NumPy convention)
+    if (Sleef_icmpeqq1(result, QUAD_ZERO)) {
+        if (Sleef_icmpltq1(*b, QUAD_ZERO)) {
+            return Sleef_negq1(QUAD_ZERO);  // -0.0
+        }
+        else {
+            return QUAD_ZERO;  // +0.0
+        }
+    }
+
+    return result;
 }
 
 static inline Sleef_quad
 quad_minimum(const Sleef_quad *in1, const Sleef_quad *in2)
 {
-    return Sleef_iunordq1(*in1, *in2) ? (
-        Sleef_iunordq1(*in1, *in1) ? *in1 : *in2
-    ) : Sleef_icmpleq1(*in1, *in2) ? *in1 : *in2;
+    return Sleef_iunordq1(*in1, *in2)   ? (Sleef_iunordq1(*in1, *in1) ? *in1 : *in2)
+           : Sleef_icmpleq1(*in1, *in2) ? *in1
+                                        : *in2;
 }
 
 static inline Sleef_quad
 quad_maximum(const Sleef_quad *in1, const Sleef_quad *in2)
 {
-    return Sleef_iunordq1(*in1, *in2) ? (
-        Sleef_iunordq1(*in1, *in1) ? *in1 : *in2
-    ) : Sleef_icmpgeq1(*in1, *in2) ? *in1 : *in2;
+    return Sleef_iunordq1(*in1, *in2)   ? (Sleef_iunordq1(*in1, *in1) ? *in1 : *in2)
+           : Sleef_icmpgeq1(*in1, *in2) ? *in1
+                                        : *in2;
 }
 
 static inline Sleef_quad
 quad_fmin(const Sleef_quad *in1, const Sleef_quad *in2)
 {
-    return Sleef_iunordq1(*in1, *in2) ? (
-        Sleef_iunordq1(*in2, *in2) ? *in1 : *in2
-    ) : Sleef_icmpleq1(*in1, *in2) ? *in1 : *in2;
+    return Sleef_iunordq1(*in1, *in2)   ? (Sleef_iunordq1(*in2, *in2) ? *in1 : *in2)
+           : Sleef_icmpleq1(*in1, *in2) ? *in1
+                                        : *in2;
 }
 
 static inline Sleef_quad
 quad_fmax(const Sleef_quad *in1, const Sleef_quad *in2)
 {
-    return Sleef_iunordq1(*in1, *in2) ? (
-        Sleef_iunordq1(*in2, *in2) ? *in1 : *in2
-    ) : Sleef_icmpgeq1(*in1, *in2) ? *in1 : *in2;
+    return Sleef_iunordq1(*in1, *in2)   ? (Sleef_iunordq1(*in2, *in2) ? *in1 : *in2)
+           : Sleef_icmpgeq1(*in1, *in2) ? *in1
+                                        : *in2;
 }
 
 static inline Sleef_quad
@@ -474,7 +519,28 @@ ld_pow(const long double *a, const long double *b)
 static inline long double
 ld_mod(const long double *a, const long double *b)
 {
-    return fmodl(*a, *b);
+    if (*b == 0.0L)
+        return NAN;
+    if (isnan(*a) || isnan(*b))
+        return isnan(*a) ? *a : *b;
+    if (isinf(*a))
+        return NAN;
+
+    if (isfinite(*a) && isinf(*b)) {
+        int sign_a = signbit(*a);
+        int sign_b = signbit(*b);
+        return (sign_a == sign_b) ? *a : *b;
+    }
+
+    long double quotient = (*a) / (*b);
+    long double floored = floorl(quotient);
+    long double result = (*a) - floored * (*b);
+
+    if (result == 0.0L) {
+        return (*b < 0.0L) ? -0.0L : 0.0L;
+    }
+
+    return result;
 }
 
 static inline long double

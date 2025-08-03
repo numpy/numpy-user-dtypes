@@ -152,3 +152,83 @@ def test_array_operations():
     expected = np.array(
         [QuadPrecision("2.0"), QuadPrecision("3.5"), QuadPrecision("5.0")])
     assert all(x == y for x, y in zip(result, expected))
+
+
+@pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+@pytest.mark.parametrize("op", [np.mod, np.remainder])
+@pytest.mark.parametrize("a,b", [
+    # Basic cases - positive/negative combinations
+    (7.0, 3.0), (-7.0, 3.0), (7.0, -3.0), (-7.0, -3.0),
+
+    # Zero dividend cases
+    (0.0, 3.0), (-0.0, 3.0), (0.0, -3.0), (-0.0, -3.0),
+
+    # Cases that result in zero (sign testing)
+    (6.0, 3.0), (-6.0, 3.0), (6.0, -3.0), (-6.0, -3.0),
+    (1.0, 1.0), (-1.0, 1.0), (1.0, -1.0), (-1.0, -1.0),
+
+    # Fractional cases
+    (7.5, 2.5), (-7.5, 2.5), (7.5, -2.5), (-7.5, -2.5),
+    (0.75, 0.25), (-0.1, 0.3), (0.9, -1.0), (-1.1, -1.0),
+
+    # Large/small numbers
+    (1e10, 1e5), (-1e10, 1e5), (1e-10, 1e-5), (-1e-10, 1e-5),
+
+    # Finite % infinity cases
+    (5.0, float('inf')), (-5.0, float('inf')),
+    (5.0, float('-inf')), (-5.0, float('-inf')),
+    (0.0, float('inf')), (-0.0, float('-inf')),
+
+    # NaN cases (should return NaN)
+    (float('nan'), 3.0), (3.0, float('nan')), (float('nan'), float('nan')),
+
+    # Division by zero cases (should return NaN)
+    (5.0, 0.0), (-5.0, 0.0), (0.0, 0.0), (-0.0, 0.0),
+
+    # Infinity dividend cases (should return NaN)
+    (float('inf'), 3.0), (float('-inf'), 3.0),
+    (float('inf'), float('inf')), (float('-inf'), float('-inf')),
+])
+def test_mod(a, b, backend, op):
+    """Comprehensive test for mod operation against NumPy behavior"""
+    if backend == "sleef":
+        quad_a = QuadPrecision(str(a))
+        quad_b = QuadPrecision(str(b))
+    elif backend == "longdouble":
+        quad_a = QuadPrecision(a, backend='longdouble')
+        quad_b = QuadPrecision(b, backend='longdouble')
+    float_a = np.float64(a)
+    float_b = np.float64(b)
+
+    quad_result = op(quad_a, quad_b)
+    numpy_result = op(float_a, float_b)
+
+    # Handle NaN cases
+    if np.isnan(numpy_result):
+        assert np.isnan(
+            float(quad_result)), f"Expected NaN for {a} % {b}, got {float(quad_result)}"
+        return
+
+    if np.isinf(numpy_result):
+        assert np.isinf(
+            float(quad_result)), f"Expected inf for {a} % {b}, got {float(quad_result)}"
+        assert np.sign(numpy_result) == np.sign(
+            float(quad_result)), f"Infinity sign mismatch for {a} % {b}"
+        return
+
+    np.testing.assert_allclose(float(quad_result), numpy_result, rtol=1e-10, atol=1e-15,
+                               err_msg=f"Value mismatch for {a} % {b}")
+
+    if numpy_result == 0.0:
+        numpy_sign = np.signbit(numpy_result)
+        quad_sign = np.signbit(quad_result)
+        assert numpy_sign == quad_sign, f"Zero sign mismatch for {a} % {b}: numpy={numpy_sign}, quad={quad_sign}"
+
+    # Check that non-zero results have correct sign relative to divisor
+    if numpy_result != 0.0 and not np.isnan(b) and not np.isinf(b) and b != 0.0:
+        # In Python mod, non-zero result should have same sign as divisor (or be zero)
+        result_negative = float(quad_result) < 0
+        divisor_negative = b < 0
+        numpy_negative = numpy_result < 0
+
+        assert result_negative == numpy_negative, f"Sign mismatch for {a} % {b}: quad={result_negative}, numpy={numpy_negative}"

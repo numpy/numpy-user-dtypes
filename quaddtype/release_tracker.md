@@ -1,4 +1,5 @@
 # Plan for `numpy-quaddtype` v1.0.0
+
 - [ ] High-Endian System support
 - [ ] Complete Documentation
 
@@ -17,8 +18,8 @@
 | positive      | ✅    | ✅                                                                      |
 | power         | ✅    | ✅                                                                      |
 | float_power   |       |                                                                         |
-| remainder     |       |                                                                         |
-| mod           | ✅    | ❌ _Need: basic tests + edge cases (NaN/inf/-0.0/large values)_         |
+| remainder     | ✅    | ✅                                                                      |
+| mod           | ✅    | ✅                                                                      |
 | fmod          |       |                                                                         |
 | divmod        |       |                                                                         |
 | absolute      | ✅    | ✅                                                                      |
