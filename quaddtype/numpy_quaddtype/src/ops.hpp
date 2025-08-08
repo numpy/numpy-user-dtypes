@@ -151,6 +151,42 @@ quad_atan(const Sleef_quad *op)
     return Sleef_atanq1_u10(*op);
 }
 
+static inline Sleef_quad
+quad_sinh(const Sleef_quad *op)
+{
+    return Sleef_sinhq1_u10(*op);
+}
+
+static inline Sleef_quad
+quad_cosh(const Sleef_quad *op)
+{
+    return Sleef_coshq1_u10(*op);
+}
+
+static inline Sleef_quad
+quad_tanh(const Sleef_quad *op)
+{
+    return Sleef_tanhq1_u10(*op);
+}
+
+static inline Sleef_quad
+quad_asinh(const Sleef_quad *op)
+{
+    return Sleef_asinhq1_u10(*op);
+}
+
+static inline Sleef_quad
+quad_acosh(const Sleef_quad *op)
+{
+    return Sleef_acoshq1_u10(*op);
+}
+
+static inline Sleef_quad
+quad_atanh(const Sleef_quad *op)
+{
+    return Sleef_atanhq1_u10(*op);
+}
+
 // Unary long double operations
 typedef long double (*unary_op_longdouble_def)(const long double *);
 
@@ -297,6 +333,42 @@ static inline long double
 ld_atan(const long double *op)
 {
     return atanl(*op);
+}
+
+static inline long double
+ld_sinh(const long double *op)
+{
+    return sinhl(*op);
+}
+
+static inline long double
+ld_cosh(const long double *op)
+{
+    return coshl(*op);
+}
+
+static inline long double
+ld_tanh(const long double *op)
+{
+    return tanhl(*op);
+}
+
+static inline long double
+ld_asinh(const long double *op)
+{
+    return asinhl(*op);
+}
+
+static inline long double
+ld_acosh(const long double *op)
+{
+    return acoshl(*op);
+}
+
+static inline long double
+ld_atanh(const long double *op)
+{
+    return atanhl(*op);
 }
 
 // Unary Quad properties
