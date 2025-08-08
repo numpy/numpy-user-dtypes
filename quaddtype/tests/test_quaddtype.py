@@ -35,21 +35,27 @@ def test_basic_equality():
 
 
 @pytest.mark.parametrize("op", ["add", "sub", "mul", "truediv", "pow", "copysign"])
-@pytest.mark.parametrize("other", ["3.0", "12.5", "100.0", "0.0", "-0.0", "inf", "-inf", "nan", "-nan"])
-def test_binary_ops(op, other):
-    if op == "truediv" and float(other) == 0:
+@pytest.mark.parametrize("a", ["3.0", "12.5", "100.0", "0.0", "-0.0", "inf", "-inf", "nan", "-nan"])
+@pytest.mark.parametrize("b", ["3.0", "12.5", "100.0", "0.0", "-0.0", "inf", "-inf", "nan", "-nan"])
+def test_binary_ops(op, a, b):
+    if op == "truediv" and float(b) == 0:
         pytest.xfail("float division by zero")
 
     op_func = getattr(operator, op, None) or getattr(np, op)
-    quad_a = QuadPrecision("12.5")
-    quad_b = QuadPrecision(other)
-    float_a = 12.5
-    float_b = float(other)
+    quad_a = QuadPrecision(a)
+    quad_b = QuadPrecision(b)
+    float_a = float(a)
+    float_b = float(b)
 
     quad_result = op_func(quad_a, quad_b)
     float_result = op_func(float_a, float_b)
 
     np.testing.assert_allclose(np.float64(quad_result), float_result, atol=1e-10, rtol=0, equal_nan=True)
+
+    # Check sign for zero results
+    if float_result == 0.0:
+        assert np.signbit(float_result) == np.signbit(
+            quad_result), f"Zero sign mismatch for {op}({a}, {b})"
 
 
 @pytest.mark.parametrize("op", ["eq", "ne", "le", "lt", "ge", "gt"])
@@ -91,7 +97,19 @@ def test_array_minmax(op, a, b):
     quad_res = op_func(quad_a, quad_b)
     float_res = op_func(float_a, float_b)
 
+    # native implementation may not be sensitive to zero signs
+    #  but we want to enforce it for the quad dtype
+    # e.g. min(+0.0, -0.0) = -0.0
+    if float_a == 0.0 and float_b == 0.0:
+        assert float_res == 0.0
+        float_res = np.copysign(0.0, op_func(np.copysign(1.0, float_a), np.copysign(1.0, float_b)))
+
     np.testing.assert_array_equal(quad_res.astype(float), float_res)
+
+    # Check sign for zero results
+    if float_res == 0.0:
+        assert np.signbit(float_res) == np.signbit(
+            quad_res), f"Zero sign mismatch for {op}({a}, {b})"
 
 
 @pytest.mark.parametrize("op", ["amin", "amax", "nanmin", "nanmax"])
@@ -105,7 +123,19 @@ def test_array_aminmax(op, a, b):
     quad_res = op_func(quad_ab)
     float_res = op_func(float_ab)
 
+    # native implementation may not be sensitive to zero signs
+    #  but we want to enforce it for the quad dtype
+    # e.g. min(+0.0, -0.0) = -0.0
+    if float(a) == 0.0 and float(b) == 0.0:
+        assert float_res == 0.0
+        float_res = np.copysign(0.0, op_func(np.array([np.copysign(1.0, float(a)), np.copysign(1.0, float(b))])))
+
     np.testing.assert_array_equal(np.array(quad_res).astype(float), float_res)
+
+    # Check sign for zero results
+    if float_res == 0.0:
+        assert np.signbit(float_res) == np.signbit(
+            quad_res), f"Zero sign mismatch for {op}({a}, {b})"
 
 
 @pytest.mark.parametrize("op", ["negative", "positive", "absolute", "sign", "signbit", "isfinite", "isinf", "isnan", "sqrt", "square", "reciprocal"])
@@ -126,7 +156,7 @@ def test_unary_ops(op, val):
 
         np.testing.assert_array_equal(np.array(quad_result).astype(float), float_result)
 
-        if op in ["negative", "positive", "absolute", "sign"]:
+        if (float_result == 0.0) and (op not in ["signbit", "isfinite", "isinf", "isnan"]):
             assert np.signbit(float_result) == np.signbit(quad_result)
 
 
@@ -290,6 +320,11 @@ def test_logarithmic_functions(op, val):
     np.testing.assert_allclose(float(quad_result), float_result, rtol=rtol, atol=atol,
                                err_msg=f"Value mismatch for {op}({val})")
 
+    # Check sign for zero results
+    if float_result == 0.0:
+        assert np.signbit(float_result) == np.signbit(
+            quad_result), f"Zero sign mismatch for {op}({a}, {b})"
+
 
 @pytest.mark.parametrize("val", [
     # Basic cases around -1 (critical point for log1p)
@@ -304,6 +339,8 @@ def test_logarithmic_functions(op, val):
     "-1.1", "-2.0", "-10.0",
     # Large positive values
     "1e10", "1e15", "1e100",
+    # Edge cases
+    "0.0", "-0.0",
     # Special values
     "inf", "-inf", "nan", "-nan"
 ])
@@ -341,9 +378,16 @@ def test_log1p(val):
     np.testing.assert_allclose(float(quad_result), float_result, rtol=rtol, atol=atol,
                                err_msg=f"Value mismatch for log1p({val})")
 
+    # Check sign for zero results
+    if float_result == 0.0:
+        assert np.signbit(float_result) == np.signbit(
+            quad_result), f"Zero sign mismatch for {op}({val})"
+
 def test_inf():
     assert QuadPrecision("inf") > QuadPrecision("1e1000")
+    assert np.signbit(QuadPrecision("inf")) == 0
     assert QuadPrecision("-inf") < QuadPrecision("-1e1000")
+    assert np.signbit(QuadPrecision("-inf")) == 1
 
 
 def test_dtype_creation():
@@ -448,3 +492,58 @@ def test_mod(a, b, backend, op):
         numpy_negative = numpy_result < 0
 
         assert result_negative == numpy_negative, f"Sign mismatch for {a} % {b}: quad={result_negative}, numpy={numpy_negative}"
+
+
+@pytest.mark.parametrize("op", ["sinh", "cosh", "tanh", "arcsinh", "arccosh", "arctanh"])
+@pytest.mark.parametrize("val", [
+    # Basic cases
+    "0.0", "-0.0", "1.0", "-1.0", "2.0", "-2.0",
+    # Small values
+    "1e-10", "-1e-10", "1e-15", "-1e-15",
+    # Values near one
+    "0.9", "-0.9", "0.9999", "-0.9999",
+    "1.1", "-1.1", "1.0001", "-1.0001",
+    # Medium values
+    "10.0", "-10.0", "20.0", "-20.0",
+    # Large values
+    "100.0", "200.0", "700.0", "1000.0", "1e100", "1e308",
+    "-100.0", "-200.0", "-700.0", "-1000.0", "-1e100", "-1e308",
+    # Fractional values
+    "0.5", "-0.5", "1.5", "-1.5", "2.5", "-2.5",
+    # Special values
+    "inf", "-inf", "nan", "-nan"
+])
+def test_hyperbolic_functions(op, val):
+    """Comprehensive test for hyperbolic functions: sinh, cosh, tanh, arcsinh, arccosh, arctanh"""
+    op_func = getattr(np, op)
+
+    quad_val = QuadPrecision(val)
+    float_val = float(val)
+
+    quad_result = op_func(quad_val)
+    float_result = op_func(float_val)
+
+    # Handle NaN cases
+    if np.isnan(float_result):
+        assert np.isnan(
+            float(quad_result)), f"Expected NaN for {op}({val}), got {float(quad_result)}"
+        return
+
+    # Handle infinity cases
+    if np.isinf(float_result):
+        assert np.isinf(
+            float(quad_result)), f"Expected inf for {op}({val}), got {float(quad_result)}"
+        assert np.sign(float_result) == np.sign(
+            float(quad_result)), f"Infinity sign mismatch for {op}({val})"
+        return
+
+    # For finite non-zero results
+    # Use relative tolerance for exponential functions due to their rapid growth
+    rtol = 1e-13 if abs(float_result) < 1e100 else 1e-10
+    np.testing.assert_allclose(float(quad_result), float_result, rtol=rtol, atol=1e-15,
+                               err_msg=f"Value mismatch for {op}({val})")
+
+    # Check sign for zero results
+    if float_result == 0.0:
+        assert np.signbit(float_result) == np.signbit(
+            quad_result), f"Zero sign mismatch for {op}({val})"

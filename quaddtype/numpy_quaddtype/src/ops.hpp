@@ -151,6 +151,42 @@ quad_atan(const Sleef_quad *op)
     return Sleef_atanq1_u10(*op);
 }
 
+static inline Sleef_quad
+quad_sinh(const Sleef_quad *op)
+{
+    return Sleef_sinhq1_u10(*op);
+}
+
+static inline Sleef_quad
+quad_cosh(const Sleef_quad *op)
+{
+    return Sleef_coshq1_u10(*op);
+}
+
+static inline Sleef_quad
+quad_tanh(const Sleef_quad *op)
+{
+    return Sleef_tanhq1_u10(*op);
+}
+
+static inline Sleef_quad
+quad_asinh(const Sleef_quad *op)
+{
+    return Sleef_asinhq1_u10(*op);
+}
+
+static inline Sleef_quad
+quad_acosh(const Sleef_quad *op)
+{
+    return Sleef_acoshq1_u10(*op);
+}
+
+static inline Sleef_quad
+quad_atanh(const Sleef_quad *op)
+{
+    return Sleef_atanhq1_u10(*op);
+}
+
 // Unary long double operations
 typedef long double (*unary_op_longdouble_def)(const long double *);
 
@@ -299,6 +335,42 @@ ld_atan(const long double *op)
     return atanl(*op);
 }
 
+static inline long double
+ld_sinh(const long double *op)
+{
+    return sinhl(*op);
+}
+
+static inline long double
+ld_cosh(const long double *op)
+{
+    return coshl(*op);
+}
+
+static inline long double
+ld_tanh(const long double *op)
+{
+    return tanhl(*op);
+}
+
+static inline long double
+ld_asinh(const long double *op)
+{
+    return asinhl(*op);
+}
+
+static inline long double
+ld_acosh(const long double *op)
+{
+    return acoshl(*op);
+}
+
+static inline long double
+ld_atanh(const long double *op)
+{
+    return atanhl(*op);
+}
+
 // Unary Quad properties
 typedef npy_bool (*unary_prop_quad_def)(const Sleef_quad *);
 
@@ -442,33 +514,53 @@ quad_mod(const Sleef_quad *a, const Sleef_quad *b)
 static inline Sleef_quad
 quad_minimum(const Sleef_quad *in1, const Sleef_quad *in2)
 {
-    return Sleef_iunordq1(*in1, *in2)   ? (Sleef_iunordq1(*in1, *in1) ? *in1 : *in2)
-           : Sleef_icmpleq1(*in1, *in2) ? *in1
-                                        : *in2;
+    if (Sleef_iunordq1(*in1, *in2)) {
+        return Sleef_iunordq1(*in1, *in1) ? *in1 : *in2;
+    }
+    // minimum(-0.0, +0.0) = -0.0
+    if (Sleef_icmpeqq1(*in1, QUAD_ZERO) && Sleef_icmpeqq1(*in2, QUAD_ZERO)) {
+        return Sleef_icmpleq1(Sleef_copysignq1(QUAD_ONE, *in1), Sleef_copysignq1(QUAD_ONE, *in2)) ? *in1 : *in2;
+    }
+    return Sleef_fminq1(*in1, *in2);
 }
 
 static inline Sleef_quad
 quad_maximum(const Sleef_quad *in1, const Sleef_quad *in2)
 {
-    return Sleef_iunordq1(*in1, *in2)   ? (Sleef_iunordq1(*in1, *in1) ? *in1 : *in2)
-           : Sleef_icmpgeq1(*in1, *in2) ? *in1
-                                        : *in2;
+    if (Sleef_iunordq1(*in1, *in2)) {
+        return Sleef_iunordq1(*in1, *in1) ? *in1 : *in2;
+    }
+    // maximum(-0.0, +0.0) = +0.0
+    if (Sleef_icmpeqq1(*in1, QUAD_ZERO) && Sleef_icmpeqq1(*in2, QUAD_ZERO)) {
+        return Sleef_icmpgeq1(Sleef_copysignq1(QUAD_ONE, *in1), Sleef_copysignq1(QUAD_ONE, *in2)) ? *in1 : *in2;
+    }
+    return Sleef_fmaxq1(*in1, *in2);
 }
 
 static inline Sleef_quad
 quad_fmin(const Sleef_quad *in1, const Sleef_quad *in2)
 {
-    return Sleef_iunordq1(*in1, *in2)   ? (Sleef_iunordq1(*in2, *in2) ? *in1 : *in2)
-           : Sleef_icmpleq1(*in1, *in2) ? *in1
-                                        : *in2;
+    if (Sleef_iunordq1(*in1, *in2)) {
+        return Sleef_iunordq1(*in2, *in2) ? *in1 : *in2;
+    }
+    // fmin(-0.0, +0.0) = -0.0
+    if (Sleef_icmpeqq1(*in1, QUAD_ZERO) && Sleef_icmpeqq1(*in2, QUAD_ZERO)) {
+        return Sleef_icmpleq1(Sleef_copysignq1(QUAD_ONE, *in1), Sleef_copysignq1(QUAD_ONE, *in2)) ? *in1 : *in2;
+    }
+    return Sleef_fminq1(*in1, *in2);
 }
 
 static inline Sleef_quad
 quad_fmax(const Sleef_quad *in1, const Sleef_quad *in2)
 {
-    return Sleef_iunordq1(*in1, *in2)   ? (Sleef_iunordq1(*in2, *in2) ? *in1 : *in2)
-           : Sleef_icmpgeq1(*in1, *in2) ? *in1
-                                        : *in2;
+    if (Sleef_iunordq1(*in1, *in2)) {
+        return Sleef_iunordq1(*in2, *in2) ? *in1 : *in2;
+    }
+    // maximum(-0.0, +0.0) = +0.0
+    if (Sleef_icmpeqq1(*in1, QUAD_ZERO) && Sleef_icmpeqq1(*in2, QUAD_ZERO)) {
+        return Sleef_icmpgeq1(Sleef_copysignq1(QUAD_ONE, *in1), Sleef_copysignq1(QUAD_ONE, *in2)) ? *in1 : *in2;
+    }
+    return Sleef_fmaxq1(*in1, *in2);
 }
 
 static inline Sleef_quad
