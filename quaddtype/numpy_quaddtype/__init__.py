@@ -13,10 +13,12 @@ __all__ = [
     'SleefQuadPrecDType', 'LongDoubleQuadPrecDType', 'is_longdouble_128', 
     # Constants
     'pi', 'e', 'log2e', 'log10e', 'ln2', 'ln10', 'max_value', 'epsilon',
-    'smallest_normal', 'smallest_subnormal',
+    'smallest_normal', 'smallest_subnormal', 'bits', 'precision', 'resolution',
     # QuadBLAS related functions
     'set_num_threads', 'get_num_threads', 'get_quadblas_version'
 ]
+
+import numpy as np
 
 def SleefQuadPrecision(value):
     return QuadPrecision(value, backend='sleef')
@@ -40,3 +42,6 @@ max_value = get_sleef_constant("max_value")
 epsilon = get_sleef_constant("epsilon")
 smallest_normal = get_sleef_constant("smallest_normal")
 smallest_subnormal = get_sleef_constant("smallest_subnormal")
+bits = SleefQuadPrecDType().itemsize * 8
+precision = int(-np.log10(epsilon))
+resolution = SleefQuadPrecision(10) ** (-precision)
