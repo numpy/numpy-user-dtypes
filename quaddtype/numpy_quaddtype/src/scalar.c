@@ -153,7 +153,7 @@ QuadPrecision_str_dragon4(QuadPrecisionObject *self)
                            .sign = 1,
                            .trim_mode = TrimMode_LeaveOneZero,
                            .digits_left = 1,
-                           .digits_right = SLEEF_QUAD_DIG};
+                           .digits_right = 0};
 
     if (self->backend == BACKEND_SLEEF) {
         return Dragon4_Positional_QuadDType(
