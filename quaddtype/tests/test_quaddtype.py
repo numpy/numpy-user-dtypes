@@ -19,9 +19,14 @@ def test_math_constant(name, expected):
     assert np.float64(getattr(numpy_quaddtype, name)) == expected
 
 
-@pytest.mark.parametrize("name", ["max_value", "epsilon", "smallest_normal", "smallest_subnormal"])
+@pytest.mark.parametrize("name", ["max_value", "epsilon", "smallest_normal", "smallest_subnormal", "resolution"])
 def test_finfo_constant(name):
     assert isinstance(getattr(numpy_quaddtype, name), QuadPrecision)
+
+
+@pytest.mark.parametrize("name,value", [("bits", 128), ("precision", 33)])
+def test_finfo_int_constant(name, value):
+    assert getattr(numpy_quaddtype, name) == value
 
 
 def test_basic_equality():
