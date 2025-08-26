@@ -117,12 +117,14 @@ jobs:
           ls -la quaddtype/numpy_quaddtype/QBLAS/
           ls -la quaddtype/numpy_quaddtype/QBLAS/include/quadblas/
 
-      - name: Install cibuildwheel
-        run: pip install cibuildwheel==3.1.4
+      - name: Installing dependencies
+        run: |
+          pip install -U pip
+          pip install pytest-run-parallel
 
       - name: Build wheels
         env:
-          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-* cp314-*"
+          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-* cp314-* cp313t-* cp314t-*"
           CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-13' && 'x86_64' || 'arm64' }}
           CIBW_BUILD_VERBOSITY: "3"
           CIBW_ENVIRONMENT: >
@@ -136,7 +138,11 @@ jobs:
             delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}
           CIBW_TEST_COMMAND: |
             pip install {package}[test]
-            pytest -s {project}/tests
+            if python -c "import sys; exit(0 if hasattr(sys, '_is_gil_enabled') and not sys._is_gil_enabled() else 1)"; then
+              pytest --parallel-threads=10 --iterations=10 {project}/tests
+            else
+              pytest -s {project}/tests
+            fi
           CIBW_TEST_EXTRAS: "test"
         run: |
           python -m cibuildwheel --output-dir wheelhouse
