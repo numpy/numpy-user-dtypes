@@ -27,7 +27,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: ">=3.10.0"
+          python-version: ">=3.11.0"
 
       - name: Verify QuadBLAS submodule
         run: |
@@ -35,11 +35,11 @@ jobs:
           ls -la quaddtype/numpy_quaddtype/QBLAS/include/quadblas/
 
       - name: Install cibuildwheel
-        run: pip install cibuildwheel==2.20.0
+        run: pip install cibuildwheel==3.1.4
 
       - name: Build wheels
         env:
-          CIBW_BUILD: "cp310-manylinux_x86_64 cp311-manylinux_x86_64 cp312-manylinux_x86_64"
+          CIBW_BUILD: "cp310-manylinux_x86_64 cp311-manylinux_x86_64 cp312-manylinux_x86_64 cp313-manylinux_x86_64 cp314-manylinux_x86_64"
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
           CIBW_BUILD_VERBOSITY: "3"
           CIBW_BEFORE_ALL: |
@@ -90,7 +90,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: ">=3.11.0"
 
       - name: Install dependencies
         run: |
@@ -118,11 +118,11 @@ jobs:
           ls -la quaddtype/numpy_quaddtype/QBLAS/include/quadblas/
 
       - name: Install cibuildwheel
-        run: pip install cibuildwheel==2.20.0
+        run: pip install cibuildwheel==3.1.4
 
       - name: Build wheels
         env:
-          CIBW_BUILD: "cp310-* cp311-* cp312-*"
+          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-* cp314-*"
           CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-13' && 'x86_64' || 'arm64' }}
           CIBW_BUILD_VERBOSITY: "3"
           CIBW_ENVIRONMENT: >
@@ -165,10 +165,10 @@ jobs:
         with:
           arch: ${{ matrix.architecture }}
 
-      - name: Set up Python 3.10
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: ">=3.11.0"
           architecture: ${{ matrix.architecture }}
 
       - name: Install CMake
@@ -193,12 +193,12 @@ jobs:
         shell: bash -l {0}
         run: |
           pip install -U pip
-          pip install cibuildwheel==2.20.0 ninja meson meson-python numpy delvewheel pytest
+          pip install cibuildwheel==3.1.4 ninja meson meson-python numpy delvewheel pytest
 
       - name: Build wheels
         env:
-          CIBW_BUILD: "cp310-* cp311-* cp312-*"
-          CIBW_SKIP: "pp* cp36-* cp37-* cp38-* cp39-* cp313-*"
+          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-* cp314-*"
+          CIBW_SKIP: "pp* cp36-* cp37-* cp38-* cp39-*"
           CIBW_ARCHS_WINDOWS: ${{ matrix.architecture == 'x86' && 'x86' || 'AMD64' }}
           CIBW_BUILD_VERBOSITY: "3"
           DISTUTILS_USE_SDK: "1"
