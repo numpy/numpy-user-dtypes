@@ -35,7 +35,7 @@ jobs:
           ls -la quaddtype/numpy_quaddtype/QBLAS/include/quadblas/
 
       - name: Install cibuildwheel
-        run: pip install cibuildwheel==2.20.0
+        run: pip install cibuildwheel==3.1.4
 
       - name: Build wheels
         env:
@@ -118,7 +118,7 @@ jobs:
           ls -la quaddtype/numpy_quaddtype/QBLAS/include/quadblas/
 
       - name: Install cibuildwheel
-        run: pip install cibuildwheel==2.20.0
+        run: pip install cibuildwheel==3.1.4
 
       - name: Build wheels
         env:
@@ -193,7 +193,7 @@ jobs:
         shell: bash -l {0}
         run: |
           pip install -U pip
-          pip install cibuildwheel==2.20.0 ninja meson meson-python numpy delvewheel pytest
+          pip install cibuildwheel==3.1.4 ninja meson meson-python numpy delvewheel pytest
 
       - name: Build wheels
         env:
