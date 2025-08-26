@@ -126,6 +126,7 @@ jobs:
       - name: Build wheels
         env:
           CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-* cp314-* cp313t-* cp314t-*"
+          CIBW_FREE_THREADED_SUPPORT: true
           CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-13' && 'x86_64' || 'arm64' }}
           CIBW_BUILD_VERBOSITY: "3"
           CIBW_ENVIRONMENT: >
