@@ -117,9 +117,10 @@ jobs:
           ls -la quaddtype/numpy_quaddtype/QBLAS/
           ls -la quaddtype/numpy_quaddtype/QBLAS/include/quadblas/
 
-      - name: Installing dependencies
+      - name: Installing Python dependencies
         run: |
           pip install -U pip
+          pip install cibuildwheel==3.1.4
           pip install pytest-run-parallel
 
       - name: Build wheels
