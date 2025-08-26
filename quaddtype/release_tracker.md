@@ -50,12 +50,12 @@
 | arctan        | ✅    | ❌ _Need: basic tests + edge cases (NaN/inf/0/asymptotes)_           |
 | arctan2       | ✅    | ❌ _Need: basic tests + edge cases (NaN/inf/0/quadrant coverage)_    |
 | hypot         |       |                                                                      |
-| sinh          |       |                                                                      |
-| cosh          |       |                                                                      |
-| tanh          |       |                                                                      |
-| arcsinh       |       |                                                                      |
-| arccosh       |       |                                                                      |
-| arctanh       |       |                                                                      |
+| sinh          | ✅    | ✅                                                                   |
+| cosh          | ✅    | ✅                                                                   |
+| tanh          | ✅    | ✅                                                                   |
+| arcsinh       | ✅    | ✅                                                                   |
+| arccosh       | ✅    | ✅                                                                   |
+| arctanh       | ✅    | ✅                                                                   |
 | degrees       |       |                                                                      |
 | radians       |       |                                                                      |
 | deg2rad       |       |                                                                      |
