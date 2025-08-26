@@ -16,64 +16,64 @@ on:
   workflow_dispatch:
 
 jobs:
-  build_wheels_linux:
-    name: Build wheels on Linux
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
+  # build_wheels_linux:
+  #   name: Build wheels on Linux
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #       with:
+  #         submodules: recursive
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ">=3.11.0"
+  #     - name: Set up Python
+  #       uses: actions/setup-python@v4
+  #       with:
+  #         python-version: ">=3.11.0"
 
-      - name: Verify QuadBLAS submodule
-        run: |
-          ls -la quaddtype/numpy_quaddtype/QBLAS/
-          ls -la quaddtype/numpy_quaddtype/QBLAS/include/quadblas/
+  #     - name: Verify QuadBLAS submodule
+  #       run: |
+  #         ls -la quaddtype/numpy_quaddtype/QBLAS/
+  #         ls -la quaddtype/numpy_quaddtype/QBLAS/include/quadblas/
 
-      - name: Install cibuildwheel
-        run: pip install cibuildwheel==3.1.4
+  #     - name: Install cibuildwheel
+  #       run: pip install cibuildwheel==3.1.4
 
-      - name: Build wheels
-        env:
-          CIBW_BUILD: "cp310-manylinux_x86_64 cp311-manylinux_x86_64 cp312-manylinux_x86_64 cp313-manylinux_x86_64 cp314-manylinux_x86_64"
-          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
-          CIBW_BUILD_VERBOSITY: "3"
-          CIBW_BEFORE_ALL: |
-            yum update -y
-            yum install -y cmake gcc gcc-c++ make git pkgconfig
-            # Install SLEEF in container
-            git clone --branch 3.8 https://github.com/shibatch/sleef.git
-            cd sleef
-            cmake -S . -B build \
-              -DSLEEF_BUILD_QUAD:BOOL=ON \
-              -DSLEEF_BUILD_SHARED_LIBS:BOOL=ON \
-              -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-            cmake --build build/ --clean-first -j
-            cmake --install build --prefix /usr/local
-          CIBW_ENVIRONMENT: >
-            CFLAGS="-I/usr/local/include -I{project}/numpy_quaddtype/QBLAS/include $CFLAGS"
-            CXXFLAGS="-I/usr/local/include -I{project}/numpy_quaddtype/QBLAS/include -fext-numeric-literals $CXXFLAGS"
-            LDFLAGS="-L/usr/local/lib64 -L/usr/local/lib -Wl,-rpath,/usr/local/lib64 -Wl,-rpath,/usr/local/lib -fopenmp $LDFLAGS"
-            LD_LIBRARY_PATH="/usr/local/lib64:/usr/local/lib:$LD_LIBRARY_PATH"
-            PKG_CONFIG_PATH="/usr/local/lib64/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
-          CIBW_REPAIR_WHEEL_COMMAND: |
-            auditwheel repair -w {dest_dir} --plat manylinux_2_28_x86_64 {wheel}
-          CIBW_TEST_COMMAND: |
-            pip install {package}[test]
-            pytest -s {project}/tests
-          CIBW_TEST_EXTRAS: "test"
-        run: |
-          python -m cibuildwheel --output-dir wheelhouse
-        working-directory: ./quaddtype
+  #     - name: Build wheels
+  #       env:
+  #         CIBW_BUILD: "cp310-manylinux_x86_64 cp311-manylinux_x86_64 cp312-manylinux_x86_64 cp313-manylinux_x86_64 cp314-manylinux_x86_64"
+  #         CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
+  #         CIBW_BUILD_VERBOSITY: "3"
+  #         CIBW_BEFORE_ALL: |
+  #           yum update -y
+  #           yum install -y cmake gcc gcc-c++ make git pkgconfig
+  #           # Install SLEEF in container
+  #           git clone --branch 3.8 https://github.com/shibatch/sleef.git
+  #           cd sleef
+  #           cmake -S . -B build \
+  #             -DSLEEF_BUILD_QUAD:BOOL=ON \
+  #             -DSLEEF_BUILD_SHARED_LIBS:BOOL=ON \
+  #             -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+  #           cmake --build build/ --clean-first -j
+  #           cmake --install build --prefix /usr/local
+  #         CIBW_ENVIRONMENT: >
+  #           CFLAGS="-I/usr/local/include -I{project}/numpy_quaddtype/QBLAS/include $CFLAGS"
+  #           CXXFLAGS="-I/usr/local/include -I{project}/numpy_quaddtype/QBLAS/include -fext-numeric-literals $CXXFLAGS"
+  #           LDFLAGS="-L/usr/local/lib64 -L/usr/local/lib -Wl,-rpath,/usr/local/lib64 -Wl,-rpath,/usr/local/lib -fopenmp $LDFLAGS"
+  #           LD_LIBRARY_PATH="/usr/local/lib64:/usr/local/lib:$LD_LIBRARY_PATH"
+  #           PKG_CONFIG_PATH="/usr/local/lib64/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
+  #         CIBW_REPAIR_WHEEL_COMMAND: |
+  #           auditwheel repair -w {dest_dir} --plat manylinux_2_28_x86_64 {wheel}
+  #         CIBW_TEST_COMMAND: |
+  #           pip install {package}[test]
+  #           pytest -s {project}/tests
+  #         CIBW_TEST_EXTRAS: "test"
+  #       run: |
+  #         python -m cibuildwheel --output-dir wheelhouse
+  #       working-directory: ./quaddtype
 
-      - uses: actions/upload-artifact@v4
-        with:
-          path: ./quaddtype/wheelhouse/*.whl
-          name: wheels-linux
+  #     - uses: actions/upload-artifact@v4
+  #       with:
+  #         path: ./quaddtype/wheelhouse/*.whl
+  #         name: wheels-linux
 
   build_wheels_macos:
     name: Build wheels on ${{ matrix.os }}
@@ -126,7 +126,7 @@ jobs:
       - name: Build wheels
         env:
           CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-* cp314-* cp313t-* cp314t-*"
-          CIBW_FREE_THREADED_SUPPORT: true
+          CIBW_ENABLE: cpython-prerelease cpython-freethreading
           CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-13' && 'x86_64' || 'arm64' }}
           CIBW_BUILD_VERBOSITY: "3"
           CIBW_ENVIRONMENT: >
@@ -156,86 +156,86 @@ jobs:
           name: wheels-${{ matrix.os }}
 
   # disabling QBLAS optimization for windows due to incompatibility with MSVC
-  build_wheels_windows:
-    name: Build wheels on Windows
-    runs-on: windows-latest
-    strategy:
-      matrix:
-        architecture: [x64]
+  # build_wheels_windows:
+  #   name: Build wheels on Windows
+  #   runs-on: windows-latest
+  #   strategy:
+  #     matrix:
+  #       architecture: [x64]
 
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #       with:
+  #         submodules: recursive
 
-      - name: Setup MSVC
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: ${{ matrix.architecture }}
+  #     - name: Setup MSVC
+  #       uses: ilammy/msvc-dev-cmd@v1
+  #       with:
+  #         arch: ${{ matrix.architecture }}
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ">=3.11.0"
-          architecture: ${{ matrix.architecture }}
+  #     - name: Set up Python
+  #       uses: actions/setup-python@v4
+  #       with:
+  #         python-version: ">=3.11.0"
+  #         architecture: ${{ matrix.architecture }}
 
-      - name: Install CMake
-        uses: lukka/get-cmake@latest
+  #     - name: Install CMake
+  #       uses: lukka/get-cmake@latest
 
-      - name: Verify QuadBLAS submodule
-        shell: pwsh
-        run: |
-          Get-ChildItem quaddtype/numpy_quaddtype/QBLAS/
-          Get-ChildItem quaddtype/numpy_quaddtype/QBLAS/include/quadblas/
+  #     - name: Verify QuadBLAS submodule
+  #       shell: pwsh
+  #       run: |
+  #         Get-ChildItem quaddtype/numpy_quaddtype/QBLAS/
+  #         Get-ChildItem quaddtype/numpy_quaddtype/QBLAS/include/quadblas/
 
-      - name: Clone and Build SLEEF
-        shell: pwsh
-        run: |
-          git clone --branch 3.8 https://github.com/shibatch/sleef.git
-          cd sleef
-          cmake -S . -B build -G "Visual Studio 17 2022" -A ${{ matrix.architecture == 'x86' && 'Win32' || 'x64' }} -DSLEEF_BUILD_QUAD:BOOL=ON -DSLEEF_BUILD_SHARED_LIBS:BOOL=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-          cmake --build build --config Release
-          cmake --install build --prefix "C:/sleef" --config Release
+  #     - name: Clone and Build SLEEF
+  #       shell: pwsh
+  #       run: |
+  #         git clone --branch 3.8 https://github.com/shibatch/sleef.git
+  #         cd sleef
+  #         cmake -S . -B build -G "Visual Studio 17 2022" -A ${{ matrix.architecture == 'x86' && 'Win32' || 'x64' }} -DSLEEF_BUILD_QUAD:BOOL=ON -DSLEEF_BUILD_SHARED_LIBS:BOOL=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+  #         cmake --build build --config Release
+  #         cmake --install build --prefix "C:/sleef" --config Release
 
-      - name: Install build dependencies
-        shell: bash -l {0}
-        run: |
-          pip install -U pip
-          pip install cibuildwheel==3.1.4 ninja meson meson-python numpy delvewheel pytest
+  #     - name: Install build dependencies
+  #       shell: bash -l {0}
+  #       run: |
+  #         pip install -U pip
+  #         pip install cibuildwheel==3.1.4 ninja meson meson-python numpy delvewheel pytest
 
-      - name: Build wheels
-        env:
-          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-* cp314-*"
-          CIBW_SKIP: "pp* cp36-* cp37-* cp38-* cp39-*"
-          CIBW_ARCHS_WINDOWS: ${{ matrix.architecture == 'x86' && 'x86' || 'AMD64' }}
-          CIBW_BUILD_VERBOSITY: "3"
-          DISTUTILS_USE_SDK: "1"
-          MSSdk: "1"
-          CIBW_BEFORE_BUILD: |
-            pip install meson meson-python ninja numpy
-          CIBW_ENVIRONMENT: >
-            INCLUDE="C:/sleef/include;{project}/numpy_quaddtype/QBLAS/include;$INCLUDE"
-            LIB="C:/sleef/lib;$LIB"
-            PATH="C:/sleef/bin;$PATH"
-            CFLAGS="/IC:/sleef/include /I{project}/numpy_quaddtype/QBLAS/include /DDISABLE_QUADBLAS $CFLAGS"
-            CXXFLAGS="/IC:/sleef/include /I{project}/numpy_quaddtype/QBLAS/include /DDISABLE_QUADBLAS $CXXFLAGS"
-            LDFLAGS="C:/sleef/lib/sleef.lib C:/sleef/lib/sleefquad.lib $LDFLAGS"
-          CIBW_REPAIR_WHEEL_COMMAND: 'delvewheel repair -w {dest_dir} {wheel} --add-path C:\sleef\bin'
-          CIBW_TEST_COMMAND: |
-            pip install {package}[test]
-            pytest -s {project}/tests
-          CIBW_TEST_EXTRAS: test
-          CIBW_TEST_FAIL_FAST: 1
-        shell: pwsh
-        run: |
-          python -m cibuildwheel --output-dir wheelhouse
-          if (-not (Test-Path wheelhouse/*.whl)) { throw "Wheel was not created" }
-        working-directory: ./quaddtype
+  #     - name: Build wheels
+  #       env:
+  #         CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-* cp314-*"
+  #         CIBW_SKIP: "pp* cp36-* cp37-* cp38-* cp39-*"
+  #         CIBW_ARCHS_WINDOWS: ${{ matrix.architecture == 'x86' && 'x86' || 'AMD64' }}
+  #         CIBW_BUILD_VERBOSITY: "3"
+  #         DISTUTILS_USE_SDK: "1"
+  #         MSSdk: "1"
+  #         CIBW_BEFORE_BUILD: |
+  #           pip install meson meson-python ninja numpy
+  #         CIBW_ENVIRONMENT: >
+  #           INCLUDE="C:/sleef/include;{project}/numpy_quaddtype/QBLAS/include;$INCLUDE"
+  #           LIB="C:/sleef/lib;$LIB"
+  #           PATH="C:/sleef/bin;$PATH"
+  #           CFLAGS="/IC:/sleef/include /I{project}/numpy_quaddtype/QBLAS/include /DDISABLE_QUADBLAS $CFLAGS"
+  #           CXXFLAGS="/IC:/sleef/include /I{project}/numpy_quaddtype/QBLAS/include /DDISABLE_QUADBLAS $CXXFLAGS"
+  #           LDFLAGS="C:/sleef/lib/sleef.lib C:/sleef/lib/sleefquad.lib $LDFLAGS"
+  #         CIBW_REPAIR_WHEEL_COMMAND: 'delvewheel repair -w {dest_dir} {wheel} --add-path C:\sleef\bin'
+  #         CIBW_TEST_COMMAND: |
+  #           pip install {package}[test]
+  #           pytest -s {project}/tests
+  #         CIBW_TEST_EXTRAS: test
+  #         CIBW_TEST_FAIL_FAST: 1
+  #       shell: pwsh
+  #       run: |
+  #         python -m cibuildwheel --output-dir wheelhouse
+  #         if (-not (Test-Path wheelhouse/*.whl)) { throw "Wheel was not created" }
+  #       working-directory: ./quaddtype
 
-      - uses: actions/upload-artifact@v4
-        with:
-          path: ./quaddtype/wheelhouse/*.whl
-          name: wheels-windows-${{ matrix.architecture }}
+  #     - uses: actions/upload-artifact@v4
+  #       with:
+  #         path: ./quaddtype/wheelhouse/*.whl
+  #         name: wheels-windows-${{ matrix.architecture }}
 
   publish_to_pypi:
     name: Publish to PyPI
