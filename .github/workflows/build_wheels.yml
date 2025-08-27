@@ -277,12 +277,13 @@ jobs:
 
   publish_to_pypi:
     name: Publish to PyPI
-    needs: [
+    needs:
+      [
         build_wheels_linux,
         build_wheels_macos,
         build_wheels_windows,
         build_sdist,
-      ] # ← Add build_sdist here
+      ]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/quaddtype-v')
 
