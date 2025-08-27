@@ -21,4 +21,5 @@ dependencies = [
 [project.optional-dependencies]
 test = [
     "pytest",
+    "pytest-run-parallel"
 ]
