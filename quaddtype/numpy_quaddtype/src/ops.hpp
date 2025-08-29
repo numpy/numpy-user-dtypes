@@ -40,7 +40,16 @@ quad_absolute(const Sleef_quad *op)
 static inline Sleef_quad
 quad_rint(const Sleef_quad *op)
 {
-    return Sleef_rintq1(*op);
+    Sleef_quad halfway = Sleef_addq1_u05(
+        Sleef_truncq1(*op),
+        Sleef_copysignq1(Sleef_cast_from_doubleq1(0.5), *op)
+    );
+
+    // Sleef_rintq1 does not handle some near-halfway cases correctly, so we
+    // manually round up or down when x is not exactly halfway
+    return Sleef_icmpeqq1(*op, halfway) ? Sleef_rintq1(*op) : (
+        Sleef_icmpleq1(*op, halfway) ? Sleef_floorq1(*op) : Sleef_ceilq1(*op)
+    );
 }
 
 static inline Sleef_quad

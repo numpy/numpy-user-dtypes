@@ -209,6 +209,12 @@ def test_rounding_functions(op, val):
             quad_result), f"Zero sign mismatch for {op}({val})"
 
 
+def test_rint_near_halfway():
+    assert np.rint(QuadPrecision("7.4999999999999999")) == 7
+    assert np.rint(QuadPrecision("7.49999999999999999")) == 7
+    assert np.rint(QuadPrecision("7.5")) == 8
+
+
 @pytest.mark.parametrize("op", ["exp", "exp2"])
 @pytest.mark.parametrize("val", [
     # Basic cases
