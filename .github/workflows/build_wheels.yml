@@ -99,7 +99,15 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install cmake libomp git
+          packages="cmake libomp git"
+          if [[ "${{ matrix.os }}" == "macos-14" ]]; then
+            echo "Remove preinstalled dependencies"
+            for pkg in $packages; do
+              brew uninstall --ignore-dependencies $pkg 2>/dev/null || true
+            done
+            brew cleanup
+          fi
+          brew install $packages
 
       - name: Install SLEEF
         env:
