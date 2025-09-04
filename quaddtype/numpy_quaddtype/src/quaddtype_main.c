@@ -18,6 +18,9 @@
 #include "quad_common.h"
 #include "quadblas_interface.h"
 #include "float.h"
+#include <pthread.h>
+
+static pthread_mutex_t constant_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static PyObject *
 py_is_longdouble_128(PyObject *self, PyObject *args)
@@ -75,6 +78,7 @@ get_sleef_constant(PyObject *self, PyObject *args)
         // On platforms with native __float128 support, use the correct literal
         result->value.sleef_value = SLEEF_QUAD_DENORM_MIN;
 #else
+        pthread_mutex_lock(&constant_mutex);
         // On platforms without native __float128, SLEEF_QUAD_DENORM_MIN is broken
         // Manually constructing the smallest subnormal: 1 * 2^(-16382-112) = 2^(-16494)
         // This represents 0x0.0000000000000000000000000001p-16382
@@ -90,6 +94,7 @@ get_sleef_constant(PyObject *self, PyObject *args)
         c.h = 0x0000000000000000ULL;  // exponent = 0 (subnormal), mantissa high = 0
         c.l = 0x0000000000000001ULL;  // mantissa low = 1 (smallest possible)
         memcpy(&result->value.sleef_value, &c, 16);
+        pthread_mutex_unlock(&constant_mutex);
 #endif
     }
     else if (strcmp(constant_name, "bits") == 0) {
