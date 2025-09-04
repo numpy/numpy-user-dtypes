@@ -15,10 +15,22 @@
 #include "scalar_ops.h"
 #include "dragon4.h"
 
+#ifdef Py_GIL_DISABLED
+static PyMutex quad_creation_mutex = {0};
+#endif
+
 QuadPrecisionObject *
 QuadPrecision_raw_new(QuadBackendType backend)
 {
-    QuadPrecisionObject *new = PyObject_New(QuadPrecisionObject, &QuadPrecision_Type);
+    QuadPrecisionObject *new;
+#ifdef Py_GIL_DISABLED
+    PyMutex_Lock(&quad_creation_mutex);
+#endif
+    new = PyObject_New(QuadPrecisionObject, &QuadPrecision_Type);
+#ifdef Py_GIL_DISABLED
+    PyMutex_Unlock(&quad_creation_mutex);
+#endif
+
     if (!new)
         return NULL;
     new->backend = backend;
