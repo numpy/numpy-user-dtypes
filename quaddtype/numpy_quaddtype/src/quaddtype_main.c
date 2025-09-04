@@ -94,12 +94,7 @@ get_sleef_constant(PyObject *self, PyObject *args)
         result->value.sleef_value = SLEEF_QUAD_MIN;
     }
     else if (strcmp(constant_name, "smallest_subnormal") == 0) {
-#ifdef SLEEF_QUAD_C
-        // On platforms with native __float128 support, use the correct literal
-        result->value.sleef_value = SLEEF_QUAD_DENORM_MIN;
-#else
         result->value.sleef_value = SMALLEST_SUBNORMAL_VALUE;
-#endif
     }
     else if (strcmp(constant_name, "bits") == 0) {
         Py_DECREF(result);
