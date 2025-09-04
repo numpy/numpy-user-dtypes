@@ -16,7 +16,7 @@
 #include "dragon4.h"
 
 #ifdef Py_GIL_DISABLED
-static PyMutex quad_creation_mutex = {0};
+static PyMutex scalar_mutex = {0};
 #endif
 
 QuadPrecisionObject *
@@ -24,11 +24,11 @@ QuadPrecision_raw_new(QuadBackendType backend)
 {
     QuadPrecisionObject *new;
 #ifdef Py_GIL_DISABLED
-    PyMutex_Lock(&quad_creation_mutex);
+    PyMutex_Lock(&scalar_mutex);
 #endif
     new = PyObject_New(QuadPrecisionObject, &QuadPrecision_Type);
 #ifdef Py_GIL_DISABLED
-    PyMutex_Unlock(&quad_creation_mutex);
+    PyMutex_Unlock(&scalar_mutex);
 #endif
 
     if (!new)
@@ -196,6 +196,9 @@ QuadPrecision_str(QuadPrecisionObject *self)
 static PyObject *
 QuadPrecision_repr(QuadPrecisionObject *self)
 {
+#ifdef Py_GIL_DISABLED
+    PyMutex_Lock(&scalar_mutex);
+#endif
     PyObject *str = QuadPrecision_str(self);
     if (str == NULL) {
         return NULL;
@@ -203,6 +206,9 @@ QuadPrecision_repr(QuadPrecisionObject *self)
     const char *backend_str = (self->backend == BACKEND_SLEEF) ? "sleef" : "longdouble";
     PyObject *res = PyUnicode_FromFormat("QuadPrecision('%S', backend='%s')", str, backend_str);
     Py_DECREF(str);
+#ifdef Py_GIL_DISABLED
+    PyMutex_Unlock(&scalar_mutex);
+#endif
     return res;
 }
 
