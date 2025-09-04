@@ -54,7 +54,8 @@ source temp/bin/activate
 # Install the package
 pip install meson-python numpy pytest
 
-export LDFLAGS="-Wl,-rpath,$SLEEF_DIR/lib -fopenmp -latomic -lpthread"
+# If you see errors about a missing atomics library, you might need -latomic
+export LDFLAGS="-Wl,-rpath,$SLEEF_DIR/lib -fopenmp -lpthread"
 export CFLAGS="-fPIC"
 export CXXFLAGS="-fPIC"
 
