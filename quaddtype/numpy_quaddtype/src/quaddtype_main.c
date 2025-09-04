@@ -31,16 +31,25 @@ py_is_longdouble_128(PyObject *self, PyObject *args)
 }
 
 #ifdef SLEEF_QUAD_C
-// Native __float128 support
 static const Sleef_quad SMALLEST_SUBNORMAL_VALUE = SLEEF_QUAD_DENORM_MIN;
 #else
-// Use static union for thread-safe initialization
+// Use the exact same struct layout as the original buggy code
 static const union {
     struct {
+#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+        uint64_t h, l;
+#else
         uint64_t l, h;
+#endif
     } parts;
     Sleef_quad value;
-} smallest_subnormal_const = {.parts = {.l = 0x0000000000000001ULL, .h = 0x0000000000000000ULL}};
+} smallest_subnormal_const = {.parts = {
+#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+                                      .h = 0x0000000000000000ULL, .l = 0x0000000000000001ULL
+#else
+                                      .l = 0x0000000000000001ULL, .h = 0x0000000000000000ULL
+#endif
+                              }};
 #define SMALLEST_SUBNORMAL_VALUE (smallest_subnormal_const.value)
 #endif
 

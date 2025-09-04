@@ -15,10 +15,22 @@
 #include "scalar_ops.h"
 #include "dragon4.h"
 
+#ifdef Py_GIL_DISABLED
+static PyMutex scalar_mutex = {0};
+#endif
+
 QuadPrecisionObject *
 QuadPrecision_raw_new(QuadBackendType backend)
 {
-    QuadPrecisionObject *new = PyObject_New(QuadPrecisionObject, &QuadPrecision_Type);
+    QuadPrecisionObject *new;
+#ifdef Py_GIL_DISABLED
+    PyMutex_Lock(&scalar_mutex);
+#endif
+    new = PyObject_New(QuadPrecisionObject, &QuadPrecision_Type);
+#ifdef Py_GIL_DISABLED
+    PyMutex_Unlock(&scalar_mutex);
+#endif
+
     if (!new)
         return NULL;
     new->backend = backend;
@@ -184,6 +196,9 @@ QuadPrecision_str(QuadPrecisionObject *self)
 static PyObject *
 QuadPrecision_repr(QuadPrecisionObject *self)
 {
+#ifdef Py_GIL_DISABLED
+    PyMutex_Lock(&scalar_mutex);
+#endif
     PyObject *str = QuadPrecision_str(self);
     if (str == NULL) {
         return NULL;
@@ -191,12 +206,18 @@ QuadPrecision_repr(QuadPrecisionObject *self)
     const char *backend_str = (self->backend == BACKEND_SLEEF) ? "sleef" : "longdouble";
     PyObject *res = PyUnicode_FromFormat("QuadPrecision('%S', backend='%s')", str, backend_str);
     Py_DECREF(str);
+#ifdef Py_GIL_DISABLED
+    PyMutex_Unlock(&scalar_mutex);
+#endif
     return res;
 }
 
 static PyObject *
 QuadPrecision_repr_dragon4(QuadPrecisionObject *self)
 {
+#ifdef Py_GIL_DISABLED
+    PyMutex_Lock(&scalar_mutex);
+#endif
     Dragon4_Options opt = {.scientific = 1,
                            .digit_mode = DigitMode_Unique,
                            .cutoff_mode = CutoffMode_TotalLength,
@@ -226,6 +247,9 @@ QuadPrecision_repr_dragon4(QuadPrecisionObject *self)
     const char *backend_str = (self->backend == BACKEND_SLEEF) ? "sleef" : "longdouble";
     PyObject *res = PyUnicode_FromFormat("QuadPrecision('%S', backend='%s')", str, backend_str);
     Py_DECREF(str);
+#ifdef Py_GIL_DISABLED
+    PyMutex_Unlock(&scalar_mutex);
+#endif
     return res;
 }
 
