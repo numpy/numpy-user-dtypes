@@ -18,9 +18,6 @@
 #include "quad_common.h"
 #include "quadblas_interface.h"
 #include "float.h"
-#include <pthread.h>
-
-static pthread_mutex_t constant_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static PyObject *
 py_is_longdouble_128(PyObject *self, PyObject *args)
