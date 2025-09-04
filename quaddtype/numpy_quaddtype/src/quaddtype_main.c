@@ -71,7 +71,26 @@ get_sleef_constant(PyObject *self, PyObject *args)
         result->value.sleef_value = SLEEF_QUAD_MIN;
     }
     else if (strcmp(constant_name, "smallest_subnormal") == 0) {
+#ifdef SLEEF_QUAD_C
+        // On platforms with native __float128 support, use the correct literal
         result->value.sleef_value = SLEEF_QUAD_DENORM_MIN;
+#else
+        // On platforms without native __float128, SLEEF_QUAD_DENORM_MIN is broken
+        // Manually constructing the smallest subnormal: 1 * 2^(-16382-112) = 2^(-16494)
+        // This represents 0x0.0000000000000000000000000001p-16382
+#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+        struct {
+            uint64_t h, l;
+        } c;
+#else
+        struct {
+            uint64_t l, h;
+        } c;
+#endif
+        c.h = 0x0000000000000000ULL;  // exponent = 0 (subnormal), mantissa high = 0
+        c.l = 0x0000000000000001ULL;  // mantissa low = 1 (smallest possible)
+        memcpy(&result->value.sleef_value, &c, 16);
+#endif
     }
     else if (strcmp(constant_name, "bits") == 0) {
         Py_DECREF(result);
