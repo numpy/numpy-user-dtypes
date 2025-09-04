@@ -25,13 +25,26 @@ Modifications are specific to support the SLEEF_QUAD
 #include "dtype.h"
 #include "scalar.h"
 
-
 #if !defined(HAVE_THREAD_LOCAL) && !defined(HAVE__THREAD_LOCAL) && \
     !defined(HAVE___THREAD) && !defined(HAVE___DECLSPEC_THREAD_) && \
     !defined(__cplusplus)
 #warning "No thread-local storage support detected! NPY_TLS will be empty, causing thread safety issues."
 #else
 #warning "NPY_TLS Thread-local storage support detected."
+#endif
+
+#ifdef __cplusplus
+    #define NPY_TLS thread_local
+#elif defined(HAVE_THREAD_LOCAL)
+    #define NPY_TLS thread_local
+#elif defined(HAVE__THREAD_LOCAL)
+    #define NPY_TLS _Thread_local
+#elif defined(HAVE___THREAD)
+    #define NPY_TLS __thread
+#elif defined(HAVE___DECLSPEC_THREAD_)
+    #define NPY_TLS __declspec(thread)
+#else
+    #define NPY_TLS
 #endif
 
 #if 0
