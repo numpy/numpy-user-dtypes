@@ -11,6 +11,9 @@ Modifications are specific to support the SLEEF_QUAD
 #include <sleef.h>
 #include <sleefquad.h>
 
+#include "quaddtype_config.h"
+
+
 #define PY_ARRAY_UNIQUE_SYMBOL QuadPrecType_ARRAY_API
 #define PY_UFUNC_UNIQUE_SYMBOL QuadPrecType_UFUNC_API
 #define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
@@ -21,6 +24,15 @@ Modifications are specific to support the SLEEF_QUAD
 #include "dragon4.h"
 #include "dtype.h"
 #include "scalar.h"
+
+
+#if !defined(HAVE_THREAD_LOCAL) && !defined(HAVE__THREAD_LOCAL) && \
+    !defined(HAVE___THREAD) && !defined(HAVE___DECLSPEC_THREAD_) && \
+    !defined(__cplusplus)
+#warning "No thread-local storage support detected! NPY_TLS will be empty, causing thread safety issues."
+#else
+#warning "NPY_TLS Thread-local storage support detected."
+#endif
 
 #if 0
 #define DEBUG_ASSERT(stmnt) assert(stmnt)
