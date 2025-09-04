@@ -24,6 +24,16 @@ def test_finfo_constant(name):
     assert isinstance(getattr(numpy_quaddtype, name), QuadPrecision)
 
 
+def test_smallest_subnormal_value():
+    """Test that smallest_subnormal has the correct value across all platforms."""
+    smallest_sub = numpy_quaddtype.smallest_subnormal
+    repr_str = repr(smallest_sub)
+    
+    # The repr should show QuadPrecision('6.0e-4966', backend='sleef')
+    assert "6.0e-4966" in repr_str, f"Expected '6.0e-4966' in repr, got {repr_str}"
+    
+    assert smallest_sub > 0, "smallest_subnormal should be positive"
+
 @pytest.mark.parametrize("name,value", [("bits", 128), ("precision", 33)])
 def test_finfo_int_constant(name, value):
     assert getattr(numpy_quaddtype, name) == value

@@ -15,10 +15,13 @@
 #include "scalar_ops.h"
 #include "dragon4.h"
 
+
 QuadPrecisionObject *
 QuadPrecision_raw_new(QuadBackendType backend)
 {
-    QuadPrecisionObject *new = PyObject_New(QuadPrecisionObject, &QuadPrecision_Type);
+    QuadPrecisionObject *new;
+    new = PyObject_New(QuadPrecisionObject, &QuadPrecision_Type);
+
     if (!new)
         return NULL;
     new->backend = backend;

@@ -30,6 +30,44 @@ if openmp_dep.found()
     dependencies += openmp_dep
 endif
 
+# Thread-local storage detection (borrowed from NumPy)
+optional_variable_attributes = [
+  ['thread_local', 'HAVE_THREAD_LOCAL'],    # C23
+  ['_Thread_local', 'HAVE__THREAD_LOCAL'],  # C11/C17
+  ['__thread', 'HAVE___THREAD'],           # GCC/Clang
+  ['__declspec(thread)', 'HAVE___DECLSPEC_THREAD_']  # MSVC
+]
+
+if not is_variable('cdata')
+  cdata = configuration_data()
+endif
+
+foreach optional_attr: optional_variable_attributes
+  attr = optional_attr[0]
+  code = '''
+    #pragma GCC diagnostic error "-Wattributes"
+    #pragma clang diagnostic error "-Wattributes"
+    
+    int @0@ foo;
+    
+    int main() {
+      return 0;
+    }
+  '''.format(attr)
+  
+  if c.compiles(code, name: optional_attr[0])
+    cdata.set10(optional_attr[1], true)
+    message('Thread-local storage support found: @0@'.format(attr))
+  endif
+endforeach
+
+configure_file(
+  output: 'quaddtype_config.h',
+  configuration: cdata
+)
+
+build_includes = include_directories('.')
+
 includes = include_directories(
     [
         incdir_numpy,
@@ -84,5 +122,5 @@ py.extension_module('_quaddtype_main',
   dependencies: dependencies,
   install: true,
   subdir: 'numpy_quaddtype',
-  include_directories: includes
+  include_directories: [includes, build_includes]
 )
