@@ -215,6 +215,9 @@ QuadPrecision_repr(QuadPrecisionObject *self)
 static PyObject *
 QuadPrecision_repr_dragon4(QuadPrecisionObject *self)
 {
+#ifdef Py_GIL_DISABLED
+    PyMutex_Lock(&scalar_mutex);
+#endif
     Dragon4_Options opt = {.scientific = 1,
                            .digit_mode = DigitMode_Unique,
                            .cutoff_mode = CutoffMode_TotalLength,
@@ -244,6 +247,9 @@ QuadPrecision_repr_dragon4(QuadPrecisionObject *self)
     const char *backend_str = (self->backend == BACKEND_SLEEF) ? "sleef" : "longdouble";
     PyObject *res = PyUnicode_FromFormat("QuadPrecision('%S', backend='%s')", str, backend_str);
     Py_DECREF(str);
+#ifdef Py_GIL_DISABLED
+    PyMutex_Unlock(&scalar_mutex);
+#endif
     return res;
 }
 
