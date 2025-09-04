@@ -33,6 +33,24 @@ py_is_longdouble_128(PyObject *self, PyObject *args)
     }
 }
 
+#ifndef SLEEF_QUAD_C
+static const union {
+    struct {
+#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+        uint64_t h, l;
+#else
+        uint64_t l, h;
+#endif
+    } parts;
+    Sleef_quad quad_value;
+    long double alignment_dummy __attribute__((aligned(16)));
+} SMALLEST_SUBNORMAL_CONST = {
+        .parts = {
+                .h = 0x0000000000000000ULL,  // exponent = 0 (subnormal), mantissa high = 0
+                .l = 0x0000000000000001ULL   // mantissa low = 1 (smallest possible)
+        }};
+#endif
+
 static PyObject *
 get_sleef_constant(PyObject *self, PyObject *args)
 {
@@ -78,23 +96,7 @@ get_sleef_constant(PyObject *self, PyObject *args)
         // On platforms with native __float128 support, use the correct literal
         result->value.sleef_value = SLEEF_QUAD_DENORM_MIN;
 #else
-        pthread_mutex_lock(&constant_mutex);
-        // On platforms without native __float128, SLEEF_QUAD_DENORM_MIN is broken
-        // Manually constructing the smallest subnormal: 1 * 2^(-16382-112) = 2^(-16494)
-        // This represents 0x0.0000000000000000000000000001p-16382
-#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
-        struct {
-            uint64_t h, l;
-        } c;
-#else
-        struct {
-            uint64_t l, h;
-        } c;
-#endif
-        c.h = 0x0000000000000000ULL;  // exponent = 0 (subnormal), mantissa high = 0
-        c.l = 0x0000000000000001ULL;  // mantissa low = 1 (smallest possible)
-        memcpy(&result->value.sleef_value, &c, 16);
-        pthread_mutex_unlock(&constant_mutex);
+        result->value.sleef_value = SMALLEST_SUBNORMAL_CONST.quad_value;
 #endif
     }
     else if (strcmp(constant_name, "bits") == 0) {
