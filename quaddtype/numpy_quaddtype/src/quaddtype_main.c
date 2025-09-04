@@ -30,22 +30,18 @@ py_is_longdouble_128(PyObject *self, PyObject *args)
     }
 }
 
-#ifndef SLEEF_QUAD_C
+#ifdef SLEEF_QUAD_C
+// Native __float128 support
+static const Sleef_quad SMALLEST_SUBNORMAL_VALUE = SLEEF_QUAD_DENORM_MIN;
+#else
+// Use static union for thread-safe initialization
 static const union {
     struct {
-#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
-        uint64_t h, l;
-#else
         uint64_t l, h;
-#endif
     } parts;
-    Sleef_quad quad_value;
-    long double alignment_dummy __attribute__((aligned(16)));
-} SMALLEST_SUBNORMAL_CONST = {
-        .parts = {
-                .h = 0x0000000000000000ULL,  // exponent = 0 (subnormal), mantissa high = 0
-                .l = 0x0000000000000001ULL   // mantissa low = 1 (smallest possible)
-        }};
+    Sleef_quad value;
+} smallest_subnormal_const = {.parts = {.l = 0x0000000000000001ULL, .h = 0x0000000000000000ULL}};
+#define SMALLEST_SUBNORMAL_VALUE (smallest_subnormal_const.value)
 #endif
 
 static PyObject *
@@ -93,7 +89,7 @@ get_sleef_constant(PyObject *self, PyObject *args)
         // On platforms with native __float128 support, use the correct literal
         result->value.sleef_value = SLEEF_QUAD_DENORM_MIN;
 #else
-        result->value.sleef_value = SMALLEST_SUBNORMAL_CONST.quad_value;
+        result->value.sleef_value = SMALLEST_SUBNORMAL_VALUE;
 #endif
     }
     else if (strcmp(constant_name, "bits") == 0) {
