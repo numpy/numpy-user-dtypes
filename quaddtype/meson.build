@@ -25,7 +25,8 @@ incdir_numpy = run_command(py,
 
 # Add OpenMP dependency (optional, for threading)
 openmp_dep = dependency('openmp', required: false)
-dependencies = [sleef_dep, py_dep]
+qblas_dep = dependency('qblas', fallback: ['qblas', 'qblas_dep'])
+dependencies = [sleef_dep, py_dep, qblas_dep]
 if openmp_dep.found()
     dependencies += openmp_dep
 endif
@@ -66,12 +67,11 @@ configure_file(
   configuration: cdata
 )
 
-build_includes = include_directories('.')
-
+build_includes = include_directories('.') # compile time generated headers as per system
 includes = include_directories(
     [
         incdir_numpy,
-        'numpy_quaddtype/QBLAS/include',
+        # 'subprojects/qblas/include',
         'numpy_quaddtype/src',
     ]
 )
