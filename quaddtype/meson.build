@@ -31,6 +31,12 @@ if openmp_dep.found()
     dependencies += openmp_dep
 endif
 
+# compiler flags for QBLAS compatibility
+if not is_windows
+    # QBLAS requires extended numeric literals for Q suffix support
+    add_project_arguments('-fext-numeric-literals', language: 'cpp')
+endif
+
 # Thread-local storage detection (borrowed from NumPy)
 optional_variable_attributes = [
   ['thread_local', 'HAVE_THREAD_LOCAL'],    # C23
