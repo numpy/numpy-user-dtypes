@@ -79,7 +79,6 @@ build_includes = include_directories('.') # compile time generated headers as pe
 includes = include_directories(
     [
         incdir_numpy,
-        # 'subprojects/qblas/include',
         'numpy_quaddtype/src',
     ]
 )
@@ -131,4 +130,9 @@ py.extension_module('_quaddtype_main',
   install: true,
   subdir: 'numpy_quaddtype',
   include_directories: [includes, build_includes]
+)
+
+meson.add_install_script('cp', '-r',
+    meson.current_build_dir() / 'subprojects/sleef/sleef_install/lib',
+    py.get_install_dir() / 'numpy_quaddtype/.libs'
 )
