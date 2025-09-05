@@ -23,11 +23,21 @@ incdir_numpy = run_command(py,
   check : true
 ).stdout().strip()
 
-# Add OpenMP dependency (optional, for threading)
+# OpenMP dependency (optional, for threading)
 openmp_dep = dependency('openmp', required: false)
-dependencies = [sleef_dep, py_dep]
+qblas_dep = dependency('qblas', fallback: ['qblas', 'qblas_dep'])
+dependencies = [sleef_dep, py_dep, qblas_dep]
 if openmp_dep.found()
     dependencies += openmp_dep
+endif
+
+# compiler flags for QBLAS compatibility  
+if not is_windows
+    # QBLAS requires extended numeric literals for Q suffix support
+    # if compiler supports (usually gcc)
+    if cpp.has_argument('-fext-numeric-literals')
+        add_project_arguments('-fext-numeric-literals', language: 'cpp')
+    endif
 endif
 
 # Thread-local storage detection (borrowed from NumPy)
@@ -66,12 +76,11 @@ configure_file(
   configuration: cdata
 )
 
-build_includes = include_directories('.')
-
+build_includes = include_directories('.') # compile time generated headers as per system
 includes = include_directories(
     [
         incdir_numpy,
-        'numpy_quaddtype/QBLAS/include',
+        # 'subprojects/qblas/include',
         'numpy_quaddtype/src',
     ]
 )

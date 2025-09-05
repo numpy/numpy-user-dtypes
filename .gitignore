@@ -137,3 +137,7 @@ compile_commands.json
 *.whl
 .DS_Store
 .idea/
+
+# quddtype
+/quaddtype/subprojects/qblas/
+.wraplock
