@@ -13,10 +13,9 @@ if is_windows
   add_project_arguments('-DWIN32', '-D_WINDOWS', language : ['c', 'cpp'])
 endif
 
-sleef_dep = [
-  c.find_library('sleef', required : true),
-  c.find_library('sleefquad', required : true)
-]
+sleef_subproj = subproject('sleef', required: true)
+sleef_dep = sleef_subproj.get_variable('sleef_dep')
+sleefquad_dep = sleef_subproj.get_variable('sleefquad_dep')
 
 incdir_numpy = run_command(py,
   ['-c', 'import numpy; print(numpy.get_include())'],
@@ -26,7 +25,7 @@ incdir_numpy = run_command(py,
 # OpenMP dependency (optional, for threading)
 openmp_dep = dependency('openmp', required: false)
 qblas_dep = dependency('qblas', fallback: ['qblas', 'qblas_dep'])
-dependencies = [sleef_dep, py_dep, qblas_dep]
+dependencies = [py_dep, qblas_dep, sleef_dep, sleefquad_dep]
 if openmp_dep.found()
     dependencies += openmp_dep
 endif
@@ -126,7 +125,7 @@ py.install_sources(
 
 py.extension_module('_quaddtype_main',
   srcs,
-  link_args: is_windows ? ['/DEFAULTLIB:sleef', '/DEFAULTLIB:sleefquad'] : ['-lsleef', '-lsleefquad'],
+  # link_args: is_windows ? ['/DEFAULTLIB:sleef', '/DEFAULTLIB:sleefquad'] : ['-lsleef', '-lsleefquad'],
   link_language: 'cpp',
   dependencies: dependencies,
   install: true,
