@@ -3,11 +3,15 @@ project('sleef', version: '3.8')
 cmake = find_program('cmake')
 ninja = find_program('ninja', 'make', required: false)
 
-# Use relative paths from build directory
 sleef_build_dir = 'sleef_build'
 sleef_install_dir = 'sleef_install'
 
-# Configure SLEEF at configuration time
+# turning off parallel build in windows
+parallel_flag = ['--parallel']
+if host_machine.system() == 'windows'
+  parallel_flag = []
+endif
+
 sleef_configure = run_command([
     cmake, 
     '-S', meson.current_source_dir(),
@@ -25,22 +29,18 @@ if sleef_configure.returncode() != 0
     error('SLEEF CMake configuration failed: ' + sleef_configure.stderr())
 endif
 
-# Build target for SLEEF libraries - create a dummy output file
 sleef_build_target = custom_target('sleef_build',
-    command: [cmake, '--build', meson.current_build_dir() / sleef_build_dir, '--target', 'install', '--parallel'],
-    output: 'sleef_built.stamp',  # Dummy stamp file
+    command: [cmake, '--build', meson.current_build_dir() / sleef_build_dir, '--target', 'install'] + parallel_flag,
+    output: 'sleef_built.stamp',
     console: true,
     build_always_stale: true,
     build_by_default: true
 )
 
-# Path variables
 sleef_include_path = meson.current_build_dir() / sleef_install_dir / 'include'
 
-# Create a dependency that ensures the build happens but doesn't link the dummy file
 sleef_build_dep = declare_dependency(sources: [sleef_build_target])
 
-# Platform-specific define for static linking on Windows
 sleef_static_define = ''
 if host_machine.system() == 'windows'
   sleef_static_define = '-DSLEEF_STATIC_LIBS'
@@ -52,13 +52,13 @@ if sleef_static_define != ''
 endif
 
 sleef_dep = declare_dependency(
-    dependencies: [sleef_build_dep],  # Ensures build happens first
+    dependencies: [sleef_build_dep],
     compile_args: compile_args_list,
-    link_args: ['-L' + meson.current_build_dir() / sleef_install_dir / 'lib', '-L' + meson.current_build_dir() / sleef_install_dir / 'lib64', '-lsleef']
+    link_args: ['-L' + meson.current_build_dir() / sleef_install_dir / 'lib', '-L' + meson.current_build_dir() / sleef_install_dir / 'lib64', '-lsleef'] #both lib and lib64 because of ubuntu vs redhat compatibility
 )
 
 sleefquad_dep = declare_dependency(
-    dependencies: [sleef_build_dep],  # Ensures build happens first
+    dependencies: [sleef_build_dep],
     compile_args: compile_args_list,
     link_args: ['-L' + meson.current_build_dir() / sleef_install_dir / 'lib', '-L' + meson.current_build_dir() / sleef_install_dir / 'lib64', '-lsleefquad']
 )
