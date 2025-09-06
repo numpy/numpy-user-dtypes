@@ -124,7 +124,6 @@ py.install_sources(
 
 py.extension_module('_quaddtype_main',
   srcs,
-  # link_args: is_windows ? ['/DEFAULTLIB:sleef', '/DEFAULTLIB:sleefquad'] : ['-lsleef', '-lsleefquad'],
   link_language: 'cpp',
   dependencies: dependencies,
   install: true,

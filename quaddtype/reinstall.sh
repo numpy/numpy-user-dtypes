@@ -10,4 +10,4 @@ fi
 
 
 python -m pip uninstall -y numpy_quaddtype
-python -m pip install . -v --no-build-isolation -Cbuilddir=build
+python -m pip install . -v
