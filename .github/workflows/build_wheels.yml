@@ -211,7 +211,7 @@ jobs:
         run: |
           python -m build --sdist --outdir dist/
           pip install dist/*.tar.gz -v
-          pytest -s {project}/tests
+          pytest -s tests
         working-directory: ./quaddtype
 
       - name: Upload SDist artifact
