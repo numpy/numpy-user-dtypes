@@ -205,11 +205,13 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install build
 
-      - name: Build SDist
+      - name: Build SDist & test sdist
         env:
           LDFLAGS: "-fopenmp"
         run: |
           python -m build --sdist --outdir dist/
+          pip install dist/*.tar.gz
+          pytest -s {project}/tests
         working-directory: ./quaddtype
 
       - name: Upload SDist artifact
