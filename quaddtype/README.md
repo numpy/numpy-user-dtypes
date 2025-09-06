@@ -34,7 +34,7 @@ np.array([1,2,3], dtype=QuadPrecDType("longdouble"))
 
 ### Linux/Unix/macOS
 
-Building the `numpy-quaddtype` package from locally installed sleef:
+Building the `numpy-quaddtype` package:
 
 ```bash
 # setup the virtual env
