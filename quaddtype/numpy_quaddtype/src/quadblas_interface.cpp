@@ -3,7 +3,7 @@
 #include <algorithm>
 
 #ifndef DISABLE_QUADBLAS
-#include "../QBLAS/include/quadblas/quadblas.hpp"
+#include "../subprojects/qblas/include/quadblas/quadblas.hpp"
 #endif // DISABLE_QUADBLAS
 
 extern "C" {
