@@ -57,11 +57,11 @@ endif
 sleef_dep = declare_dependency(
     dependencies: [sleef_build_dep],  # Ensures build happens first
     compile_args: compile_args_list,
-    link_args: ['-L' + p for p in sleef_lib_paths] + ['-lsleef']
+    link_args: ['-L' + meson.current_build_dir() / sleef_install_dir / 'lib', '-L' + meson.current_build_dir() / sleef_install_dir / 'lib64', '-lsleef']
 )
 
 sleefquad_dep = declare_dependency(
     dependencies: [sleef_build_dep],  # Ensures build happens first
     compile_args: compile_args_list,
-    link_args: ['-L' + p for p in sleef_lib_paths] + ['-lsleefquad']
+    link_args: ['-L' + meson.current_build_dir() / sleef_install_dir / 'lib', '-L' + meson.current_build_dir() / sleef_install_dir / 'lib64', '-lsleefquad']
 )
