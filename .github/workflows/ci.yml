@@ -60,31 +60,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libmpfr-dev libssl-dev libfftw3-dev
 
-      - name: Install SLEEF
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y cmake gcc g++ make git pkg-config
-          git clone --branch 3.8 https://github.com/shibatch/sleef.git
-          cd sleef
-          cmake -S . -B build -DSLEEF_BUILD_QUAD:BOOL=ON -DSLEEF_BUILD_SHARED_LIBS:BOOL=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-          cmake --build build/ --clean-first -j
-          sudo cmake --install build --prefix /usr/local
-
       - name: Install quaddtype
         working-directory: quaddtype
         run: |
-          # Set environment variables with proper export and correct paths
-          export CFLAGS="-I/usr/local/include"
-          export CXXFLAGS="-I/usr/local/include"
-          export LDFLAGS="-L/usr/local/lib64 -L/usr/local/lib -Wl,-rpath,/usr/local/lib64 -Wl,-rpath,/usr/local/lib -fopenmp"
-          export LD_LIBRARY_PATH="/usr/local/lib64:/usr/local/lib:$LD_LIBRARY_PATH"
+          export LDFLAGS="-fopenmp"
 
           # Install with meson args to ensure the C++ flags are passed through
-          python -m pip install . -v --no-build-isolation \
-            -Cbuilddir=build \
-            -C'compile-args=-v' \
-            -Csetup-args="-Dbuildtype=debug" \
-            -Csetup-args="-Dcpp_args=-fext-numeric-literals"
+          python -m pip install . -v
 
       - name: Run quaddtype tests
         working-directory: quaddtype
