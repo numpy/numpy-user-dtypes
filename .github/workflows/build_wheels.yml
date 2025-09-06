@@ -203,14 +203,14 @@ jobs:
       - name: Install build dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install build
+          python -m pip install build pytest
 
       - name: Build SDist & test sdist
         env:
           LDFLAGS: "-fopenmp"
         run: |
           python -m build --sdist --outdir dist/
-          pip install dist/*.tar.gz
+          pip install dist/*.tar.gz -v
           pytest -s {project}/tests
         working-directory: ./quaddtype
 
