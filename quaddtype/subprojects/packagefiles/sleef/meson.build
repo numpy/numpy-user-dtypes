@@ -7,9 +7,6 @@ ninja = find_program('ninja', 'make', required: false)
 sleef_build_dir = 'sleef_build'
 sleef_install_dir = 'sleef_install'
 
-# Dynamically set libdir based on platform conventions
-libdir = 'lib'
-
 # Configure SLEEF at configuration time
 sleef_configure = run_command([
     cmake, 
@@ -39,8 +36,10 @@ sleef_build_target = custom_target('sleef_build',
 
 # Path variables
 sleef_include_path = meson.current_build_dir() / sleef_install_dir / 'include'
-sleef_lib_path = meson.current_build_dir() / sleef_install_dir / libdir
-
+sleef_lib_paths = [
+  meson.current_build_dir() / sleef_install_dir / 'lib',
+  meson.current_build_dir() / sleef_install_dir / 'lib64'
+]
 # Create a dependency that ensures the build happens but doesn't link the dummy file
 sleef_build_dep = declare_dependency(sources: [sleef_build_target])
 
@@ -58,11 +57,11 @@ endif
 sleef_dep = declare_dependency(
     dependencies: [sleef_build_dep],  # Ensures build happens first
     compile_args: compile_args_list,
-    link_args: ['-L' + sleef_lib_path, '-lsleef']
+    link_args: ['-L' + p for p in sleef_lib_paths] + ['-lsleef']
 )
 
 sleefquad_dep = declare_dependency(
     dependencies: [sleef_build_dep],  # Ensures build happens first
     compile_args: compile_args_list,
-    link_args: ['-L' + sleef_lib_path, '-lsleefquad']
+    link_args: ['-L' + p for p in sleef_lib_paths] + ['-lsleefquad']
 )
