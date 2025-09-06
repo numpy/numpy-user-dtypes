@@ -53,15 +53,19 @@ if host_machine.system() == 'windows'
   sleef_static_define = '-DSLEEF_STATIC_LIBS'
 endif
 
-# Create the actual linking dependencies
+compile_args_list = ['-I' + sleef_include_path]
+if sleef_static_define != ''
+  compile_args_list += sleef_static_define
+endif
+
 sleef_dep = declare_dependency(
     dependencies: [sleef_build_dep],  # Ensures build happens first
-    compile_args: ['-I' + sleef_include_path, sleef_static_define],
+    compile_args: compile_args_list,
     link_args: ['-L' + sleef_lib_path, '-lsleef']
 )
 
 sleefquad_dep = declare_dependency(
     dependencies: [sleef_build_dep],  # Ensures build happens first
-    compile_args: ['-I' + sleef_include_path, sleef_static_define],
+    compile_args: compile_args_list,
     link_args: ['-L' + sleef_lib_path, '-lsleefquad']
 )
