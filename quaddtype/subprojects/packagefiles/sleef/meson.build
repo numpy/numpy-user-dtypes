@@ -36,10 +36,7 @@ sleef_build_target = custom_target('sleef_build',
 
 # Path variables
 sleef_include_path = meson.current_build_dir() / sleef_install_dir / 'include'
-sleef_lib_paths = [
-  meson.current_build_dir() / sleef_install_dir / 'lib',
-  meson.current_build_dir() / sleef_install_dir / 'lib64'
-]
+
 # Create a dependency that ensures the build happens but doesn't link the dummy file
 sleef_build_dep = declare_dependency(sources: [sleef_build_target])
 
