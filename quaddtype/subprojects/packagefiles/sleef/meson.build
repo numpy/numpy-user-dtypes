@@ -14,7 +14,7 @@ sleef_configure = run_command([
     '-B', meson.current_build_dir() / sleef_build_dir,
     '-DCMAKE_BUILD_TYPE=Release',
     '-DSLEEF_BUILD_QUAD=ON',
-    '-DSLEEF_BUILD_SHARED_LIBS=ON',
+    '-DBUILD_SHARED_LIBS=OFF',
     '-DSLEEF_BUILD_TESTS=OFF',
     '-DSLEEF_BUILD_INLINE_HEADERS=OFF',
     '-DCMAKE_POSITION_INDEPENDENT_CODE=ON',
@@ -45,11 +45,11 @@ sleef_build_dep = declare_dependency(sources: [sleef_build_target])
 sleef_dep = declare_dependency(
     dependencies: [sleef_build_dep],  # Ensures build happens first
     compile_args: ['-I' + sleef_include_path],
-    link_args: ['-L' + sleef_lib_path, '-lsleef', '-Wl,-rpath,' + sleef_lib_path]
+    link_args: ['-L' + sleef_lib_path, '-lsleef']
 )
 
 sleefquad_dep = declare_dependency(
     dependencies: [sleef_build_dep],  # Ensures build happens first
     compile_args: ['-I' + sleef_include_path],
-    link_args: ['-L' + sleef_lib_path, '-lsleefquad', '-Wl,-rpath,' + sleef_lib_path]
+    link_args: ['-L' + sleef_lib_path, '-lsleefquad']
 )

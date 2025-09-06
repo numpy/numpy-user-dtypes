@@ -129,5 +129,5 @@ py.extension_module('_quaddtype_main',
   dependencies: dependencies,
   install: true,
   subdir: 'numpy_quaddtype',
-  include_directories: [includes, build_includes]
+  include_directories: [includes, build_includes],
 )
