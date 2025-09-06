@@ -9,9 +9,6 @@ sleef_install_dir = 'sleef_install'
 
 # Dynamically set libdir based on platform conventions
 libdir = 'lib'
-if host_machine.system() == 'linux' and host_machine.cpu_family() == 'x86_64'
-  libdir = 'lib64'
-endif
 
 # Configure SLEEF at configuration time
 sleef_configure = run_command([

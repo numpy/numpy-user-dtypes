@@ -64,8 +64,6 @@ jobs:
         working-directory: quaddtype
         run: |
           export LDFLAGS="-fopenmp"
-
-          # Install with meson args to ensure the C++ flags are passed through
           python -m pip install . -v
 
       - name: Run quaddtype tests
