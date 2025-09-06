@@ -140,4 +140,5 @@ compile_commands.json
 
 # quddtype
 /quaddtype/subprojects/qblas/
+/quaddtype/subprojects/sleef/
 .wraplock

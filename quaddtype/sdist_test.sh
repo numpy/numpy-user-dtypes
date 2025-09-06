@@ -2,12 +2,9 @@
 set -x
 
 if [ -d "build/" ]; then
-    rm -r build
     rm -rf dist/
-    rm -rf subprojects/qblas
-    rm -rf subprojects/sleef
 fi
 
-
 python -m pip uninstall -y numpy_quaddtype
-python -m pip install . -v
+python -m build --sdist --outdir dist/
+python -m pip install dist/numpy_quaddtype-0.1.0.tar.gz -v
