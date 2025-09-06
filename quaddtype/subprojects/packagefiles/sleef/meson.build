@@ -3,15 +3,17 @@ project('sleef', version: '3.8')
 cmake = find_program('cmake')
 ninja = find_program('ninja', 'make', required: false)
 
+# Use relative paths from build directory
 sleef_build_dir = 'sleef_build'
 sleef_install_dir = 'sleef_install'
 
-# This can be done manually from user side, but lets handle it here as well
+# Dynamically set libdir based on platform conventions
 libdir = 'lib'
 if host_machine.system() == 'linux' and host_machine.cpu_family() == 'x86_64'
   libdir = 'lib64'
 endif
 
+# Configure SLEEF at configuration time
 sleef_configure = run_command([
     cmake, 
     '-S', meson.current_source_dir(),
@@ -29,6 +31,7 @@ if sleef_configure.returncode() != 0
     error('SLEEF CMake configuration failed: ' + sleef_configure.stderr())
 endif
 
+# Build target for SLEEF libraries - create a dummy output file
 sleef_build_target = custom_target('sleef_build',
     command: [cmake, '--build', meson.current_build_dir() / sleef_build_dir, '--target', 'install', '--parallel'],
     output: 'sleef_built.stamp',  # Dummy stamp file
@@ -37,17 +40,28 @@ sleef_build_target = custom_target('sleef_build',
     build_by_default: true
 )
 
+# Path variables
 sleef_include_path = meson.current_build_dir() / sleef_install_dir / 'include'
 sleef_lib_path = meson.current_build_dir() / sleef_install_dir / libdir
 
+# Create a dependency that ensures the build happens but doesn't link the dummy file
 sleef_build_dep = declare_dependency(sources: [sleef_build_target])
+
+# Platform-specific define for static linking on Windows
+sleef_static_define = ''
+if host_machine.system() == 'windows'
+  sleef_static_define = '-DSLEEF_STATIC_LIBS'
+endif
+
+# Create the actual linking dependencies
 sleef_dep = declare_dependency(
-    dependencies: [sleef_build_dep], 
-    compile_args: ['-I' + sleef_include_path],
+    dependencies: [sleef_build_dep],  # Ensures build happens first
+    compile_args: ['-I' + sleef_include_path, sleef_static_define],
     link_args: ['-L' + sleef_lib_path, '-lsleef']
 )
+
 sleefquad_dep = declare_dependency(
-    dependencies: [sleef_build_dep],
-    compile_args: ['-I' + sleef_include_path],
+    dependencies: [sleef_build_dep],  # Ensures build happens first
+    compile_args: ['-I' + sleef_include_path, sleef_static_define],
     link_args: ['-L' + sleef_lib_path, '-lsleefquad']
 )
