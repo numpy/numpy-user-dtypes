@@ -40,7 +40,7 @@ jobs:
             yum update -y
             yum install -y cmake gcc gcc-c++ make git pkgconfig
           CIBW_ENVIRONMENT: >
-            LDFLAGS="-fopenmp $LDFLAGS"
+            LDFLAGS="-fopenmp"
           CIBW_REPAIR_WHEEL_COMMAND: |
             auditwheel repair -w {dest_dir} --plat manylinux_2_28_x86_64 {wheel}
           CIBW_TEST_COMMAND: |
