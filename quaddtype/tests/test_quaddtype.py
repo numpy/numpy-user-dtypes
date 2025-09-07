@@ -39,6 +39,16 @@ def test_finfo_int_constant(name, value):
     assert getattr(numpy_quaddtype, name) == value
 
 
+@pytest.mark.parametrize("dtype", ["bool", "byte", "int8", "ubyte", "uint8", "short", "int16", "ushort", "uint16", "int", "int32", "uint", "uint32", "long", "ulong", "longlong", "int64", "ulonglong", "uint64", "half", "float16", "float", "float32", "double", "float64", "longdouble"])
+def test_astype(dtype):
+    orig = np.array(1, dtype=dtype)
+    quad = orig.astype(QuadPrecDType, casting="safe")
+    back = quad.astype(dtype, casting="unsafe")
+
+    assert quad == 1
+    assert back == orig
+
+
 def test_basic_equality():
     assert QuadPrecision("12") == QuadPrecision(
         "12.0") == QuadPrecision("12.00")
