@@ -53,6 +53,8 @@ jobs:
             mkdir -p $CCACHE_DIR
             ccache -M 1G
             ccache -o compression=true
+            ccache -z
+            ccache -s
           CIBW_ENVIRONMENT: >
             CC="ccache gcc"
             CXX="ccache g++"
