@@ -13,21 +13,30 @@ if is_windows
   add_project_arguments('-DWIN32', '-D_WINDOWS', language : ['c', 'cpp'])
 endif
 
-sleef_dep = [
-  c.find_library('sleef', required : true),
-  c.find_library('sleefquad', required : true)
-]
+sleef_subproj = subproject('sleef', required: true)
+sleef_dep = sleef_subproj.get_variable('sleef_dep')
+sleefquad_dep = sleef_subproj.get_variable('sleefquad_dep')
 
 incdir_numpy = run_command(py,
   ['-c', 'import numpy; print(numpy.get_include())'],
   check : true
 ).stdout().strip()
 
-# Add OpenMP dependency (optional, for threading)
+# OpenMP dependency (optional, for threading)
 openmp_dep = dependency('openmp', required: false)
-dependencies = [sleef_dep, py_dep]
+qblas_dep = dependency('qblas', fallback: ['qblas', 'qblas_dep'])
+dependencies = [py_dep, qblas_dep, sleef_dep, sleefquad_dep]
 if openmp_dep.found()
     dependencies += openmp_dep
+endif
+
+# compiler flags for QBLAS compatibility  
+if not is_windows
+    # QBLAS requires extended numeric literals for Q suffix support
+    # if compiler supports (usually gcc)
+    if cpp.has_argument('-fext-numeric-literals')
+        add_project_arguments('-fext-numeric-literals', language: 'cpp')
+    endif
 endif
 
 # Thread-local storage detection (borrowed from NumPy)
@@ -66,12 +75,10 @@ configure_file(
   configuration: cdata
 )
 
-build_includes = include_directories('.')
-
+build_includes = include_directories('.') # compile time generated headers as per system
 includes = include_directories(
     [
         incdir_numpy,
-        'numpy_quaddtype/QBLAS/include',
         'numpy_quaddtype/src',
     ]
 )
@@ -117,10 +124,9 @@ py.install_sources(
 
 py.extension_module('_quaddtype_main',
   srcs,
-  link_args: is_windows ? ['/DEFAULTLIB:sleef', '/DEFAULTLIB:sleefquad'] : ['-lsleef', '-lsleefquad'],
   link_language: 'cpp',
   dependencies: dependencies,
   install: true,
   subdir: 'numpy_quaddtype',
-  include_directories: [includes, build_includes]
+  include_directories: [includes, build_includes],
 )
