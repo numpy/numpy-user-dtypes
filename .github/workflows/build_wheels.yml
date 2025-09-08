@@ -20,7 +20,14 @@ jobs:
     name: Build wheels on Linux
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
+
+      - name: ccaches
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          create-symlink: true
+          key: ${{ github.job }}-ubuntu-latest
+          verbose: 2
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -30,16 +37,6 @@ jobs:
       - name: Install cibuildwheel
         run: pip install cibuildwheel==3.1.4
 
-      - name: Install ccache
-        run: sudo apt-get install -y ccache
-
-      - name: Cache ccache
-        uses: actions/cache@v4
-        with:
-          path: ~/.ccache
-          key: ${{ runner.os }}-ccache-${{ hashFiles('quaddtype/meson.build', 'quaddtype/subprojects/**', 'quaddtype/numpy_quaddtype/src/**', 'quaddtype/pyproject.toml') }}
-          restore-keys: ${{ runner.os }}-ccache-
-
       - name: Build wheels
         env:
           CIBW_BUILD: "cp310-manylinux_x86_64 cp311-manylinux_x86_64 cp312-manylinux_x86_64 cp313-manylinux_x86_64 cp313t-manylinux_x86_64 cp314-manylinux_x86_64 cp314t-manylinux_x86_64"
@@ -47,19 +44,10 @@ jobs:
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
           CIBW_BUILD_VERBOSITY: "3"
           CIBW_BEFORE_ALL: |
-            yum install -y epel-release
-            yum install -y ccache cmake gcc gcc-c++ make git pkgconfig
-            export CCACHE_DIR=/host/home/runner/.ccache
-            mkdir -p $CCACHE_DIR
-            ccache -M 1G
-            ccache -o compression=true
-            ccache -z
-            ccache -s
+            yum update -y
+            yum install -y cmake gcc gcc-c++ make git pkgconfig
           CIBW_ENVIRONMENT: >
-            CC="ccache gcc"
-            CXX="ccache g++"
             LDFLAGS="-fopenmp"
-            CCACHE_DIR=/host/home/runner/.ccache
           CIBW_REPAIR_WHEEL_COMMAND: |
             auditwheel repair -w {dest_dir} --plat manylinux_2_28_x86_64 {wheel}
           CIBW_TEST_COMMAND: |
@@ -73,9 +61,6 @@ jobs:
         run: |
           python -m cibuildwheel --output-dir wheelhouse
         working-directory: ./quaddtype
-
-      - name: Show ccache stats
-        run: ccache -s
 
       - uses: actions/upload-artifact@v4
         with:
