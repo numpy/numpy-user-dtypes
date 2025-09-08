@@ -51,7 +51,7 @@ export LDFLAGS="-fopenmp -lpthread"
 # export CFLAGS="-DDISABLE_QUADBLAS"
 # export CXXFLAGS="-DDISABLE_QUADBLAS"
 
-python -m pip install . -v --no-build-isolation
+python -m pip install . -v
 
 # Run the tests
 cd ..
