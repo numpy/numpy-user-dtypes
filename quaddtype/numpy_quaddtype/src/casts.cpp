@@ -9,6 +9,7 @@ extern "C" {
 #include <Python.h>
 
 #include "numpy/arrayobject.h"
+#include "numpy/halffloat.h"
 #include "numpy/ndarraytypes.h"
 #include "numpy/dtype_api.h"
 }
@@ -20,7 +21,7 @@ extern "C" {
 #include "casts.h"
 #include "dtype.h"
 
-#define NUM_CASTS 30  // 14 to_casts + 14 from_casts + 1 quad_to_quad + 1 void_to_quad
+#define NUM_CASTS 34  // 16 to_casts + 16 from_casts + 1 quad_to_quad + 1 void_to_quad
 
 static NPY_CASTING
 quad_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self),
@@ -150,15 +151,27 @@ quad_to_quad_strided_loop_aligned(PyArrayMethod_Context *context, char *const da
     return 0;
 }
 
+// Tag dispatching to ensure npy_bool/npy_ubyte and npy_half/npy_ushort do not alias in templates
+// see e.g. https://stackoverflow.com/q/32522279
+struct spec_npy_bool {};
+struct spec_npy_half {};
+
+template<typename T>
+struct NpyType { typedef T TYPE; };
+template<>
+struct NpyType<spec_npy_bool>{ typedef npy_bool TYPE; };
+template<>
+struct NpyType<spec_npy_half>{ typedef npy_half TYPE; };
+
 // Casting from other types to QuadDType
 
 template <typename T>
 static inline quad_value
-to_quad(T x, QuadBackendType backend);
+to_quad(typename NpyType<T>::TYPE x, QuadBackendType backend);
 
 template <>
 inline quad_value
-to_quad<npy_bool>(npy_bool x, QuadBackendType backend)
+to_quad<spec_npy_bool>(npy_bool x, QuadBackendType backend)
 {
     quad_value result;
     if (backend == BACKEND_SLEEF) {
@@ -177,6 +190,20 @@ to_quad<npy_byte>(npy_byte x, QuadBackendType backend)
     quad_value result;
     if (backend == BACKEND_SLEEF) {
         result.sleef_value = Sleef_cast_from_int64q1(x);
+    }
+    else {
+        result.longdouble_value = (long double)x;
+    }
+    return result;
+}
+
+template <>
+inline quad_value
+to_quad<npy_ubyte>(npy_ubyte x, QuadBackendType backend)
+{
+    quad_value result;
+    if (backend == BACKEND_SLEEF) {
+        result.sleef_value = Sleef_cast_from_uint64q1(x);
     }
     else {
         result.longdouble_value = (long double)x;
@@ -295,6 +322,21 @@ to_quad<npy_ulonglong>(npy_ulonglong x, QuadBackendType backend)
     }
     return result;
 }
+
+template <>
+inline quad_value
+to_quad<spec_npy_half>(npy_half x, QuadBackendType backend)
+{
+    quad_value result;
+    if (backend == BACKEND_SLEEF) {
+        result.sleef_value = Sleef_cast_from_doubleq1(npy_half_to_double(x));
+    }
+    else {
+        result.longdouble_value = (long double)npy_half_to_double(x);
+    }
+    return result;
+}
+
 template <>
 inline quad_value
 to_quad<float>(float x, QuadBackendType backend)
@@ -374,10 +416,10 @@ numpy_to_quad_strided_loop_unaligned(PyArrayMethod_Context *context, char *const
     size_t elem_size = (backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
 
     while (N--) {
-        T in_val;
+        typename NpyType<T>::TYPE in_val;
         quad_value out_val;
 
-        memcpy(&in_val, in_ptr, sizeof(T));
+        memcpy(&in_val, in_ptr, sizeof(typename NpyType<T>::TYPE));
         out_val = to_quad<T>(in_val, backend);
         memcpy(out_ptr, &out_val, elem_size);
 
@@ -401,7 +443,7 @@ numpy_to_quad_strided_loop_aligned(PyArrayMethod_Context *context, char *const d
     QuadBackendType backend = descr_out->backend;
 
     while (N--) {
-        T in_val = *(T *)in_ptr;
+        typename NpyType<T>::TYPE in_val = *(typename NpyType<T>::TYPE *)in_ptr;
         quad_value out_val = to_quad<T>(in_val, backend);
 
         if (backend == BACKEND_SLEEF) {
@@ -420,12 +462,12 @@ numpy_to_quad_strided_loop_aligned(PyArrayMethod_Context *context, char *const d
 // Casting from QuadDType to other types
 
 template <typename T>
-static inline T
+static inline typename NpyType<T>::TYPE
 from_quad(quad_value x, QuadBackendType backend);
 
 template <>
 inline npy_bool
-from_quad<npy_bool>(quad_value x, QuadBackendType backend)
+from_quad<spec_npy_bool>(quad_value x, QuadBackendType backend)
 {
     if (backend == BACKEND_SLEEF) {
         return Sleef_cast_to_int64q1(x.sleef_value) != 0;
@@ -444,6 +486,18 @@ from_quad<npy_byte>(quad_value x, QuadBackendType backend)
     }
     else {
         return (npy_byte)x.longdouble_value;
+    }
+}
+
+template <>
+inline npy_ubyte
+from_quad<npy_ubyte>(quad_value x, QuadBackendType backend)
+{
+    if (backend == BACKEND_SLEEF) {
+        return (npy_ubyte)Sleef_cast_to_uint64q1(x.sleef_value);
+    }
+    else {
+        return (npy_ubyte)x.longdouble_value;
     }
 }
 
@@ -544,6 +598,18 @@ from_quad<npy_ulonglong>(quad_value x, QuadBackendType backend)
 }
 
 template <>
+inline npy_half
+from_quad<spec_npy_half>(quad_value x, QuadBackendType backend)
+{
+    if (backend == BACKEND_SLEEF) {
+        return npy_double_to_half(Sleef_cast_to_doubleq1(x.sleef_value));
+    }
+    else {
+        return npy_double_to_half((double)x.longdouble_value);
+    }
+}
+
+template <>
 inline float
 from_quad<float>(quad_value x, QuadBackendType backend)
 {
@@ -611,8 +677,8 @@ quad_to_numpy_strided_loop_unaligned(PyArrayMethod_Context *context, char *const
         quad_value in_val;
         memcpy(&in_val, in_ptr, elem_size);
 
-        T out_val = from_quad<T>(in_val, backend);
-        memcpy(out_ptr, &out_val, sizeof(T));
+        typename NpyType<T>::TYPE out_val = from_quad<T>(in_val, backend);
+        memcpy(out_ptr, &out_val, sizeof(typename NpyType<T>::TYPE));
 
         in_ptr += strides[0];
         out_ptr += strides[1];
@@ -642,8 +708,8 @@ quad_to_numpy_strided_loop_aligned(PyArrayMethod_Context *context, char *const d
             in_val.longdouble_value = *(long double *)in_ptr;
         }
 
-        T out_val = from_quad<T>(in_val, backend);
-        *(T *)(out_ptr) = out_val;
+        typename NpyType<T>::TYPE out_val = from_quad<T>(in_val, backend);
+        *(typename NpyType<T>::TYPE *)(out_ptr) = out_val;
 
         in_ptr += strides[0];
         out_ptr += strides[1];
@@ -778,7 +844,9 @@ init_casts_internal(void)
     add_spec(void_spec);
 
     add_cast_to<npy_bool>(&PyArray_BoolDType);
+    add_cast_to<spec_npy_bool>(&PyArray_BoolDType);
     add_cast_to<npy_byte>(&PyArray_ByteDType);
+    add_cast_to<npy_ubyte>(&PyArray_UByteDType);
     add_cast_to<npy_short>(&PyArray_ShortDType);
     add_cast_to<npy_ushort>(&PyArray_UShortDType);
     add_cast_to<npy_int>(&PyArray_IntDType);
@@ -787,12 +855,14 @@ init_casts_internal(void)
     add_cast_to<npy_ulong>(&PyArray_ULongDType);
     add_cast_to<npy_longlong>(&PyArray_LongLongDType);
     add_cast_to<npy_ulonglong>(&PyArray_ULongLongDType);
+    add_cast_to<spec_npy_half>(&PyArray_HalfDType);
     add_cast_to<float>(&PyArray_FloatDType);
     add_cast_to<double>(&PyArray_DoubleDType);
     add_cast_to<long double>(&PyArray_LongDoubleDType);
 
-    add_cast_from<npy_bool>(&PyArray_BoolDType);
+    add_cast_from<spec_npy_bool>(&PyArray_BoolDType);
     add_cast_from<npy_byte>(&PyArray_ByteDType);
+    add_cast_from<npy_ubyte>(&PyArray_UByteDType);
     add_cast_from<npy_short>(&PyArray_ShortDType);
     add_cast_from<npy_ushort>(&PyArray_UShortDType);
     add_cast_from<npy_int>(&PyArray_IntDType);
@@ -801,6 +871,7 @@ init_casts_internal(void)
     add_cast_from<npy_ulong>(&PyArray_ULongDType);
     add_cast_from<npy_longlong>(&PyArray_LongLongDType);
     add_cast_from<npy_ulonglong>(&PyArray_ULongLongDType);
+    add_cast_from<spec_npy_half>(&PyArray_HalfDType);
     add_cast_from<float>(&PyArray_FloatDType);
     add_cast_from<double>(&PyArray_DoubleDType);
     add_cast_from<long double>(&PyArray_LongDoubleDType);

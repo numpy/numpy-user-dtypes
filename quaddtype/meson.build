@@ -13,6 +13,8 @@ if is_windows
   add_project_arguments('-DWIN32', '-D_WINDOWS', language : ['c', 'cpp'])
 endif
 
+qblas_dep = dependency('qblas', fallback: ['qblas', 'qblas_dep'])
+
 sleef_subproj = subproject('sleef', required: true)
 sleef_dep = sleef_subproj.get_variable('sleef_dep')
 sleefquad_dep = sleef_subproj.get_variable('sleefquad_dep')
@@ -22,10 +24,13 @@ incdir_numpy = run_command(py,
   check : true
 ).stdout().strip()
 
-# OpenMP dependency (optional, for threading)
+npymath_path = incdir_numpy / '..' / 'lib'
+npymath_lib = c.find_library('npymath', dirs: npymath_path)
+
+dependencies = [py_dep, qblas_dep, sleef_dep, sleefquad_dep, npymath_lib]
+
+# Add OpenMP dependency (optional, for threading)
 openmp_dep = dependency('openmp', required: false)
-qblas_dep = dependency('qblas', fallback: ['qblas', 'qblas_dep'])
-dependencies = [py_dep, qblas_dep, sleef_dep, sleefquad_dep]
 if openmp_dep.found()
     dependencies += openmp_dep
 endif

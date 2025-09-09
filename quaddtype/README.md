@@ -34,7 +34,7 @@ np.array([1,2,3], dtype=QuadPrecDType("longdouble"))
 
 ### Linux/Unix/macOS
 
-Building the `numpy-quaddtype` package from locally installed sleef:
+Building the `numpy-quaddtype` package:
 
 ```bash
 # setup the virtual env
@@ -42,16 +42,13 @@ python3 -m venv temp
 source temp/bin/activate
 
 # Install the package
-pip install meson-python numpy pytest
-
-# If you see errors about a missing atomics library, you might need -latomic
-export LDFLAGS="-fopenmp -lpthread"
+pip install numpy pytest
 
 # To build without QBLAS (default for MSVC)
 # export CFLAGS="-DDISABLE_QUADBLAS"
 # export CXXFLAGS="-DDISABLE_QUADBLAS"
 
-python -m pip install . -v --no-build-isolation
+python -m pip install . -v
 
 # Run the tests
 cd ..
@@ -82,7 +79,7 @@ python -m pytest
 
    # Install build dependencies
    pip install -U pip
-   pip install meson-python numpy pytest ninja meson
+   pip install numpy pytest ninja meson
    ```
 
 3. **Set Environment Variables**
@@ -97,7 +94,7 @@ python -m pytest
 
    ```powershell
    # Build and install the package
-   python -m pip install . -v --no-build-isolation
+   python -m pip install . -v
    ```
 
 5. **Test Installation**

@@ -138,7 +138,7 @@ compile_commands.json
 .DS_Store
 .idea/
 
-# quddtype
+# quaddtype
 /quaddtype/subprojects/qblas/
 /quaddtype/subprojects/sleef/
 .wraplock
