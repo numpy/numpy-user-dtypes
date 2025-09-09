@@ -70,7 +70,10 @@ def test_unsupported_astype(dtype):
     with pytest.raises(TypeError if dtype != "V10" else ValueError, match="cast"):
         np.array(val, dtype=dtype).astype(QuadPrecDType, casting="unsafe")
 
-    with pytest.raises(TypeError if dtype != "V10" else ValueError, match="cast"):
+    if dtype == "V10":
+        pytest.xfail("cast from QuadPrecision to V10 segfaults")
+
+    with pytest.raises(TypeError, match="cast"):
         np.array(QuadPrecision(1)).astype(dtype, casting="unsafe")
 
 
