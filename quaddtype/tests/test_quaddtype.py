@@ -39,14 +39,39 @@ def test_finfo_int_constant(name, value):
     assert getattr(numpy_quaddtype, name) == value
 
 
-@pytest.mark.parametrize("dtype", ["bool", "byte", "int8", "ubyte", "uint8", "short", "int16", "ushort", "uint16", "int", "int32", "uint", "uint32", "long", "ulong", "longlong", "int64", "ulonglong", "uint64", "half", "float16", "float", "float32", "double", "float64", "longdouble"])
-def test_astype(dtype):
+@pytest.mark.parametrize("dtype", [
+    "bool",
+    "byte", "int8", "ubyte", "uint8",
+    "short", "int16", "ushort", "uint16",
+    "int", "int32", "uint", "uint32",
+    "long", "ulong",
+    "longlong", "int64", "ulonglong", "uint64",
+    "half", "float16",
+    "float", "float32",
+    "double", "float64",
+    "longdouble", "float96", "float128",
+])
+def test_supported_astype(dtype):
+    if dtype in ("float96", "float128") and getattr(np, dtype, None) is None:
+        pytest.skip(f"{dtype} is unsupported on the current platform")
+
     orig = np.array(1, dtype=dtype)
     quad = orig.astype(QuadPrecDType, casting="safe")
     back = quad.astype(dtype, casting="unsafe")
 
     assert quad == 1
     assert back == orig
+
+
+@pytest.mark.parametrize("dtype", ["S10", "U10", "T", "V10", "datetime64[ms]", "timedelta64[ms]"])
+def test_unsupported_astype(dtype):
+    val = 1 if dtype != "V10" else b"1"
+
+    with pytest.raises(TypeError if dtype != "V10" else ValueError, match="cast"):
+        np.array(val, dtype=dtype).astype(QuadPrecDType, casting="unsafe")
+
+    with pytest.raises(TypeError if dtype != "V10" else ValueError, match="cast"):
+        np.array(QuadPrecision(1)).astype(dtype, casting="unsafe")
 
 
 def test_basic_equality():
