@@ -21,7 +21,7 @@ extern "C" {
 #include "casts.h"
 #include "dtype.h"
 
-#define NUM_CASTS 33  // 16 to_casts + 16 from_casts + 1 quad_to_quad
+#define NUM_CASTS 34  // 16 to_casts + 16 from_casts + 1 quad_to_quad + 1 void_to_quad
 
 static NPY_CASTING
 quad_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self),
@@ -150,6 +150,27 @@ quad_to_quad_strided_loop_aligned(PyArrayMethod_Context *context, char *const da
 
     return 0;
 }
+
+
+static NPY_CASTING
+void_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta *dtypes[2],
+                                PyArray_Descr *given_descrs[2], PyArray_Descr *loop_descrs[2],
+                                npy_intp *view_offset)
+{
+    PyErr_SetString(PyExc_TypeError, 
+        "Void to QuadPrecision cast is not implemented");
+    return (NPY_CASTING)-1;
+}
+
+static int
+void_to_quad_strided_loop(PyArrayMethod_Context *context, char *const data[],
+                         npy_intp const dimensions[], npy_intp const strides[],
+                         void *NPY_UNUSED(auxdata))
+{
+    PyErr_SetString(PyExc_RuntimeError, "void_to_quad_strided_loop should not be called");
+    return -1;
+}
+
 
 // Tag dispatching to ensure npy_bool/npy_ubyte and npy_half/npy_ushort do not alias in templates
 // see e.g. https://stackoverflow.com/q/32522279
@@ -804,6 +825,24 @@ init_casts_internal(void)
     };
 
     add_spec(quad2quad_spec);
+
+    PyArray_DTypeMeta **void_dtypes = new PyArray_DTypeMeta *[2]{&PyArray_VoidDType, &QuadPrecDType};
+    PyType_Slot *void_slots = new PyType_Slot[]{
+        {NPY_METH_resolve_descriptors, (void *)&void_to_quad_resolve_descriptors},
+        {NPY_METH_strided_loop, (void *)&void_to_quad_strided_loop},
+        {NPY_METH_unaligned_strided_loop, (void *)&void_to_quad_strided_loop},
+        {0, nullptr}};
+
+    PyArrayMethod_Spec *void_spec = new PyArrayMethod_Spec{
+        .name = "cast_Void_to_QuadPrec_ERROR",
+        .nin = 1,
+        .nout = 1,
+        .casting = NPY_UNSAFE_CASTING,
+        .flags = NPY_METH_SUPPORTS_UNALIGNED,
+        .dtypes = void_dtypes,
+        .slots = void_slots,
+    };
+    add_spec(void_spec);
 
     add_cast_to<spec_npy_bool>(&PyArray_BoolDType);
     add_cast_to<npy_byte>(&PyArray_ByteDType);
