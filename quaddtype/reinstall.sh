@@ -8,6 +8,7 @@ if [ -d "build/" ]; then
     rm -rf subprojects/sleef
 fi
 
-
+export CFLAGS="-g -O0" 
+export CXXFLAGS="-g -O0"
 python -m pip uninstall -y numpy_quaddtype
 python -m pip install . -v

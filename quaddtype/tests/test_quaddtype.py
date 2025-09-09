@@ -66,13 +66,14 @@ def test_supported_astype(dtype):
 @pytest.mark.parametrize("dtype", ["S10", "U10", "T", "V10", "datetime64[ms]", "timedelta64[ms]"])
 def test_unsupported_astype(dtype):
     if dtype == "V10":
-        pytest.xfail("casts to and from V10 segfault")
+        with pytest.raises(TypeError, match="cast"):
+          np.ones((3, 3), dtype="V10").astype(QuadPrecDType, casting="unsafe")
+    else:
+      with pytest.raises(TypeError, match="cast"):
+          np.array(1, dtype=dtype).astype(QuadPrecDType, casting="unsafe")
 
-    with pytest.raises(TypeError, match="cast"):
-        np.array(1, dtype=dtype).astype(QuadPrecDType, casting="unsafe")
-
-    with pytest.raises(TypeError, match="cast"):
-        np.array(QuadPrecision(1)).astype(dtype, casting="unsafe")
+      with pytest.raises(TypeError, match="cast"):
+          np.array(QuadPrecision(1)).astype(dtype, casting="unsafe")
 
 
 def test_basic_equality():
