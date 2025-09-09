@@ -151,6 +151,27 @@ quad_to_quad_strided_loop_aligned(PyArrayMethod_Context *context, char *const da
     return 0;
 }
 
+
+static NPY_CASTING
+void_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta *dtypes[2],
+                                PyArray_Descr *given_descrs[2], PyArray_Descr *loop_descrs[2],
+                                npy_intp *view_offset)
+{
+    PyErr_SetString(PyExc_TypeError, 
+        "Void to QuadPrecision cast is not implemented");
+    return (NPY_CASTING)-1;
+}
+
+static int
+void_to_quad_strided_loop(PyArrayMethod_Context *context, char *const data[],
+                         npy_intp const dimensions[], npy_intp const strides[],
+                         void *NPY_UNUSED(auxdata))
+{
+    PyErr_SetString(PyExc_RuntimeError, "void_to_quad_strided_loop should not be called");
+    return -1;
+}
+
+
 // Tag dispatching to ensure npy_bool/npy_ubyte and npy_half/npy_ushort do not alias in templates
 // see e.g. https://stackoverflow.com/q/32522279
 struct spec_npy_bool {};
@@ -783,26 +804,6 @@ add_cast_to(PyArray_DTypeMeta *from)
     add_spec(spec);
 }
 
-static NPY_CASTING
-void_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta *dtypes[2],
-                                PyArray_Descr *given_descrs[2], PyArray_Descr *loop_descrs[2],
-                                npy_intp *view_offset)
-{
-    PyErr_SetString(PyExc_TypeError, 
-        "Cannot cast void dtype to QuadPrecDType. "
-        "Void arrays contain arbitrary binary data that cannot be meaningfully converted to quad-precision floats.");
-    return (NPY_CASTING)-1;
-}
-
-static int
-void_to_quad_strided_loop(PyArrayMethod_Context *context, char *const data[],
-                         npy_intp const dimensions[], npy_intp const strides[],
-                         void *NPY_UNUSED(auxdata))
-{
-    PyErr_SetString(PyExc_RuntimeError, "void_to_quad_strided_loop should not be called");
-    return -1;
-}
-
 PyArrayMethod_Spec **
 init_casts_internal(void)
 {
@@ -843,7 +844,6 @@ init_casts_internal(void)
     };
     add_spec(void_spec);
 
-    add_cast_to<npy_bool>(&PyArray_BoolDType);
     add_cast_to<spec_npy_bool>(&PyArray_BoolDType);
     add_cast_to<npy_byte>(&PyArray_ByteDType);
     add_cast_to<npy_ubyte>(&PyArray_UByteDType);
