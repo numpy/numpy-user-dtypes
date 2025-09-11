@@ -121,15 +121,19 @@ quad_generic_comp_strided_loop_aligned(PyArrayMethod_Context *context, char *con
     QuadPrecDTypeObject *descr = (QuadPrecDTypeObject *)context->descriptors[0];
     QuadBackendType backend = descr->backend;
     while (N--) {
-        quad_value in1 = *(quad_value *)in1_ptr;
-        quad_value in2 = *(quad_value *)in2_ptr;
+        quad_value in1;
+        quad_value in2;
 
         npy_bool result;
 
         if (backend == BACKEND_SLEEF) {
+            in1.sleef_value = *(Sleef_quad *)in1_ptr;
+            in2.sleef_value = *(Sleef_quad *)in2_ptr;
             result = sleef_comp(&in1.sleef_value, &in2.sleef_value);
         }
         else {
+            in1.longdouble_value = *(long double *)in1_ptr;
+            in2.longdouble_value = *(long double *)in2_ptr;
             result = ld_comp(&in1.longdouble_value, &in2.longdouble_value);
         }
 
