@@ -65,7 +65,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-13, macos-14]
+        os: [macos-14, macos-15]
 
     steps:
       - uses: actions/checkout@v3
@@ -95,10 +95,10 @@ jobs:
         env:
           CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-* cp314-* cp313t-* cp314t-*"
           CIBW_ENABLE: cpython-prerelease cpython-freethreading
-          CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-13' && 'x86_64' || 'arm64' }}
+          # CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-13' && 'x86_64' || 'arm64' }}
           CIBW_BUILD_VERBOSITY: "3"
           CIBW_ENVIRONMENT: >
-            MACOSX_DEPLOYMENT_TARGET="${{ matrix.os == 'macos-13' && '13.0' || '14.0' }}"
+            MACOSX_DEPLOYMENT_TARGET="${{ matrix.os == 'macos-14' && '14.0' || '15.0' }}"
           CIBW_REPAIR_WHEEL_COMMAND: >
             delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}
           CIBW_TEST_COMMAND: |
