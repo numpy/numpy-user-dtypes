@@ -165,14 +165,13 @@ jobs:
             CXXFLAGS="/DDISABLE_QUADBLAS $CXXFLAGS"
           CIBW_REPAIR_WHEEL_COMMAND: 'delvewheel repair -w {dest_dir} {wheel} --add-path C:\sleef\bin'
           CIBW_TEST_COMMAND_WINDOWS: |
-            pip install {package}[test] && (
-              python -c "import sys; exit(0 if hasattr(sys, '_is_gil_enabled') and not sys._is_gil_enabled() else 1)"
-              if errorlevel 1 (
-                pytest -s {project}/tests
-              ) else (
-                pytest --parallel-threads=10 --iterations=10 {project}/tests
-              )
-            )
+            pip install {package}[test]
+            python -c "import sys; exit(0 if hasattr(sys, '_is_gil_enabled') and not sys._is_gil_enabled() else 1)"
+            if ($LASTEXITCODE -ne 0) {
+              pytest -s {project}/tests
+            } else {
+              pytest --parallel-threads=10 --iterations=10 {project}/tests
+            }
           CIBW_TEST_EXTRAS: test
         shell: pwsh
         run: |
