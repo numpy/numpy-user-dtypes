@@ -36,7 +36,7 @@ quad_matmul_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtypes[
     if (descr_in1->backend != BACKEND_SLEEF || descr_in2->backend != BACKEND_SLEEF) {
         PyErr_SetString(PyExc_NotImplementedError,
                         "QBLAS-accelerated matmul only supports SLEEF backend. "
-                        "Other backends are not supported with QBLAS.");
+                        "Please raise the issue at SwayamInSync/QBLAS for longdouble support");
         return (NPY_CASTING)-1;
     }
 
@@ -61,7 +61,8 @@ quad_matmul_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtypes[
         QuadPrecDTypeObject *descr_out = (QuadPrecDTypeObject *)given_descrs[2];
         if (descr_out->backend != target_backend) {
             PyErr_SetString(PyExc_NotImplementedError,
-                            "QBLAS-accelerated matmul only supports SLEEF backend for output.");
+                        "QBLAS-accelerated matmul only supports SLEEF backend. "
+                        "Please raise the issue at SwayamInSync/QBLAS for longdouble support");
             return (NPY_CASTING)-1;
         }
         else {
@@ -118,7 +119,9 @@ quad_matmul_strided_loop_aligned(PyArrayMethod_Context *context, char *const dat
 
     QuadPrecDTypeObject *descr = (QuadPrecDTypeObject *)context->descriptors[0];
     if (descr->backend != BACKEND_SLEEF) {
-        PyErr_SetString(PyExc_RuntimeError, "Internal error: non-SLEEF backend in QBLAS matmul");
+        PyErr_SetString(PyExc_NotImplementedError,
+                        "QBLAS-accelerated matmul only supports SLEEF backend. "
+                        "Please raise the issue at SwayamInSync/QBLAS for longdouble support");
         return -1;
     }
 
@@ -206,7 +209,9 @@ quad_matmul_strided_loop_unaligned(PyArrayMethod_Context *context, char *const d
 
     QuadPrecDTypeObject *descr = (QuadPrecDTypeObject *)context->descriptors[0];
     if (descr->backend != BACKEND_SLEEF) {
-        PyErr_SetString(PyExc_RuntimeError, "Internal error: non-SLEEF backend in QBLAS matmul");
+        PyErr_SetString(PyExc_NotImplementedError,
+                        "QBLAS-accelerated matmul only supports SLEEF backend. "
+                        "Please raise the issue at SwayamInSync/QBLAS for longdouble support");
         return -1;
     }
 

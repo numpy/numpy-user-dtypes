@@ -15,10 +15,13 @@
 #include "scalar_ops.h"
 #include "dragon4.h"
 
+
 QuadPrecisionObject *
 QuadPrecision_raw_new(QuadBackendType backend)
 {
-    QuadPrecisionObject *new = PyObject_New(QuadPrecisionObject, &QuadPrecision_Type);
+    QuadPrecisionObject *new;
+    new = PyObject_New(QuadPrecisionObject, &QuadPrecision_Type);
+
     if (!new)
         return NULL;
     new->backend = backend;
@@ -153,7 +156,7 @@ QuadPrecision_str_dragon4(QuadPrecisionObject *self)
                            .sign = 1,
                            .trim_mode = TrimMode_LeaveOneZero,
                            .digits_left = 1,
-                           .digits_right = SLEEF_QUAD_DIG};
+                           .digits_right = 0};
 
     if (self->backend == BACKEND_SLEEF) {
         return Dragon4_Positional_QuadDType(

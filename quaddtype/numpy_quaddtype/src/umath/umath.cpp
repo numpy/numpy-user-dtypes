@@ -20,6 +20,7 @@ extern "C" {
 #include "umath.h"
 #include "../ops.hpp"
 #include "unary_ops.h"
+#include "unary_props.h"
 #include "binary_ops.h"
 #include "comparison_ops.h"
 #include "matmul.h"
@@ -89,6 +90,11 @@ init_quad_umath(void)
 
     if (init_quad_unary_ops(numpy) < 0) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to initialize quad unary operations");
+        goto err;
+    }
+
+    if (init_quad_unary_props(numpy) < 0) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to initialize quad unary properties");
         goto err;
     }
 

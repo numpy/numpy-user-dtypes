@@ -11,6 +11,9 @@ Modifications are specific to support the SLEEF_QUAD
 #include <sleef.h>
 #include <sleefquad.h>
 
+#include "quaddtype_config.h"
+
+
 #define PY_ARRAY_UNIQUE_SYMBOL QuadPrecType_ARRAY_API
 #define PY_UFUNC_UNIQUE_SYMBOL QuadPrecType_UFUNC_API
 #define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
@@ -21,6 +24,21 @@ Modifications are specific to support the SLEEF_QUAD
 #include "dragon4.h"
 #include "dtype.h"
 #include "scalar.h"
+
+
+#ifdef __cplusplus
+    #define NPY_TLS thread_local
+#elif defined(HAVE_THREAD_LOCAL)
+    #define NPY_TLS thread_local
+#elif defined(HAVE__THREAD_LOCAL)
+    #define NPY_TLS _Thread_local
+#elif defined(HAVE___THREAD)
+    #define NPY_TLS __thread
+#elif defined(HAVE___DECLSPEC_THREAD_)
+    #define NPY_TLS __declspec(thread)
+#else
+    #define NPY_TLS
+#endif
 
 #if 0
 #define DEBUG_ASSERT(stmnt) assert(stmnt)

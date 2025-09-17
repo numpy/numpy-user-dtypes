@@ -156,6 +156,9 @@ init_quad_unary_ops(PyObject *numpy)
     if (create_quad_unary_ufunc<quad_absolute, ld_absolute>(numpy, "absolute") < 0) {
         return -1;
     }
+    if (create_quad_unary_ufunc<quad_sign, ld_sign>(numpy, "sign") < 0) {
+        return -1;
+    }
     if (create_quad_unary_ufunc<quad_rint, ld_rint>(numpy, "rint") < 0) {
         return -1;
     }
@@ -172,6 +175,9 @@ init_quad_unary_ops(PyObject *numpy)
         return -1;
     }
     if (create_quad_unary_ufunc<quad_square, ld_square>(numpy, "square") < 0) {
+        return -1;
+    }
+    if (create_quad_unary_ufunc<quad_reciprocal, ld_reciprocal>(numpy, "reciprocal") < 0) {
         return -1;
     }
     if (create_quad_unary_ufunc<quad_log, ld_log>(numpy, "log") < 0) {
@@ -208,6 +214,24 @@ init_quad_unary_ops(PyObject *numpy)
         return -1;
     }
     if (create_quad_unary_ufunc<quad_atan, ld_atan>(numpy, "arctan") < 0) {
+        return -1;
+    }
+    if (create_quad_unary_ufunc<quad_sinh, ld_sinh>(numpy, "sinh") < 0) {
+        return -1;
+    }
+    if (create_quad_unary_ufunc<quad_cosh, ld_cosh>(numpy, "cosh") < 0) {
+        return -1;
+    }
+    if (create_quad_unary_ufunc<quad_tanh, ld_tanh>(numpy, "tanh") < 0) {
+        return -1;
+    }
+    if (create_quad_unary_ufunc<quad_asinh, ld_asinh>(numpy, "arcsinh") < 0) {
+        return -1;
+    }
+    if (create_quad_unary_ufunc<quad_acosh, ld_acosh>(numpy, "arccosh") < 0) {
+        return -1;
+    }
+    if (create_quad_unary_ufunc<quad_atanh, ld_atanh>(numpy, "arctanh") < 0) {
         return -1;
     }
     return 0;

@@ -1,21 +1,14 @@
 #!/bin/bash
-set -xeuo pipefail
-IFS=$'\n\t'
+set -x
 
-if [ -d "build/" ]
-then
+if [ -d "build/" ]; then
     rm -r build
+    rm -rf dist/
+    rm -rf subprojects/qblas
+    rm -rf subprojects/sleef
 fi
 
-export CC=clang
-export CXX=clang++
-export SLEEF_DIR=$PWD/sleef/build
-export LIBRARY_PATH=$SLEEF_DIR/lib
-export C_INCLUDE_PATH=$SLEEF_DIR/include
-export CPLUS_INCLUDE_PATH=$SLEEF_DIR/include
-
-# Set RPATH via LDFLAGS
-export LDFLAGS="-Wl,-rpath,$SLEEF_DIR/lib"
-
+export CFLAGS="-g -O0" 
+export CXXFLAGS="-g -O0"
 python -m pip uninstall -y numpy_quaddtype
-python -m pip install . -v --no-build-isolation -Cbuilddir=build -C'compile-args=-v'
+python -m pip install . -v
