@@ -1,16 +1,14 @@
-# Cross-platform testing for quaddtype on high-endianness architectures using QEMU.
-# This workflow uses Docker containers with QEMU emulation to test on different architectures,
-# particularly focusing on big-endian systems where byte order matters for quad precision operations.
-#
-# The recommended practice is to rely on Docker to provide the cross-compile toolchain,
-# enabling native execution via binfmt.
+# Cross-platform testing for quaddtype on big-endian architectures using QEMU.
+# This workflow focuses specifically on big-endian systems to test byte order handling
+# in quad precision operations, since little-endian systems are already covered by standard CI.
 
-name: Linux QEMU Endianness Tests
+name: Big-Endian Architecture Tests
 
 on:
   pull_request:
     branches:
       - main
+      - maintenance/**
     paths:
       - "quaddtype/**"
       - ".github/workflows/**"
@@ -28,25 +26,13 @@ permissions:
   contents: read
 
 jobs:
-  linux_qemu_endian:
+  big_endian_tests:
     runs-on: ubuntu-22.04
     continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
         BUILD_PROP:
-          - [
-              "ppc64le (Power9 Little Endian)",
-              "powerpc64le-linux-gnu",
-              "ppc64le/ubuntu:22.04",
-              "ppc64le"
-            ]
-          - [
-              "ppc64le - baseline(Power9)",
-              "powerpc64le-linux-gnu", 
-              "ppc64le/ubuntu:22.04",
-              "ppc64le"
-            ]
           - [
               "s390x (IBM Z Big Endian)",
               "s390x-linux-gnu",
@@ -58,12 +44,6 @@ jobs:
               "s390x-linux-gnu",
               "s390x/ubuntu:22.04",
               "s390x"
-            ]
-          - [
-              "riscv64 (Little Endian)",
-              "riscv64-linux-gnu",
-              "riscv64/ubuntu:22.04",
-              "riscv64"
             ]
     env:
       ARCH_NAME: ${{ matrix.BUILD_PROP[0] }}
@@ -169,100 +149,6 @@ jobs:
           /bin/script -e -q -c "/bin/bash --noprofile --norc -eo pipefail -c '
             cd /workspace/quaddtype &&
             echo \"Running quaddtype tests on ${ARCH_NAME} (endianness: \$(python -c \"import sys; print(sys.byteorder)\"))\" &&
+            echo \"Note: Testing big-endian byte order handling in quad precision operations\" &&
             pytest -vvv --color=yes --timeout=600 --tb=short tests/
           '"
-
-  linux_loongarch64_qemu:
-    runs-on: ubuntu-24.04
-    continue-on-error: true
-    strategy:
-      fail-fast: false
-      matrix:
-        BUILD_PROP:
-          - [
-              "loongarch64 (LoongArch Little Endian)",
-              "loongarch64-linux-gnu",
-              "cnclarechen/numpy-loong64-debian:v1",
-              "loong64"
-            ]
-    env:
-      ARCH_NAME: ${{ matrix.BUILD_PROP[0] }}
-      TOOLCHAIN_NAME: ${{ matrix.BUILD_PROP[1] }}
-      DOCKER_CONTAINER: ${{ matrix.BUILD_PROP[2] }}
-      ARCH: ${{ matrix.BUILD_PROP[3] }}
-      TERM: xterm-256color
-
-    name: "${{ matrix.BUILD_PROP[0] }}"
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: recursive
-        fetch-tags: true
-
-    - name: Initialize binfmt_misc for qemu-user-static (LoongArch)
-      run: |
-        docker run --rm --privileged loongcr.lcpu.dev/multiarch/archlinux --reset -p yes
-
-    - name: Install GCC cross-compilers for LoongArch
-      run: |
-        sudo apt update
-        sudo apt install -y ninja-build gcc-14-${TOOLCHAIN_NAME} g++-14-${TOOLCHAIN_NAME} gfortran-14-${TOOLCHAIN_NAME}
-
-    - name: Cache LoongArch docker container
-      uses: actions/cache@v4
-      id: container-cache
-      with:
-        path: ~/docker_${{ matrix.BUILD_PROP[1] }}
-        key: container-quaddtype-${{ runner.os }}-${{ matrix.BUILD_PROP[1] }}-${{ matrix.BUILD_PROP[2] }}-${{ hashFiles('quaddtype/pyproject.toml') }}
-
-    - name: Create LoongArch cross-compilation container
-      if: steps.container-cache.outputs.cache-hit != 'true'
-      run: |
-        docker run --platform=linux/${ARCH} --name quaddtype_loong_container --interactive \
-          -v /:/host -v $(pwd):/workspace ${DOCKER_CONTAINER} /bin/bash -c "
-          # Set up cross-compilation environment for LoongArch
-          mkdir -p /lib64 && ln -sf /host/lib64/ld-* /lib64/ &&
-          ln -sf /host/lib/x86_64-linux-gnu /lib/x86_64-linux-gnu &&
-          ln -sf /host/usr/${TOOLCHAIN_NAME} /usr/${TOOLCHAIN_NAME} &&
-          ln -sf /host/usr/lib/gcc-cross/${TOOLCHAIN_NAME} /usr/lib/gcc/${TOOLCHAIN_NAME} &&
-          
-          # Use GCC-14 for LoongArch
-          rm -f /usr/bin/gcc && ln -sf /host/usr/bin/${TOOLCHAIN_NAME}-gcc-14 /usr/bin/gcc &&
-          rm -f /usr/bin/g++ && ln -sf /host/usr/bin/${TOOLCHAIN_NAME}-g++-14 /usr/bin/g++ &&
-          rm -f /usr/bin/gfortran && ln -sf /host/usr/bin/${TOOLCHAIN_NAME}-gfortran-14 /usr/bin/gfortran &&
-          rm -f /usr/bin/ar && ln -sf /host/usr/bin/${TOOLCHAIN_NAME}-ar /usr/bin/ar &&
-          rm -f /usr/bin/as && ln -sf /host/usr/bin/${TOOLCHAIN_NAME}-as /usr/bin/as &&
-          rm -f /usr/bin/ld && ln -sf /host/usr/bin/${TOOLCHAIN_NAME}-ld /usr/bin/ld &&
-          rm -f /usr/bin/ld.bfd && ln -sf /host/usr/bin/${TOOLCHAIN_NAME}-ld.bfd /usr/bin/ld.bfd &&
-          rm -f /usr/bin/ninja && ln -sf /host/usr/bin/ninja /usr/bin/ninja &&
-          
-          git config --global --add safe.directory /workspace &&
-          python -m pip install --break-system-packages meson>=1.3.2 meson-python wheel numpy
-        "
-        docker commit quaddtype_loong_container quaddtype_loong_container
-        mkdir -p "~/docker_${TOOLCHAIN_NAME}"
-        docker save -o "~/docker_${TOOLCHAIN_NAME}/quaddtype_loong_container.tar" quaddtype_loong_container
-
-    - name: Load LoongArch container from cache
-      if: steps.container-cache.outputs.cache-hit == 'true'
-      run: docker load -i "~/docker_${TOOLCHAIN_NAME}/quaddtype_loong_container.tar"
-
-    - name: Build quaddtype on LoongArch
-      run: |
-        docker run --rm --platform=linux/${ARCH} -e "TERM=xterm-256color" \
-          -v $(pwd):/workspace -v /:/host quaddtype_loong_container \
-          /bin/script -e -q -c "/bin/bash --noprofile --norc -eo pipefail -c '
-            cd /workspace/quaddtype &&
-            export LDFLAGS=\"-fopenmp\" &&
-            python -m pip install --break-system-packages .[test] -v --no-build-isolation --force-reinstall
-          '"
-
-    - name: Run LoongArch tests
-      run: |
-        docker run --rm --platform=linux/${ARCH} -e "TERM=xterm-256color" \
-        -v $(pwd):/workspace -v /:/host quaddtype_loong_container \
-        /bin/script -e -q -c "/bin/bash --noprofile --norc -eo pipefail -c '
-          cd /workspace/quaddtype &&
-          echo \"Running quaddtype tests on ${ARCH_NAME} (endianness: \$(python -c \"import sys; print(sys.byteorder)\"))\" &&
-          pytest -vvv --color=yes tests/
-        '"
