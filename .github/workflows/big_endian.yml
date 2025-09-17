@@ -8,7 +8,6 @@ on:
   pull_request:
     branches:
       - main
-      - maintenance/**
     paths:
       - "quaddtype/**"
       - ".github/workflows/**"
@@ -150,5 +149,5 @@ jobs:
             cd /workspace/quaddtype &&
             echo \"Running quaddtype tests on ${ARCH_NAME} (endianness: \$(python -c \"import sys; print(sys.byteorder)\"))\" &&
             echo \"Note: Testing big-endian byte order handling in quad precision operations\" &&
-            pytest -vvv --color=yes --timeout=600 --tb=short tests/
+            python -m pytest -vvv --color=yes --timeout=600 --tb=short tests/
           '"
