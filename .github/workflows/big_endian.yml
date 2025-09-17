@@ -114,6 +114,7 @@ jobs:
           # Install Python build dependencies
           python -m pip install --upgrade pip &&
           python -m pip install meson>=1.3.2 meson-python wheel numpy &&
+          python -m pip install pytest pytest-run-parallel pytest-timeout &&
           
           # Install system dependencies for quaddtype (SLEEF dependencies)
           apt install -y libssl-dev libfftw3-dev pkg-config
