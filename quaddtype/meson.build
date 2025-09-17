@@ -35,7 +35,7 @@ if openmp_dep.found()
     dependencies += openmp_dep
 endif
 
-# compiler flags for QBLAS compatibility  
+# compiler flags for QBLAS compatibility
 if not is_windows
     # QBLAS requires extended numeric literals for Q suffix support
     # if compiler supports (usually gcc)
@@ -61,14 +61,14 @@ foreach optional_attr: optional_variable_attributes
   code = '''
     #pragma GCC diagnostic error "-Wattributes"
     #pragma clang diagnostic error "-Wattributes"
-    
+
     int @0@ foo;
-    
+
     int main() {
       return 0;
     }
   '''.format(attr)
-  
+
   if c.compiles(code, name: optional_attr[0])
     cdata.set10(optional_attr[1], true)
     message('Thread-local storage support found: @0@'.format(attr))
@@ -122,6 +122,9 @@ srcs = [
 py.install_sources(
     [
         'numpy_quaddtype/__init__.py',
+        'numpy_quaddtype/__init__.pyi',
+        'numpy_quaddtype/_quaddtype_main.pyi',
+        'numpy_quaddtype/py.typed',
     ],
     subdir: 'numpy_quaddtype',
     pure: false
