@@ -127,7 +127,7 @@ jobs:
       if: steps.container-cache.outputs.cache-hit == 'true'
       run: docker load -i "~/docker_${TOOLCHAIN_NAME}/quaddtype_container.tar"
 
-    - name: Build quaddtype with cross-compilation
+    - name: Build quaddtype with cross-compilation and testing
       run: |
         docker run --rm --platform=linux/${ARCH} -e "TERM=xterm-256color" \
           -v $(pwd):/workspace -v /:/host quaddtype_container \
@@ -140,15 +140,7 @@ jobs:
             
             # Install quaddtype with test dependencies
             python -m pip install .[test] -v --no-build-isolation --force-reinstall
-          '"
-
-    - name: Run quaddtype tests
-      run: |
-        docker run --rm --platform=linux/${ARCH} -e "TERM=xterm-256color" \
-          -v $(pwd):/workspace -v /:/host quaddtype_container \
-          /bin/script -e -q -c "/bin/bash --noprofile --norc -eo pipefail -c '
-            cd /workspace &&
-            echo \"Running quaddtype tests on ${ARCH_NAME} (endianness: \$(python -c \"import sys; print(sys.byteorder)\"))\" &&
-            echo \"Note: Testing big-endian byte order handling in quad precision operations\" &&
-            python -m pytest -vvv --color=yes --timeout=600 --tb=short /workspace/quaddtype/tests/
+            
+            cd ..
+            python -m pytest -vvv --color=yes --timeout=600 --tb=short quaddtype/tests/
           '"
