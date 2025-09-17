@@ -11,6 +11,7 @@
 #include "numpy/arrayobject.h"
 #include "numpy/dtype_api.h"
 #include "numpy/ufuncobject.h"
+#include "numpy/npy_endian.h"
 
 #include "scalar.h"
 #include "dtype.h"
@@ -33,23 +34,26 @@ py_is_longdouble_128(PyObject *self, PyObject *args)
 #ifdef SLEEF_QUAD_C
 static const Sleef_quad SMALLEST_SUBNORMAL_VALUE = SLEEF_QUAD_DENORM_MIN;
 #else
-// Use the exact same struct layout as the original buggy code
 static const union {
     struct {
-#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
-        uint64_t h, l;
-#else
-        uint64_t l, h;
-#endif
+        #if NPY_BYTE_ORDER == NPY_BIG_ENDIAN
+            uint64_t high;
+            uint64_t low;
+        #elif NPY_BYTE_ORDER == NPY_LITTLE_ENDIAN  
+            uint64_t low;
+            uint64_t high;
+        #else
+            #error "Unknown endianness - NPY_BYTE_ORDER not properly defined"
+        #endif
     } parts;
     Sleef_quad value;
-} smallest_subnormal_const = {.parts = {
-#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
-                                      .h = 0x0000000000000000ULL, .l = 0x0000000000000001ULL
-#else
-                                      .l = 0x0000000000000001ULL, .h = 0x0000000000000000ULL
-#endif
-                              }};
+} smallest_subnormal_const = {
+    .parts = {
+        .low = 0x0000000000000001ULL,
+        .high = 0x0000000000000000ULL
+    }
+};
+
 #define SMALLEST_SUBNORMAL_VALUE (smallest_subnormal_const.value)
 #endif
 
