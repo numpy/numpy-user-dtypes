@@ -11,7 +11,6 @@ on:
   pull_request:
     branches:
       - main
-      - maintenance/**
     paths:
       - "quaddtype/**"
       - ".github/workflows/**"
@@ -30,8 +29,6 @@ permissions:
 
 jobs:
   linux_qemu_endian:
-    # Enable on forks only for workflow_dispatch
-    if: github.repository == 'numpy/numpy-user-dtypes' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-22.04
     continue-on-error: true
     strategy:
@@ -176,8 +173,6 @@ jobs:
           '"
 
   linux_loongarch64_qemu:
-    # LoongArch64 testing (another architecture for comprehensive coverage)
-    if: github.repository == 'numpy/numpy-user-dtypes' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     continue-on-error: true
     strategy:
