@@ -147,8 +147,8 @@ jobs:
         docker run --rm --platform=linux/${ARCH} -e "TERM=xterm-256color" \
           -v $(pwd):/workspace -v /:/host quaddtype_container \
           /bin/script -e -q -c "/bin/bash --noprofile --norc -eo pipefail -c '
-            cd /workspace/quaddtype &&
+            cd /workspace &&
             echo \"Running quaddtype tests on ${ARCH_NAME} (endianness: \$(python -c \"import sys; print(sys.byteorder)\"))\" &&
             echo \"Note: Testing big-endian byte order handling in quad precision operations\" &&
-            python -m pytest -vvv --color=yes --timeout=600 --tb=short tests/
+            python -m pytest -vvv --color=yes --timeout=600 --tb=short /workspace/quaddtype/tests/
           '"
