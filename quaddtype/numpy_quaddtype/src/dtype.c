@@ -176,6 +176,28 @@ quadprec_default_descr(PyArray_DTypeMeta *cls)
     return (PyArray_Descr *)temp;
 }
 
+static PyObject *
+quad_finfo(PyArray_Descr *descr)
+{
+    
+    PyObject *finfo_dict = PyDict_New();
+    if (!finfo_dict) return NULL;
+    
+    PyDict_SetItemString(finfo_dict, "precision", PyLong_FromLong(34));
+    PyDict_SetItemString(finfo_dict, "bits", PyLong_FromLong(128));
+    
+    PyDict_SetItemString(finfo_dict, "eps", PyLong_FromLong(34));
+
+    PyDict_SetItemString(finfo_dict, "max", PyLong_FromLong(34));
+
+    PyDict_SetItemString(finfo_dict, "tiny", PyLong_FromLong(34));
+
+    PyDict_SetItemString(finfo_dict, "epsneg", PyLong_FromLong(34));
+    PyDict_SetItemString(finfo_dict, "resolution", PyLong_FromLong(34));
+
+    return finfo_dict; 
+}
+
 static PyType_Slot QuadPrecDType_Slots[] = {
         {NPY_DT_ensure_canonical, &ensure_canonical},
         {NPY_DT_common_instance, &common_instance},
@@ -185,6 +207,7 @@ static PyType_Slot QuadPrecDType_Slots[] = {
         {NPY_DT_getitem, &quadprec_getitem},
         {NPY_DT_default_descr, &quadprec_default_descr},
         {NPY_DT_PyArray_ArrFuncs_dotfunc, NULL},
+        {NPY_DT_get_finfo, &quad_finfo},
         {0, NULL}};
 
 static PyObject *
