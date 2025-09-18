@@ -31,6 +31,12 @@ py_is_longdouble_128(PyObject *self, PyObject *args)
     }
 }
 
+#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+#warning "Big-endian platform detected"
+#else
+#warning "Little Endian"
+#endif
+
 static PyObject *
 get_sleef_constant(PyObject *self, PyObject *args)
 {
