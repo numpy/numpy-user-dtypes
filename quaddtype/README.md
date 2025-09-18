@@ -1,4 +1,4 @@
-# Numpy-QuadDType
+# NumPy-QuadDType
 
 A cross-platform Quad (128-bit) float Data-Type for NumPy.
 
