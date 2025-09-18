@@ -36,6 +36,11 @@ test = [
     "pytest-run-parallel"
 ]
 
+[project.urls]
+Repository = "https://github.com/numpy/numpy-user-dtypes"
+Documentation = "https://github.com/numpy/numpy-user-dtypes/tree/main/quaddtype"
+Issues = "https://github.com/numpy/numpy-user-dtypes/issues"
+
 [tool.pyright]
 include = ["numpy_quaddtype/*.pyi"]
 typeCheckingMode = "strict"
