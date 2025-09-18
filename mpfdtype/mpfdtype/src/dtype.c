@@ -159,6 +159,27 @@ mpf_getitem(MPFDTypeObject *descr, char *dataptr)
     return (PyObject *)new;
 }
 
+
+int mpf_compare(char *in1_ptr, char *in2_ptr, PyArray_Descr *descr)
+{
+    /* Note that it is probably better to only get the descr from `ap` */
+    mpfr_prec_t precision = ((MPFDTypeObject *)descr)->precision;
+
+    mpfr_ptr in1, in2;
+
+    mpf_load(in1, in1_ptr, precision);
+    mpf_load(in2, in2_ptr, precision);
+
+    if (!mpfr_total_order_p(in1, in2)) {
+        return 1;
+    }
+    if (!mpfr_total_order_p(in2, in1)) {
+        return -1;
+    }
+    return 0;
+}
+
+
 static PyType_Slot MPFDType_Slots[] = {
         {NPY_DT_ensure_canonical, &ensure_canonical},
         {NPY_DT_common_instance, &common_instance},
@@ -166,6 +187,7 @@ static PyType_Slot MPFDType_Slots[] = {
         {NPY_DT_discover_descr_from_pyobject, &mpf_discover_descriptor_from_pyobject},
         {NPY_DT_setitem, &mpf_setitem},
         {NPY_DT_getitem, &mpf_getitem},
+        {NPY_DT_sort_compare, &mpf_compare},
         {0, NULL}};
 
 /*
