@@ -11,7 +11,6 @@
 #include "numpy/arrayobject.h"
 #include "numpy/dtype_api.h"
 #include "numpy/ufuncobject.h"
-#include "numpy/npy_endian.h"
 
 #include "scalar.h"
 #include "dtype.h"
