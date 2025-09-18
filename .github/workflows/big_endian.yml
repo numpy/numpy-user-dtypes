@@ -1,7 +1,3 @@
-# Cross-platform testing for quaddtype on big-endian architectures using QEMU.
-# This workflow focuses specifically on big-endian systems to test byte order handling
-# in quad precision operations, since little-endian systems are already covered by standard CI.
-
 name: Big-Endian Architecture Tests
 
 on:
@@ -35,14 +31,14 @@ jobs:
           - [
               "s390x (IBM Z Big Endian)",
               "s390x-linux-gnu",
-              "s390x/ubuntu:22.04", 
-              "s390x"
+              "s390x/ubuntu:22.04",
+              "s390x",
             ]
           - [
               "s390x - baseline(Z13)",
               "s390x-linux-gnu",
               "s390x/ubuntu:22.04",
-              "s390x"
+              "s390x",
             ]
     env:
       ARCH_NAME: ${{ matrix.BUILD_PROP[0] }}
@@ -53,94 +49,94 @@ jobs:
 
     name: "${{ matrix.BUILD_PROP[0] }}"
     steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: recursive
-        fetch-tags: true
-        persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-tags: true
+          persist-credentials: false
 
-    - name: Initialize binfmt_misc for qemu-user-static
-      run: |
-        # Enable QEMU user-mode emulation for cross-architecture execution
-        docker run --rm --privileged tonistiigi/binfmt:qemu-v9.2.2-52 --install all
+      - name: Initialize binfmt_misc for qemu-user-static
+        run: |
+          # Enable QEMU user-mode emulation for cross-architecture execution
+          docker run --rm --privileged tonistiigi/binfmt:qemu-v9.2.2-52 --install all
 
-    - name: Install cross-compilation toolchain
-      run: |
-        sudo apt update
-        sudo apt install -y ninja-build gcc-${TOOLCHAIN_NAME} g++-${TOOLCHAIN_NAME} gfortran-${TOOLCHAIN_NAME}
+      - name: Install cross-compilation toolchain
+        run: |
+          sudo apt update
+          sudo apt install -y ninja-build gcc-${TOOLCHAIN_NAME} g++-${TOOLCHAIN_NAME} gfortran-${TOOLCHAIN_NAME}
 
-    - name: Cache docker container
-      uses: actions/cache@v4
-      id: container-cache
-      with:
-        path: ~/docker_${{ matrix.BUILD_PROP[1] }}
-        key: container-quaddtype-${{ runner.os }}-${{ matrix.BUILD_PROP[1] }}-${{ matrix.BUILD_PROP[2] }}-${{ hashFiles('quaddtype/pyproject.toml') }}
+      - name: Cache docker container
+        uses: actions/cache@v4
+        id: container-cache
+        with:
+          path: ~/docker_${{ matrix.BUILD_PROP[1] }}
+          key: container-quaddtype-${{ runner.os }}-${{ matrix.BUILD_PROP[1] }}-${{ matrix.BUILD_PROP[2] }}-${{ hashFiles('quaddtype/pyproject.toml') }}
 
-    - name: Create cross-compilation container
-      if: steps.container-cache.outputs.cache-hit != 'true'
-      run: |
-        docker run --platform=linux/${ARCH} --name quaddtype_container --interactive \
-          -v /:/host -v $(pwd):/workspace ${DOCKER_CONTAINER} /bin/bash -c "
-          # Update package manager and install essential tools
-          apt update &&
-          apt install -y cmake git python3 python-is-python3 python3-dev python3-pip build-essential &&
-          
-          # Create necessary symlinks for cross-compilation
-          mkdir -p /lib64 && ln -sf /host/lib64/ld-* /lib64/ || true &&
-          ln -sf /host/lib/x86_64-linux-gnu /lib/x86_64-linux-gnu || true &&
-          
-          # Link cross-compilation toolchain from host
-          rm -rf /usr/${TOOLCHAIN_NAME} && ln -sf /host/usr/${TOOLCHAIN_NAME} /usr/${TOOLCHAIN_NAME} &&
-          rm -rf /usr/lib/gcc/${TOOLCHAIN_NAME} && ln -sf /host/usr/lib/gcc-cross/${TOOLCHAIN_NAME} /usr/lib/gcc/${TOOLCHAIN_NAME} &&
-          
-          # Set up compiler symlinks
-          rm -f /usr/bin/gcc && ln -sf /host/usr/bin/${TOOLCHAIN_NAME}-gcc /usr/bin/gcc &&
-          rm -f /usr/bin/g++ && ln -sf /host/usr/bin/${TOOLCHAIN_NAME}-g++ /usr/bin/g++ &&
-          rm -f /usr/bin/gfortran && ln -sf /host/usr/bin/${TOOLCHAIN_NAME}-gfortran /usr/bin/gfortran &&
-          
-          # Set up binutils
-          rm -f /usr/bin/ar && ln -sf /host/usr/bin/${TOOLCHAIN_NAME}-ar /usr/bin/ar &&
-          rm -f /usr/bin/as && ln -sf /host/usr/bin/${TOOLCHAIN_NAME}-as /usr/bin/as &&
-          rm -f /usr/bin/ld && ln -sf /host/usr/bin/${TOOLCHAIN_NAME}-ld /usr/bin/ld &&
-          rm -f /usr/bin/ld.bfd && ln -sf /host/usr/bin/${TOOLCHAIN_NAME}-ld.bfd /usr/bin/ld.bfd &&
-          
-          # Link build tools
-          rm -f /usr/bin/ninja && ln -sf /host/usr/bin/ninja /usr/bin/ninja &&
-          rm -f /usr/local/bin/ninja && mkdir -p /usr/local/bin && ln -sf /host/usr/bin/ninja /usr/local/bin/ninja &&
-          
-          # Configure git for workspace access
-          git config --global --add safe.directory /workspace &&
-          
-          # Install Python build dependencies
-          python -m pip install --upgrade pip &&
-          python -m pip install meson>=1.3.2 meson-python wheel numpy &&
-          python -m pip install pytest pytest-run-parallel pytest-timeout &&
-          
-          # Install system dependencies for quaddtype (SLEEF dependencies)
-          apt install -y libssl-dev libfftw3-dev pkg-config
-        "
-        docker commit quaddtype_container quaddtype_container
-        mkdir -p "~/docker_${TOOLCHAIN_NAME}"
-        docker save -o "~/docker_${TOOLCHAIN_NAME}/quaddtype_container.tar" quaddtype_container
-
-    - name: Load container from cache
-      if: steps.container-cache.outputs.cache-hit == 'true'
-      run: docker load -i "~/docker_${TOOLCHAIN_NAME}/quaddtype_container.tar"
-
-    - name: Build quaddtype with cross-compilation and testing
-      run: |
-        docker run --rm --platform=linux/${ARCH} -e "TERM=xterm-256color" \
-          -v $(pwd):/workspace -v /:/host quaddtype_container \
-          /bin/script -e -q -c "/bin/bash --noprofile --norc -eo pipefail -c '
-            cd /workspace/quaddtype &&
-            echo \"Building quaddtype for ${ARCH_NAME}...\" &&
+      - name: Create cross-compilation container
+        if: steps.container-cache.outputs.cache-hit != 'true'
+        run: |
+          docker run --platform=linux/${ARCH} --name quaddtype_container --interactive \
+            -v /:/host -v $(pwd):/workspace ${DOCKER_CONTAINER} /bin/bash -c "
+            # Update package manager and install essential tools
+            apt update &&
+            apt install -y cmake git python3 python-is-python3 python3-dev python3-pip build-essential &&
             
-            # Set OpenMP linking for cross-compilation
-            export LDFLAGS=\"-fopenmp\" &&
+            # Create necessary symlinks for cross-compilation
+            mkdir -p /lib64 && ln -sf /host/lib64/ld-* /lib64/ || true &&
+            ln -sf /host/lib/x86_64-linux-gnu /lib/x86_64-linux-gnu || true &&
             
-            # Install quaddtype with test dependencies
-            python -m pip install .[test] -v --no-build-isolation --force-reinstall
+            # Link cross-compilation toolchain from host
+            rm -rf /usr/${TOOLCHAIN_NAME} && ln -sf /host/usr/${TOOLCHAIN_NAME} /usr/${TOOLCHAIN_NAME} &&
+            rm -rf /usr/lib/gcc/${TOOLCHAIN_NAME} && ln -sf /host/usr/lib/gcc-cross/${TOOLCHAIN_NAME} /usr/lib/gcc/${TOOLCHAIN_NAME} &&
             
-            cd ..
-            python -m pytest -vvv --color=yes --timeout=600 --tb=short quaddtype/tests/
-          '"
+            # Set up compiler symlinks
+            rm -f /usr/bin/gcc && ln -sf /host/usr/bin/${TOOLCHAIN_NAME}-gcc /usr/bin/gcc &&
+            rm -f /usr/bin/g++ && ln -sf /host/usr/bin/${TOOLCHAIN_NAME}-g++ /usr/bin/g++ &&
+            rm -f /usr/bin/gfortran && ln -sf /host/usr/bin/${TOOLCHAIN_NAME}-gfortran /usr/bin/gfortran &&
+            
+            # Set up binutils
+            rm -f /usr/bin/ar && ln -sf /host/usr/bin/${TOOLCHAIN_NAME}-ar /usr/bin/ar &&
+            rm -f /usr/bin/as && ln -sf /host/usr/bin/${TOOLCHAIN_NAME}-as /usr/bin/as &&
+            rm -f /usr/bin/ld && ln -sf /host/usr/bin/${TOOLCHAIN_NAME}-ld /usr/bin/ld &&
+            rm -f /usr/bin/ld.bfd && ln -sf /host/usr/bin/${TOOLCHAIN_NAME}-ld.bfd /usr/bin/ld.bfd &&
+            
+            # Link build tools
+            rm -f /usr/bin/ninja && ln -sf /host/usr/bin/ninja /usr/bin/ninja &&
+            rm -f /usr/local/bin/ninja && mkdir -p /usr/local/bin && ln -sf /host/usr/bin/ninja /usr/local/bin/ninja &&
+            
+            # Configure git for workspace access
+            git config --global --add safe.directory /workspace &&
+            
+            # Install Python build dependencies
+            python -m pip install --upgrade pip &&
+            python -m pip install meson>=1.3.2 meson-python wheel numpy &&
+            python -m pip install pytest pytest-run-parallel pytest-timeout &&
+            
+            # Install system dependencies for quaddtype (SLEEF dependencies)
+            apt install -y libssl-dev libfftw3-dev pkg-config
+          "
+          docker commit quaddtype_container quaddtype_container
+          mkdir -p "~/docker_${TOOLCHAIN_NAME}"
+          docker save -o "~/docker_${TOOLCHAIN_NAME}/quaddtype_container.tar" quaddtype_container
+
+      - name: Load container from cache
+        if: steps.container-cache.outputs.cache-hit == 'true'
+        run: docker load -i "~/docker_${TOOLCHAIN_NAME}/quaddtype_container.tar"
+
+      - name: Build quaddtype with cross-compilation and testing
+        run: |
+          docker run --rm --platform=linux/${ARCH} -e "TERM=xterm-256color" \
+            -v $(pwd):/workspace -v /:/host quaddtype_container \
+            /bin/script -e -q -c "/bin/bash --noprofile --norc -eo pipefail -c '
+              cd /workspace/quaddtype &&
+              echo \"Building quaddtype for ${ARCH_NAME}...\" &&
+              
+              # Set OpenMP linking for cross-compilation
+              export LDFLAGS=\"-fopenmp\" &&
+              
+              # Install quaddtype with test dependencies
+              python -m pip install .[test] -v --no-build-isolation --force-reinstall
+              
+              cd ..
+              python -m pytest -vvv --color=yes --timeout=600 --tb=short quaddtype/tests/
+            '"

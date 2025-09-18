@@ -31,32 +31,6 @@ py_is_longdouble_128(PyObject *self, PyObject *args)
     }
 }
 
-#ifdef SLEEF_QUAD_C
-static const Sleef_quad SMALLEST_SUBNORMAL_VALUE = SLEEF_QUAD_DENORM_MIN;
-#else
-static const union {
-    struct {
-        #if NPY_BYTE_ORDER == NPY_BIG_ENDIAN
-            uint64_t high;
-            uint64_t low;
-        #elif NPY_BYTE_ORDER == NPY_LITTLE_ENDIAN  
-            uint64_t low;
-            uint64_t high;
-        #else
-            #error "Unknown endianness - NPY_BYTE_ORDER not properly defined"
-        #endif
-    } parts;
-    Sleef_quad value;
-} smallest_subnormal_const = {
-    .parts = {
-        .low = 0x0000000000000001ULL,
-        .high = 0x0000000000000000ULL
-    }
-};
-
-#define SMALLEST_SUBNORMAL_VALUE (smallest_subnormal_const.value)
-#endif
-
 static PyObject *
 get_sleef_constant(PyObject *self, PyObject *args)
 {
@@ -98,7 +72,11 @@ get_sleef_constant(PyObject *self, PyObject *args)
         result->value.sleef_value = SLEEF_QUAD_MIN;
     }
     else if (strcmp(constant_name, "smallest_subnormal") == 0) {
-        result->value.sleef_value = SMALLEST_SUBNORMAL_VALUE;
+        #ifdef SLEEF_QUAD_C
+        result->value.sleef_value = SLEEF_QUAD_DENORM_MIN;
+        #else
+        result->value.sleef_value = sleef_q(+0x0000000000000LL, 0x0000000000000001ULL, -16383);
+        #endif
     }
     else if (strcmp(constant_name, "bits") == 0) {
         Py_DECREF(result);
