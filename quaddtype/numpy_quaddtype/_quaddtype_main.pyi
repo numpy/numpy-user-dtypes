@@ -1,4 +1,4 @@
-from typing import Any, Literal, TypeAlias, final
+from typing import Any, Literal, TypeAlias, final, overload
 
 import numpy as np
 from typing_extensions import Never, Self, override
@@ -109,6 +109,10 @@ class QuadPrecision:  # NOTE: It doesn't inherit from `np.generic` which is type
 
 #
 def is_longdouble_128() -> bool: ...
+
+@overload
+def get_sleef_constant(constant_name: Literal["bits", "precision"], /) -> int: ...
+@overload
 def get_sleef_constant(
     constant_name: Literal[
         "pi",
@@ -121,14 +125,11 @@ def get_sleef_constant(
         "epsilon",
         "smallest_normal",
         "smallest_subnormal",
-        "bits",
-        "precision",
         "resolution",
     ],
     /,
 ) -> QuadPrecision: ...
+
 def set_num_threads(num_threads: int, /) -> None: ...
 def get_num_threads() -> int: ...
-def get_quadblas_version() -> Literal[
-    "QuadBLAS 1.0.0 - High Performance Quad Precision BLAS"
-]: ...
+def get_quadblas_version() -> str: ...
