@@ -8,6 +8,8 @@ from ._quaddtype_main import (
     get_quadblas_version
 )
 
+from dataclasses import dataclass
+
 __all__ = [
     'QuadPrecision', 'QuadPrecDType', 'SleefQuadPrecision', 'LongDoubleQuadPrecision',
     'SleefQuadPrecDType', 'LongDoubleQuadPrecDType', 'is_longdouble_128', 
@@ -15,7 +17,9 @@ __all__ = [
     'pi', 'e', 'log2e', 'log10e', 'ln2', 'ln10', 'max_value', 'epsilon',
     'smallest_normal', 'smallest_subnormal', 'bits', 'precision', 'resolution',
     # QuadBLAS related functions
-    'set_num_threads', 'get_num_threads', 'get_quadblas_version'
+    'set_num_threads', 'get_num_threads', 'get_quadblas_version',
+    # finfo class
+    'QuadPrecFinfo'
 ]
 
 def SleefQuadPrecision(value):
@@ -43,3 +47,39 @@ smallest_subnormal = get_sleef_constant("smallest_subnormal")
 bits = get_sleef_constant("bits")
 precision = get_sleef_constant("precision")
 resolution = get_sleef_constant("resolution")
+
+@dataclass
+class QuadPrecFinfo:
+    """Floating-point information for quadruple precision dtype.
+    
+    This class provides information about the floating-point representation
+    used by the QuadPrecDType, similar to numpy.finfo but customized for
+    quad precision arithmetic.
+    """
+    bits: int = int(bits)
+    eps: float = float(epsilon)
+    epsneg: float = float(epsilon)
+    iexp: int = int(precision)
+    machar: object = None
+    machep: float = float(epsilon)
+    max: float = float(max_value)
+    maxexp: float = float(max_value)
+    min: float = float(smallest_normal)
+    minexp: float = float(smallest_normal)
+    negep: float = float(epsilon)
+    nexp: int = int(bits) - int(precision) - 1
+    nmant: int = int(precision)
+    precision: int = int(precision)
+    resolution: float = float(resolution)
+    tiny: float = float(smallest_normal)
+    smallest_normal: float = float(smallest_normal)
+    smallest_subnormal: float = float(smallest_subnormal)
+
+    def get(self, attr):
+        return getattr(self, attr, None)
+    
+    def __str__(self):
+        return f"QuadPrecFinfo(precision={self.precision}, resolution={self.resolution})"
+    
+    def __repr__(self):
+        return f"QuadPrecFinfo(max={self.max}, min={self.min}, eps={self.eps}, bits={self.bits})"

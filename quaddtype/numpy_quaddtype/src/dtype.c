@@ -176,38 +176,6 @@ quadprec_default_descr(PyArray_DTypeMeta *cls)
     return (PyArray_Descr *)temp;
 }
 
-static PyObject *
-quad_finfo(PyArray_Descr *descr, NPY_DTYPE_INFO_TYPE info_type)
-{
-    
-    // Handle the different info types
-   switch (info_type) {
-       case NPY_DTYPE_INFO_FLOAT:
-           {
-               PyObject *finfo_dict = PyDict_New();
-               if (!finfo_dict) return NULL;
-               
-               PyDict_SetItemString(finfo_dict, "precision", PyLong_FromLong(34));
-               PyDict_SetItemString(finfo_dict, "bits", PyLong_FromLong(128));
-               //  more fields
-               return finfo_dict;
-           }
-       case NPY_DTYPE_INFO_INTEGER:
-           // Not implemented yet, could add iinfo support later
-           PyErr_SetString(PyExc_NotImplementedError, 
-                          "Integer info not implemented for this dtype");
-           return NULL;
-       case NPY_DTYPE_INFO_GENERIC:
-           // Not implemented yet, could add generic info later
-           PyErr_SetString(PyExc_NotImplementedError, 
-                          "Generic info not implemented for this dtype");
-           return NULL;
-       default:
-           PyErr_SetString(PyExc_ValueError, "Unknown dtype info type");
-           return NULL;
-   }
-}
-
 static PyType_Slot QuadPrecDType_Slots[] = {
         {NPY_DT_ensure_canonical, &ensure_canonical},
         {NPY_DT_common_instance, &common_instance},
@@ -217,7 +185,6 @@ static PyType_Slot QuadPrecDType_Slots[] = {
         {NPY_DT_getitem, &quadprec_getitem},
         {NPY_DT_default_descr, &quadprec_default_descr},
         {NPY_DT_PyArray_ArrFuncs_dotfunc, NULL},
-        {NPY_DT_get_dtype_info, &quad_finfo},
         {0, NULL}};
 
 static PyObject *
@@ -257,6 +224,34 @@ QuadPrecDType_str(QuadPrecDTypeObject *self)
     return PyUnicode_FromFormat("QuadPrecDType(backend='%s')", backend_str);
 }
 
+static PyObject *
+QuadPrecDType_finfo(QuadPrecDTypeObject *self, PyObject *args)
+{
+    PyObject *numpy_quaddtype_module = PyImport_ImportModule("numpy_quaddtype");
+    if (numpy_quaddtype_module == NULL) {
+        return NULL;
+    }
+    
+    PyObject *finfo_class = PyObject_GetAttrString(numpy_quaddtype_module, "QuadPrecFinfo");
+    Py_DECREF(numpy_quaddtype_module);
+    
+    if (finfo_class == NULL) {
+        PyErr_SetString(PyExc_AttributeError, "Could not find QuadPrecFinfo class in numpy_quaddtype module.");
+        return NULL;
+    }
+    
+    PyObject *finfo_instance = PyObject_CallNoArgs(finfo_class);
+    Py_DECREF(finfo_class);
+    
+    return finfo_instance;
+}
+
+static PyMethodDef QuadPrecDType_methods[] = {
+    {"finfo", (PyCFunction)QuadPrecDType_finfo, METH_NOARGS, 
+     "Return floating-point information for this QuadPrecDType"},
+    {NULL, NULL, 0, NULL}
+};
+
 PyArray_DTypeMeta QuadPrecDType = {
         {{
                 PyVarObject_HEAD_INIT(NULL, 0).tp_name = "numpy_quaddtype.QuadPrecDType",
@@ -264,6 +259,7 @@ PyArray_DTypeMeta QuadPrecDType = {
                 .tp_new = QuadPrecDType_new,
                 .tp_repr = (reprfunc)QuadPrecDType_repr,
                 .tp_str = (reprfunc)QuadPrecDType_str,
+                .tp_methods = QuadPrecDType_methods,
         }},
 };
 
