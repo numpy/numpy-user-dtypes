@@ -1885,8 +1885,13 @@ Dragon4_PrintFloat_Sleef_quad(Sleef_quad *value, Dragon4_Options *opt)
     union {
         Sleef_quad q;
         struct {
+#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+            npy_uint64 hi;
+            npy_uint64 lo;
+#else
             npy_uint64 lo;
             npy_uint64 hi;
+#endif
         } i;
     } u;
     u.q = *value;

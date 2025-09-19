@@ -33,7 +33,6 @@ py_is_longdouble_128(PyObject *self, PyObject *args)
 #ifdef SLEEF_QUAD_C
 static const Sleef_quad SMALLEST_SUBNORMAL_VALUE = SLEEF_QUAD_DENORM_MIN;
 #else
-// Use the exact same struct layout as the original buggy code
 static const union {
     struct {
 #if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
@@ -94,6 +93,7 @@ get_sleef_constant(PyObject *self, PyObject *args)
         result->value.sleef_value = SLEEF_QUAD_MIN;
     }
     else if (strcmp(constant_name, "smallest_subnormal") == 0) {
+        // or just use sleef_q(+0x0000000000000LL, 0x0000000000000001ULL, -16383);
         result->value.sleef_value = SMALLEST_SUBNORMAL_VALUE;
     }
     else if (strcmp(constant_name, "bits") == 0) {
