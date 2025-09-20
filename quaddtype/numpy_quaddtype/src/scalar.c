@@ -239,7 +239,7 @@ QuadPrecision_dealloc(QuadPrecisionObject *self)
 }
 
 PyTypeObject QuadPrecision_Type = {
-        PyVarObject_HEAD_INIT(NULL, 0).tp_name = "numpy_quaddtype.QuadPrecision",
+        PyVarObject_HEAD_INIT(NULL, 0).tp_name = "numpy_quaddtype.QuadPrecDType",
         .tp_basicsize = sizeof(QuadPrecisionObject),
         .tp_itemsize = 0,
         .tp_new = QuadPrecision_new,
@@ -253,5 +253,6 @@ PyTypeObject QuadPrecision_Type = {
 int
 init_quadprecision_scalar(void)
 {
+    QuadPrecision_Type.tp_base = &PyFloatingArrType_Type;
     return PyType_Ready(&QuadPrecision_Type);
 }

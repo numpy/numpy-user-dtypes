@@ -224,6 +224,34 @@ QuadPrecDType_str(QuadPrecDTypeObject *self)
     return PyUnicode_FromFormat("QuadPrecDType(backend='%s')", backend_str);
 }
 
+static PyObject *
+QuadPrecDType_finfo(QuadPrecDTypeObject *self, PyObject *args)
+{
+    PyObject *numpy_quaddtype_module = PyImport_ImportModule("numpy_quaddtype");
+    if (numpy_quaddtype_module == NULL) {
+        return NULL;
+    }
+    
+    PyObject *finfo_class = PyObject_GetAttrString(numpy_quaddtype_module, "QuadPrecFinfo");
+    Py_DECREF(numpy_quaddtype_module);
+    
+    if (finfo_class == NULL) {
+        PyErr_SetString(PyExc_AttributeError, "Could not find QuadPrecFinfo class in numpy_quaddtype module.");
+        return NULL;
+    }
+    
+    PyObject *finfo_instance = PyObject_CallNoArgs(finfo_class);
+    Py_DECREF(finfo_class);
+    
+    return finfo_instance;
+}
+
+static PyMethodDef QuadPrecDType_methods[] = {
+    {"finfo", (PyCFunction)QuadPrecDType_finfo, METH_NOARGS, 
+     "Return floating-point information for this QuadPrecDType"},
+    {NULL, NULL, 0, NULL}
+};
+
 PyArray_DTypeMeta QuadPrecDType = {
         {{
                 PyVarObject_HEAD_INIT(NULL, 0).tp_name = "numpy_quaddtype.QuadPrecDType",
@@ -231,6 +259,7 @@ PyArray_DTypeMeta QuadPrecDType = {
                 .tp_new = QuadPrecDType_new,
                 .tp_repr = (reprfunc)QuadPrecDType_repr,
                 .tp_str = (reprfunc)QuadPrecDType_str,
+                .tp_methods = QuadPrecDType_methods,
         }},
 };
 
