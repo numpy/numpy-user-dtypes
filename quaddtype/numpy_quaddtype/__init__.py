@@ -8,7 +8,7 @@ from ._quaddtype_main import (
     get_quadblas_version
 )
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 __all__ = [
     'QuadPrecision', 'QuadPrecDType', 'SleefQuadPrecision', 'LongDoubleQuadPrecision',
@@ -56,24 +56,24 @@ class QuadPrecFinfo:
     used by the QuadPrecDType, similar to numpy.finfo but customized for
     quad precision arithmetic.
     """
-    bits: int = int(bits)
-    eps: float = float(epsilon)
-    epsneg: float = float(epsilon)
-    iexp: int = int(precision)
+    bits: int = field(default_factory=lambda: bits)
+    eps: float = field(default_factory=lambda: epsilon)
+    epsneg: float = field(default_factory=lambda: epsilon)
+    iexp: int = field(default_factory=lambda: precision)
     machar: object = None
-    machep: float = float(epsilon)
-    max: float = float(max_value)
-    maxexp: float = float(max_value)
-    min: float = float(smallest_normal)
-    minexp: float = float(smallest_normal)
-    negep: float = float(epsilon)
-    nexp: int = int(bits) - int(precision) - 1
-    nmant: int = int(precision)
-    precision: int = int(precision)
-    resolution: float = float(resolution)
-    tiny: float = float(smallest_normal)
-    smallest_normal: float = float(smallest_normal)
-    smallest_subnormal: float = float(smallest_subnormal)
+    machep: float = field(default_factory=lambda: epsilon)
+    max: float = field(default_factory=lambda: max_value)
+    maxexp: float = field(default_factory=lambda: max_value)
+    min: float = field(default_factory=lambda: smallest_normal)
+    minexp: float = field(default_factory=lambda: smallest_normal)
+    negep: float = field(default_factory=lambda: epsilon)
+    nexp: int = field(default_factory=lambda: bits - precision - 1)
+    nmant: int = field(default_factory=lambda: precision)
+    precision: int = field(default_factory=lambda: precision)
+    resolution: float = field(default_factory=lambda: resolution)
+    tiny: float = field(default_factory=lambda: smallest_normal)
+    smallest_normal: float = field(default_factory=lambda: smallest_normal)
+    smallest_subnormal: float = field(default_factory=lambda: smallest_subnormal)
 
     def get(self, attr):
         return getattr(self, attr, None)
