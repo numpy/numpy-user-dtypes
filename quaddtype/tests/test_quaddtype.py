@@ -76,6 +76,16 @@ def test_unsupported_astype(dtype):
           np.array(QuadPrecision(1)).astype(dtype, casting="unsafe")
 
 
+def test_same_value_cast():
+    # This will fail if compiled with NPY_TARGET_VERSION NPY<2_4_API_VERSION
+    a = np.arange(30, dtype=np.float32)
+    # upcasting can never fail
+    b = a.astype(QuadPrecision, casting='same_value')
+    c = b.astype(np.float32, casting='same_value')
+    assert np.all(c == a)
+    with pytest.raises(ValueError, match="could not cast 'same_value'"):
+        (b + 1e22).astype(np.float32, casting='same_value')
+
 def test_basic_equality():
     assert QuadPrecision("12") == QuadPrecision(
         "12.0") == QuadPrecision("12.00")

@@ -1,7 +1,7 @@
 #define PY_ARRAY_UNIQUE_SYMBOL QuadPrecType_ARRAY_API
 #define PY_UFUNC_UNIQUE_SYMBOL QuadPrecType_UFUNC_API
-#define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
-#define NPY_TARGET_VERSION NPY_2_0_API_VERSION
+#define NPY_NO_DEPRECATED_API NPY_2_4_API_VERSION
+#define NPY_TARGET_VERSION NPY_2_4_API_VERSION
 #define NO_IMPORT_ARRAY
 #define NO_IMPORT_UFUNC
 
@@ -157,7 +157,7 @@ void_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta *
                                 PyArray_Descr *given_descrs[2], PyArray_Descr *loop_descrs[2],
                                 npy_intp *view_offset)
 {
-    PyErr_SetString(PyExc_TypeError, 
+    PyErr_SetString(PyExc_TypeError,
         "Void to QuadPrecision cast is not implemented");
     return (NPY_CASTING)-1;
 }
@@ -401,7 +401,7 @@ to_quad<long double>(long double x, QuadBackendType backend)
 }
 
 template <typename T>
-static NPY_CASTING
+static int
 numpy_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta *dtypes[2],
                                   PyArray_Descr *given_descrs[2], PyArray_Descr *loop_descrs[2],
                                   npy_intp *view_offset)
@@ -419,7 +419,11 @@ numpy_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta 
     }
 
     loop_descrs[0] = PyArray_GetDefaultDescr(dtypes[0]);
+#if NPY_FEATURE_VERSION > NPY_2_3_API_VERSION
+    return NPY_SAFE_CASTING | NPY_SAME_VALUE_CASTING_FLAG;
+#else
     return NPY_SAFE_CASTING;
+#endif
 }
 
 template <typename T>
@@ -667,6 +671,28 @@ from_quad<long double>(quad_value x, QuadBackendType backend)
 }
 
 template <typename T>
+static inline int
+from_quad_checked(quad_value x, QuadBackendType backend, typename NpyType<T>::TYPE *ret) {
+    *ret = from_quad<typename NpyType<T>::TYPE>(x, backend);
+    quad_value check = to_quad<typename NpyType<T>::TYPE>(*ret, backend);
+    if (backend == BACKEND_SLEEF) {
+        if (check.sleef_value == x.sleef_value) {
+            return 0;
+        }
+    }
+    else {
+        if (check.longdouble_value == x.longdouble_value) {
+            return 0;
+        }
+    }
+    NPY_ALLOW_C_API_DEF;
+    NPY_ALLOW_C_API;
+    PyErr_SetString(PyExc_ValueError, "could not cast 'same_value' to QuadType");
+    NPY_DISABLE_C_API;
+    return -1;
+}
+
+template <typename T>
 static NPY_CASTING
 quad_to_numpy_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta *dtypes[2],
                                   PyArray_Descr *given_descrs[2], PyArray_Descr *loop_descrs[2],
@@ -685,6 +711,9 @@ quad_to_numpy_strided_loop_unaligned(PyArrayMethod_Context *context, char *const
                                      npy_intp const dimensions[], npy_intp const strides[],
                                      void *NPY_UNUSED(auxdata))
 {
+#if NPY_FEATURE_VERSION > NPY_2_3_API_VERSION
+    int same_value_casting = ((context->flags & NPY_SAME_VALUE_CONTEXT_FLAG) == NPY_SAME_VALUE_CONTEXT_FLAG);
+#endif
     npy_intp N = dimensions[0];
     char *in_ptr = data[0];
     char *out_ptr = data[1];
@@ -694,6 +723,24 @@ quad_to_numpy_strided_loop_unaligned(PyArrayMethod_Context *context, char *const
 
     size_t elem_size = (backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
 
+#if NPY_FEATURE_VERSION > NPY_2_3_API_VERSION
+    if (same_value_casting) {
+        while (N--) {
+            quad_value in_val;
+            memcpy(&in_val, in_ptr, elem_size);
+            typename NpyType<T>::TYPE out_val;
+            if (from_quad_checked<T>(in_val, backend, &out_val) < 0) {
+                return -1;
+            }
+            memcpy(out_ptr, &out_val, sizeof(typename NpyType<T>::TYPE));
+
+            in_ptr += strides[0];
+            out_ptr += strides[1];
+        }
+    } else {
+#else
+    {
+#endif
     while (N--) {
         quad_value in_val;
         memcpy(&in_val, in_ptr, elem_size);
@@ -703,7 +750,7 @@ quad_to_numpy_strided_loop_unaligned(PyArrayMethod_Context *context, char *const
 
         in_ptr += strides[0];
         out_ptr += strides[1];
-    }
+    }}
     return 0;
 }
 
@@ -716,10 +763,36 @@ quad_to_numpy_strided_loop_aligned(PyArrayMethod_Context *context, char *const d
     npy_intp N = dimensions[0];
     char *in_ptr = data[0];
     char *out_ptr = data[1];
+#if NPY_FEATURE_VERSION > NPY_2_3_API_VERSION
+    int same_value_casting = ((context->flags & NPY_SAME_VALUE_CONTEXT_FLAG) == NPY_SAME_VALUE_CONTEXT_FLAG);
+#endif
 
     QuadPrecDTypeObject *quad_descr = (QuadPrecDTypeObject *)context->descriptors[0];
     QuadBackendType backend = quad_descr->backend;
 
+#if NPY_FEATURE_VERSION > NPY_2_3_API_VERSION
+    if (same_value_casting) {
+        while (N--) {
+            quad_value in_val;
+            if (backend == BACKEND_SLEEF) {
+                in_val.sleef_value = *(Sleef_quad *)in_ptr;
+            }
+            else {
+                in_val.longdouble_value = *(long double *)in_ptr;
+            }
+
+            typename NpyType<T>::TYPE out_val;
+            if (from_quad_checked<T>(in_val, backend, &out_val) < 0) {
+                return -1;
+            }
+            *(typename NpyType<T>::TYPE *)(out_ptr) = out_val;
+
+            in_ptr += strides[0];
+            out_ptr += strides[1];
+    }} else {
+#else
+    {
+#endif
     while (N--) {
         quad_value in_val;
         if (backend == BACKEND_SLEEF) {
@@ -734,7 +807,7 @@ quad_to_numpy_strided_loop_aligned(PyArrayMethod_Context *context, char *const d
 
         in_ptr += strides[0];
         out_ptr += strides[1];
-    }
+    }}
     return 0;
 }
 
@@ -771,7 +844,11 @@ add_cast_from(PyArray_DTypeMeta *to)
             .name = "cast_QuadPrec_to_NumPy",
             .nin = 1,
             .nout = 1,
+#if NPY_FEATURE_VERSION > NPY_2_3_API_VERSION
+            .casting = NPY_SAME_VALUE_CASTING,
+#else
             .casting = NPY_UNSAFE_CASTING,
+#endif
             .flags = NPY_METH_SUPPORTS_UNALIGNED,
             .dtypes = dtypes,
             .slots = slots,
