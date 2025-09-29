@@ -24,6 +24,7 @@ extern "C" {
 #include "binary_ops.h"
 #include "comparison_ops.h"
 #include "matmul.h"
+#include "frexp_op.h"
 
 // helper debugging function
 static const char *
@@ -110,6 +111,11 @@ init_quad_umath(void)
 
     if (init_matmul_ops(numpy) < 0) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to initialize quad matrix multiplication operations");
+        goto err;
+    }
+
+    if (init_quad_frexp(numpy) < 0) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to initialize quad frexp operation");
         goto err;
     }
 

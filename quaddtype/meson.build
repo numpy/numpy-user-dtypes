@@ -24,6 +24,13 @@ incdir_numpy = run_command(py,
   check : true
 ).stdout().strip()
 
+# print the version of numpy being used
+numpy_version = run_command(py,
+  ['-c', 'import numpy; print(numpy.__version__)'],
+  check : true
+).stdout().strip()
+message('Using NumPy version: ' + numpy_version)
+
 npymath_path = incdir_numpy / '..' / 'lib'
 npymath_lib = c.find_library('npymath', dirs: npymath_path)
 
@@ -117,6 +124,8 @@ srcs = [
     'numpy_quaddtype/src/umath/promoters.hpp',
     'numpy_quaddtype/src/umath/matmul.h',
     'numpy_quaddtype/src/umath/matmul.cpp',
+    'numpy_quaddtype/src/umath/frexp_op.h',
+    'numpy_quaddtype/src/umath/frexp_op.cpp',
 ]
 
 py.install_sources(

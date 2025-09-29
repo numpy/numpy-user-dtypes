@@ -184,7 +184,6 @@ static PyType_Slot QuadPrecDType_Slots[] = {
         {NPY_DT_setitem, &quadprec_setitem},
         {NPY_DT_getitem, &quadprec_getitem},
         {NPY_DT_default_descr, &quadprec_default_descr},
-        {NPY_DT_PyArray_ArrFuncs_dotfunc, NULL},
         {0, NULL}};
 
 static PyObject *
