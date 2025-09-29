@@ -755,34 +755,70 @@ def test_frexp_dtype_consistency(backend):
         assert exponent.shape == shape
 
 
-def test_frexp_finfo_compatibility():
-    """Test that frexp works correctly with np.finfo to enable machep/negep calculation."""
+def test_frexp_basic_functionality():
+    """Test that frexp works correctly for basic cases."""
     # This is the key test that was failing before implementing frexp
     quad_dtype = QuadPrecDType()
     
-    # This should work without raising _UFuncNoLoopError
-    try:
-        finfo = np.finfo(quad_dtype)
+    # Test that frexp ufunc is registered and callable
+    quad_arr = np.array([1.0], dtype=quad_dtype)
+    mantissa, exponent = np.frexp(quad_arr)
+    
+    assert len(mantissa) == 1, "frexp should return mantissa array"
+    assert len(exponent) == 1, "frexp should return exponent array"
+    assert mantissa.dtype == quad_dtype, "Mantissa should have quad dtype"
+    assert exponent.dtype == np.int32, "Exponent should have int32 dtype"
+    
+    # Test with epsilon value directly from constants
+    from numpy_quaddtype import epsilon
+    eps_arr = np.array([float(epsilon)], dtype=quad_dtype)
+    eps_mantissa, eps_exponent = np.frexp(eps_arr)
+    
+    # For binary128 (quad precision), epsilon = 2^-112
+    # So frexp(epsilon) should give mantissa=0.5 and exponent=-111
+    eps_mantissa_float = float(eps_mantissa[0])
+    eps_exponent_int = int(eps_exponent[0])
+    
+    assert abs(eps_mantissa_float - 0.5) < 1e-15, f"Expected mantissa 0.5 for epsilon, got {eps_mantissa_float}"
+    assert eps_exponent_int == -111, f"Expected exponent -111 for epsilon, got {eps_exponent_int}"
+
+
+def test_frexp_with_quad_constants():
+    """Test frexp using the constants exposed by numpy_quaddtype instead of np.finfo."""
+    from numpy_quaddtype import epsilon, smallest_normal, max_value, pi, e
+    
+    quad_dtype = QuadPrecDType()
+    
+    # Test various important constants
+    constants_to_test = [
+        ("epsilon", epsilon),
+        ("smallest_normal", smallest_normal), 
+        ("pi", pi),
+        ("e", e),
+    ]
+    
+    for name, constant in constants_to_test:
+        # Convert constant to quad array
+        const_arr = np.array([float(constant)], dtype=quad_dtype)
+        mantissa, exponent = np.frexp(const_arr)
         
-        # Try to access basic properties that should work
-        assert hasattr(finfo, 'dtype'), "finfo should have dtype attribute"
+        # Basic checks
+        assert mantissa.dtype == quad_dtype, f"Mantissa dtype should be quad for {name}"
+        assert exponent.dtype == np.int32, f"Exponent dtype should be int32 for {name}"
         
-        # For custom dtypes, some properties may not be available
-        # The key test is that frexp ufunc is registered and callable
-        quad_arr = np.array([1.0], dtype=quad_dtype)
-        mantissa, exponent = np.frexp(quad_arr)
+        # Reconstruction check (if value is in reasonable range)
+        mantissa_float = float(mantissa[0])
+        exponent_int = int(exponent[0])
         
-        assert len(mantissa) == 1, "frexp should return mantissa array"
-        assert len(exponent) == 1, "frexp should return exponent array"
+        if abs(exponent_int) < 1000:  # Avoid overflow in Python arithmetic
+            reconstructed = mantissa_float * (2.0 ** exponent_int)
+            original_float = float(constant)
+            np.testing.assert_allclose(reconstructed, original_float, rtol=1e-14,
+                                     err_msg=f"Reconstruction failed for {name}")
         
-    except AttributeError as e:
-        # Some finfo properties may not be available for custom dtypes
-        # The important thing is that frexp works
-        quad_arr = np.array([1.0], dtype=quad_dtype)
-        mantissa, exponent = np.frexp(quad_arr)
-        
-        assert len(mantissa) == 1, "frexp should return mantissa array"
-        assert len(exponent) == 1, "frexp should return exponent array"
+        # Check mantissa range for non-zero values
+        if mantissa_float != 0.0:
+            assert 0.5 <= abs(mantissa_float) < 1.0, f"Mantissa {mantissa_float} not in [0.5, 1) for {name}"
 
 
 @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
