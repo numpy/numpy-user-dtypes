@@ -239,7 +239,7 @@ QuadPrecision_dealloc(QuadPrecisionObject *self)
 }
 
 PyTypeObject QuadPrecision_Type = {
-        PyVarObject_HEAD_INIT(NULL, 0).tp_name = "numpy_quaddtype.QuadPrecDType",
+        PyVarObject_HEAD_INIT(NULL, 0).tp_name = "numpy_quaddtype.QuadPrecision",
         .tp_basicsize = sizeof(QuadPrecisionObject),
         .tp_itemsize = 0,
         .tp_new = QuadPrecision_new,
