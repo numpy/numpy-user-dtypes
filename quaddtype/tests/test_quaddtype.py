@@ -6,7 +6,7 @@ import operator
 import numpy_quaddtype
 from numpy_quaddtype import QuadPrecDType, QuadPrecision
 
-np_major, np_minor = np.__version__.split('.')[:2]
+np_major, np_minor = map(int, np.__version__.split('.')[:2])
 
 def test_create_scalar_simple():
     assert isinstance(QuadPrecision("12.0"), QuadPrecision)
@@ -77,7 +77,7 @@ def test_unsupported_astype(dtype):
           np.array(QuadPrecision(1)).astype(dtype, casting="unsafe")
 
 
-@pytest.mark.skip(np_major <2 or (np_major == 2 and np_minor < 4))
+@pytest.mark.skip(np_major < 2 or (np_major == 2 and np_minor < 4))
 def test_same_value_cast():
     a = np.arange(30, dtype=np.float32)
     # upcasting can never fail
