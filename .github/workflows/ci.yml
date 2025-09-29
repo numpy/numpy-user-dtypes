@@ -10,16 +10,27 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        numpy-version: ['2.3.2', 'nightly']
 
     steps:
       - uses: actions/checkout@v3
       - name: Setup Python
         uses: actions/setup-python@v3
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       - name: Install build and test dependencies
         run: |
-          python -m pip install -U pip build pytest unyt wheel meson ninja meson-python patchelf pandas numpy
+          python -m pip install -U pip build pytest unyt wheel meson ninja meson-python patchelf pandas
+      - name: Install numpy nightly
+        if: matrix.numpy-version == 'nightly'
+        run: |
+          pip install -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple numpy
+      - name: Install numpy from PyPI
+        if: matrix.numpy-version != 'nightly'
+        run: |
+          pip install "numpy==${{ matrix.numpy-verson }}"
       - name: Install asciidtype
         working-directory: asciidtype
         run: |
@@ -63,8 +74,11 @@ jobs:
       - name: Install quaddtype
         working-directory: quaddtype
         run: |
+          if [ "${{ matrix.numpy-version }}" == "nightly" ]; then
+            extra_args=-Csetup-args="-Dcpp_args=-DNPY_TARGET_VERSION=NPY_2_4_API_VERSION"
+          fi
           export LDFLAGS="-fopenmp"
-          python -m pip install . -v
+          python -m pip install $extra_args . -v
 
       - name: Run quaddtype tests
         working-directory: quaddtype
