@@ -595,6 +595,7 @@ def test_hyperbolic_functions(op, val):
     rtol = 1e-13 if abs(float_result) < 1e100 else 1e-10
     np.testing.assert_allclose(float(quad_result), float_result, rtol=rtol, atol=1e-15,
                                err_msg=f"Value mismatch for {op}({val})")
+    
     # Check sign for zero results
     if float_result == 0.0:
         assert np.signbit(float_result) == np.signbit(
