@@ -1885,8 +1885,13 @@ Dragon4_PrintFloat_Sleef_quad(Sleef_quad *value, Dragon4_Options *opt)
     union {
         Sleef_quad q;
         struct {
+#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+            npy_uint64 hi;
+            npy_uint64 lo;
+#else
             npy_uint64 lo;
             npy_uint64 hi;
+#endif
         } i;
     } u;
     u.q = *value;
@@ -2002,7 +2007,7 @@ Dragon4_Positional(PyObject *obj, DigitMode digit_mode, CutoffMode cutoff_mode, 
 {
     npy_double v;
 
-    if (PyArray_IsScalar(obj, QuadPrecDType)) {
+    if (PyObject_TypeCheck(obj, &QuadPrecision_Type)) {
         QuadPrecisionObject *quad_obj = (QuadPrecisionObject *)obj;
         if (quad_obj->backend == BACKEND_SLEEF) {
             return Dragon4_Positional_QuadDType(&quad_obj->value.sleef_value, digit_mode,
@@ -2025,7 +2030,7 @@ Dragon4_Scientific(PyObject *obj, DigitMode digit_mode, int precision, int min_d
 {
     npy_double val;
 
-    if (PyArray_IsScalar(obj, QuadPrecDType)) {
+    if (PyObject_TypeCheck(obj, &QuadPrecision_Type)) {
         QuadPrecisionObject *quad_obj = (QuadPrecisionObject *)obj;
         if (quad_obj->backend == BACKEND_SLEEF) {
             return Dragon4_Scientific_QuadDType(&quad_obj->value.sleef_value, digit_mode, precision,
