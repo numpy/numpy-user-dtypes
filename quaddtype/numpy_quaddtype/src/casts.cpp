@@ -421,7 +421,7 @@ numpy_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta 
     }
 
     loop_descrs[0] = PyArray_GetDefaultDescr(dtypes[0]);
-#if NPY_TARGET_VERSION > NPY_2_3_API_VERSION
+#if defined(NPY_2_3_API_VERSION) && (NPY_TARGET_VERSION > NPY_2_3_API_VERSION)
     return NPY_SAFE_CASTING | NPY_SAME_VALUE_CASTING_FLAG;
 #else
     return NPY_SAFE_CASTING;
@@ -721,7 +721,7 @@ quad_to_numpy_strided_loop_unaligned(PyArrayMethod_Context *context, char *const
 
     size_t elem_size = (backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
 
-#if NPY_TARGET_VERSION > NPY_2_3_API_VERSION
+#if defined(NPY_2_3_API_VERSION) && (NPY_TARGET_VERSION > NPY_2_3_API_VERSION)
     int same_value_casting = 0;
     if (PyArray_GetNDArrayCFeatureVersion() > NPY_2_3_API_VERSION) {
         same_value_casting = ((context->flags & NPY_SAME_VALUE_CONTEXT_FLAG) == NPY_SAME_VALUE_CONTEXT_FLAG);
@@ -769,7 +769,7 @@ quad_to_numpy_strided_loop_aligned(PyArrayMethod_Context *context, char *const d
     QuadPrecDTypeObject *quad_descr = (QuadPrecDTypeObject *)context->descriptors[0];
     QuadBackendType backend = quad_descr->backend;
 
-#if NPY_TARGET_VERSION > NPY_2_3_API_VERSION
+#if defined(NPY_2_3_API_VERSION) && (NPY_TARGET_VERSION > NPY_2_3_API_VERSION)
     int same_value_casting = 0;
     if (PyArray_GetNDArrayCFeatureVersion() > NPY_2_3_API_VERSION) {
         same_value_casting = ((context->flags & NPY_SAME_VALUE_CONTEXT_FLAG) == NPY_SAME_VALUE_CONTEXT_FLAG);
@@ -847,7 +847,7 @@ add_cast_from(PyArray_DTypeMeta *to)
             .name = "cast_QuadPrec_to_NumPy",
             .nin = 1,
             .nout = 1,
-#if PyArray_RUNTIME_VERSION > NPY_2_3_API_VERSION
+#if defined(NPY_2_3_API_VERSION) && (NPY_TARGET_VERSION > NPY_2_3_API_VERSION)
             .casting = NPY_SAME_VALUE_CASTING,
 #else
             .casting = NPY_UNSAFE_CASTING,
