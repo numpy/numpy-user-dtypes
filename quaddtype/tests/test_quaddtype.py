@@ -77,7 +77,8 @@ def test_unsupported_astype(dtype):
           np.array(QuadPrecision(1)).astype(dtype, casting="unsafe")
 
 
-@pytest.mark.skip(np_major < 2 or (np_major == 2 and np_minor < 4))
+@pytest.mark.skipif(np_major < 2 or (np_major == 2 and np_minor < 4),
+        reason="numpy version>2.4 required for test")
 def test_same_value_cast():
     a = np.arange(30, dtype=np.float32)
     # upcasting can never fail

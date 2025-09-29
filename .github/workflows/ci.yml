@@ -30,7 +30,7 @@ jobs:
       - name: Install numpy from PyPI
         if: matrix.numpy-version != 'nightly'
         run: |
-          pip install "numpy==${{ matrix.numpy-verson }}"
+          pip install "numpy==${{ matrix.numpy-version }}"
       - name: Install asciidtype
         working-directory: asciidtype
         run: |
