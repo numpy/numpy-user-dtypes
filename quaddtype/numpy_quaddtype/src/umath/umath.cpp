@@ -1,7 +1,9 @@
 #define PY_ARRAY_UNIQUE_SYMBOL QuadPrecType_ARRAY_API
 #define PY_UFUNC_UNIQUE_SYMBOL QuadPrecType_UFUNC_API
 #define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
-#define NPY_TARGET_VERSION NPY_2_0_API_VERSION
+#ifndef NPY_TARGET_VERSION
+  #define NPY_TARGET_VERSION NPY_2_0_API_VERSION
+#endif
 #define NO_IMPORT_ARRAY
 #define NO_IMPORT_UFUNC
 
@@ -24,6 +26,11 @@ extern "C" {
 #include "binary_ops.h"
 #include "comparison_ops.h"
 #include "matmul.h"
+
+#if NPY_FEATURE_VERSION < NPY_2_0_API_VERSION
+  #warning "Is NPY_TARGET_VERSION set too high for this numpy installation?"
+  #error "NPY_FEATURE_VERSION too low, must be > NPY_2_0_API_VERSION"
+#endif
 
 // helper debugging function
 static const char *

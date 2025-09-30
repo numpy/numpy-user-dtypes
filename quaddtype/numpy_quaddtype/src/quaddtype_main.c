@@ -6,8 +6,9 @@
 #define PY_ARRAY_UNIQUE_SYMBOL QuadPrecType_ARRAY_API
 #define PY_UFUNC_UNIQUE_SYMBOL QuadPrecType_UFUNC_API
 #define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
-#define NPY_TARGET_VERSION NPY_2_0_API_VERSION
-
+#ifndef NPY_TARGET_VERSION
+  #define NPY_TARGET_VERSION NPY_2_0_API_VERSION
+#endif
 #include "numpy/arrayobject.h"
 #include "numpy/dtype_api.h"
 #include "numpy/ufuncobject.h"
@@ -18,6 +19,11 @@
 #include "quad_common.h"
 #include "quadblas_interface.h"
 #include "float.h"
+
+#if NPY_FEATURE_VERSION < NPY_2_0_API_VERSION
+  #warning "Is NPY_TARGET_VERSION set too high for this numpy installation?"
+  #error "NPY_FEATURE_VERSION too low, must be > NPY_2_0_API_VERSION"
+#endif
 
 static PyObject *
 py_is_longdouble_128(PyObject *self, PyObject *args)
