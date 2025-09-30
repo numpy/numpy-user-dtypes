@@ -26,7 +26,7 @@ jobs:
       - name: Install numpy nightly
         if: matrix.numpy-version == 'nightly'
         run: |
-          pip install -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple numpy
+          pip install --pre --upgrade --timeout=60 -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple numpy
       - name: Install numpy from PyPI
         if: matrix.numpy-version != 'nightly'
         run: |
@@ -75,6 +75,8 @@ jobs:
         working-directory: quaddtype
         run: |
           if [ "${{ matrix.numpy-version }}" == "nightly" ]; then
+            # obscure errors when using command line 2_4 if numpy does not define it
+            python -c "import numpy as np; assert np.__version__ >= '2.4'"
             extra_args="-Csetup-args=-Dcpp_args=-DNPY_TARGET_VERSION=NPY_2_4_API_VERSION --no-build-isolation"
           fi
           export LDFLAGS="-fopenmp"
