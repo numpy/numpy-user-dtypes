@@ -75,7 +75,7 @@ jobs:
         working-directory: quaddtype
         run: |
           if [ "${{ matrix.numpy-version }}" == "nightly" ]; then
-            extra_args=-Csetup-args="-Dcpp_args=-DNPY_TARGET_VERSION=NPY_2_4_API_VERSION"
+            extra_args="-Csetup-args=-Dcpp_args=-DNPY_TARGET_VERSION=NPY_2_4_API_VERSION --no-build-isolation"
           fi
           export LDFLAGS="-fopenmp"
           python -m pip install $extra_args . -v

@@ -1,6 +1,8 @@
 #define PY_ARRAY_UNIQUE_SYMBOL QuadPrecType_ARRAY_API
 #define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
-#define NPY_TARGET_VERSION NPY_2_0_API_VERSION
+#ifndef NPY_TARGET_VERSION
+  #define NPY_TARGET_VERSION NPY_2_0_API_VERSION
+#endif
 #define NO_IMPORT_ARRAY
 
 extern "C" {
@@ -17,6 +19,11 @@ extern "C" {
 #include "ops.hpp"
 #include "scalar_ops.h"
 #include "quad_common.h"
+
+#if NPY_FEATURE_VERSION < NPY_2_0_API_VERSION
+  #warning "Is NPY_TARGET_VERSION set too high for this numpy installation?"
+  #error "NPY_FEATURE_VERSION too low, must be > NPY_2_0_API_VERSION"
+#endif
 
 template <unary_op_quad_def sleef_op, unary_op_longdouble_def longdouble_op>
 static PyObject *

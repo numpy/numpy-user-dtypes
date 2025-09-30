@@ -23,6 +23,11 @@ extern "C" {
 #include "casts.h"
 #include "dtype.h"
 
+#if NPY_FEATURE_VERSION < NPY_2_0_API_VERSION
+  #warning "Is NPY_TARGET_VERSION set too high for this numpy installation?"
+  #error "NPY_FEATURE_VERSION too low, must be > NPY_2_0_API_VERSION"
+#endif
+
 #define NUM_CASTS 34  // 16 to_casts + 16 from_casts + 1 quad_to_quad + 1 void_to_quad
 
 static NPY_CASTING
