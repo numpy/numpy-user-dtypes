@@ -117,6 +117,7 @@ srcs = [
     'numpy_quaddtype/src/umath/promoters.hpp',
     'numpy_quaddtype/src/umath/matmul.h',
     'numpy_quaddtype/src/umath/matmul.cpp',
+    'numpy_quaddtype/src/constants.hpp',
 ]
 
 py.install_sources(
