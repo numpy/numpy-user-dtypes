@@ -31,13 +31,13 @@ jobs:
           - [
               "s390x (IBM Z Big Endian)",
               "s390x-linux-gnu",
-              "s390x/ubuntu:22.04",
+              "s390x/ubuntu:24.04",
               "s390x",
             ]
           - [
               "s390x - baseline(Z13)",
               "s390x-linux-gnu",
-              "s390x/ubuntu:22.04",
+              "s390x/ubuntu:24.04",
               "s390x",
             ]
     env:
