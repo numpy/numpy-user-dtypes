@@ -31,6 +31,7 @@ jobs:
         working-directory: quaddtype
         run: |
           uv pip install --pre --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple numpy
+          uv pip install meson>=1.3.2 meson-python wheel ninja
           uv pip install mypy pyright . --no-build-isolation
 
       - name: pyright

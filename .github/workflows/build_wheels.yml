@@ -40,7 +40,7 @@ jobs:
             yum update -y
             yum install -y cmake gcc gcc-c++ make git pkgconfig
           CIBW_BEFORE_BUILD: |
-            pip install meson>=1.3.2 meson-python>=0.18.0 wheel
+            pip install meson>=1.3.2 meson-python>=0.18.0 wheel ninja
             pip install --pre --upgrade --timeout=60 --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple numpy
           CIBW_BUILD_FRONTEND: "pip; args: --no-build-isolation"
           CIBW_ENVIRONMENT: >
@@ -102,7 +102,7 @@ jobs:
           # CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-13' && 'x86_64' || 'arm64' }}
           CIBW_BUILD_VERBOSITY: "3"
           CIBW_BEFORE_BUILD: |
-            pip install meson>=1.3.2 meson-python>=0.18.0 wheel
+            pip install meson>=1.3.2 meson-python>=0.18.0 wheel ninja
             pip install --pre --upgrade --timeout=60 --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple numpy
           CIBW_BUILD_FRONTEND: "pip; args: --no-build-isolation"
           CIBW_ENVIRONMENT: >
