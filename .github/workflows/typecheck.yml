@@ -29,7 +29,9 @@ jobs:
 
       - name: install
         working-directory: quaddtype
-        run: uv pip install mypy pyright .
+        run: |
+          uv pip install --pre --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple numpy
+          uv pip install mypy pyright . --no-build-isolation
 
       - name: pyright
         working-directory: quaddtype

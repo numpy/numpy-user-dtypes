@@ -65,7 +65,7 @@ jobs:
         working-directory: quaddtype
         run: |
           export LDFLAGS="-fopenmp"
-          python -m pip install . -v
+          python -m pip install . -v --no-build-isolation
 
       - name: Run quaddtype tests
         working-directory: quaddtype
