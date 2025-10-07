@@ -39,6 +39,8 @@ jobs:
           CIBW_BEFORE_ALL: |
             yum update -y
             yum install -y cmake gcc gcc-c++ make git pkgconfig
+          CIBW_BEFORE_BUILD: |
+            pip install --pre --upgrade --timeout=60 --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple numpy
           CIBW_ENVIRONMENT: >
             LDFLAGS="-fopenmp"
           CIBW_REPAIR_WHEEL_COMMAND: |
@@ -97,6 +99,8 @@ jobs:
           CIBW_ENABLE: cpython-prerelease cpython-freethreading
           # CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-13' && 'x86_64' || 'arm64' }}
           CIBW_BUILD_VERBOSITY: "3"
+          CIBW_BEFORE_BUILD: |
+            pip install --pre --upgrade --timeout=60 --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple numpy
           CIBW_ENVIRONMENT: >
             MACOSX_DEPLOYMENT_TARGET="${{ matrix.os == 'macos-14' && '14.0' || '15.0' }}"
           CIBW_REPAIR_WHEEL_COMMAND: >
@@ -159,7 +163,7 @@ jobs:
           DISTUTILS_USE_SDK: "1"
           MSSdk: "1"
           CIBW_BEFORE_BUILD: |
-            pip install meson meson-python ninja numpy
+            pip install --pre --upgrade --timeout=60 --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple numpy
           CIBW_ENVIRONMENT: >
             CFLAGS="/DDISABLE_QUADBLAS $CFLAGS"
             CXXFLAGS="/DDISABLE_QUADBLAS $CXXFLAGS"
@@ -197,6 +201,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install build pytest
+          python -m pip install --pre --upgrade --timeout=60 --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple numpy
 
       - name: Build SDist & test sdist
         env:
