@@ -48,6 +48,7 @@ jobs:
           CIBW_REPAIR_WHEEL_COMMAND: |
             auditwheel repair -w {dest_dir} --plat manylinux_2_28_x86_64 {wheel}
           CIBW_TEST_COMMAND: |
+            pip install --pre --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple numpy
             pip install {package}[test]
             if python -c "import sys; exit(0 if hasattr(sys, '_is_gil_enabled') and not sys._is_gil_enabled() else 1)"; then
               pytest --parallel-threads=10 --iterations=10 {project}/tests
@@ -110,6 +111,7 @@ jobs:
           CIBW_REPAIR_WHEEL_COMMAND: >
             delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}
           CIBW_TEST_COMMAND: |
+            pip install --pre --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple numpy
             pip install {package}[test]
             if python -c "import sys; exit(0 if hasattr(sys, '_is_gil_enabled') and not sys._is_gil_enabled() else 1)"; then
               pytest --parallel-threads=10 --iterations=10 {project}/tests
@@ -166,15 +168,15 @@ jobs:
           CIBW_BUILD_VERBOSITY: "3"
           DISTUTILS_USE_SDK: "1"
           MSSdk: "1"
-          CIBW_BEFORE_BUILD: |
-            pip install meson meson-python ninja wheel
+          CIBW_BEFORE_BUILD: >-
+            pip install meson meson-python ninja wheel &&
             pip install --pre --upgrade --timeout=60 --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple numpy
           CIBW_BUILD_FRONTEND: "pip; args: --no-build-isolation"
           CIBW_ENVIRONMENT: >
             CFLAGS="/DDISABLE_QUADBLAS $CFLAGS"
             CXXFLAGS="/DDISABLE_QUADBLAS $CXXFLAGS"
           CIBW_REPAIR_WHEEL_COMMAND: 'delvewheel repair -w {dest_dir} {wheel} --add-path C:\sleef\bin'
-          CIBW_TEST_COMMAND_WINDOWS: pip install {package}[test] && pytest -s {project}/tests
+          CIBW_TEST_COMMAND_WINDOWS: pip install --pre --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple numpy && pip install {package}[test] && pytest -s {project}/tests
           CIBW_TEST_EXTRAS: test
         shell: pwsh
         run: |
