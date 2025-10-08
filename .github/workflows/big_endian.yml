@@ -142,9 +142,6 @@ jobs:
               # Install test dependencies separately
               python -m pip install --break-system-packages pytest pytest-run-parallel pytest-timeout &&
               
-              # Verify NumPy version
-              python -c \"import numpy; print('Using NumPy version:', numpy.__version__)\" &&
-              
               cd ..
               python -m pytest -vvv --color=yes --timeout=600 --tb=short quaddtype/tests/
             '"
