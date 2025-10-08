@@ -136,8 +136,14 @@ jobs:
               # Set OpenMP linking for cross-compilation
               export LDFLAGS=\"-fopenmp\" &&
               
-              # Install quaddtype with test dependencies (using --break-system-packages)
-              python -m pip install --break-system-packages .[test] -v --no-build-isolation --force-reinstall
+              # Install quaddtype without dependencies (NumPy already installed from source)
+              python -m pip install --break-system-packages --no-deps . -v --no-build-isolation --force-reinstall &&
+              
+              # Install test dependencies separately
+              python -m pip install --break-system-packages pytest pytest-run-parallel pytest-timeout &&
+              
+              # Verify NumPy version
+              python -c \"import numpy; print('Using NumPy version:', numpy.__version__)\" &&
               
               cd ..
               python -m pytest -vvv --color=yes --timeout=600 --tb=short quaddtype/tests/
