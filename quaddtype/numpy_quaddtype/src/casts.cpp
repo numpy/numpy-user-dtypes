@@ -31,9 +31,6 @@ quad_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self),
 {
     NPY_CASTING casting = NPY_NO_CASTING;
 
-    if (given_descrs[0]->backend != given_descrs[1]->backend)
-        casting = NPY_UNSAFE_CASTING;
-
     Py_INCREF(given_descrs[0]);
     loop_descrs[0] = given_descrs[0];
 
@@ -44,6 +41,9 @@ quad_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self),
     else {
         Py_INCREF(given_descrs[1]);
         loop_descrs[1] = given_descrs[1];
+        if (given_descrs[0]->backend != given_descrs[1]->backend) {
+            casting = NPY_UNSAFE_CASTING;
+        }
     }
 
     *view_offset = 0;
