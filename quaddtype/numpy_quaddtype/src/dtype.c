@@ -257,7 +257,7 @@ quadprec_get_constant(PyArray_Descr *descr, int constant_id, void *ptr)
     }
     
     /* Store the Sleef_quad value to the provided pointer */
-    *(Sleef_quad *)ptr = val;
+    memcpy(ptr, &val, sizeof(Sleef_quad));
     return 1;
 }
 
