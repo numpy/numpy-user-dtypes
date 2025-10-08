@@ -108,8 +108,10 @@ jobs:
             git config --global --add safe.directory /workspace &&
             
             # Install Python build dependencies (using --break-system-packages for Ubuntu 24.04)
-            python -m pip install --break-system-packages meson>=1.3.2 meson-python wheel &&
-            python -m pip install --break-system-packages --pre --upgrade --timeout=60 --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple numpy &&
+            python -m pip install --break-system-packages meson>=1.3.2 meson-python wheel ninja cython &&
+            echo \"Building NumPy from source (main branch)...\" &&
+            python -m pip install --break-system-packages git+https://github.com/numpy/numpy.git@main &&
+            python -c \"import numpy; print('NumPy version:', numpy.__version__)\" &&
             python -m pip install --break-system-packages pytest pytest-run-parallel pytest-timeout &&
             
             # Install system dependencies for quaddtype (SLEEF dependencies)
