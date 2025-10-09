@@ -16,6 +16,7 @@
 #include "casts.h"
 #include "dtype.h"
 #include "dragon4.h"
+#include "constants.hpp"
 
 static inline int
 quad_load(void *x, char *data_ptr, QuadBackendType backend)
@@ -176,6 +177,90 @@ quadprec_default_descr(PyArray_DTypeMeta *cls)
     return (PyArray_Descr *)temp;
 }
 
+static int
+quadprec_get_constant(PyArray_Descr *descr, int constant_id, void *ptr)
+{
+    QuadPrecDTypeObject *quad_descr = (QuadPrecDTypeObject *)descr;
+    
+    if (quad_descr->backend != BACKEND_SLEEF) {
+        /* Long double backend not yet implemented */
+        return 0;
+    }
+    
+    Sleef_quad val;
+    
+    switch (constant_id) {
+        case NPY_CONSTANT_zero:
+            val = QUAD_PRECISION_ZERO;
+            break;
+            
+        case NPY_CONSTANT_one:
+            val = QUAD_PRECISION_ONE;
+            break;
+            
+        case NPY_CONSTANT_minimum_finite:
+            val = QUAD_PRECISION_MIN_FINITE;
+            break;
+            
+        case NPY_CONSTANT_maximum_finite:
+            val = QUAD_PRECISION_MAX_FINITE;
+            break;
+            
+        case NPY_CONSTANT_inf:
+            val = QUAD_PRECISION_INF;
+            break;
+            
+        case NPY_CONSTANT_ninf:
+            val = QUAD_PRECISION_NINF;
+            break;
+            
+        case NPY_CONSTANT_nan:
+            val = QUAD_PRECISION_NAN;
+            break;
+            
+        case NPY_CONSTANT_finfo_radix:
+            val = QUAD_PRECISION_RADIX;
+            break;
+            
+        case NPY_CONSTANT_finfo_eps:
+            val = SLEEF_QUAD_EPSILON;
+            break;
+            
+        case NPY_CONSTANT_finfo_smallest_normal:
+            val = SLEEF_QUAD_MIN;
+            break;
+            
+        case NPY_CONSTANT_finfo_smallest_subnormal:
+            val = SMALLEST_SUBNORMAL_VALUE;
+            break;
+            
+        /* Integer constants - these return npy_intp values */
+        case NPY_CONSTANT_finfo_nmant:
+            *(npy_intp *)ptr = QUAD_NMANT;
+            return 1;
+            
+        case NPY_CONSTANT_finfo_min_exp:
+            *(npy_intp *)ptr = QUAD_MIN_EXP;
+            return 1;
+            
+        case NPY_CONSTANT_finfo_max_exp:
+            *(npy_intp *)ptr = QUAD_MAX_EXP;
+            return 1;
+            
+        case NPY_CONSTANT_finfo_decimal_digits:
+            *(npy_intp *)ptr = QUAD_DECIMAL_DIGITS;
+            return 1;
+            
+        default:
+            /* Constant not supported */
+            return 0;
+    }
+    
+    /* Store the Sleef_quad value to the provided pointer */
+    memcpy(ptr, &val, sizeof(Sleef_quad));
+    return 1;
+}
+
 static PyType_Slot QuadPrecDType_Slots[] = {
         {NPY_DT_ensure_canonical, &ensure_canonical},
         {NPY_DT_common_instance, &common_instance},
@@ -184,7 +269,7 @@ static PyType_Slot QuadPrecDType_Slots[] = {
         {NPY_DT_setitem, &quadprec_setitem},
         {NPY_DT_getitem, &quadprec_getitem},
         {NPY_DT_default_descr, &quadprec_default_descr},
-        {NPY_DT_PyArray_ArrFuncs_dotfunc, NULL},
+        {NPY_DT_get_constant, &quadprec_get_constant},
         {0, NULL}};
 
 static PyObject *

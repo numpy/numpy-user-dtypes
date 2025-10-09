@@ -31,13 +31,13 @@ jobs:
           - [
               "s390x (IBM Z Big Endian)",
               "s390x-linux-gnu",
-              "s390x/ubuntu:22.04",
+              "s390x/ubuntu:24.04",
               "s390x",
             ]
           - [
               "s390x - baseline(Z13)",
               "s390x-linux-gnu",
-              "s390x/ubuntu:22.04",
+              "s390x/ubuntu:24.04",
               "s390x",
             ]
     env:
@@ -107,10 +107,12 @@ jobs:
             # Configure git for workspace access
             git config --global --add safe.directory /workspace &&
             
-            # Install Python build dependencies
-            python -m pip install --upgrade pip &&
-            python -m pip install meson>=1.3.2 meson-python wheel numpy &&
-            python -m pip install pytest pytest-run-parallel pytest-timeout &&
+            # Install Python build dependencies (using --break-system-packages for Ubuntu 24.04)
+            python -m pip install --break-system-packages meson>=1.3.2 meson-python wheel ninja cython &&
+            echo \"Building NumPy from source (main branch)...\" &&
+            python -m pip install --break-system-packages git+https://github.com/numpy/numpy.git@main &&
+            python -c \"import numpy; print('NumPy version:', numpy.__version__)\" &&
+            python -m pip install --break-system-packages pytest pytest-run-parallel pytest-timeout &&
             
             # Install system dependencies for quaddtype (SLEEF dependencies)
             apt install -y libssl-dev libfftw3-dev pkg-config
@@ -134,8 +136,11 @@ jobs:
               # Set OpenMP linking for cross-compilation
               export LDFLAGS=\"-fopenmp\" &&
               
-              # Install quaddtype with test dependencies
-              python -m pip install .[test] -v --no-build-isolation --force-reinstall
+              # Install quaddtype without dependencies (NumPy already installed from source)
+              python -m pip install --break-system-packages --no-deps . -v --no-build-isolation --force-reinstall &&
+              
+              # Install test dependencies separately
+              python -m pip install --break-system-packages pytest pytest-run-parallel pytest-timeout &&
               
               cd ..
               python -m pytest -vvv --color=yes --timeout=600 --tb=short quaddtype/tests/
