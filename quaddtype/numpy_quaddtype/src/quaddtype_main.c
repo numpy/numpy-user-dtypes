@@ -17,6 +17,7 @@
 #include "umath/umath.h"
 #include "quad_common.h"
 #include "quadblas_interface.h"
+#include "constants.hpp"
 #include "float.h"
 
 static PyObject *
@@ -30,28 +31,6 @@ py_is_longdouble_128(PyObject *self, PyObject *args)
     }
 }
 
-#ifdef SLEEF_QUAD_C
-static const Sleef_quad SMALLEST_SUBNORMAL_VALUE = SLEEF_QUAD_DENORM_MIN;
-#else
-static const union {
-    struct {
-#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
-        uint64_t h, l;
-#else
-        uint64_t l, h;
-#endif
-    } parts;
-    Sleef_quad value;
-} smallest_subnormal_const = {.parts = {
-#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
-                                      .h = 0x0000000000000000ULL, .l = 0x0000000000000001ULL
-#else
-                                      .l = 0x0000000000000001ULL, .h = 0x0000000000000000ULL
-#endif
-                              }};
-#define SMALLEST_SUBNORMAL_VALUE (smallest_subnormal_const.value)
-#endif
-
 static PyObject *
 get_sleef_constant(PyObject *self, PyObject *args)
 {
@@ -60,68 +39,29 @@ get_sleef_constant(PyObject *self, PyObject *args)
         return NULL;
     }
 
-    QuadPrecisionObject *result = QuadPrecision_raw_new(BACKEND_SLEEF);
-    if (result == NULL) {
-        return NULL;
-    }
-
-    if (strcmp(constant_name, "pi") == 0) {
-        result->value.sleef_value = SLEEF_M_PIq;
-    }
-    else if (strcmp(constant_name, "e") == 0) {
-        result->value.sleef_value = SLEEF_M_Eq;
-    }
-    else if (strcmp(constant_name, "log2e") == 0) {
-        result->value.sleef_value = SLEEF_M_LOG2Eq;
-    }
-    else if (strcmp(constant_name, "log10e") == 0) {
-        result->value.sleef_value = SLEEF_M_LOG10Eq;
-    }
-    else if (strcmp(constant_name, "ln2") == 0) {
-        result->value.sleef_value = SLEEF_M_LN2q;
-    }
-    else if (strcmp(constant_name, "ln10") == 0) {
-        result->value.sleef_value = SLEEF_M_LN10q;
-    }
-    else if (strcmp(constant_name, "max_value") == 0) {
-        result->value.sleef_value = SLEEF_QUAD_MAX;
-    }
-    else if (strcmp(constant_name, "epsilon") == 0) {
-        result->value.sleef_value = SLEEF_QUAD_EPSILON;
-    }
-    else if (strcmp(constant_name, "smallest_normal") == 0) {
-        result->value.sleef_value = SLEEF_QUAD_MIN;
-    }
-    else if (strcmp(constant_name, "smallest_subnormal") == 0) {
-        // or just use sleef_q(+0x0000000000000LL, 0x0000000000000001ULL, -16383);
-        result->value.sleef_value = SMALLEST_SUBNORMAL_VALUE;
-    }
-    else if (strcmp(constant_name, "bits") == 0) {
-        Py_DECREF(result);
-        return PyLong_FromLong(sizeof(Sleef_quad) * CHAR_BIT);
-    }
-    else if (strcmp(constant_name, "precision") == 0) {
-        Py_DECREF(result);
-        // precision = int(-log10(epsilon))
-        int64_t precision =
-                Sleef_cast_to_int64q1(Sleef_negq1(Sleef_log10q1_u10(SLEEF_QUAD_EPSILON)));
-        return PyLong_FromLong(precision);
-    }
-    else if (strcmp(constant_name, "resolution") == 0) {
-        // precision = int(-log10(epsilon))
-        int64_t precision =
-                Sleef_cast_to_int64q1(Sleef_negq1(Sleef_log10q1_u10(SLEEF_QUAD_EPSILON)));
-        // resolution = 10 ** (-precision)
-        result->value.sleef_value =
-                Sleef_powq1_u10(Sleef_cast_from_int64q1(10), Sleef_cast_from_int64q1(-precision));
-    }
-    else {
+    ConstantResult const_result = get_sleef_constant_by_name(constant_name);
+    
+    if (const_result.type == CONSTANT_ERROR) {
         PyErr_SetString(PyExc_ValueError, "Unknown constant name");
-        Py_DECREF(result);
         return NULL;
     }
-
-    return (PyObject *)result;
+    
+    if (const_result.type == CONSTANT_INT64) {
+        return PyLong_FromLongLong(const_result.data.int_value);
+    }
+    
+    if (const_result.type == CONSTANT_QUAD) {
+        QuadPrecisionObject *result = QuadPrecision_raw_new(BACKEND_SLEEF);
+        if (result == NULL) {
+            return NULL;
+        }
+        result->value.sleef_value = const_result.data.quad_value;
+        return (PyObject *)result;
+    }
+    
+    // Should never reach here
+    PyErr_SetString(PyExc_RuntimeError, "Unexpected constant result type");
+    return NULL;
 }
 
 static PyMethodDef module_methods[] = {
