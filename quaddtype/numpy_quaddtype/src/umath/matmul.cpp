@@ -396,9 +396,6 @@ init_matmul_ops(PyObject *numpy)
     PyArray_DTypeMeta *dtypes[3] = {&QuadPrecDType, &QuadPrecDType, &QuadPrecDType};
 
 #ifndef DISABLE_QUADBLAS
-    // set threading to max
-    int num_threads = _quadblas_get_num_threads();
-    _quadblas_set_num_threads(num_threads);
 
     PyType_Slot slots[] = {
             {NPY_METH_resolve_descriptors, (void *)&quad_matmul_resolve_descriptors},
