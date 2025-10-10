@@ -10,7 +10,7 @@ build-backend = "mesonpy"
 [project]
 name = "numpy_quaddtype"
 description = "Quad (128-bit) float dtype for numpy"
-version = "0.2.0"
+version = "0.2.1"
 readme = 'README.md'
 license = { file = "LICENSE" }
 authors = [{name = "Swayam Singh", email = "singhswayam008@gmail.com"}]
