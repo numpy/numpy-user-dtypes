@@ -37,7 +37,7 @@ npymath_lib = c.find_library('npymath', dirs: npymath_path)
 dependencies = [py_dep, qblas_dep, sleef_dep, sleefquad_dep, npymath_lib]
 
 # Add OpenMP dependency (optional, for threading)
-openmp_dep = dependency('openmp', required: false)
+openmp_dep = dependency('openmp', required: false, static: false)
 if openmp_dep.found()
     dependencies += openmp_dep
 endif
