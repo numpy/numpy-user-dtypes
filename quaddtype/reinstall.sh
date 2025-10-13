@@ -11,4 +11,4 @@ fi
 # export CFLAGS="-g -O0" 
 # export CXXFLAGS="-g -O0"
 python -m pip uninstall -y numpy_quaddtype
-python -m pip install . -v --no-build-isolation 2>&1 | tee build_log.txt
+python -m pip install . -vv --no-build-isolation 2>&1 | tee build_log.txt

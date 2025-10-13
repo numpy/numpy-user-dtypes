@@ -15,9 +15,9 @@ endif
 
 qblas_dep = dependency('qblas', fallback: ['qblas', 'qblas_dep'])
 
-sleef_subproj = subproject('sleef', required: true)
-sleef_dep = sleef_subproj.get_variable('sleef_dep')
-sleefquad_dep = sleef_subproj.get_variable('sleefquad_dep')
+# Try to find SLEEF system-wide first, fall back to subproject if not found
+sleef_dep = dependency('sleef', fallback: ['sleef', 'sleef_dep'])
+sleefquad_dep = dependency('sleefquad', fallback: ['sleef', 'sleefquad_dep'])
 
 incdir_numpy = run_command(py,
   ['-c', 'import numpy; print(numpy.get_include())'],
