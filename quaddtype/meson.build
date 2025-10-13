@@ -20,7 +20,6 @@ sleef_dep = dependency('sleef', fallback: ['sleef', 'sleef_dep'], required: fals
 
 if sleef_dep.found() and sleef_dep.type_name() != 'internal'
   # SLEEF found system-wide - both sleef and sleefquad are typically in the same installation
-  # Create sleefquad dependency manually since it's not always exposed as a separate component
   cpp = meson.get_compiler('cpp')
   sleefquad_lib = cpp.find_library('sleefquad', required: true)
   sleefquad_dep = declare_dependency(
