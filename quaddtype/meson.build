@@ -16,8 +16,24 @@ endif
 qblas_dep = dependency('qblas', fallback: ['qblas', 'qblas_dep'])
 
 # Try to find SLEEF system-wide first, fall back to subproject if not found
-sleef_dep = dependency('sleef', fallback: ['sleef', 'sleef_dep'])
-sleefquad_dep = dependency('sleefquad', fallback: ['sleef', 'sleefquad_dep'])
+sleef_dep = dependency('sleef', fallback: ['sleef', 'sleef_dep'], required: false)
+
+if sleef_dep.found() and sleef_dep.type_name() != 'internal'
+  # SLEEF found system-wide - both sleef and sleefquad are typically in the same installation
+  # Create sleefquad dependency manually since it's not always exposed as a separate component
+  cpp = meson.get_compiler('cpp')
+  sleefquad_lib = cpp.find_library('sleefquad', required: true)
+  sleefquad_dep = declare_dependency(
+    dependencies: [sleef_dep, sleefquad_lib]
+  )
+  message('Using system-wide SLEEF installation')
+else
+  # Fall back to subproject which provides both dependencies
+  sleef_subproj = subproject('sleef')
+  sleef_dep = sleef_subproj.get_variable('sleef_dep')
+  sleefquad_dep = sleef_subproj.get_variable('sleefquad_dep')
+  message('Using SLEEF subproject')
+endif
 
 incdir_numpy = run_command(py,
   ['-c', 'import numpy; print(numpy.get_include())'],
