@@ -123,14 +123,21 @@ common_dtype(PyArray_DTypeMeta *cls, PyArray_DTypeMeta *other)
 static PyArray_Descr *
 quadprec_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls), PyObject *obj)
 {
-    if (Py_TYPE(obj) != &QuadPrecision_Type) {
-        PyErr_SetString(PyExc_TypeError, "Can only store QuadPrecision in a QuadPrecDType array.");
-        return NULL;
+    if (Py_TYPE(obj) == &QuadPrecision_Type) {
+        /* QuadPrecision scalar: use its backend */
+        QuadPrecisionObject *quad_obj = (QuadPrecisionObject *)obj;
+        return (PyArray_Descr *)new_quaddtype_instance(quad_obj->backend);
     }
-
-    QuadPrecisionObject *quad_obj = (QuadPrecisionObject *)obj;
-
-    return (PyArray_Descr *)new_quaddtype_instance(quad_obj->backend);
+    
+    /* For Python int/float/other numeric types: return default descriptor */
+    /* The casting machinery will handle conversion to QuadPrecision */
+    if (PyLong_Check(obj) || PyFloat_Check(obj)) {
+        return (PyArray_Descr *)new_quaddtype_instance(BACKEND_SLEEF);
+    }
+    
+    /* Unknown type - let NumPy handle it or raise appropriate error */
+    PyErr_SetString(PyExc_TypeError, "Can only store QuadPrecision, int, or float in a QuadPrecDType array.");
+    return NULL;
 }
 
 static int
