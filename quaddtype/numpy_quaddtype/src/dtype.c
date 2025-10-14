@@ -97,6 +97,13 @@ common_instance(QuadPrecDTypeObject *dtype1, QuadPrecDTypeObject *dtype2)
 static PyArray_DTypeMeta *
 common_dtype(PyArray_DTypeMeta *cls, PyArray_DTypeMeta *other)
 {
+    // Handle Python abstract dtypes (PyLongDType, PyFloatDType)
+    // These have type_num = -1 
+    if (other == &PyArray_PyLongDType || other == &PyArray_PyFloatDType) {
+        Py_INCREF(cls);
+        return cls;
+    }
+    
     // Promote integer and floating-point types to QuadPrecDType
     if (other->type_num >= 0 &&
         (PyTypeNum_ISINTEGER(other->type_num) || PyTypeNum_ISFLOAT(other->type_num))) {
@@ -261,6 +268,50 @@ quadprec_get_constant(PyArray_Descr *descr, int constant_id, void *ptr)
     return 1;
 }
 
+/*
+ * Fill function.
+ * The buffer already has the first two elements set:
+ *   buffer[0] = start
+ *   buffer[1] = start + step
+ * We need to fill buffer[2..length-1] with the arithmetic progression.
+ */
+static int
+quadprec_fill(void *buffer, npy_intp length, void *arr_)
+{
+    PyArrayObject *arr = (PyArrayObject *)arr_;
+    QuadPrecDTypeObject *descr = (QuadPrecDTypeObject *)PyArray_DESCR(arr);
+    QuadBackendType backend = descr->backend;
+    npy_intp i;
+    
+    if (length < 2) {
+        return 0;  // Nothing to fill
+    }
+    
+    if (backend == BACKEND_SLEEF) {
+        Sleef_quad *buf = (Sleef_quad *)buffer;
+        Sleef_quad start = buf[0];
+        Sleef_quad delta = Sleef_subq1_u05(buf[1], start);  // delta = buf[1] - start
+        
+        for (i = 2; i < length; ++i) {
+            // buf[i] = start + i * delta
+            Sleef_quad i_quad = Sleef_cast_from_doubleq1(i);
+            Sleef_quad i_delta = Sleef_mulq1_u05(i_quad, delta);
+            buf[i] = Sleef_addq1_u05(start, i_delta);
+        }
+    }
+    else { 
+        long double *buf = (long double *)buffer;
+        long double start = buf[0];
+        long double delta = buf[1] - start;
+        
+        for (i = 2; i < length; ++i) {
+            buf[i] = start + i * delta;
+        }
+    }
+    
+    return 0;
+}
+
 static PyType_Slot QuadPrecDType_Slots[] = {
         {NPY_DT_ensure_canonical, &ensure_canonical},
         {NPY_DT_common_instance, &common_instance},
@@ -270,6 +321,7 @@ static PyType_Slot QuadPrecDType_Slots[] = {
         {NPY_DT_getitem, &quadprec_getitem},
         {NPY_DT_default_descr, &quadprec_default_descr},
         {NPY_DT_get_constant, &quadprec_get_constant},
+        {NPY_DT_PyArray_ArrFuncs_fill, &quadprec_fill},
         {0, NULL}};
 
 static PyObject *
