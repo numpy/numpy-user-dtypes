@@ -135,7 +135,7 @@ quadprec_discover_descriptor_from_pyobject(PyArray_DTypeMeta *NPY_UNUSED(cls), P
         return (PyArray_Descr *)new_quaddtype_instance(BACKEND_SLEEF);
     }
     
-    /* Unknown type - let NumPy handle it or raise appropriate error */
+    /* Unknown type - ERROR */
     PyErr_SetString(PyExc_TypeError, "Can only store QuadPrecision, int, or float in a QuadPrecDType array.");
     return NULL;
 }
