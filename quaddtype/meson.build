@@ -15,9 +15,59 @@ endif
 
 qblas_dep = dependency('qblas', fallback: ['qblas', 'qblas_dep'])
 
-sleef_subproj = subproject('sleef', required: true)
-sleef_dep = sleef_subproj.get_variable('sleef_dep')
-sleefquad_dep = sleef_subproj.get_variable('sleefquad_dep')
+# Try to find SLEEF system-wide first, fall back to subproject if not found
+sleef_dep = dependency('sleef', fallback: ['sleef', 'sleef_dep'], required: false)
+
+use_system_sleef = false
+fallback_reason = ''
+
+if sleef_dep.found() and sleef_dep.type_name() != 'internal'
+  # SLEEF found system-wide - verify quad-precision support
+  cpp = meson.get_compiler('cpp')
+  sleefquad_lib = cpp.find_library('sleefquad', required: false)
+  
+  if sleefquad_lib.found()
+    sleefquad_test_code = '''
+    #include <sleefquad.h>
+
+    int main(void) {
+      Sleef_quad q1 = Sleef_cast_from_doubleq1(1.0);
+      Sleef_quad q2 = Sleef_cast_from_doubleq1(2.0);
+      Sleef_quad result = Sleef_addq1_u05(q1, q2);
+      return 0;
+    }
+    '''
+    # this should compile and link
+    quad_works = cpp.links(
+      sleefquad_test_code,
+      dependencies: [sleef_dep, sleefquad_lib],
+      name: 'SLEEF quad-precision support'
+    )
+    
+    if quad_works
+      sleefquad_dep = declare_dependency(
+        dependencies: [sleef_dep, sleefquad_lib]
+      )
+      use_system_sleef = true
+    else
+      fallback_reason = 'quad-precision support is not working'
+    endif
+  else
+    fallback_reason = 'sleefquad library is missing'
+  endif
+else
+  fallback_reason = 'SLEEF not found system-wide'
+endif
+
+if use_system_sleef
+  message('Using system-wide SLEEF installation with quad-precision support')
+else
+  warning('Falling back to SLEEF subproject: ' + fallback_reason)
+  sleef_subproj = subproject('sleef')
+  sleef_dep = sleef_subproj.get_variable('sleef_dep')
+  sleefquad_dep = sleef_subproj.get_variable('sleefquad_dep')
+  message('Using SLEEF subproject')
+endif
 
 incdir_numpy = run_command(py,
   ['-c', 'import numpy; print(numpy.get_include())'],
