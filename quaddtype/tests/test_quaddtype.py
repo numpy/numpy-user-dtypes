@@ -367,7 +367,7 @@ def test_logarithmic_functions(op, val):
     # Check sign for zero results
     if float_result == 0.0:
         assert np.signbit(float_result) == np.signbit(
-            quad_result), f"Zero sign mismatch for {op}({a}, {b})"
+            quad_result), f"Zero sign mismatch"
 
 
 @pytest.mark.parametrize("val", [
@@ -390,6 +390,7 @@ def test_logarithmic_functions(op, val):
 ])
 def test_log1p(val):
     """Comprehensive test for log1p function"""
+    op = "log1p"
     quad_val = QuadPrecision(val)
     float_val = float(val)
 
@@ -426,6 +427,106 @@ def test_log1p(val):
     if float_result == 0.0:
         assert np.signbit(float_result) == np.signbit(
             quad_result), f"Zero sign mismatch for {op}({val})"
+
+
+@pytest.mark.parametrize("x", [
+    # Regular values
+    "0.0", "1.0", "2.0", "-1.0", "-2.0", "0.5", "-0.5",
+    # Large values (test numerical stability)
+    "100.0", "1000.0", "-100.0", "-1000.0",
+    # Small values
+    "1e-10", "-1e-10", "1e-20", "-1e-20",
+    # Special values
+    "inf", "-inf", "nan", "-nan", "-0.0"
+])
+@pytest.mark.parametrize("y", [
+    # Regular values
+    "0.0", "1.0", "2.0", "-1.0", "-2.0", "0.5", "-0.5",
+    # Large values
+    "100.0", "1000.0", "-100.0", "-1000.0",
+    # Small values
+    "1e-10", "-1e-10", "1e-20", "-1e-20",
+    # Special values
+    "inf", "-inf", "nan", "-nan", "-0.0"
+])
+def test_logaddexp(x, y):
+    """Comprehensive test for logaddexp function: log(exp(x) + exp(y))"""
+    quad_x = QuadPrecision(x)
+    quad_y = QuadPrecision(y)
+    float_x = float(x)
+    float_y = float(y)
+    
+    quad_result = np.logaddexp(quad_x, quad_y)
+    float_result = np.logaddexp(float_x, float_y)
+    
+    # Handle NaN cases
+    if np.isnan(float_result):
+        assert np.isnan(float(quad_result)), \
+            f"Expected NaN for logaddexp({x}, {y}), got {float(quad_result)}"
+        return
+    
+    # Handle infinity cases
+    if np.isinf(float_result):
+        assert np.isinf(float(quad_result)), \
+            f"Expected inf for logaddexp({x}, {y}), got {float(quad_result)}"
+        if not np.isnan(float_result):
+            assert np.sign(float_result) == np.sign(float(quad_result)), \
+                f"Infinity sign mismatch for logaddexp({x}, {y})"
+        return
+    
+    # For finite results, check with appropriate tolerance
+    # logaddexp is numerically sensitive, especially for large differences
+    if abs(float_x - float_y) > 50:
+        # When values differ greatly, result should be close to max(x, y)
+        rtol = 1e-10
+        atol = 1e-10
+    else:
+        rtol = 1e-13
+        atol = 1e-15
+    
+    np.testing.assert_allclose(
+        float(quad_result), float_result, 
+        rtol=rtol, atol=atol,
+        err_msg=f"Value mismatch for logaddexp({x}, {y})"
+    )
+
+
+def test_logaddexp_special_properties():
+    """Test special mathematical properties of logaddexp"""
+    # logaddexp(x, x) = x + log(2)
+    x = QuadPrecision("2.0")
+    result = np.logaddexp(x, x)
+    expected = float(x) + np.log(2.0)
+    np.testing.assert_allclose(float(result), expected, rtol=1e-14)
+    
+    # logaddexp(x, -inf) = x
+    x = QuadPrecision("5.0")
+    result = np.logaddexp(x, QuadPrecision("-inf"))
+    np.testing.assert_allclose(float(result), float(x), rtol=1e-14)
+    
+    # logaddexp(-inf, x) = x
+    result = np.logaddexp(QuadPrecision("-inf"), x)
+    np.testing.assert_allclose(float(result), float(x), rtol=1e-14)
+    
+    # logaddexp(-inf, -inf) = -inf
+    result = np.logaddexp(QuadPrecision("-inf"), QuadPrecision("-inf"))
+    assert np.isinf(float(result)) and float(result) < 0
+    
+    # logaddexp(inf, anything) = inf
+    result = np.logaddexp(QuadPrecision("inf"), QuadPrecision("100.0"))
+    assert np.isinf(float(result)) and float(result) > 0
+    
+    # logaddexp(anything, inf) = inf
+    result = np.logaddexp(QuadPrecision("100.0"), QuadPrecision("inf"))
+    assert np.isinf(float(result)) and float(result) > 0
+    
+    # Commutativity: logaddexp(x, y) = logaddexp(y, x)
+    x = QuadPrecision("3.0")
+    y = QuadPrecision("5.0")
+    result1 = np.logaddexp(x, y)
+    result2 = np.logaddexp(y, x)
+    np.testing.assert_allclose(float(result1), float(result2), rtol=1e-14)
+
 
 def test_inf():
     assert QuadPrecision("inf") > QuadPrecision("1e1000")

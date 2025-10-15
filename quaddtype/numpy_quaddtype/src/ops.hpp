@@ -584,6 +584,48 @@ quad_copysign(const Sleef_quad *in1, const Sleef_quad *in2)
     return Sleef_copysignq1(*in1, *in2);
 }
 
+static inline Sleef_quad
+quad_logaddexp(const Sleef_quad *x, const Sleef_quad *y)
+{
+    // logaddexp(x, y) = log(exp(x) + exp(y))
+    // Numerically stable implementation: max(x, y) + log1p(exp(-abs(x - y)))
+    
+    // Handle NaN
+    if (Sleef_iunordq1(*x, *y)) {
+        return Sleef_iunordq1(*x, *x) ? *x : *y;
+    }
+    
+    // Handle infinities
+    // If both are -inf, result is -inf
+    Sleef_quad neg_inf = Sleef_negq1(QUAD_POS_INF);
+    if (Sleef_icmpeqq1(*x, neg_inf) && Sleef_icmpeqq1(*y, neg_inf)) {
+        return neg_inf;
+    }
+    
+    // If either is +inf, result is +inf
+    if (Sleef_icmpeqq1(*x, QUAD_POS_INF) || Sleef_icmpeqq1(*y, QUAD_POS_INF)) {
+        return QUAD_POS_INF;
+    }
+    
+    // If one is -inf, result is the other value
+    if (Sleef_icmpeqq1(*x, neg_inf)) {
+        return *y;
+    }
+    if (Sleef_icmpeqq1(*y, neg_inf)) {
+        return *x;
+    }
+    
+    // Numerically stable computation
+    Sleef_quad diff = Sleef_subq1_u05(*x, *y);
+    Sleef_quad abs_diff = Sleef_fabsq1(diff);
+    Sleef_quad neg_abs_diff = Sleef_negq1(abs_diff);
+    Sleef_quad exp_term = Sleef_expq1_u10(neg_abs_diff);
+    Sleef_quad log1p_term = Sleef_log1pq1_u10(exp_term);
+    
+    Sleef_quad max_val = Sleef_icmpgtq1(*x, *y) ? *x : *y;
+    return Sleef_addq1_u05(max_val, log1p_term);
+}
+
 // Binary long double operations
 typedef long double (*binary_op_longdouble_def)(const long double *, const long double *);
 
@@ -678,6 +720,43 @@ static inline long double
 ld_copysign(const long double *in1, const long double *in2)
 {
     return copysignl(*in1, *in2);
+}
+
+static inline long double
+ld_logaddexp(const long double *x, const long double *y)
+{
+    // logaddexp(x, y) = log(exp(x) + exp(y))
+    // Numerically stable implementation: max(x, y) + log1p(exp(-abs(x - y)))
+    
+    // Handle NaN
+    if (isnan(*x) || isnan(*y)) {
+        return isnan(*x) ? *x : *y;
+    }
+    
+    // Handle infinities
+    // If both are -inf, result is -inf
+    if (isinf(*x) && *x < 0 && isinf(*y) && *y < 0) {
+        return -INFINITY;
+    }
+    
+    // If either is +inf, result is +inf
+    if ((isinf(*x) && *x > 0) || (isinf(*y) && *y > 0)) {
+        return INFINITY;
+    }
+    
+    // If one is -inf, result is the other value
+    if (isinf(*x) && *x < 0) {
+        return *y;
+    }
+    if (isinf(*y) && *y < 0) {
+        return *x;
+    }
+    
+    // Numerically stable computation
+    long double diff = *x - *y;
+    long double abs_diff = fabsl(diff);
+    long double max_val = (*x > *y) ? *x : *y;
+    return max_val + log1pl(expl(-abs_diff));
 }
 
 // comparison quad functions
