@@ -591,3 +591,74 @@ def test_hyperbolic_functions(op, val):
     if float_result == 0.0:
         assert np.signbit(float_result) == np.signbit(
             quad_result), f"Zero sign mismatch for {op}({val})"
+
+
+class TestTypePomotionWithPythonAbstractTypes:
+    """Tests for common_dtype handling of Python abstract dtypes (PyLongDType, PyFloatDType)"""
+    
+    def test_promotion_with_python_int(self):
+        """Test that Python int promotes to QuadPrecDType"""
+        # Create array from Python int
+        arr = np.array([1, 2, 3], dtype=QuadPrecDType)
+        assert arr.dtype.name == "QuadPrecDType128"
+        assert len(arr) == 3
+        assert float(arr[0]) == 1.0
+        assert float(arr[1]) == 2.0
+        assert float(arr[2]) == 3.0
+    
+    def test_promotion_with_python_float(self):
+        """Test that Python float promotes to QuadPrecDType"""
+        # Create array from Python float
+        arr = np.array([1.5, 2.7, 3.14], dtype=QuadPrecDType)
+        assert arr.dtype.name == "QuadPrecDType128"
+        assert len(arr) == 3
+        np.testing.assert_allclose(float(arr[0]), 1.5, rtol=1e-15)
+        np.testing.assert_allclose(float(arr[1]), 2.7, rtol=1e-15)
+        np.testing.assert_allclose(float(arr[2]), 3.14, rtol=1e-15)
+    
+    def test_result_dtype_binary_ops_with_python_types(self):
+        """Test that binary operations between QuadPrecDType and Python scalars return QuadPrecDType"""
+        quad_arr = np.array([QuadPrecision("1.0"), QuadPrecision("2.0")])
+        
+        # Addition with Python int
+        result = quad_arr + 5
+        assert result.dtype.name == "QuadPrecDType128"
+        assert float(result[0]) == 6.0
+        assert float(result[1]) == 7.0
+        
+        # Multiplication with Python float
+        result = quad_arr * 2.5
+        assert result.dtype.name == "QuadPrecDType128"
+        np.testing.assert_allclose(float(result[0]), 2.5, rtol=1e-15)
+        np.testing.assert_allclose(float(result[1]), 5.0, rtol=1e-15)
+    
+    def test_concatenate_with_python_types(self):
+        """Test concatenation handles Python numeric types correctly"""
+        quad_arr = np.array([QuadPrecision("1.0")])
+        # This should work if promotion is correct
+        int_arr = np.array([2], dtype=np.int64)
+        
+        # The result dtype should be QuadPrecDType
+        result = np.concatenate([quad_arr, int_arr.astype(QuadPrecDType)])
+        assert result.dtype.name == "QuadPrecDType128"
+        assert len(result) == 2
+
+
+@pytest.mark.parametrize("func,args,expected", [
+    # arange tests
+    (np.arange, (0, 10), list(range(10))),
+    (np.arange, (0, 10, 2), [0, 2, 4, 6, 8]),
+    (np.arange, (0.0, 5.0, 0.5), [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5]),
+    (np.arange, (10, 0, -1), [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]),
+    (np.arange, (-5, 5), list(range(-5, 5))),
+    # linspace tests
+    (np.linspace, (0, 10, 11), list(range(11))),
+    (np.linspace, (0, 1, 5), [0.0, 0.25, 0.5, 0.75, 1.0]),
+])
+def test_fill_function(func, args, expected):
+    """Test quadprec_fill function with arange and linspace"""
+    arr = func(*args, dtype=QuadPrecDType())
+    assert arr.dtype.name == "QuadPrecDType128"
+    assert len(arr) == len(expected)
+    for i, exp_val in enumerate(expected):
+        np.testing.assert_allclose(float(arr[i]), float(exp_val), rtol=1e-15, atol=1e-15)
