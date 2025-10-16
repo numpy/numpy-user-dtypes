@@ -528,6 +528,210 @@ def test_logaddexp_special_properties():
     np.testing.assert_allclose(float(result1), float(result2), rtol=1e-14)
 
 
+@pytest.mark.parametrize("x", [
+    # Regular values
+    "0.0", "1.0", "2.0", "-1.0", "-2.0", "0.5", "-0.5",
+    # Large values (test numerical stability)
+    "100.0", "1000.0", "-100.0", "-1000.0",
+    # Small values
+    "1e-10", "-1e-10", "1e-20", "-1e-20",
+    # Special values
+    "inf", "-inf", "nan", "-nan", "-0.0"
+])
+@pytest.mark.parametrize("y", [
+    # Regular values
+    "0.0", "1.0", "2.0", "-1.0", "-2.0", "0.5", "-0.5",
+    # Large values
+    "100.0", "1000.0", "-100.0", "-1000.0",
+    # Small values
+    "1e-10", "-1e-10", "1e-20", "-1e-20",
+    # Special values
+    "inf", "-inf", "nan", "-nan", "-0.0"
+])
+def test_logaddexp2(x, y):
+    """Comprehensive test for logaddexp2 function: log2(2^x + 2^y)"""
+    quad_x = QuadPrecision(x)
+    quad_y = QuadPrecision(y)
+    float_x = float(x)
+    float_y = float(y)
+    
+    quad_result = np.logaddexp2(quad_x, quad_y)
+    float_result = np.logaddexp2(float_x, float_y)
+    
+    # Handle NaN cases
+    if np.isnan(float_result):
+        assert np.isnan(float(quad_result)), \
+            f"Expected NaN for logaddexp2({x}, {y}), got {float(quad_result)}"
+        return
+    
+    # Handle infinity cases
+    if np.isinf(float_result):
+        assert np.isinf(float(quad_result)), \
+            f"Expected inf for logaddexp2({x}, {y}), got {float(quad_result)}"
+        if not np.isnan(float_result):
+            assert np.sign(float_result) == np.sign(float(quad_result)), \
+                f"Infinity sign mismatch for logaddexp2({x}, {y})"
+        return
+    
+    # For finite results, check with appropriate tolerance
+    # logaddexp2 is numerically sensitive, especially for large differences
+    if abs(float_x - float_y) > 50:
+        # When values differ greatly, result should be close to max(x, y)
+        rtol = 1e-10
+        atol = 1e-10
+    else:
+        rtol = 1e-13
+        atol = 1e-15
+    
+    np.testing.assert_allclose(
+        float(quad_result), float_result, 
+        rtol=rtol, atol=atol,
+        err_msg=f"Value mismatch for logaddexp2({x}, {y})"
+    )
+
+
+def test_logaddexp2_special_properties():
+    """Test special mathematical properties of logaddexp2"""
+    # logaddexp2(x, x) = x + 1 (since log2(2^x + 2^x) = log2(2 * 2^x) = log2(2) + log2(2^x) = 1 + x)
+    x = QuadPrecision("2.0")
+    result = np.logaddexp2(x, x)
+    expected = float(x) + 1.0
+    np.testing.assert_allclose(float(result), expected, rtol=1e-14)
+    
+    # logaddexp2(x, -inf) = x
+    x = QuadPrecision("5.0")
+    result = np.logaddexp2(x, QuadPrecision("-inf"))
+    np.testing.assert_allclose(float(result), float(x), rtol=1e-14)
+    
+    # logaddexp2(-inf, x) = x
+    result = np.logaddexp2(QuadPrecision("-inf"), x)
+    np.testing.assert_allclose(float(result), float(x), rtol=1e-14)
+    
+    # logaddexp2(-inf, -inf) = -inf
+    result = np.logaddexp2(QuadPrecision("-inf"), QuadPrecision("-inf"))
+    assert np.isinf(float(result)) and float(result) < 0
+    
+    # logaddexp2(inf, anything) = inf
+    result = np.logaddexp2(QuadPrecision("inf"), QuadPrecision("100.0"))
+    assert np.isinf(float(result)) and float(result) > 0
+    
+    # logaddexp2(anything, inf) = inf
+    result = np.logaddexp2(QuadPrecision("100.0"), QuadPrecision("inf"))
+    assert np.isinf(float(result)) and float(result) > 0
+    
+    # Commutativity: logaddexp2(x, y) = logaddexp2(y, x)
+    x = QuadPrecision("3.0")
+    y = QuadPrecision("5.0")
+    result1 = np.logaddexp2(x, y)
+    result2 = np.logaddexp2(y, x)
+    np.testing.assert_allclose(float(result1), float(result2), rtol=1e-14)
+    
+    # Relationship with logaddexp: logaddexp2(x, y) = logaddexp(x*ln2, y*ln2) / ln2
+    x = QuadPrecision("2.0")
+    y = QuadPrecision("3.0")
+    result_logaddexp2 = np.logaddexp2(x, y)
+    ln2 = np.log(2.0)
+    result_logaddexp = np.logaddexp(float(x) * ln2, float(y) * ln2) / ln2
+    np.testing.assert_allclose(float(result_logaddexp2), result_logaddexp, rtol=1e-13)
+
+
+@pytest.mark.parametrize(
+    "x_val",
+    [
+        0.0, 1.0, 2.0, -1.0, -2.0,
+        0.5, -0.5,
+        100.0, 1000.0, -100.0, -1000.0,
+        1e-10, -1e-10, 1e-20, -1e-20,
+        float("inf"), float("-inf"), float("nan"), float("-nan"), -0.0
+    ]
+)
+@pytest.mark.parametrize(
+    "y_val",
+    [
+        0.0, 1.0, 2.0, -1.0, -2.0,
+        0.5, -0.5,
+        100.0, 1000.0, -100.0, -1000.0,
+        1e-10, -1e-10, 1e-20, -1e-20,
+        float("inf"), float("-inf"), float("nan"), float("-nan"), -0.0
+    ]
+)
+def test_true_divide(x_val, y_val):
+    """Test true_divide ufunc with comprehensive edge cases"""
+    x_quad = QuadPrecision(str(x_val))
+    y_quad = QuadPrecision(str(y_val))
+    
+    # Compute using QuadPrecision
+    result_quad = np.true_divide(x_quad, y_quad)
+    
+    # Compute using float64 for comparison
+    result_float64 = np.true_divide(np.float64(x_val), np.float64(y_val))
+    
+    # Compare results
+    if np.isnan(result_float64):
+        assert np.isnan(float(result_quad)), f"Expected NaN for true_divide({x_val}, {y_val})"
+    elif np.isinf(result_float64):
+        assert np.isinf(float(result_quad)), f"Expected inf for true_divide({x_val}, {y_val})"
+        assert np.sign(float(result_quad)) == np.sign(result_float64), f"Sign mismatch for true_divide({x_val}, {y_val})"
+    else:
+        # For finite results, check relative tolerance
+        np.testing.assert_allclose(
+            float(result_quad), result_float64, rtol=1e-14,
+            err_msg=f"Mismatch for true_divide({x_val}, {y_val})"
+        )
+
+
+def test_true_divide_special_properties():
+    """Test special mathematical properties of true_divide"""
+    # Division by 1 returns the original value
+    x = QuadPrecision("42.123456789")
+    result = np.true_divide(x, QuadPrecision("1.0"))
+    np.testing.assert_allclose(float(result), float(x), rtol=1e-30)
+    
+    # Division of 0 by any non-zero number is 0
+    result = np.true_divide(QuadPrecision("0.0"), QuadPrecision("5.0"))
+    assert float(result) == 0.0
+    
+    # Division by 0 gives inf (with appropriate sign)
+    result = np.true_divide(QuadPrecision("1.0"), QuadPrecision("0.0"))
+    assert np.isinf(float(result)) and float(result) > 0
+    
+    result = np.true_divide(QuadPrecision("-1.0"), QuadPrecision("0.0"))
+    assert np.isinf(float(result)) and float(result) < 0
+    
+    # 0 / 0 = NaN
+    result = np.true_divide(QuadPrecision("0.0"), QuadPrecision("0.0"))
+    assert np.isnan(float(result))
+    
+    # inf / inf = NaN
+    result = np.true_divide(QuadPrecision("inf"), QuadPrecision("inf"))
+    assert np.isnan(float(result))
+    
+    # inf / finite = inf
+    result = np.true_divide(QuadPrecision("inf"), QuadPrecision("100.0"))
+    assert np.isinf(float(result)) and float(result) > 0
+    
+    # finite / inf = 0
+    result = np.true_divide(QuadPrecision("100.0"), QuadPrecision("inf"))
+    assert float(result) == 0.0
+    
+    # Self-division (x / x) = 1 for finite non-zero x
+    x = QuadPrecision("7.123456789")
+    result = np.true_divide(x, x)
+    np.testing.assert_allclose(float(result), 1.0, rtol=1e-30)
+    
+    # Sign preservation: (-x) / y = -(x / y)
+    x = QuadPrecision("5.5")
+    y = QuadPrecision("2.2")
+    result1 = np.true_divide(-x, y)
+    result2 = -np.true_divide(x, y)
+    np.testing.assert_allclose(float(result1), float(result2), rtol=1e-30)
+    
+    # Sign rule: negative / negative = positive
+    result = np.true_divide(QuadPrecision("-6.0"), QuadPrecision("-2.0"))
+    assert float(result) > 0
+    np.testing.assert_allclose(float(result), 3.0, rtol=1e-30)
+
+
 def test_inf():
     assert QuadPrecision("inf") > QuadPrecision("1e1000")
     assert np.signbit(QuadPrecision("inf")) == 0
