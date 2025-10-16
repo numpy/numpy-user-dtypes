@@ -17,7 +17,7 @@
 | negative      | ✅    | ✅                                                                   |
 | positive      | ✅    | ✅                                                                   |
 | power         | ✅    | ✅                                                                   |
-| float_power   |       |                                                                      |
+| float_power   | ✅    | ✅                                                                   |
 | remainder     | ✅    | ✅                                                                   |
 | mod           | ✅    | ✅                                                                   |
 | fmod          |       |                                                                      |

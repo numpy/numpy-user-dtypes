@@ -224,6 +224,11 @@ init_quad_binary_ops(PyObject *numpy)
     if (create_quad_binary_ufunc<quad_pow, ld_pow>(numpy, "power") < 0) {
         return -1;
     }
+    // float_power uses the same implementation as power for floating-point types
+    // The only difference is that float_power promotes integer inputs to float (quaddtype already float)
+    if (create_quad_binary_ufunc<quad_pow, ld_pow>(numpy, "float_power") < 0) {
+        return -1;
+    }
     if (create_quad_binary_ufunc<quad_mod, ld_mod>(numpy, "mod") < 0) {
         return -1;
     }
