@@ -832,13 +832,12 @@ ld_logaddexp2(const long double *x, const long double *y)
         return *x;
     }
     
-    // Numerically stable computation
     // log2(2^x + 2^y) = max(x, y) + log2(1 + 2^(-abs(x - y)))
     long double diff = *x - *y;
     long double abs_diff = fabsl(diff);
     long double max_val = (*x > *y) ? *x : *y;
-    // log2(1 + z) = log(1 + z) / log(2)
-    return max_val + log1pl(exp2l(-abs_diff)) / M_LN2;
+    // Use native log2l function for base-2 logarithm
+    return max_val + log2l(1.0L + exp2l(-abs_diff));
 }
 
 // comparison quad functions
