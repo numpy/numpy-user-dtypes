@@ -11,7 +11,7 @@
 | matmul        | ✅    | ✅                                                                   |
 | divide        | ✅    | ✅                                                                   |
 | logaddexp     | ✅    | ✅                                                                   |
-| logaddexp2    |       |                                                                      |
+| logaddexp2    | ✅    | ✅                                                                   |
 | true_divide   |       |                                                                      |
 | floor_divide  |       |                                                                      |
 | negative      | ✅    | ✅                                                                   |
