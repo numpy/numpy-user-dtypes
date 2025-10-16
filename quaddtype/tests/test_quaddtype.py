@@ -732,6 +732,111 @@ def test_true_divide_special_properties():
     np.testing.assert_allclose(float(result), 3.0, rtol=1e-30)
 
 
+@pytest.mark.parametrize(
+    "x_val",
+    [
+        0.0, 1.0, 2.0, -1.0, -2.0,
+        0.5, -0.5,
+        100.0, 1000.0, -100.0, -1000.0,
+        1e-10, -1e-10, 1e-20, -1e-20,
+        float("inf"), float("-inf"), float("nan"), float("-nan"), -0.0
+    ]
+)
+@pytest.mark.parametrize(
+    "y_val",
+    [
+        0.0, 1.0, 2.0, -1.0, -2.0,
+        0.5, -0.5,
+        100.0, 1000.0, -100.0, -1000.0,
+        1e-10, -1e-10, 1e-20, -1e-20,
+        float("inf"), float("-inf"), float("nan"), float("-nan"), -0.0
+    ]
+)
+def test_floor_divide(x_val, y_val):
+    """Test floor_divide ufunc with comprehensive edge cases"""
+    x_quad = QuadPrecision(str(x_val))
+    y_quad = QuadPrecision(str(y_val))
+    
+    # Compute using QuadPrecision
+    result_quad = np.floor_divide(x_quad, y_quad)
+    
+    # Compute using float64 for comparison
+    result_float64 = np.floor_divide(np.float64(x_val), np.float64(y_val))
+    
+    # Compare results
+    if np.isnan(result_float64):
+        assert np.isnan(float(result_quad)), f"Expected NaN for floor_divide({x_val}, {y_val})"
+    elif np.isinf(result_float64):
+        assert np.isinf(float(result_quad)), f"Expected inf for floor_divide({x_val}, {y_val})"
+        assert np.sign(float(result_quad)) == np.sign(result_float64), f"Sign mismatch for floor_divide({x_val}, {y_val})"
+    else:
+        # For finite results, check relative tolerance
+        # Use absolute tolerance for large numbers due to float64 precision limits
+        atol = max(1e-10, abs(result_float64) * 1e-9) if abs(result_float64) > 1e6 else 1e-10
+        np.testing.assert_allclose(
+            float(result_quad), result_float64, rtol=1e-12, atol=atol,
+            err_msg=f"Mismatch for floor_divide({x_val}, {y_val})"
+        )
+def test_floor_divide_special_properties():
+    """Test special mathematical properties of floor_divide"""
+    # floor_divide(x, 1) = floor(x)
+    x = QuadPrecision("42.7")
+    result = np.floor_divide(x, QuadPrecision("1.0"))
+    np.testing.assert_allclose(float(result), 42.0, rtol=1e-30)
+    
+    # floor_divide(0, non-zero) = 0
+    result = np.floor_divide(QuadPrecision("0.0"), QuadPrecision("5.0"))
+    assert float(result) == 0.0
+    
+    # floor_divide by 0 gives inf (with appropriate sign)
+    result = np.floor_divide(QuadPrecision("1.0"), QuadPrecision("0.0"))
+    assert np.isinf(float(result)) and float(result) > 0
+    
+    result = np.floor_divide(QuadPrecision("-1.0"), QuadPrecision("0.0"))
+    assert np.isinf(float(result)) and float(result) < 0
+    
+    # 0 / 0 = NaN
+    result = np.floor_divide(QuadPrecision("0.0"), QuadPrecision("0.0"))
+    assert np.isnan(float(result))
+    
+    # inf / inf = NaN
+    result = np.floor_divide(QuadPrecision("inf"), QuadPrecision("inf"))
+    assert np.isnan(float(result))
+    
+    # inf / finite_nonzero = NaN (NumPy behavior)
+    result = np.floor_divide(QuadPrecision("inf"), QuadPrecision("100.0"))
+    assert np.isnan(float(result))
+    
+    # finite / inf = 0
+    result = np.floor_divide(QuadPrecision("100.0"), QuadPrecision("inf"))
+    assert float(result) == 0.0
+    
+    # floor_divide rounds toward negative infinity
+    result = np.floor_divide(QuadPrecision("7.0"), QuadPrecision("3.0"))
+    assert float(result) == 2.0  # floor(7/3) = floor(2.333...) = 2
+    
+    result = np.floor_divide(QuadPrecision("-7.0"), QuadPrecision("3.0"))
+    assert float(result) == -3.0  # floor(-7/3) = floor(-2.333...) = -3
+    
+    result = np.floor_divide(QuadPrecision("7.0"), QuadPrecision("-3.0"))
+    assert float(result) == -3.0  # floor(7/-3) = floor(-2.333...) = -3
+    
+    result = np.floor_divide(QuadPrecision("-7.0"), QuadPrecision("-3.0"))
+    assert float(result) == 2.0  # floor(-7/-3) = floor(2.333...) = 2
+    
+    # floor_divide(x, x) = 1 for positive finite non-zero x
+    x = QuadPrecision("7.123456789")
+    result = np.floor_divide(x, x)
+    np.testing.assert_allclose(float(result), 1.0, rtol=1e-30)
+    
+    # Relationship with floor and true_divide
+    x = QuadPrecision("10.5")
+    y = QuadPrecision("3.2")
+    result_floor_divide = np.floor_divide(x, y)
+    result_floor_true_divide = np.floor(np.true_divide(x, y))
+    np.testing.assert_allclose(float(result_floor_divide), float(result_floor_true_divide), rtol=1e-30)
+
+
 def test_inf():
     assert QuadPrecision("inf") > QuadPrecision("1e1000")
     assert np.signbit(QuadPrecision("inf")) == 0

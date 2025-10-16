@@ -13,7 +13,7 @@
 | logaddexp     | ✅    | ✅                                                                   |
 | logaddexp2    | ✅    | ✅                                                                   |
 | true_divide   | ✅    | ✅                                                                   |
-| floor_divide  |       |                                                                      |
+| floor_divide  | ✅    | ✅                                                                   |
 | negative      | ✅    | ✅                                                                   |
 | positive      | ✅    | ✅                                                                   |
 | power         | ✅    | ✅                                                                   |
