@@ -468,6 +468,39 @@ quad_div(const Sleef_quad *a, const Sleef_quad *b)
 }
 
 static inline Sleef_quad
+quad_floor_divide(const Sleef_quad *a, const Sleef_quad *b)
+{
+    // Handle NaN inputs
+    if (Sleef_iunordq1(*a, *b)) {
+        return Sleef_iunordq1(*a, *a) ? *a : *b;
+    }
+    
+    // inf / finite_nonzero or -inf / finite_nonzero -> NaN
+    // But inf / 0 -> inf
+    if (quad_isinf(a) && quad_isfinite(b) && !Sleef_icmpeqq1(*b, QUAD_ZERO)) {
+        return QUAD_NAN;
+    }
+    
+    // 0 / 0 (including -0.0 / 0.0, 0.0 / -0.0, -0.0 / -0.0) -> NaN
+    if (Sleef_icmpeqq1(*a, QUAD_ZERO) && Sleef_icmpeqq1(*b, QUAD_ZERO)) {
+        return QUAD_NAN;
+    }
+    
+    Sleef_quad quotient = Sleef_divq1_u05(*a, *b);
+    Sleef_quad result = Sleef_floorq1(quotient);
+    
+    // floor_divide semantics: when result is -0.0 from non-zero numerator, convert to -1.0
+    // This happens when: (negative & non-zero)/+inf, (positive & non-zero)/-inf
+    // But NOT when numerator is ±0.0 (then result stays as ±0.0)
+    if (Sleef_icmpeqq1(result, QUAD_ZERO) && quad_signbit(&result) && 
+        !Sleef_icmpeqq1(*a, QUAD_ZERO)) {
+        return Sleef_negq1(QUAD_ONE);  // -1.0
+    }
+    
+    return result;
+}
+
+static inline Sleef_quad
 quad_pow(const Sleef_quad *a, const Sleef_quad *b)
 {
     return Sleef_powq1_u10(*a, *b);
@@ -694,6 +727,38 @@ static inline long double
 ld_div(const long double *a, const long double *b)
 {
     return (*a) / (*b);
+}
+
+static inline long double
+ld_floor_divide(const long double *a, const long double *b)
+{
+    // Handle NaN inputs
+    if (isnan(*a) || isnan(*b)) {
+        return isnan(*a) ? *a : *b;
+    }
+    
+    // inf / finite_nonzero or -inf / finite_nonzero -> NaN
+    // But inf / 0 -> inf
+    if (isinf(*a) && isfinite(*b) && *b != 0.0L) {
+        return NAN;
+    }
+    
+    // 0 / 0 (including -0.0 / 0.0, 0.0 / -0.0, -0.0 / -0.0) -> NaN
+    if (*a == 0.0L && *b == 0.0L) {
+        return NAN;
+    }
+    
+    // Compute a / b and apply floor
+    long double result = floorl((*a) / (*b));
+    
+    // floor_divide semantics: when result is -0.0 from non-zero numerator, convert to -1.0
+    // This happens when: (negative & non-zero)/+inf, (positive & non-zero)/-inf
+    // But NOT when numerator is ±0.0 (then result stays as ±0.0)
+    if (result == 0.0L && signbit(result) && *a != 0.0L) {
+        return -1.0L;
+    }
+    
+    return result;
 }
 
 static inline long double

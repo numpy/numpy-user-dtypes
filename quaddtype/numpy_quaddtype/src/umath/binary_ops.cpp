@@ -218,6 +218,9 @@ init_quad_binary_ops(PyObject *numpy)
     }
     // Note: true_divide is an alias to divide in NumPy for floating-point types
     // No need to register separately
+    if (create_quad_binary_ufunc<quad_floor_divide, ld_floor_divide>(numpy, "floor_divide") < 0) {
+        return -1;
+    }
     if (create_quad_binary_ufunc<quad_pow, ld_pow>(numpy, "power") < 0) {
         return -1;
     }
