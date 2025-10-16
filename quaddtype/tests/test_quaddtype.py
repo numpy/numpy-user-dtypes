@@ -1072,3 +1072,152 @@ def test_fill_function(func, args, expected):
     assert len(arr) == len(expected)
     for i, exp_val in enumerate(expected):
         np.testing.assert_allclose(float(arr[i]), float(exp_val), rtol=1e-15, atol=1e-15)
+
+@pytest.mark.parametrize("base,exponent", [
+    # Basic integer powers
+    (2.0, 3.0), (3.0, 2.0), (10.0, 5.0), (5.0, 10.0),
+    
+    # Fractional powers
+    (4.0, 0.5), (9.0, 0.5), (27.0, 1.0/3.0), (16.0, 0.25),
+    (8.0, 2.0/3.0), (100.0, 0.5),
+    
+    # Negative bases with integer exponents
+    (-2.0, 3.0), (-3.0, 2.0), (-2.0, 4.0), (-5.0, 3.0),
+    
+    # Negative bases with fractional exponents (should return NaN)
+    (-1.0, 0.5), (-4.0, 0.5), (-1.0, 1.5), (-4.0, 1.5),
+    (-2.0, 0.25), (-8.0, 1.0/3.0), (-5.0, 2.5), (-10.0, 0.75),
+    (-1.0, -0.5), (-4.0, -1.5), (-2.0, -2.5),
+    
+    # Zero base cases
+    (0.0, 0.0), (0.0, 1.0), (0.0, 2.0), (0.0, 10.0),
+    (0.0, 0.5), (0.0, -0.0),
+    
+    # Negative zero base
+    (-0.0, 0.0), (-0.0, 1.0), (-0.0, 2.0), (-0.0, 3.0),
+    
+    # Base of 1
+    (1.0, 0.0), (1.0, 1.0), (1.0, 100.0), (1.0, -100.0),
+    (1.0, float('inf')), (1.0, float('-inf')), (1.0, float('nan')),
+    
+    # Base of -1
+    (-1.0, 0.0), (-1.0, 1.0), (-1.0, 2.0), (-1.0, 3.0),
+    (-1.0, float('inf')), (-1.0, float('-inf')),
+    
+    # Exponent of 0
+    (2.0, 0.0), (100.0, 0.0), (-5.0, 0.0), (0.5, 0.0),
+    (float('inf'), 0.0), (float('-inf'), 0.0), (float('nan'), 0.0),
+    
+    # Exponent of 1
+    (2.0, 1.0), (100.0, 1.0), (-5.0, 1.0), (0.5, 1.0),
+    (float('inf'), 1.0), (float('-inf'), 1.0),
+    
+    # Negative exponents
+    (2.0, -1.0), (2.0, -2.0), (10.0, -3.0), (0.5, -1.0),
+    (4.0, -0.5), (9.0, -0.5),
+    
+    # Infinity base
+    (float('inf'), 0.0), (float('inf'), 1.0), (float('inf'), 2.0),
+    (float('inf'), -1.0), (float('inf'), -2.0), (float('inf'), 0.5),
+    (float('inf'), float('inf')), (float('inf'), float('-inf')),
+    
+    # Negative infinity base
+    (float('-inf'), 0.0), (float('-inf'), 1.0), (float('-inf'), 2.0),
+    (float('-inf'), 3.0), (float('-inf'), -1.0), (float('-inf'), -2.0),
+    (float('-inf'), float('inf')), (float('-inf'), float('-inf')),
+    
+    # Infinity exponent
+    (2.0, float('inf')), (0.5, float('inf')), (1.5, float('inf')),
+    (2.0, float('-inf')), (0.5, float('-inf')), (1.5, float('-inf')),
+    (0.0, float('inf')), (0.0, float('-inf')),
+    
+    # NaN cases
+    (float('nan'), 0.0), (float('nan'), 1.0), (float('nan'), 2.0),
+    (2.0, float('nan')), (0.0, float('nan')),
+    (float('nan'), float('nan')), (float('nan'), float('inf')),
+    (float('inf'), float('nan')),
+    
+    # Small and large values
+    (1e-10, 2.0), (1e10, 2.0), (1e-10, 0.5), (1e10, 0.5),
+    (2.0, 100.0), (2.0, -100.0), (0.5, 100.0), (0.5, -100.0),
+])
+def test_float_power(base, exponent):
+    """
+    Comprehensive test for float_power ufunc.
+    
+    float_power differs from power in that it always promotes to floating point.
+    For floating-point dtypes like QuadPrecDType, it should behave identically to power.
+    """
+    quad_base = QuadPrecision(str(base)) if not (np.isnan(base) or np.isinf(base)) else QuadPrecision(base)
+    quad_exp = QuadPrecision(str(exponent)) if not (np.isnan(exponent) or np.isinf(exponent)) else QuadPrecision(exponent)
+
+    float_base = np.float64(base)
+    float_exp = np.float64(exponent)
+
+    quad_result = np.float_power(quad_base, quad_exp)
+    float_result = np.float_power(float_base, float_exp)
+
+    # Handle NaN cases
+    if np.isnan(float_result):
+        assert np.isnan(float(quad_result)), \
+            f"Expected NaN for float_power({base}, {exponent}), got {float(quad_result)}"
+        return
+
+    # Handle infinity cases
+    if np.isinf(float_result):
+        assert np.isinf(float(quad_result)), \
+            f"Expected inf for float_power({base}, {exponent}), got {float(quad_result)}"
+        assert np.sign(float_result) == np.sign(float(quad_result)), \
+            f"Infinity sign mismatch for float_power({base}, {exponent})"
+        return
+
+    # For finite results
+    np.testing.assert_allclose(
+        float(quad_result), float_result, 
+        rtol=1e-13, atol=1e-15,
+        err_msg=f"Value mismatch for float_power({base}, {exponent})"
+    )
+
+    # Check sign for zero results
+    if float_result == 0.0:
+        assert np.signbit(float_result) == np.signbit(quad_result), \
+            f"Zero sign mismatch for float_power({base}, {exponent})"
+
+
+@pytest.mark.parametrize("base,exponent", [
+    # Test that float_power works with integer inputs (promotes to float)
+    (2, 3),
+    (4, 2),
+    (10, 5),
+    (-2, 3),
+])
+def test_float_power_integer_promotion(base, exponent):
+    """
+    Test that float_power works with integer inputs and promotes them to QuadPrecDType.
+    This is the key difference from power - float_power always returns float types.
+    """
+    # Create arrays with integer inputs
+    base_arr = np.array([base], dtype=QuadPrecDType())
+    exp_arr = np.array([exponent], dtype=QuadPrecDType())
+
+    result = np.float_power(base_arr, exp_arr)
+
+    # Result should be QuadPrecDType
+    assert result.dtype.name == "QuadPrecDType128"
+
+    # Check the value
+    expected = float(base) ** float(exponent)
+    np.testing.assert_allclose(float(result[0]), expected, rtol=1e-13)
+
+
+def test_float_power_array():
+    """Test float_power with arrays"""
+    bases = np.array([2.0, 4.0, 9.0, 16.0], dtype=QuadPrecDType())
+    exponents = np.array([3.0, 0.5, 2.0, 0.25], dtype=QuadPrecDType())
+
+    result = np.float_power(bases, exponents)
+    expected = np.array([8.0, 2.0, 81.0, 2.0], dtype=np.float64)
+
+    assert result.dtype.name == "QuadPrecDType128"
+    for i in range(len(result)):
+        np.testing.assert_allclose(float(result[i]), expected[i], rtol=1e-13)
