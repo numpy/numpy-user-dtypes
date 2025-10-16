@@ -232,6 +232,9 @@ init_quad_binary_ops(PyObject *numpy)
     if (create_quad_binary_ufunc<quad_mod, ld_mod>(numpy, "mod") < 0) {
         return -1;
     }
+    if (create_quad_binary_ufunc<quad_fmod, ld_fmod>(numpy, "fmod") < 0) {
+        return -1;
+    }
     if (create_quad_binary_ufunc<quad_minimum, ld_minimum>(numpy, "minimum") < 0) {
         return -1;
     }

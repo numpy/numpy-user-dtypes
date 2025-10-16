@@ -554,6 +554,46 @@ quad_mod(const Sleef_quad *a, const Sleef_quad *b)
 }
 
 static inline Sleef_quad
+quad_fmod(const Sleef_quad *a, const Sleef_quad *b)
+{
+    // Handle NaN inputs
+    if (Sleef_iunordq1(*a, *b)) {
+        return Sleef_iunordq1(*a, *a) ? *a : *b;
+    }
+    
+    // Division by zero -> NaN
+    if (Sleef_icmpeqq1(*b, QUAD_ZERO)) {
+        return QUAD_NAN;
+    }
+    
+    // Infinity dividend -> NaN
+    if (quad_isinf(a)) {
+        return QUAD_NAN;
+    }
+    
+    // Finite % infinity -> return dividend (same as a)
+    if (quad_isfinite(a) && quad_isinf(b)) {
+        return *a;
+    }
+    
+    // x - trunc(x/y) * y
+    Sleef_quad result = Sleef_fmodq1(*a, *b);
+    
+    if (Sleef_icmpeqq1(result, QUAD_ZERO)) {
+        // Preserve sign of dividend (first argument)
+        Sleef_quad sign_test = Sleef_copysignq1(QUAD_ONE, *a);
+        if (Sleef_icmpltq1(sign_test, QUAD_ZERO)) {
+            return Sleef_negq1(QUAD_ZERO);  // -0.0
+        }
+        else {
+            return QUAD_ZERO;  // +0.0
+        }
+    }
+    
+    return result;
+}
+
+static inline Sleef_quad
 quad_minimum(const Sleef_quad *in1, const Sleef_quad *in2)
 {
     if (Sleef_iunordq1(*in1, *in2)) {
@@ -791,6 +831,43 @@ ld_mod(const long double *a, const long double *b)
         return (*b < 0.0L) ? -0.0L : 0.0L;
     }
 
+    return result;
+}
+
+static inline long double
+ld_fmod(const long double *a, const long double *b)
+{
+    // Handle NaN inputs
+    if (isnan(*a) || isnan(*b)) {
+        return isnan(*a) ? *a : *b;
+    }
+    
+    // Division by zero -> NaN
+    if (*b == 0.0L) {
+        return NAN;
+    }
+    
+    // Infinity dividend -> NaN
+    if (isinf(*a)) {
+        return NAN;
+    }
+    
+    // Finite % infinity -> return dividend
+    if (isfinite(*a) && isinf(*b)) {
+        return *a;
+    }
+
+    long double result = fmodl(*a, *b);
+    
+    if (result == 0.0L) {
+        // Preserve sign of dividend
+        if (signbit(*a)) {
+            return -0.0L;
+        } else {
+            return 0.0L;
+        }
+    }
+    
     return result;
 }
 

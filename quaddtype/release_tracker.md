@@ -20,7 +20,7 @@
 | float_power   | ✅    | ✅                                                                   |
 | remainder     | ✅    | ✅                                                                   |
 | mod           | ✅    | ✅                                                                   |
-| fmod          |       |                                                                      |
+| fmod          | ✅    | ✅                                                                   |
 | divmod        |       |                                                                      |
 | absolute      | ✅    | ✅                                                                   |
 | fabs          |       |                                                                      |
