@@ -12,7 +12,7 @@
 | divide        | ✅    | ✅                                                                   |
 | logaddexp     | ✅    | ✅                                                                   |
 | logaddexp2    | ✅    | ✅                                                                   |
-| true_divide   |       |                                                                      |
+| true_divide   | ✅    | ✅                                                                   |
 | floor_divide  |       |                                                                      |
 | negative      | ✅    | ✅                                                                   |
 | positive      | ✅    | ✅                                                                   |

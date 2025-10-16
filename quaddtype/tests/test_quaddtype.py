@@ -635,6 +635,103 @@ def test_logaddexp2_special_properties():
     np.testing.assert_allclose(float(result_logaddexp2), result_logaddexp, rtol=1e-13)
 
 
+@pytest.mark.parametrize(
+    "x_val",
+    [
+        0.0, 1.0, 2.0, -1.0, -2.0,
+        0.5, -0.5,
+        100.0, 1000.0, -100.0, -1000.0,
+        1e-10, -1e-10, 1e-20, -1e-20,
+        float("inf"), float("-inf"), float("nan"), float("-nan"), -0.0
+    ]
+)
+@pytest.mark.parametrize(
+    "y_val",
+    [
+        0.0, 1.0, 2.0, -1.0, -2.0,
+        0.5, -0.5,
+        100.0, 1000.0, -100.0, -1000.0,
+        1e-10, -1e-10, 1e-20, -1e-20,
+        float("inf"), float("-inf"), float("nan"), float("-nan"), -0.0
+    ]
+)
+def test_true_divide(x_val, y_val):
+    """Test true_divide ufunc with comprehensive edge cases"""
+    x_quad = QuadPrecision(str(x_val))
+    y_quad = QuadPrecision(str(y_val))
+    
+    # Compute using QuadPrecision
+    result_quad = np.true_divide(x_quad, y_quad)
+    
+    # Compute using float64 for comparison
+    result_float64 = np.true_divide(np.float64(x_val), np.float64(y_val))
+    
+    # Compare results
+    if np.isnan(result_float64):
+        assert np.isnan(float(result_quad)), f"Expected NaN for true_divide({x_val}, {y_val})"
+    elif np.isinf(result_float64):
+        assert np.isinf(float(result_quad)), f"Expected inf for true_divide({x_val}, {y_val})"
+        assert np.sign(float(result_quad)) == np.sign(result_float64), f"Sign mismatch for true_divide({x_val}, {y_val})"
+    else:
+        # For finite results, check relative tolerance
+        np.testing.assert_allclose(
+            float(result_quad), result_float64, rtol=1e-14,
+            err_msg=f"Mismatch for true_divide({x_val}, {y_val})"
+        )
+
+
+def test_true_divide_special_properties():
+    """Test special mathematical properties of true_divide"""
+    # Division by 1 returns the original value
+    x = QuadPrecision("42.123456789")
+    result = np.true_divide(x, QuadPrecision("1.0"))
+    np.testing.assert_allclose(float(result), float(x), rtol=1e-30)
+    
+    # Division of 0 by any non-zero number is 0
+    result = np.true_divide(QuadPrecision("0.0"), QuadPrecision("5.0"))
+    assert float(result) == 0.0
+    
+    # Division by 0 gives inf (with appropriate sign)
+    result = np.true_divide(QuadPrecision("1.0"), QuadPrecision("0.0"))
+    assert np.isinf(float(result)) and float(result) > 0
+    
+    result = np.true_divide(QuadPrecision("-1.0"), QuadPrecision("0.0"))
+    assert np.isinf(float(result)) and float(result) < 0
+    
+    # 0 / 0 = NaN
+    result = np.true_divide(QuadPrecision("0.0"), QuadPrecision("0.0"))
+    assert np.isnan(float(result))
+    
+    # inf / inf = NaN
+    result = np.true_divide(QuadPrecision("inf"), QuadPrecision("inf"))
+    assert np.isnan(float(result))
+    
+    # inf / finite = inf
+    result = np.true_divide(QuadPrecision("inf"), QuadPrecision("100.0"))
+    assert np.isinf(float(result)) and float(result) > 0
+    
+    # finite / inf = 0
+    result = np.true_divide(QuadPrecision("100.0"), QuadPrecision("inf"))
+    assert float(result) == 0.0
+    
+    # Self-division (x / x) = 1 for finite non-zero x
+    x = QuadPrecision("7.123456789")
+    result = np.true_divide(x, x)
+    np.testing.assert_allclose(float(result), 1.0, rtol=1e-30)
+    
+    # Sign preservation: (-x) / y = -(x / y)
+    x = QuadPrecision("5.5")
+    y = QuadPrecision("2.2")
+    result1 = np.true_divide(-x, y)
+    result2 = -np.true_divide(x, y)
+    np.testing.assert_allclose(float(result1), float(result2), rtol=1e-30)
+    
+    # Sign rule: negative / negative = positive
+    result = np.true_divide(QuadPrecision("-6.0"), QuadPrecision("-2.0"))
+    assert float(result) > 0
+    np.testing.assert_allclose(float(result), 3.0, rtol=1e-30)
+
+
 def test_inf():
     assert QuadPrecision("inf") > QuadPrecision("1e1000")
     assert np.signbit(QuadPrecision("inf")) == 0
