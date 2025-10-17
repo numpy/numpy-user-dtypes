@@ -156,6 +156,9 @@ init_quad_unary_ops(PyObject *numpy)
     if (create_quad_unary_ufunc<quad_absolute, ld_absolute>(numpy, "absolute") < 0) {
         return -1;
     }
+    if (create_quad_unary_ufunc<quad_fabs, ld_fabs>(numpy, "fabs") < 0) {
+        return -1;
+    }
     if (create_quad_unary_ufunc<quad_sign, ld_sign>(numpy, "sign") < 0) {
         return -1;
     }

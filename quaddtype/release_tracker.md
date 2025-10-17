@@ -23,7 +23,7 @@
 | fmod          | ✅    | ✅                                                                   |
 | divmod        |       |                                                                      |
 | absolute      | ✅    | ✅                                                                   |
-| fabs          |       |                                                                      |
+| fabs          | ✅    | ✅                                                                   |
 | rint          | ✅    | ✅                                                                   |
 | sign          | ✅    | ✅                                                                   |
 | heaviside     |       |                                                                      |

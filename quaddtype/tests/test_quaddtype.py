@@ -1350,3 +1350,48 @@ def test_float_power_array():
     assert result.dtype.name == "QuadPrecDType128"
     for i in range(len(result)):
         np.testing.assert_allclose(float(result[i]), expected[i], rtol=1e-13)
+
+
+@pytest.mark.parametrize("val", [
+    # Positive values
+    "3.0", "12.5", "100.0", "1e100", "0.0",
+    # Negative values
+    "-3.0", "-12.5", "-100.0", "-1e100", "-0.0",
+    # Special values
+    "inf", "-inf", "nan", "-nan",
+    # Small values
+    "1e-100", "-1e-100"
+])
+def test_fabs(val):
+    """
+    Test np.fabs ufunc for QuadPrecision dtype.
+    fabs computes absolute values (positive magnitude) for floating-point numbers.
+    It should behave identically to np.absolute for real (non-complex) types.
+    """
+    quad_val = QuadPrecision(val)
+    float_val = float(val)
+
+    quad_result = np.fabs(quad_val)
+    float_result = np.fabs(float_val)
+
+    # Test with both scalar and array
+    quad_arr = np.array([quad_val], dtype=QuadPrecDType())
+    quad_arr_result = np.fabs(quad_arr)
+
+    # Check scalar result
+    np.testing.assert_array_equal(np.array(quad_result).astype(float), float_result)
+
+    # Check array result
+    np.testing.assert_array_equal(quad_arr_result.astype(float)[0], float_result)
+
+    # For zero results, check sign (should always be positive after fabs)
+    if float_result == 0.0:
+        assert not np.signbit(quad_result), f"fabs({val}) should not have negative sign"
+        assert not np.signbit(quad_arr_result[0]), f"fabs({val}) should not have negative sign"
+
+    # Verify that fabs and absolute give the same result for QuadPrecision
+    quad_absolute_result = np.absolute(quad_val)
+    np.testing.assert_array_equal(
+        np.array(quad_result).astype(float),
+        np.array(quad_absolute_result).astype(float)
+    )

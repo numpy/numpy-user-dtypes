@@ -38,6 +38,12 @@ quad_absolute(const Sleef_quad *op)
 }
 
 static inline Sleef_quad
+quad_fabs(const Sleef_quad *op)
+{
+    return Sleef_fabsq1(*op);
+}
+
+static inline Sleef_quad
 quad_rint(const Sleef_quad *op)
 {
     Sleef_quad halfway = Sleef_addq1_u05(
@@ -213,6 +219,12 @@ ld_positive(const long double *op)
 
 static inline long double
 ld_absolute(const long double *op)
+{
+    return fabsl(*op);
+}
+
+static inline long double
+ld_fabs(const long double *op)
 {
     return fabsl(*op);
 }
