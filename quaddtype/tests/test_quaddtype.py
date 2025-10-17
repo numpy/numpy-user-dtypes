@@ -837,6 +837,135 @@ def test_floor_divide_special_properties():
     np.testing.assert_allclose(float(result_floor_divide), float(result_floor_true_divide), rtol=1e-30)
 
 
+@pytest.mark.parametrize("x_val,y_val", [
+    (x, y) for x in [-1e10, -100.0, -7.0, -1.0, -0.5, -0.0, 0.0, 0.5, 1.0, 7.0, 100.0, 1e10, 
+                      float('inf'), float('-inf'), float('nan'),
+                      -6.0, 6.0, -0.1, 0.1, -3.14159, 3.14159]
+    for y in [-1e10, -100.0, -3.0, -1.0, -0.5, -0.0, 0.0, 0.5, 1.0, 3.0, 100.0, 1e10,
+              float('inf'), float('-inf'), float('nan'),
+              -2.0, 2.0, -0.25, 0.25, -1.5, 1.5]
+])
+def test_fmod(x_val, y_val):
+    """Test fmod ufunc with comprehensive edge cases"""
+    x_quad = QuadPrecision(str(x_val))
+    y_quad = QuadPrecision(str(y_val))
+    
+    # Compute using QuadPrecision
+    result_quad = np.fmod(x_quad, y_quad)
+    
+    # Compute using float64 for comparison
+    result_float64 = np.fmod(np.float64(x_val), np.float64(y_val))
+    
+    # Compare results
+    if np.isnan(result_float64):
+        assert np.isnan(float(result_quad)), f"Expected NaN for fmod({x_val}, {y_val})"
+    elif np.isinf(result_float64):
+        assert np.isinf(float(result_quad)), f"Expected inf for fmod({x_val}, {y_val})"
+        assert np.sign(float(result_quad)) == np.sign(result_float64), f"Sign mismatch for fmod({x_val}, {y_val})"
+    else:
+        # For finite results, check relative tolerance
+        atol = max(1e-10, abs(result_float64) * 1e-9) if abs(result_float64) > 1e6 else 1e-10
+        np.testing.assert_allclose(
+            float(result_quad), result_float64, rtol=1e-12, atol=atol,
+            err_msg=f"Mismatch for fmod({x_val}, {y_val})"
+        )
+        
+        # Critical: Check sign preservation for zero results
+        if result_float64 == 0.0:
+            assert np.signbit(result_quad) == np.signbit(result_float64), \
+                f"Sign mismatch for zero result: fmod({x_val}, {y_val}), " \
+                f"expected signbit={np.signbit(result_float64)}, got signbit={np.signbit(result_quad)}"
+
+
+def test_fmod_special_properties():
+    """Test special mathematical properties of fmod"""
+    # fmod(x, 1) gives fractional part of x (with sign preserved)
+    x = QuadPrecision("42.7")
+    result = np.fmod(x, QuadPrecision("1.0"))
+    np.testing.assert_allclose(float(result), 0.7, rtol=1e-15, atol=1e-15)
+    
+    # fmod(0, non-zero) = 0 with correct sign
+    result = np.fmod(QuadPrecision("0.0"), QuadPrecision("5.0"))
+    assert float(result) == 0.0 and not np.signbit(result)
+    
+    result = np.fmod(QuadPrecision("-0.0"), QuadPrecision("5.0"))
+    assert float(result) == 0.0 and np.signbit(result)
+    
+    # fmod by 0 gives NaN
+    result = np.fmod(QuadPrecision("1.0"), QuadPrecision("0.0"))
+    assert np.isnan(float(result))
+    
+    result = np.fmod(QuadPrecision("-1.0"), QuadPrecision("0.0"))
+    assert np.isnan(float(result))
+    
+    # 0 fmod 0 = NaN
+    result = np.fmod(QuadPrecision("0.0"), QuadPrecision("0.0"))
+    assert np.isnan(float(result))
+    
+    # inf fmod x = NaN
+    result = np.fmod(QuadPrecision("inf"), QuadPrecision("100.0"))
+    assert np.isnan(float(result))
+    
+    result = np.fmod(QuadPrecision("-inf"), QuadPrecision("100.0"))
+    assert np.isnan(float(result))
+    
+    # x fmod inf = x (for finite x)
+    result = np.fmod(QuadPrecision("100.0"), QuadPrecision("inf"))
+    np.testing.assert_allclose(float(result), 100.0, rtol=1e-30)
+    
+    result = np.fmod(QuadPrecision("-100.0"), QuadPrecision("inf"))
+    np.testing.assert_allclose(float(result), -100.0, rtol=1e-30)
+    
+    # inf fmod inf = NaN
+    result = np.fmod(QuadPrecision("inf"), QuadPrecision("inf"))
+    assert np.isnan(float(result))
+    
+    # fmod uses truncated division (rounds toward zero)
+    # Result has same sign as dividend (first argument)
+    result = np.fmod(QuadPrecision("7.0"), QuadPrecision("3.0"))
+    assert float(result) == 1.0  # 7 - trunc(7/3)*3 = 7 - 2*3 = 1
+    
+    result = np.fmod(QuadPrecision("-7.0"), QuadPrecision("3.0"))
+    assert float(result) == -1.0  # -7 - trunc(-7/3)*3 = -7 - (-2)*3 = -1
+    
+    result = np.fmod(QuadPrecision("7.0"), QuadPrecision("-3.0"))
+    assert float(result) == 1.0  # 7 - trunc(7/-3)*(-3) = 7 - (-2)*(-3) = 1
+    
+    result = np.fmod(QuadPrecision("-7.0"), QuadPrecision("-3.0"))
+    assert float(result) == -1.0  # -7 - trunc(-7/-3)*(-3) = -7 - 2*(-3) = -1
+    
+    # Sign preservation when result is exactly zero
+    result = np.fmod(QuadPrecision("6.0"), QuadPrecision("3.0"))
+    assert float(result) == 0.0 and not np.signbit(result)
+    
+    result = np.fmod(QuadPrecision("-6.0"), QuadPrecision("3.0"))
+    assert float(result) == 0.0 and np.signbit(result)
+    
+    result = np.fmod(QuadPrecision("6.0"), QuadPrecision("-3.0"))
+    assert float(result) == 0.0 and not np.signbit(result)
+    
+    result = np.fmod(QuadPrecision("-6.0"), QuadPrecision("-3.0"))
+    assert float(result) == 0.0 and np.signbit(result)
+    
+    # Difference from mod/remainder (which uses floor division)
+    # fmod result has sign of dividend, mod result has sign of divisor
+    x = QuadPrecision("-7.0")
+    y = QuadPrecision("3.0")
+    fmod_result = np.fmod(x, y)
+    mod_result = np.remainder(x, y)
+    
+    assert float(fmod_result) == -1.0  # sign of dividend (negative)
+    assert float(mod_result) == 2.0    # sign of divisor (positive)
+    
+    # Relationship: x = trunc(x/y) * y + fmod(x, y)
+    x = QuadPrecision("10.5")
+    y = QuadPrecision("3.2")
+    quotient = np.trunc(np.true_divide(x, y))
+    remainder = np.fmod(x, y)
+    reconstructed = np.add(np.multiply(quotient, y), remainder)
+    np.testing.assert_allclose(float(reconstructed), float(x), rtol=1e-30)
+
+
 def test_inf():
     assert QuadPrecision("inf") > QuadPrecision("1e1000")
     assert np.signbit(QuadPrecision("inf")) == 0
