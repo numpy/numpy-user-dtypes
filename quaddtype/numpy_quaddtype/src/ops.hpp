@@ -77,6 +77,40 @@ quad_sqrt(const Sleef_quad *op)
 }
 
 static inline Sleef_quad
+quad_cbrt(const Sleef_quad *op)
+{
+    // SLEEF doesn't provide cbrt, so we implement it using pow
+    // cbrt(x) = x^(1/3)
+    // For negative values: cbrt(-x) = -cbrt(x)
+    
+    // Handle special cases
+    if (Sleef_iunordq1(*op, *op)) {
+        return *op;  // NaN
+    }
+    if (Sleef_icmpeqq1(*op, QUAD_ZERO)) {
+        return *op;  // ±0
+    }
+    // Check if op is ±inf: isinf(x) = abs(x) == inf
+    if (Sleef_icmpeqq1(Sleef_fabsq1(*op), QUAD_POS_INF)) {
+        return *op;  // ±inf
+    }
+    
+    // Compute 1/3 as a quad precision constant
+    Sleef_quad three = Sleef_cast_from_int64q1(3);
+    Sleef_quad one_third = Sleef_divq1_u05(QUAD_ONE, three);
+    
+    // Handle negative values: cbrt(-x) = -cbrt(x)
+    if (Sleef_icmpltq1(*op, QUAD_ZERO)) {
+        Sleef_quad abs_val = Sleef_fabsq1(*op);
+        Sleef_quad result = Sleef_powq1_u10(abs_val, one_third);
+        return Sleef_negq1(result);
+    }
+    
+    // Positive values
+    return Sleef_powq1_u10(*op, one_third);
+}
+
+static inline Sleef_quad
 quad_square(const Sleef_quad *op)
 {
     return Sleef_mulq1_u05(*op, *op);
@@ -258,6 +292,12 @@ static inline long double
 ld_sqrt(const long double *op)
 {
     return sqrtl(*op);
+}
+
+static inline long double
+ld_cbrt(const long double *op)
+{
+    return cbrtl(*op);
 }
 
 static inline long double

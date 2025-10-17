@@ -179,6 +179,9 @@ init_quad_unary_ops(PyObject *numpy)
     if (create_quad_unary_ufunc<quad_sqrt, ld_sqrt>(numpy, "sqrt") < 0) {
         return -1;
     }
+    if (create_quad_unary_ufunc<quad_cbrt, ld_cbrt>(numpy, "cbrt") < 0) {
+        return -1;
+    }
     if (create_quad_unary_ufunc<quad_square, ld_square>(numpy, "square") < 0) {
         return -1;
     }

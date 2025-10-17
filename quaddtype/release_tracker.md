@@ -38,7 +38,7 @@
 | log1p         | ✅    | ✅                                                                   |
 | sqrt          | ✅    | ✅                                                                   |
 | square        | ✅    | ✅                                                                   |
-| cbrt          |       |                                                                      |
+| cbrt          | ✅    | ✅                                                                   |
 | reciprocal    | ✅    | ✅                                                                   |
 | gcd           |       |                                                                      |
 | lcm           |       |                                                                      |
