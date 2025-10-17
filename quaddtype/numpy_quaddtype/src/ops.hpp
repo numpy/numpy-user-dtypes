@@ -442,6 +442,8 @@ ld_isnan(const long double *op)
 
 // Binary Quad operations
 typedef Sleef_quad (*binary_op_quad_def)(const Sleef_quad *, const Sleef_quad *);
+// Binary Quad operations with 2 outputs (for divmod, modf, frexp)
+typedef void (*binary_op_2out_quad_def)(const Sleef_quad *, const Sleef_quad *, Sleef_quad *, Sleef_quad *);
 
 static inline Sleef_quad
 quad_add(const Sleef_quad *in1, const Sleef_quad *in2)
@@ -591,6 +593,14 @@ quad_fmod(const Sleef_quad *a, const Sleef_quad *b)
     }
     
     return result;
+}
+
+static inline void
+quad_divmod(const Sleef_quad *a, const Sleef_quad *b, 
+            Sleef_quad *out_quotient, Sleef_quad *out_remainder)
+{
+    *out_quotient = quad_floor_divide(a, b);
+    *out_remainder = quad_mod(a, b);
 }
 
 static inline Sleef_quad
@@ -744,6 +754,8 @@ quad_logaddexp2(const Sleef_quad *x, const Sleef_quad *y)
 
 // Binary long double operations
 typedef long double (*binary_op_longdouble_def)(const long double *, const long double *);
+// Binary long double operations with 2 outputs (for divmod, modf, frexp)
+typedef void (*binary_op_2out_longdouble_def)(const long double *, const long double *, long double *, long double *);
 
 static inline long double
 ld_add(const long double *in1, const long double *in2)
@@ -869,6 +881,14 @@ ld_fmod(const long double *a, const long double *b)
     }
     
     return result;
+}
+
+static inline void
+ld_divmod(const long double *a, const long double *b,
+          long double *out_quotient, long double *out_remainder)
+{
+    *out_quotient = ld_floor_divide(a, b);
+    *out_remainder = ld_mod(a, b);
 }
 
 static inline long double
