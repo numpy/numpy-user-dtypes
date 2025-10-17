@@ -1905,3 +1905,44 @@ def test_hypot(x1, x2, expected):
     else:
         np.testing.assert_allclose(float(result), expected, rtol=1e-13)
 
+
+@pytest.mark.parametrize("op", [np.degrees, np.rad2deg])
+@pytest.mark.parametrize("radians,expected_degrees", [
+    # Basic conversions
+    (0.0, 0.0),
+    (np.pi / 6, 30.0),
+    (np.pi / 4, 45.0),
+    (np.pi / 3, 60.0),
+    (np.pi / 2, 90.0),
+    (np.pi, 180.0),
+    (3 * np.pi / 2, 270.0),
+    (2 * np.pi, 360.0),
+    # Negative values
+    (-np.pi / 2, -90.0),
+    (-np.pi, -180.0),
+    # Special values
+    (np.inf, np.inf),
+    (-np.inf, -np.inf),
+    (np.nan, np.nan),
+    # Edge cases
+    (0.0, 0.0),
+    (-0.0, -0.0),
+])
+def test_degrees_rad2deg(op, radians, expected_degrees):
+    """Test degrees and rad2deg ufuncs convert radians to degrees"""
+    q_rad = QuadPrecision(radians)
+    result = op(q_rad)
+    
+    assert isinstance(result, QuadPrecision)
+    
+    if np.isnan(expected_degrees):
+        assert np.isnan(float(result))
+    elif np.isinf(expected_degrees):
+        assert np.isinf(float(result))
+        if expected_degrees > 0:
+            assert float(result) > 0
+        else:
+            assert float(result) < 0
+    else:
+        np.testing.assert_allclose(float(result), expected_degrees, rtol=1e-13)
+

@@ -250,5 +250,11 @@ init_quad_unary_ops(PyObject *numpy)
     if (create_quad_unary_ufunc<quad_atanh, ld_atanh>(numpy, "arctanh") < 0) {
         return -1;
     }
+    if (create_quad_unary_ufunc<quad_degrees, ld_degrees>(numpy, "degrees") < 0) {
+        return -1;
+    }
+    if (create_quad_unary_ufunc<quad_degrees, ld_degrees>(numpy, "rad2deg") < 0) {
+        return -1;
+    }
     return 0;
 }

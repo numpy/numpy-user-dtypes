@@ -54,10 +54,10 @@
 | arcsinh       | ✅    | ✅                                                                   |
 | arccosh       | ✅    | ✅                                                                   |
 | arctanh       | ✅    | ✅                                                                   |
-| degrees       |       |                                                                      |
+| degrees       | ✅    | ✅                                                                   |
 | radians       |       |                                                                      |
 | deg2rad       |       |                                                                      |
-| rad2deg       |       |                                                                      |
+| rad2deg       | ✅    | ✅                                                                   |
 | bitwise_and   |       |                                                                      |
 | bitwise_or    |       |                                                                      |
 | bitwise_xor   |       |                                                                      |

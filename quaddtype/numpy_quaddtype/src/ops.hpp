@@ -243,6 +243,15 @@ quad_atanh(const Sleef_quad *op)
     return Sleef_atanhq1_u10(*op);
 }
 
+static inline Sleef_quad
+quad_degrees(const Sleef_quad *op)
+{
+    // degrees = radians * 180 / π
+    static const Sleef_quad one_eighty = Sleef_strtoq("180.0", NULL);
+    Sleef_quad ratio = Sleef_divq1_u05(one_eighty, SLEEF_M_PIq);
+    return Sleef_mulq1_u05(*op, ratio);
+}
+
 // Unary long double operations
 typedef long double (*unary_op_longdouble_def)(const long double *);
 
@@ -444,6 +453,16 @@ static inline long double
 ld_atanh(const long double *op)
 {
     return atanhl(*op);
+}
+
+static inline long double
+ld_degrees(const long double *op)
+{
+    // degrees = radians * 180 / π
+    #ifndef M_PI
+    #define M_PI 3.14159265358979323846
+    #endif
+    return (*op) * (180.0L / static_cast<long double>(M_PI));
 }
 
 // Unary Quad properties
