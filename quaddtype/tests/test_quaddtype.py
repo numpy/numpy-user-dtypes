@@ -1859,3 +1859,49 @@ def test_conj_conjugate_identity(func, value):
     else:
         assert result == x
 
+
+@pytest.mark.parametrize("x1,x2,expected", [
+    # Basic Pythagorean triples
+    (3.0, 4.0, 5.0),
+    (5.0, 12.0, 13.0),
+    # Zero cases
+    (0.0, 0.0, 0.0),
+    (0.0, 5.0, 5.0),
+    (5.0, 0.0, 5.0),
+    # Negative values (hypot uses absolute values)
+    (-3.0, -4.0, 5.0),
+    (-3.0, 4.0, 5.0),
+    (3.0, -4.0, 5.0),
+    # Symmetry
+    (3.14159265358979323846, 2.71828182845904523536, None),  # Will test symmetry
+    (2.71828182845904523536, 3.14159265358979323846, None),  # Will test symmetry
+    # Infinity cases
+    (np.inf, 0.0, np.inf),
+    (0.0, np.inf, np.inf),
+    (np.inf, np.inf, np.inf),
+    (-np.inf, 0.0, np.inf),
+    (np.inf, -np.inf, np.inf),
+    # NaN cases
+    (np.nan, 3.0, np.nan),
+    (3.0, np.nan, np.nan),
+    (np.nan, np.nan, np.nan),
+])
+def test_hypot(x1, x2, expected):
+    """Test hypot ufunc with various edge cases"""
+    q1 = QuadPrecision(x1)
+    q2 = QuadPrecision(x2)
+    result = np.hypot(q1, q2)
+    
+    assert isinstance(result, QuadPrecision)
+    
+    if expected is None:
+        # Symmetry test - just check the values are equal
+        result_reverse = np.hypot(q2, q1)
+        assert result == result_reverse
+    elif np.isnan(expected):
+        assert np.isnan(float(result))
+    elif np.isinf(expected):
+        assert np.isinf(float(result))
+    else:
+        np.testing.assert_allclose(float(result), expected, rtol=1e-13)
+

@@ -29,9 +29,6 @@
 | heaviside     | ✅    | ✅                                                                   |
 | conj          | ✅    | ✅                                                                   |
 | conjugate     | ✅    | ✅                                                                   |
-| heaviside     | ✅    | ✅                                                                   |
-| conj          |       |                                                                      |
-| conjugate     |       |                                                                      |
 | exp           | ✅    | ✅                                                                   |
 | exp2          | ✅    | ✅                                                                   |
 | log           | ✅    | ✅                                                                   |
@@ -50,7 +47,7 @@
 | arccos        | ✅    | ❌ _Need: basic tests + edge cases (NaN/inf/±1/out-of-domain)_       |
 | arctan        | ✅    | ❌ _Need: basic tests + edge cases (NaN/inf/0/asymptotes)_           |
 | arctan2       | ✅    | ❌ _Need: basic tests + edge cases (NaN/inf/0/quadrant coverage)_    |
-| hypot         |       |                                                                      |
+| hypot         | ✅    | ✅                                                                   |
 | sinh          | ✅    | ✅                                                                   |
 | cosh          | ✅    | ✅                                                                   |
 | tanh          | ✅    | ✅                                                                   |
