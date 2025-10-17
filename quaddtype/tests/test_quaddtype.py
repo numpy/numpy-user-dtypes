@@ -1077,6 +1077,209 @@ def test_mod(a, b, backend, op):
         assert result_negative == numpy_negative, f"Sign mismatch for {a} % {b}: quad={result_negative}, numpy={numpy_negative}"
 
 
+@pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+@pytest.mark.parametrize("a,b", [
+    # Basic cases - positive/positive
+    (7.0, 3.0), (10.5, 3.2), (21.0, 4.0),
+    
+    # Positive/negative combinations
+    (-7.0, 3.0), (7.0, -3.0), (-7.0, -3.0),
+    (-10.5, 3.2), (10.5, -3.2), (-10.5, -3.2),
+
+    # Zero dividend cases
+    (0.0, 3.0), (-0.0, 3.0), (0.0, -3.0), (-0.0, -3.0),
+
+    # Cases that result in zero remainder (exact division)
+    (6.0, 3.0), (-6.0, 3.0), (6.0, -3.0), (-6.0, -3.0),
+    (1.0, 1.0), (-1.0, 1.0), (1.0, -1.0), (-1.0, -1.0),
+    (10.0, 2.0), (-10.0, 2.0), (10.0, -2.0), (-10.0, -2.0),
+
+    # Fractional cases
+    (7.5, 2.5), (-7.5, 2.5), (7.5, -2.5), (-7.5, -2.5),
+    (0.75, 0.25), (-0.1, 0.3), (0.9, -1.0), (-1.1, -1.0),
+    (3.14159, 1.0), (-3.14159, 1.0), (3.14159, -1.0), (-3.14159, -1.0),
+
+    # Large/small numbers
+    (1e10, 1e5), (-1e10, 1e5), (1e-10, 1e-5), (-1e-10, 1e-5),
+    (1e15, 1e10), (1e-15, 1e-10),
+
+    # Finite % infinity cases
+    (5.0, float('inf')), (-5.0, float('inf')),
+    (5.0, float('-inf')), (-5.0, float('-inf')),
+    (0.0, float('inf')), (-0.0, float('-inf')),
+
+    # NaN cases (should return NaN for both quotient and remainder)
+    (float('nan'), 3.0), (3.0, float('nan')), (float('nan'), float('nan')),
+
+    # Division by zero cases (should return inf/NaN)
+    (5.0, 0.0), (-5.0, 0.0), (0.0, 0.0), (-0.0, 0.0),
+
+    # Infinity dividend cases (should return NaN for both)
+    (float('inf'), 3.0), (float('-inf'), 3.0),
+    (float('inf'), float('inf')), (float('-inf'), float('-inf')),
+    
+    # Cases with dividend < divisor
+    (1.0, 10.0), (-1.0, 10.0), (1.0, -10.0), (-1.0, -10.0),
+    (0.5, 1.0), (0.1, 1.0), (0.001, 0.01),
+])
+def test_divmod(a, b, backend):
+    """Comprehensive test for divmod operation against NumPy behavior"""
+    if backend == "sleef":
+        quad_a = QuadPrecision(str(a))
+        quad_b = QuadPrecision(str(b))
+    elif backend == "longdouble":
+        quad_a = QuadPrecision(a, backend='longdouble')
+        quad_b = QuadPrecision(b, backend='longdouble')
+    
+    float_a = np.float64(a)
+    float_b = np.float64(b)
+
+    # Compute divmod
+    quad_quotient, quad_remainder = np.divmod(quad_a, quad_b)
+    numpy_quotient, numpy_remainder = np.divmod(float_a, float_b)
+
+    # Verify quotient
+    if np.isnan(numpy_quotient):
+        assert np.isnan(float(quad_quotient)), \
+            f"Expected NaN quotient for divmod({a}, {b})"
+    elif np.isinf(numpy_quotient):
+        assert np.isinf(float(quad_quotient)) and \
+               np.sign(numpy_quotient) == np.sign(float(quad_quotient)), \
+            f"Expected inf quotient with matching sign for divmod({a}, {b})"
+    else:
+        # Adaptive tolerance for large quotients due to float64 conversion precision loss
+        atol_q = abs(numpy_quotient) * 1e-8 if abs(numpy_quotient) > 1e6 else 1e-15
+        np.testing.assert_allclose(
+            float(quad_quotient), numpy_quotient, rtol=1e-9, atol=atol_q,
+            err_msg=f"Quotient mismatch for divmod({a}, {b})"
+        )
+        if numpy_quotient == 0.0:
+            assert np.signbit(numpy_quotient) == np.signbit(quad_quotient), \
+                f"Zero quotient sign mismatch for divmod({a}, {b})"
+
+    # Verify remainder
+    if np.isnan(numpy_remainder):
+        assert np.isnan(float(quad_remainder)), \
+            f"Expected NaN remainder for divmod({a}, {b})"
+    elif np.isinf(numpy_remainder):
+        assert np.isinf(float(quad_remainder)) and \
+               np.sign(numpy_remainder) == np.sign(float(quad_remainder)), \
+            f"Expected inf remainder with matching sign for divmod({a}, {b})"
+    else:
+        # Standard tolerance for remainder comparison
+        np.testing.assert_allclose(
+            float(quad_remainder), numpy_remainder, rtol=1e-9, atol=1e-15,
+            err_msg=f"Remainder mismatch for divmod({a}, {b})"
+        )
+        if numpy_remainder == 0.0:
+            assert np.signbit(numpy_remainder) == np.signbit(quad_remainder), \
+                f"Zero remainder sign mismatch for divmod({a}, {b})"
+        elif not np.isnan(b) and not np.isinf(b) and b != 0.0:
+            assert (float(quad_remainder) < 0) == (numpy_remainder < 0), \
+                f"Remainder sign mismatch for divmod({a}, {b})"
+
+    # Verify the fundamental property: a = quotient * b + remainder (for finite values)
+    if not np.isnan(numpy_quotient) and not np.isinf(numpy_quotient) and \
+       not np.isnan(numpy_remainder) and not np.isinf(numpy_remainder) and \
+       not np.isnan(b) and not np.isinf(b) and b != 0.0:
+        reconstructed = float(quad_quotient) * float(quad_b) + float(quad_remainder)
+        np.testing.assert_allclose(
+            reconstructed, float(quad_a), rtol=1e-10, atol=1e-15,
+            err_msg=f"Property a = q*b + r failed for divmod({a}, {b})"
+        )
+
+
+def test_divmod_special_properties():
+    """Test special mathematical properties of divmod"""
+    # divmod(x, 1) should give (floor(x), 0)
+    x = QuadPrecision("42.7")
+    quotient, remainder = np.divmod(x, QuadPrecision("1.0"))
+    np.testing.assert_allclose(float(quotient), 42.0, rtol=1e-30)
+    np.testing.assert_allclose(float(remainder), 0.7, rtol=1e-14)
+    
+    # divmod(0, non-zero) should give (0, 0)
+    quotient, remainder = np.divmod(QuadPrecision("0.0"), QuadPrecision("5.0"))
+    assert float(quotient) == 0.0
+    assert float(remainder) == 0.0
+    
+    # divmod by 0 gives (inf, NaN) for positive dividend
+    quotient, remainder = np.divmod(QuadPrecision("1.0"), QuadPrecision("0.0"))
+    assert np.isinf(float(quotient)) and float(quotient) > 0
+    assert np.isnan(float(remainder))
+    
+    quotient, remainder = np.divmod(QuadPrecision("-1.0"), QuadPrecision("0.0"))
+    assert np.isinf(float(quotient)) and float(quotient) < 0
+    assert np.isnan(float(remainder))
+    
+    # divmod(inf, finite) gives (NaN, NaN)
+    quotient, remainder = np.divmod(QuadPrecision("inf"), QuadPrecision("5.0"))
+    assert np.isnan(float(quotient))
+    assert np.isnan(float(remainder))
+    
+    # divmod(finite, inf) gives (0, dividend)
+    quotient, remainder = np.divmod(QuadPrecision("5.0"), QuadPrecision("inf"))
+    np.testing.assert_allclose(float(quotient), 0.0, rtol=1e-30)
+    np.testing.assert_allclose(float(remainder), 5.0, rtol=1e-30)
+    
+    # Verify equivalence with floor_divide and mod
+    a = QuadPrecision("10.5")
+    b = QuadPrecision("3.2")
+    quotient, remainder = np.divmod(a, b)
+    expected_quotient = np.floor_divide(a, b)
+    expected_remainder = np.mod(a, b)
+    np.testing.assert_allclose(float(quotient), float(expected_quotient), rtol=1e-30)
+    np.testing.assert_allclose(float(remainder), float(expected_remainder), rtol=1e-30)
+
+
+def test_divmod_array():
+    """Test divmod with arrays"""
+    a = np.array([10.5, 21.0, -7.5, 0.0], dtype=QuadPrecDType())
+    b = np.array([3.2, 4.0, 2.5, 5.0], dtype=QuadPrecDType())
+    
+    quotients, remainders = np.divmod(a, b)
+    
+    # Check dtype
+    assert quotients.dtype.name == "QuadPrecDType128"
+    assert remainders.dtype.name == "QuadPrecDType128"
+    
+    # Check against NumPy float64
+    a_float = np.array([10.5, 21.0, -7.5, 0.0], dtype=np.float64)
+    b_float = np.array([3.2, 4.0, 2.5, 5.0], dtype=np.float64)
+    expected_quotients, expected_remainders = np.divmod(a_float, b_float)
+    
+    for i in range(len(a)):
+        np.testing.assert_allclose(
+            float(quotients[i]), expected_quotients[i], rtol=1e-10, atol=1e-15,
+            err_msg=f"Quotient mismatch at index {i}"
+        )
+        np.testing.assert_allclose(
+            float(remainders[i]), expected_remainders[i], rtol=1e-10, atol=1e-15,
+            err_msg=f"Remainder mismatch at index {i}"
+        )
+
+
+def test_divmod_broadcasting():
+    """Test divmod with broadcasting"""
+    # Scalar with array
+    a = np.array([10.5, 21.0, 31.5], dtype=QuadPrecDType())
+    b = QuadPrecision("3.0")
+    
+    quotients, remainders = np.divmod(a, b)
+    
+    assert quotients.dtype.name == "QuadPrecDType128"
+    assert remainders.dtype.name == "QuadPrecDType128"
+    assert len(quotients) == 3
+    assert len(remainders) == 3
+    
+    # Check values
+    expected_quotients = [3.0, 7.0, 10.0]
+    expected_remainders = [1.5, 0.0, 1.5]
+    
+    for i in range(3):
+        np.testing.assert_allclose(float(quotients[i]), expected_quotients[i], rtol=1e-14)
+        np.testing.assert_allclose(float(remainders[i]), expected_remainders[i], rtol=1e-14)
+
+
 @pytest.mark.parametrize("op", ["sinh", "cosh", "tanh", "arcsinh", "arccosh", "arctanh"])
 @pytest.mark.parametrize("val", [
     # Basic cases

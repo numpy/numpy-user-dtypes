@@ -1,6 +1,6 @@
 # Plan for `numpy-quaddtype` v1.0.0
 
-- [ ] High-Endian System support
+- [x] High-Endian System support
 - [ ] Complete Documentation
 
 | ufunc name    | Added | Edge Cases Tested\*                                                  |
@@ -21,7 +21,7 @@
 | remainder     | ✅    | ✅                                                                   |
 | mod           | ✅    | ✅                                                                   |
 | fmod          | ✅    | ✅                                                                   |
-| divmod        |       |                                                                      |
+| divmod        | ✅    | ✅                                                                   |
 | absolute      | ✅    | ✅                                                                   |
 | fabs          |       |                                                                      |
 | rint          | ✅    | ✅                                                                   |
