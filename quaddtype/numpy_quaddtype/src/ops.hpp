@@ -838,6 +838,13 @@ quad_heaviside(const Sleef_quad *x1, const Sleef_quad *x2)
     }
 }
 
+static inline Sleef_quad
+quad_hypot(const Sleef_quad *x1, const Sleef_quad *x2)
+{
+    // hypot(x1, x2) = sqrt(x1^2 + x2^2)
+    return Sleef_hypotq1_u05(*x1, *x2);
+}
+
 // Binary long double operations
 typedef long double (*binary_op_longdouble_def)(const long double *, const long double *);
 // Binary long double operations with 2 outputs (for divmod, modf, frexp)
@@ -1106,6 +1113,14 @@ ld_heaviside(const long double *x1, const long double *x2)
     else {
         return 1.0L;
     }
+}
+
+static inline long double
+ld_hypot(const long double *x1, const long double *x2)
+{
+    // hypot(x1, x2) = sqrt(x1^2 + x2^2)
+    // Use the standard library hypotl function
+    return hypotl(*x1, *x2);
 }
 
 // comparison quad functions
