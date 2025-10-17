@@ -27,6 +27,9 @@
 | rint          | ✅    | ✅                                                                   |
 | sign          | ✅    | ✅                                                                   |
 | heaviside     | ✅    | ✅                                                                   |
+| conj          | ✅    | ✅                                                                   |
+| conjugate     | ✅    | ✅                                                                   |
+| heaviside     | ✅    | ✅                                                                   |
 | conj          |       |                                                                      |
 | conjugate     |       |                                                                      |
 | exp           | ✅    | ✅                                                                   |
@@ -40,8 +43,6 @@
 | square        | ✅    | ✅                                                                   |
 | cbrt          | ✅    | ✅                                                                   |
 | reciprocal    | ✅    | ✅                                                                   |
-| gcd           |       |                                                                      |
-| lcm           |       |                                                                      |
 | sin           | ✅    | ❌ _Need: basic tests + edge cases (NaN/inf/0/π multiples/2π range)_ |
 | cos           | ✅    | ❌ _Need: basic tests + edge cases (NaN/inf/0/π multiples/2π range)_ |
 | tan           | ✅    | ❌ _Need: basic tests + edge cases (NaN/inf/0/π/2 asymptotes)_       |

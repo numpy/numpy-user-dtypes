@@ -1837,3 +1837,25 @@ def test_heaviside_broadcast():
     assert result.dtype.name == "QuadPrecDType128"
     np.testing.assert_array_equal(result.astype(float), expected)
 
+
+@pytest.mark.parametrize("func", [np.conj, np.conjugate])
+@pytest.mark.parametrize("value", [
+    0.0,
+    -0.0,
+    1.5,
+    -1.5,
+    np.inf,
+    -np.inf,
+    np.nan,
+])
+def test_conj_conjugate_identity(func, value):
+    """Test that conj and conjugate are identity (no-op) for real quad precision numbers"""
+    x = QuadPrecision(value)
+    result = func(x)
+    
+    # For NaN, use special comparison
+    if np.isnan(value):
+        assert np.isnan(float(result))
+    else:
+        assert result == x
+
