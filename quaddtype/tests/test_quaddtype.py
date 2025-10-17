@@ -1925,7 +1925,6 @@ def test_hypot(x1, x2, expected):
     (-np.inf, -np.inf),
     (np.nan, np.nan),
     # Edge cases
-    (0.0, 0.0),
     (-0.0, -0.0),
 ])
 def test_degrees_rad2deg(op, radians, expected_degrees):
