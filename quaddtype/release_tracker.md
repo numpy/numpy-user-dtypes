@@ -34,7 +34,7 @@
 | log           | ✅    | ✅                                                                   |
 | log2          | ✅    | ✅                                                                   |
 | log10         | ✅    | ✅                                                                   |
-| expm1         |       |                                                                      |
+| expm1         | ✅    | ✅                                                                   |
 | log1p         | ✅    | ✅                                                                   |
 | sqrt          | ✅    | ✅                                                                   |
 | square        | ✅    | ✅                                                                   |
