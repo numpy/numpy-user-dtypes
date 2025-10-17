@@ -38,6 +38,13 @@ quad_absolute(const Sleef_quad *op)
 }
 
 static inline Sleef_quad
+quad_conjugate(const Sleef_quad *op)
+{
+    // For real numbers, conjugate is the identity function (no-op)
+    return *op;
+}
+
+static inline Sleef_quad
 quad_rint(const Sleef_quad *op)
 {
     Sleef_quad halfway = Sleef_addq1_u05(
@@ -215,6 +222,13 @@ static inline long double
 ld_absolute(const long double *op)
 {
     return fabsl(*op);
+}
+
+static inline long double
+ld_conjugate(const long double *op)
+{
+    // For real numbers, conjugate is the identity function (no-op)
+    return *op;
 }
 
 static inline long double

@@ -27,8 +27,8 @@
 | rint          | ✅    | ✅                                                                   |
 | sign          | ✅    | ✅                                                                   |
 | heaviside     |       |                                                                      |
-| conj          |       |                                                                      |
-| conjugate     |       |                                                                      |
+| conj          | ✅    | ✅                                                                   |
+| conjugate     | ✅    | ✅                                                                   |
 | exp           | ✅    | ✅                                                                   |
 | exp2          | ✅    | ✅                                                                   |
 | log           | ✅    | ✅                                                                   |

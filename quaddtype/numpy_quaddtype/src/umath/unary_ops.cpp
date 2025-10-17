@@ -161,6 +161,11 @@ init_quad_unary_ops(PyObject *numpy)
     if (create_quad_unary_ufunc<quad_absolute, ld_absolute>(numpy, "fabs") < 0) {
         return -1;
     }
+    // conjugate is a no-op for real numbers (returns the value unchanged)
+    if (create_quad_unary_ufunc<quad_conjugate, ld_conjugate>(numpy, "conjugate") < 0) {
+        return -1;
+    }
+    // conj is an alias for conjugate, no need to register
     if (create_quad_unary_ufunc<quad_sign, ld_sign>(numpy, "sign") < 0) {
         return -1;
     }
