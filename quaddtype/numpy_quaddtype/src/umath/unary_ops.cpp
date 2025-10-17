@@ -156,6 +156,8 @@ init_quad_unary_ops(PyObject *numpy)
     if (create_quad_unary_ufunc<quad_absolute, ld_absolute>(numpy, "absolute") < 0) {
         return -1;
     }
+    // fabs is simialr to absolute, just not handles complex values (we neither)
+    // registering the absolute here
     if (create_quad_unary_ufunc<quad_absolute, ld_absolute>(numpy, "fabs") < 0) {
         return -1;
     }
