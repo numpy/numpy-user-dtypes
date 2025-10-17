@@ -454,6 +454,9 @@ init_quad_binary_ops(PyObject *numpy)
     if (create_quad_binary_ufunc<quad_logaddexp2, ld_logaddexp2>(numpy, "logaddexp2") < 0) {
         return -1;
     }
+    if (create_quad_binary_ufunc<quad_heaviside, ld_heaviside>(numpy, "heaviside") < 0) {
+        return -1;
+    }
     if (create_quad_binary_2out_ufunc<quad_divmod, ld_divmod>(numpy, "divmod") < 0) {
         return -1;
     }

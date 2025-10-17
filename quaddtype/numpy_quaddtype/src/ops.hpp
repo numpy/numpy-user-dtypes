@@ -752,6 +752,26 @@ quad_logaddexp2(const Sleef_quad *x, const Sleef_quad *y)
     return Sleef_addq1_u05(max_val, log2_term);
 }
 
+static inline Sleef_quad
+quad_heaviside(const Sleef_quad *x1, const Sleef_quad *x2)
+{
+    // heaviside(x1, x2) = 0 if x1 < 0, x2 if x1 == 0, 1 if x1 > 0
+    // NaN propagation: only propagate NaN from x1, not from x2 (unless x1 == 0)
+    if (Sleef_iunordq1(*x1, *x1)) {
+        return *x1;  // x1 is NaN, return NaN
+    }
+    
+    if (Sleef_icmpltq1(*x1, QUAD_ZERO)) {
+        return QUAD_ZERO;
+    }
+    else if (Sleef_icmpeqq1(*x1, QUAD_ZERO)) {
+        return *x2;  // When x1 == 0, return x2 (even if x2 is NaN)
+    }
+    else {
+        return QUAD_ONE;
+    }
+}
+
 // Binary long double operations
 typedef long double (*binary_op_longdouble_def)(const long double *, const long double *);
 // Binary long double operations with 2 outputs (for divmod, modf, frexp)
@@ -1000,6 +1020,26 @@ ld_logaddexp2(const long double *x, const long double *y)
     long double max_val = (*x > *y) ? *x : *y;
     // Use native log2l function for base-2 logarithm
     return max_val + log2l(1.0L + exp2l(-abs_diff));
+}
+
+static inline long double
+ld_heaviside(const long double *x1, const long double *x2)
+{
+    // heaviside(x1, x2) = 0 if x1 < 0, x2 if x1 == 0, 1 if x1 > 0
+    // NaN propagation: only propagate NaN from x1, not from x2 (unless x1 == 0)
+    if (isnan(*x1)) {
+        return *x1;  // x1 is NaN, return NaN
+    }
+    
+    if (*x1 < 0.0L) {
+        return 0.0L;
+    }
+    else if (*x1 == 0.0L) {
+        return *x2;  // When x1 == 0, return x2 (even if x2 is NaN)
+    }
+    else {
+        return 1.0L;
+    }
 }
 
 // comparison quad functions

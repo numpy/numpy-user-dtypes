@@ -26,7 +26,7 @@
 | fabs          | ✅    | ✅                                                                   |
 | rint          | ✅    | ✅                                                                   |
 | sign          | ✅    | ✅                                                                   |
-| heaviside     |       |                                                                      |
+| heaviside     | ✅    | ✅                                                                   |
 | conj          |       |                                                                      |
 | conjugate     |       |                                                                      |
 | exp           | ✅    | ✅                                                                   |
