@@ -26,9 +26,12 @@
 | fabs          | ✅    | ✅                                                                   |
 | rint          | ✅    | ✅                                                                   |
 | sign          | ✅    | ✅                                                                   |
-| heaviside     |       |                                                                      |
+| heaviside     | ✅    | ✅                                                                   |
 | conj          | ✅    | ✅                                                                   |
 | conjugate     | ✅    | ✅                                                                   |
+| heaviside     | ✅    | ✅                                                                   |
+| conj          |       |                                                                      |
+| conjugate     |       |                                                                      |
 | exp           | ✅    | ✅                                                                   |
 | exp2          | ✅    | ✅                                                                   |
 | log           | ✅    | ✅                                                                   |
