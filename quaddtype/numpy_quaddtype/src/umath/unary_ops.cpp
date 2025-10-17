@@ -203,6 +203,9 @@ init_quad_unary_ops(PyObject *numpy)
     if (create_quad_unary_ufunc<quad_exp2, ld_exp2>(numpy, "exp2") < 0) {
         return -1;
     }
+    if (create_quad_unary_ufunc<quad_expm1, ld_expm1>(numpy, "expm1") < 0) {
+        return -1;
+    }
     if (create_quad_unary_ufunc<quad_sin, ld_sin>(numpy, "sin") < 0) {
         return -1;
     }

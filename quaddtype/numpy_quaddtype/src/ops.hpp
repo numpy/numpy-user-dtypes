@@ -125,6 +125,12 @@ quad_exp2(const Sleef_quad *op)
 }
 
 static inline Sleef_quad
+quad_expm1(const Sleef_quad *op)
+{
+    return Sleef_expm1q1_u10(*op);
+}
+
+static inline Sleef_quad
 quad_sin(const Sleef_quad *op)
 {
     return Sleef_sinq1_u10(*op);
@@ -306,6 +312,12 @@ static inline long double
 ld_exp2(const long double *op)
 {
     return exp2l(*op);
+}
+
+static inline long double
+ld_expm1(const long double *op)
+{
+    return expm1l(*op);
 }
 
 static inline long double
