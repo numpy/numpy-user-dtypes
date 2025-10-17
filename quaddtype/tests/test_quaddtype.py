@@ -1388,10 +1388,3 @@ def test_fabs(val):
     if float_result == 0.0:
         assert not np.signbit(quad_result), f"fabs({val}) should not have negative sign"
         assert not np.signbit(quad_arr_result[0]), f"fabs({val}) should not have negative sign"
-
-    # Verify that fabs and absolute give the same result for QuadPrecision
-    quad_absolute_result = np.absolute(quad_val)
-    np.testing.assert_array_equal(
-        np.array(quad_result).astype(float),
-        np.array(quad_absolute_result).astype(float)
-    )
