@@ -75,7 +75,6 @@
 | isfinite      | ✅    | ✅                                                                   |
 | isinf         | ✅    | ✅                                                                   |
 | isnan         | ✅    | ✅                                                                   |
-| isnat         |       |                                                                      |
 | signbit       | ✅    | ✅                                                                   |
 | copysign      | ✅    | ✅                                                                   |
 | nextafter     |       |                                                                      |
