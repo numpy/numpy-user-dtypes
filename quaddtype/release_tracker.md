@@ -58,12 +58,6 @@
 | radians       |       |                                                                      |
 | deg2rad       |       |                                                                      |
 | rad2deg       | ✅    | ✅                                                                   |
-| bitwise_and   |       |                                                                      |
-| bitwise_or    |       |                                                                      |
-| bitwise_xor   |       |                                                                      |
-| invert        |       |                                                                      |
-| left_shift    |       |                                                                      |
-| right_shift   |       |                                                                      |
 | greater       | ✅    | ✅                                                                   |
 | greater_equal | ✅    | ✅                                                                   |
 | less          | ✅    | ✅                                                                   |
