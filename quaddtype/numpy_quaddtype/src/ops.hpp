@@ -1247,13 +1247,8 @@ quad_is_nonzero(const Sleef_quad *a)
 {
     // A value is falsy if it's exactly zero (positive or negative)
     // NaN and inf are truthy
-    // Check both +0.0 and -0.0 since they may not compare equal
-    Sleef_quad neg_zero = Sleef_negq1_purec(QUAD_ZERO);
-    
-    npy_bool is_pos_zero = Sleef_icmpeqq1_purec(*a, QUAD_ZERO);
-    npy_bool is_neg_zero = Sleef_icmpeqq1_purec(*a, neg_zero);
-    
-    return !(is_pos_zero || is_neg_zero);
+    npy_bool is_zero = Sleef_icmpeqq1_purec(*a, QUAD_ZERO);
+    return !is_zero;
 }
 
 // Helper function to check if a long double value is non-zero (truthy)
@@ -1262,7 +1257,6 @@ ld_is_nonzero(const long double *a)
 {
     // A value is falsy if it's exactly zero (positive or negative)
     // NaN and inf are truthy
-    // In C, 0.0L == -0.0L, so we only need one comparison
     return *a != 0.0L;
 }
 
