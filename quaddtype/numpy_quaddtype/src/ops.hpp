@@ -247,7 +247,7 @@ static inline Sleef_quad
 quad_degrees(const Sleef_quad *op)
 {
     // degrees = radians * 180 / π
-    static const Sleef_quad one_eighty = Sleef_strtoq("180.0", NULL);
+    static const Sleef_quad one_eighty = sleef_q(+0x1680000000000LL, 0x0000000000000000ULL, 7); // 180.0 in quad
     Sleef_quad ratio = Sleef_divq1_u05(one_eighty, SLEEF_M_PIq);
     return Sleef_mulq1_u05(*op, ratio);
 }
