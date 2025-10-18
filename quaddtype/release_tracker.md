@@ -55,8 +55,8 @@
 | arccosh       | ✅    | ✅                                                                   |
 | arctanh       | ✅    | ✅                                                                   |
 | degrees       |       |                                                                      |
-| radians       |       |                                                                      |
-| deg2rad       |       |                                                                      |
+| radians       | ✅    | ✅                                                                  |
+| deg2rad       | ✅    | ✅                                                                  |
 | rad2deg       |       |                                                                      |
 | bitwise_and   |       |                                                                      |
 | bitwise_or    |       |                                                                      |
