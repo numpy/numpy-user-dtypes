@@ -1247,7 +1247,7 @@ quad_is_nonzero(const Sleef_quad *a)
 {
     // A value is falsy if it's exactly zero (positive or negative)
     // NaN and inf are truthy
-    npy_bool is_zero = Sleef_icmpeqq1_purec(*a, QUAD_ZERO);
+    npy_bool is_zero = Sleef_icmpeqq1(*a, QUAD_ZERO);
     return !is_zero;
 }
 
