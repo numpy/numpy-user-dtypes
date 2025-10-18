@@ -150,6 +150,85 @@ def test_array_minmax(op, a, b):
             quad_res), f"Zero sign mismatch for {op}({a}, {b})"
 
 
+# Logical operations tests
+@pytest.mark.parametrize("op", ["logical_and", "logical_or", "logical_xor"])
+@pytest.mark.parametrize("x1,x2", [
+    # Basic cases
+    (0.0, 0.0),
+    (0.0, 1.0),
+    (1.0, 0.0),
+    (1.0, 2.0),
+    (2.5, 3.7),
+    # Negative values
+    (-1.0, 1.0),
+    (-2.0, -3.0),
+    # Negative zero (also falsy)
+    (-0.0, 0.0),
+    (-0.0, 1.0),
+    (1.0, -0.0),
+    (-0.0, -0.0),
+    # Special values: NaN and inf are truthy
+    (np.nan, 0.0),
+    (0.0, np.nan),
+    (np.nan, 1.0),
+    (1.0, np.nan),
+    (np.nan, np.nan),
+    (np.inf, 0.0),
+    (0.0, np.inf),
+    (np.inf, 1.0),
+    (np.inf, np.inf),
+    (-np.inf, 1.0),
+    (-np.inf, -np.inf),
+])
+def test_binary_logical_ops(op, x1, x2):
+    """Test binary logical operations (and, or, xor) against NumPy's behavior"""
+    op_func = getattr(np, op)
+    
+    # QuadPrecision values
+    quad_x1 = QuadPrecision(str(x1))
+    quad_x2 = QuadPrecision(str(x2))
+    quad_result = op_func(quad_x1, quad_x2)
+    
+    # NumPy float64 values for comparison
+    float_x1 = np.float64(x1)
+    float_x2 = np.float64(x2)
+    float_result = op_func(float_x1, float_x2)
+    
+    # Results should match NumPy's behavior
+    assert quad_result == float_result, f"{op}({x1}, {x2}): quad={quad_result}, float64={float_result}"
+    assert isinstance(quad_result, (bool, np.bool_)), f"Result should be bool, got {type(quad_result)}"
+
+
+@pytest.mark.parametrize("x", [
+    # Zeros are falsy
+    0.0,
+    -0.0,
+    # Non-zero values are truthy
+    1.0,
+    -1.0,
+    2.5,
+    -3.7,
+    0.001,
+    # Special values: NaN and inf are truthy
+    np.nan,
+    np.inf,
+    -np.inf,
+])
+def test_unary_logical_not(x):
+    """Test logical_not operation against NumPy's behavior"""
+    # QuadPrecision value
+    quad_x = QuadPrecision(str(x))
+    quad_result = np.logical_not(quad_x)
+    
+    # NumPy float64 value for comparison
+    float_x = np.float64(x)
+    float_result = np.logical_not(float_x)
+    
+    # Results should match NumPy's behavior
+    assert quad_result == float_result, f"logical_not({x}): quad={quad_result}, float64={float_result}"
+    assert isinstance(quad_result, (bool, np.bool_)), f"Result should be bool, got {type(quad_result)}"
+
+
 @pytest.mark.parametrize("op", ["amin", "amax", "nanmin", "nanmax"])
 @pytest.mark.parametrize("a", ["3.0", "12.5", "100.0", "0.0", "-0.0", "inf", "-inf", "nan", "-nan"])
 @pytest.mark.parametrize("b", ["3.0", "12.5", "100.0", "0.0", "-0.0", "inf", "-inf", "nan", "-nan"])

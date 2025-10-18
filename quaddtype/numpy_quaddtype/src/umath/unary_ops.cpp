@@ -144,6 +144,129 @@ create_quad_unary_ufunc(PyObject *numpy, const char *ufunc_name)
     return 0;
 }
 
+// Logical NOT - returns bool instead of QuadPrecision
+static NPY_CASTING
+quad_unary_logical_op_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtypes[],
+                                         PyArray_Descr *const given_descrs[], PyArray_Descr *loop_descrs[],
+                                         npy_intp *NPY_UNUSED(view_offset))
+{
+    Py_INCREF(given_descrs[0]);
+    loop_descrs[0] = given_descrs[0];
+
+    // Output is always bool
+    loop_descrs[1] = PyArray_DescrFromType(NPY_BOOL);
+    if (!loop_descrs[1]) {
+        return (NPY_CASTING)-1;
+    }
+
+    return NPY_NO_CASTING;
+}
+
+template <unary_logical_quad_def sleef_op, unary_logical_longdouble_def longdouble_op>
+int
+quad_logical_not_strided_loop_unaligned(PyArrayMethod_Context *context, char *const data[],
+                                       npy_intp const dimensions[], npy_intp const strides[],
+                                       NpyAuxData *auxdata)
+{
+    npy_intp N = dimensions[0];
+    char *in_ptr = data[0];
+    char *out_ptr = data[1];
+    npy_intp in_stride = strides[0];
+    npy_intp out_stride = strides[1];
+
+    QuadPrecDTypeObject *descr = (QuadPrecDTypeObject *)context->descriptors[0];
+    QuadBackendType backend = descr->backend;
+    size_t elem_size = (backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
+
+    quad_value in;
+    while (N--) {
+        memcpy(&in, in_ptr, elem_size);
+        npy_bool result;
+        
+        if (backend == BACKEND_SLEEF) {
+            result = sleef_op(&in.sleef_value);
+        }
+        else {
+            result = longdouble_op(&in.longdouble_value);
+        }
+        
+        memcpy(out_ptr, &result, sizeof(npy_bool));
+
+        in_ptr += in_stride;
+        out_ptr += out_stride;
+    }
+    return 0;
+}
+
+template <unary_logical_quad_def sleef_op, unary_logical_longdouble_def longdouble_op>
+int
+quad_logical_not_strided_loop_aligned(PyArrayMethod_Context *context, char *const data[],
+                                     npy_intp const dimensions[], npy_intp const strides[],
+                                     NpyAuxData *auxdata)
+{
+    npy_intp N = dimensions[0];
+    char *in_ptr = data[0];
+    char *out_ptr = data[1];
+    npy_intp in_stride = strides[0];
+    npy_intp out_stride = strides[1];
+
+    QuadPrecDTypeObject *descr = (QuadPrecDTypeObject *)context->descriptors[0];
+    QuadBackendType backend = descr->backend;
+
+    while (N--) {
+        npy_bool result;
+        
+        if (backend == BACKEND_SLEEF) {
+            result = sleef_op((Sleef_quad *)in_ptr);
+        }
+        else {
+            result = longdouble_op((long double *)in_ptr);
+        }
+        
+        *(npy_bool *)out_ptr = result;
+
+        in_ptr += in_stride;
+        out_ptr += out_stride;
+    }
+    return 0;
+}
+
+template <unary_logical_quad_def sleef_op, unary_logical_longdouble_def longdouble_op>
+int
+create_quad_logical_not_ufunc(PyObject *numpy, const char *ufunc_name)
+{
+    PyObject *ufunc = PyObject_GetAttrString(numpy, ufunc_name);
+    if (ufunc == NULL) {
+        return -1;
+    }
+
+    PyArray_DTypeMeta *dtypes[2] = {&QuadPrecDType, &PyArray_BoolDType};
+
+    PyType_Slot slots[] = {
+            {NPY_METH_resolve_descriptors, (void *)&quad_unary_logical_op_resolve_descriptors},
+            {NPY_METH_strided_loop,
+             (void *)&quad_logical_not_strided_loop_aligned<sleef_op, longdouble_op>},
+            {NPY_METH_unaligned_strided_loop,
+             (void *)&quad_logical_not_strided_loop_unaligned<sleef_op, longdouble_op>},
+            {0, NULL}};
+
+    PyArrayMethod_Spec Spec = {
+            .name = "quad_logical_not",
+            .nin = 1,
+            .nout = 1,
+            .casting = NPY_NO_CASTING,
+            .flags = NPY_METH_SUPPORTS_UNALIGNED,
+            .dtypes = dtypes,
+            .slots = slots,
+    };
+
+    if (PyUFunc_AddLoopFromSpec(ufunc, &Spec) < 0) {
+        return -1;
+    }
+
+    return 0;
+}
+
 int
 init_quad_unary_ops(PyObject *numpy)
 {
@@ -256,5 +379,11 @@ init_quad_unary_ops(PyObject *numpy)
     if (create_quad_unary_ufunc<quad_radians, ld_radians>(numpy, "deg2rad") < 0) {
         return -1;
     }
+    
+    // Logical operations (unary: not)
+    if (create_quad_logical_not_ufunc<quad_logical_not, ld_logical_not>(numpy, "logical_not") < 0) {
+        return -1;
+    }
+    
     return 0;
 }

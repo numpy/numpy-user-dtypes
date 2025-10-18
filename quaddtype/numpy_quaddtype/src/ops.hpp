@@ -1219,3 +1219,89 @@ ld_greaterequal(const long double *a, const long double *b)
 {
     return *a >= *b;
 }
+
+// Logical operations
+
+// Helper function to check if a Sleef_quad value is non-zero (truthy)
+static inline npy_bool
+quad_is_nonzero(const Sleef_quad *a)
+{
+    // A value is falsy if it's exactly zero (positive or negative)
+    // NaN and inf are truthy
+    // Check both +0.0 and -0.0 since they may not compare equal
+    Sleef_quad neg_zero = Sleef_negq1_purec(QUAD_ZERO);
+    
+    npy_bool is_pos_zero = Sleef_icmpeqq1_purec(*a, QUAD_ZERO);
+    npy_bool is_neg_zero = Sleef_icmpeqq1_purec(*a, neg_zero);
+    
+    return !(is_pos_zero || is_neg_zero);
+}
+
+// Helper function to check if a long double value is non-zero (truthy)
+static inline npy_bool
+ld_is_nonzero(const long double *a)
+{
+    // A value is falsy if it's exactly zero (positive or negative)
+    // NaN and inf are truthy
+    // In C, 0.0L == -0.0L, so we only need one comparison
+    return *a != 0.0L;
+}
+
+
+static inline npy_bool
+quad_logical_and(const Sleef_quad *a, const Sleef_quad *b)
+{
+    return quad_is_nonzero(a) && quad_is_nonzero(b);
+}
+
+static inline npy_bool
+ld_logical_and(const long double *a, const long double *b)
+{
+    return ld_is_nonzero(a) && ld_is_nonzero(b);
+}
+
+
+static inline npy_bool
+quad_logical_or(const Sleef_quad *a, const Sleef_quad *b)
+{
+    return quad_is_nonzero(a) || quad_is_nonzero(b);
+}
+
+static inline npy_bool
+ld_logical_or(const long double *a, const long double *b)
+{
+    return ld_is_nonzero(a) || ld_is_nonzero(b);
+}
+
+static inline npy_bool
+quad_logical_xor(const Sleef_quad *a, const Sleef_quad *b)
+{
+    npy_bool a_truthy = quad_is_nonzero(a);
+    npy_bool b_truthy = quad_is_nonzero(b);
+    return (a_truthy && !b_truthy) || (!a_truthy && b_truthy);
+}
+
+static inline npy_bool
+ld_logical_xor(const long double *a, const long double *b)
+{
+    npy_bool a_truthy = ld_is_nonzero(a);
+    npy_bool b_truthy = ld_is_nonzero(b);
+    return (a_truthy && !b_truthy) || (!a_truthy && b_truthy);
+}
+
+
+// logical not
+typedef npy_bool (*unary_logical_quad_def)(const Sleef_quad *);
+typedef npy_bool (*unary_logical_longdouble_def)(const long double *);
+
+static inline npy_bool
+quad_logical_not(const Sleef_quad *a)
+{
+    return !quad_is_nonzero(a);
+}
+
+static inline npy_bool
+ld_logical_not(const long double *a)
+{
+    return !ld_is_nonzero(a);
+}
