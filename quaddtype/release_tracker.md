@@ -64,10 +64,10 @@
 | less_equal    | ✅    | ✅                                                                   |
 | not_equal     | ✅    | ✅                                                                   |
 | equal         | ✅    | ✅                                                                   |
-| logical_and   |       |                                                                      |
-| logical_or    |       |                                                                      |
-| logical_xor   |       |                                                                      |
-| logical_not   |       |                                                                      |
+| logical_and   | ✅    | ✅                                                                   |
+| logical_or    | ✅    | ✅                                                                   |
+| logical_xor   | ✅    | ✅                                                                   |
+| logical_not   | ✅    | ✅                                                                   |
 | maximum       | ✅    | ✅                                                                   |
 | minimum       | ✅    | ✅                                                                   |
 | fmax          | ✅    | ✅                                                                   |
@@ -75,7 +75,6 @@
 | isfinite      | ✅    | ✅                                                                   |
 | isinf         | ✅    | ✅                                                                   |
 | isnan         | ✅    | ✅                                                                   |
-| isnat         |       |                                                                      |
 | signbit       | ✅    | ✅                                                                   |
 | copysign      | ✅    | ✅                                                                   |
 | nextafter     |       |                                                                      |

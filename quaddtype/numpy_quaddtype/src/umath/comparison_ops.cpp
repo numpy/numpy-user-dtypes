@@ -240,5 +240,16 @@ init_quad_comps(PyObject *numpy)
         return -1;
     }
 
+    // Logical operations (binary: and, or, xor)
+    if (create_quad_comparison_ufunc<quad_logical_and, ld_logical_and>(numpy, "logical_and") < 0) {
+        return -1;
+    }
+    if (create_quad_comparison_ufunc<quad_logical_or, ld_logical_or>(numpy, "logical_or") < 0) {
+        return -1;
+    }
+    if (create_quad_comparison_ufunc<quad_logical_xor, ld_logical_xor>(numpy, "logical_xor") < 0) {
+        return -1;
+    }
+
     return 0;
 }
