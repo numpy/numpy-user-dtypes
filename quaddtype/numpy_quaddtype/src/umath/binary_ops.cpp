@@ -448,6 +448,9 @@ init_quad_binary_ops(PyObject *numpy)
     if (create_quad_binary_ufunc<quad_copysign, ld_copysign>(numpy, "copysign") < 0) {
         return -1;
     }
+    if (create_quad_binary_ufunc<quad_nextafter, ld_nextafter>(numpy, "nextafter") < 0) {
+        return -1;
+    }
     if (create_quad_binary_ufunc<quad_logaddexp, ld_logaddexp>(numpy, "logaddexp") < 0) {
         return -1;
     }

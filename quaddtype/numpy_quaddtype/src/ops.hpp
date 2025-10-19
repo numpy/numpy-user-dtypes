@@ -883,6 +883,131 @@ quad_hypot(const Sleef_quad *x1, const Sleef_quad *x2)
     return Sleef_hypotq1_u05(*x1, *x2);
 }
 
+// todo: we definitely need to refactor this file, getting too clumsy everything here
+
+static inline void quad_get_words64(int64_t *hx, uint64_t *lx, Sleef_quad x)
+{
+    union {
+        Sleef_quad q;
+        struct {
+#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+            uint64_t hi;
+            uint64_t lo;
+#else
+            uint64_t lo;
+            uint64_t hi;
+#endif
+        } i;
+    } u;
+    u.q = x;
+    *hx = (int64_t)u.i.hi;
+    *lx = u.i.lo;
+}
+
+static inline Sleef_quad quad_set_words64(int64_t hx, uint64_t lx)
+{
+    union {
+        Sleef_quad q;
+        struct {
+#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+            uint64_t hi;
+            uint64_t lo;
+#else
+            uint64_t lo;
+            uint64_t hi;
+#endif
+        } i;
+    } u;
+    u.i.hi = (uint64_t)hx;
+    u.i.lo = lx;
+    return u.q;
+}
+
+
+static inline Sleef_quad
+quad_nextafter(const Sleef_quad *x, const Sleef_quad *y)
+{
+    int64_t hx, hy, ix, iy;
+    uint64_t lx, ly;
+
+    quad_get_words64(&hx, &lx, *x);
+    quad_get_words64(&hy, &ly, *y);
+    
+    // extracting absolute value
+    ix = hx & 0x7fffffffffffffffLL;
+    iy = hy & 0x7fffffffffffffffLL;
+
+    // NaN if either is NaN
+    if (Sleef_iunordq1(*x, *y)) {
+        return Sleef_addq1_u05(*x, *y); // still NaN
+    }
+
+    // x == y then return y
+    if (Sleef_icmpeqq1(*x, *y)) {
+        return *y;
+    }
+
+    // both input 0 then extract sign from y and return correspondingly signed smallest subnormal
+    if ((ix | lx) == 0) {
+        Sleef_quad result = quad_set_words64(hy & 0x8000000000000000LL, 1); // quad_set_words64(sign_y, 1)
+        return result;
+    }
+
+    if (hx >= 0) 
+    {
+        if (hx > hy || ((hx == hy) && (lx > ly))) 
+        {
+            //  Moving toward smaller y (x > y)
+            // low word is 0 then decrement high word first (borrowing)
+            if (lx == 0) 
+                hx--;
+            lx--;
+        } 
+        else 
+        {
+            lx++;
+            if (lx == 0)
+                // carry to high words
+                hx++;
+        }
+    } 
+    else 
+    {
+        // Moving toward larger y
+        // similar to above case just direction will be swapped
+        if (hy >= 0 || hx > hy || ((hx == hy) && (lx > ly))) 
+        {
+            if (lx == 0) 
+                hx--;
+            lx--;
+        } 
+        else 
+        {
+            lx++;
+            if (lx == 0) 
+                hx++;
+        }
+    }
+
+    // check if reached infinity
+    // this can be NaN XOR inf but NaN are already checked at start
+    hy = hx & 0x7fff000000000000LL;    
+    if (hy == 0x7fff000000000000LL) {
+        Sleef_quad result = quad_set_words64(hx, lx);
+        return result;
+    }
+    // check whether entered into subnormal range
+    // 0 exponent i.e. either (0 or subnormal)
+    if (hy == 0) {
+        Sleef_quad result = quad_set_words64(hx, lx);
+        return result;
+    }
+    
+    // well I did not read to have those above checks
+    // but they can be important when settng FPE flag manually
+    return quad_set_words64(hx, lx);
+}
+
 // Binary long double operations
 typedef long double (*binary_op_longdouble_def)(const long double *, const long double *);
 // Binary long double operations with 2 outputs (for divmod, modf, frexp)
@@ -1159,6 +1284,12 @@ ld_hypot(const long double *x1, const long double *x2)
     // hypot(x1, x2) = sqrt(x1^2 + x2^2)
     // Use the standard library hypotl function
     return hypotl(*x1, *x2);
+}
+
+static inline long double
+ld_nextafter(const long double *x1, const long double *x2)
+{
+    return nextafterl(*x1, *x2);
 }
 
 // comparison quad functions

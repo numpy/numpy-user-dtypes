@@ -2065,3 +2065,194 @@ def test_radians(op, degrees, expected_radians):
     else:
         np.testing.assert_allclose(float(result), expected_radians, rtol=1e-13)
 
+
+class TestNextAfter:
+    """Test cases for np.nextafter function with QuadPrecision dtype"""
+    
+    @pytest.mark.parametrize("x1,x2", [
+        # NaN tests
+        (np.nan, 1.0),
+        (1.0, np.nan),
+        (np.nan, np.nan),
+    ])
+    def test_nan(self, x1, x2):
+        """Test nextafter with NaN inputs returns NaN"""
+        q_x1 = QuadPrecision(x1)
+        q_x2 = QuadPrecision(x2)
+        
+        result = np.nextafter(q_x1, q_x2)
+        
+        assert isinstance(result, QuadPrecision)
+        assert np.isnan(float(result))
+
+    def test_precision(self):
+        """Test that nextafter provides the exact next representable value"""
+        # Start with 1.0 and move towards 2.0
+        x1 = QuadPrecision(1.0)
+        x2 = QuadPrecision(2.0)
+        
+        result = np.nextafter(x1, x2)
+        
+        # Get machine epsilon from finfo
+        finfo = np.finfo(QuadPrecDType())
+        expected = x1 + finfo.eps
+        
+        # result should be exactly 1.0 + eps
+        assert result == expected
+        
+        # Moving the other direction should give us back 1.0
+        result_back = np.nextafter(result, x1)
+        assert result_back == x1
+
+    def test_smallest_subnormal(self):
+        """Test that nextafter(0.0, 1.0) returns the smallest positive subnormal (TRUE_MIN)"""
+        zero = QuadPrecision(0.0)
+        one = QuadPrecision(1.0)
+
+        result = np.nextafter(zero, one)  # smallest_subnormal
+        finfo = np.finfo(QuadPrecDType())
+        
+        assert result == finfo.smallest_subnormal, \
+            f"nextafter(0.0, 1.0) should equal smallest_subnormal, got {result} vs {finfo.smallest_subnormal}"
+        
+        # Verify it's positive and very small
+        assert result > zero, "nextafter(0.0, 1.0) should be positive"
+        
+        # Moving back towards zero should give us zero
+        result_back = np.nextafter(result, zero)
+        assert result_back == zero, f"nextafter(smallest_subnormal, 0.0) should be 0.0, got {result_back}"
+
+    def test_negative_zero(self):
+        """Test nextafter with negative zero"""
+        neg_zero = QuadPrecision(-0.0)
+        pos_zero = QuadPrecision(0.0)
+        one = QuadPrecision(1.0)
+        neg_one = QuadPrecision(-1.0)
+        
+        finfo = np.finfo(QuadPrecDType())
+        
+        # nextafter(-0.0, 1.0) should return smallest positive subnormal
+        result = np.nextafter(neg_zero, one)
+        assert result == finfo.smallest_subnormal, \
+            f"nextafter(-0.0, 1.0) should be smallest_subnormal, got {result}"
+        assert result > pos_zero, "Result should be positive"
+        
+        # nextafter(+0.0, -1.0) should return smallest negative subnormal
+        result_neg = np.nextafter(pos_zero, neg_one)
+        expected_neg_subnormal = -finfo.smallest_subnormal
+        assert result_neg == expected_neg_subnormal, \
+            f"nextafter(+0.0, -1.0) should be -smallest_subnormal, got {result_neg}"
+        assert result_neg < pos_zero, "Result should be negative"
+
+    def test_infinity_cases(self):
+        """Test nextafter with infinity edge cases"""
+        pos_inf = QuadPrecision(np.inf)
+        neg_inf = QuadPrecision(-np.inf)
+        one = QuadPrecision(1.0)
+        neg_one = QuadPrecision(-1.0)
+        zero = QuadPrecision(0.0)
+        
+        finfo = np.finfo(QuadPrecDType())
+        
+        # nextafter(+inf, finite) should return max finite value
+        result = np.nextafter(pos_inf, zero)
+        assert not np.isinf(result), "nextafter(+inf, 0) should be finite"
+        assert result < pos_inf, "Result should be less than +inf"
+        assert result == finfo.max, f"nextafter(+inf, 0) should be max, got {result} vs {finfo.max}"
+        
+        # nextafter(-inf, finite) should return -max (most negative finite)
+        result_neg = np.nextafter(neg_inf, zero)
+        assert not np.isinf(result_neg), "nextafter(-inf, 0) should be finite"
+        assert result_neg > neg_inf, "Result should be greater than -inf"
+        assert result_neg == -finfo.max, f"nextafter(-inf, 0) should be -max, got {result_neg}"
+        
+        # Verify symmetry: nextafter(result, +inf) should give us +inf back
+        back_to_inf = np.nextafter(result, pos_inf)
+        assert back_to_inf == pos_inf, "nextafter(max_finite, +inf) should be +inf"
+        
+        # nextafter(+inf, +inf) should return +inf
+        result_inf = np.nextafter(pos_inf, pos_inf)
+        assert result_inf == pos_inf, "nextafter(+inf, +inf) should be +inf"
+        
+        # nextafter(-inf, -inf) should return -inf
+        result_neg_inf = np.nextafter(neg_inf, neg_inf)
+        assert result_neg_inf == neg_inf, "nextafter(-inf, -inf) should be -inf"
+
+    def test_max_to_infinity(self):
+        """Test nextafter from max finite value to infinity"""
+        finfo = np.finfo(QuadPrecDType())
+        max_val = finfo.max
+        pos_inf = QuadPrecision(np.inf)
+        neg_inf = QuadPrecision(-np.inf)
+        
+        # nextafter(max_finite, +inf) should return +inf
+        result = np.nextafter(max_val, pos_inf)
+        assert np.isinf(result), f"nextafter(max, +inf) should be inf, got {result}"
+        assert result > max_val, "Result should be greater than max"
+        assert result == pos_inf, "Result should be +inf"
+        
+        # nextafter(-max_finite, -inf) should return -inf
+        neg_max_val = -max_val
+        result_neg = np.nextafter(neg_max_val, neg_inf)
+        assert np.isinf(result_neg), f"nextafter(-max, -inf) should be -inf, got {result_neg}"
+        assert result_neg < neg_max_val, "Result should be less than -max"
+        assert result_neg == neg_inf, "Result should be -inf"
+
+    def test_near_max(self):
+        """Test nextafter near maximum finite value"""
+        finfo = np.finfo(QuadPrecDType())
+        max_val = finfo.max
+        zero = QuadPrecision(0.0)
+        pos_inf = QuadPrecision(np.inf)
+        
+        # nextafter(max, 0) should return a value less than max
+        result = np.nextafter(max_val, zero)
+        assert result < max_val, "nextafter(max, 0) should be less than max"
+        assert not np.isinf(result), "Result should be finite"
+        
+        # The difference should be one ULP at that scale
+        # Moving back should give us max again
+        result_back = np.nextafter(result, pos_inf)
+        assert result_back == max_val, f"Moving back should return max, got {result_back}"
+
+    def test_symmetry(self):
+        """Test symmetry properties of nextafter"""
+        values = [0.0, 1.0, -1.0, 1e10, -1e10, 1e-10, -1e-10]
+        
+        for val in values:
+            q_val = QuadPrecision(val)
+            
+            # nextafter(x, +direction) then nextafter(result, x) should return x
+            if not np.isinf(val):
+                result_up = np.nextafter(q_val, QuadPrecision(np.inf))
+                result_back = np.nextafter(result_up, q_val)
+                assert result_back == q_val, \
+                    f"Symmetry failed for {val}: nextafter then back should return original"
+                
+                # Same for down direction
+                result_down = np.nextafter(q_val, QuadPrecision(-np.inf))
+                result_back_down = np.nextafter(result_down, q_val)
+                assert result_back_down == q_val, \
+                    f"Symmetry failed for {val}: nextafter down then back should return original"
+
+    def test_direction(self):
+        """Test that nextafter moves in the correct direction"""
+        test_cases = [
+            (1.0, 2.0, "greater"),    # towards larger
+            (2.0, 1.0, "less"),       # towards smaller
+            (-1.0, -2.0, "less"),     # towards more negative
+            (-2.0, -1.0, "greater"),  # towards less negative
+            (1.0, np.inf, "greater"), # towards +inf
+            (1.0, -np.inf, "less"),   # towards -inf
+        ]
+        
+        for x, y, expected_dir in test_cases:
+            q_x = QuadPrecision(x)
+            q_y = QuadPrecision(y)
+            result = np.nextafter(q_x, q_y)
+            
+            if expected_dir == "greater":
+                assert result > q_x, f"nextafter({x}, {y}) should be > {x}, got {result}"
+            elif expected_dir == "less":
+                assert result < q_x, f"nextafter({x}, {y}) should be < {x}, got {result}"
+
