@@ -1003,8 +1003,8 @@ quad_nextafter(const Sleef_quad *x, const Sleef_quad *y)
         return result;
     }
     
-    // well I did not read to have those above checks
-    // but they can be important when settng FPE flag manually
+    // well I did not need to have those above checks
+    // but they can be important when setting FPE flag manually
     return quad_set_words64(hx, lx);
 }
 
