@@ -78,7 +78,7 @@
 | signbit       | ✅    | ✅                                                                   |
 | copysign      | ✅    | ✅                                                                   |
 | nextafter     | ✅    | ✅                                                                   |
-| spacing       |       |                                                                      |
+| spacing       | ✅    | ✅                                                                   |
 | modf          |       |                                                                      |
 | ldexp         |       |                                                                      |
 | frexp         |       |                                                                      |

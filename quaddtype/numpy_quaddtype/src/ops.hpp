@@ -1008,6 +1008,43 @@ quad_nextafter(const Sleef_quad *x, const Sleef_quad *y)
     return quad_set_words64(hx, lx);
 }
 
+static inline Sleef_quad
+quad_spacing(const Sleef_quad *x)
+{   
+    // spacing(x) returns the distance between x and the next representable value
+    // The result has the SAME SIGN as x (NumPy convention)
+    // For x >= 0: spacing(x) = nextafter(x, +inf) - x
+    // For x < 0:  spacing(x) = nextafter(x, -inf) - x (negative result)
+    
+    // Handle NaN
+    if (Sleef_iunordq1(*x, *x)) {
+        return *x;  // NaN
+    }
+    
+    // Handle infinity -> NaN (numpy convention)
+    if (quad_isinf(x)) {
+        return QUAD_NAN;
+    }
+    
+    // Determine direction based on sign of x
+    Sleef_quad direction;
+    if (Sleef_icmpltq1(*x, QUAD_ZERO)) {
+        // Negative: move toward -inf
+        direction = Sleef_negq1(QUAD_POS_INF);
+    } else {
+        // Positive or zero: move toward +inf
+        direction = QUAD_POS_INF;
+    }
+    
+    // Compute nextafter(x, direction)
+    Sleef_quad next = quad_nextafter(x, &direction);
+    
+    // spacing = next - x (preserves sign)
+    Sleef_quad result = Sleef_subq1_u05(next, *x);
+    
+    return result;
+}
+
 // Binary long double operations
 typedef long double (*binary_op_longdouble_def)(const long double *, const long double *);
 // Binary long double operations with 2 outputs (for divmod, modf, frexp)
@@ -1290,6 +1327,38 @@ static inline long double
 ld_nextafter(const long double *x1, const long double *x2)
 {
     return nextafterl(*x1, *x2);
+}
+
+static inline long double
+ld_spacing(const long double *x)
+{    
+    // Handle NaN
+    if (isnan(*x)) {
+        return *x;  // NaN
+    }
+    
+    // Handle infinity -> NaN (numpy convention)
+    if (isinf(*x)) {
+        return NAN;
+    }
+    
+    // Determine direction based on sign of x
+    long double direction;
+    if (*x < 0.0L) {
+        // Negative: move toward -inf
+        direction = -INFINITY;
+    } else {
+        // Positive or zero: move toward +inf
+        direction = INFINITY;
+    }
+    
+    // Compute nextafter(x, direction)
+    long double next = nextafterl(*x, direction);
+    
+    // spacing = next - x (preserves sign)
+    long double result = next - (*x);
+    
+    return result;
 }
 
 // comparison quad functions

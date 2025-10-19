@@ -385,7 +385,10 @@ init_quad_unary_ops(PyObject *numpy)
     if (create_quad_unary_ufunc<quad_radians, ld_radians>(numpy, "deg2rad") < 0) {
         return -1;
     }
-    
+    if (create_quad_unary_ufunc<quad_spacing, ld_spacing>(numpy, "spacing") < 0) {
+        return -1;
+    }
+
     // Logical operations (unary: not)
     if (create_quad_logical_not_ufunc<quad_logical_not, ld_logical_not>(numpy, "logical_not") < 0) {
         return -1;

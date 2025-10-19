@@ -2255,4 +2255,177 @@ class TestNextAfter:
                 assert result > q_x, f"nextafter({x}, {y}) should be > {x}, got {result}"
             elif expected_dir == "less":
                 assert result < q_x, f"nextafter({x}, {y}) should be < {x}, got {result}"
+class TestSpacing:
+    """Test cases for np.spacing function with QuadPrecision dtype"""
+    
+    @pytest.mark.parametrize("x", [
+        np.nan, -np.nan,
+        np.inf, -np.inf,
+    ])
+    def test_special_values_return_nan(self, x):
+        """Test spacing with NaN and infinity inputs returns NaN"""
+        q_x = QuadPrecision(x)
+        result = np.spacing(q_x)
+        
+        assert isinstance(result, QuadPrecision)
+        assert np.isnan(result), f"spacing({x}) should be NaN, got {result}"
+    
+    @pytest.mark.parametrize("x", [
+        1.0, -1.0,
+        10.0, -10.0,
+        100.0, -100.0,
+    ])
+    def test_sign_preservation(self, x):
+        """Test that spacing preserves the sign of the input"""
+        q_x = QuadPrecision(x)
+        result = np.spacing(q_x)
+        
+        q_zero = QuadPrecision(0)
+        # spacing should have the same sign as x
+        if x > 0:
+            assert result > q_zero, f"spacing({x}) should be positive, got {result}"
+        else:
+            assert result < q_zero, f"spacing({x}) should be negative, got {result}"
+        
+        # Compare with numpy behavior
+        np_result = np.spacing(np.float64(x))
+        assert np.signbit(result) == np.signbit(np_result), \
+            f"Sign mismatch for spacing({x}): quad signbit={np.signbit(result)}, numpy signbit={np.signbit(np_result)}"
+    
+    @pytest.mark.parametrize("x", [
+        0.0,
+        -0.0,
+    ])
+    def test_zero(self, x):
+        """Test spacing of zero returns smallest_subnormal"""
+        q_x = QuadPrecision(x)
+        result = np.spacing(q_x)
+        
+        finfo = np.finfo(QuadPrecDType())
+        q_zero = QuadPrecision(0)
+        
+        # spacing(±0.0) should return smallest_subnormal (positive)
+        assert result == finfo.smallest_subnormal, \
+            f"spacing({x}) should be smallest_subnormal, got {result}"
+        assert result > q_zero, f"spacing({x}) should be positive, got {result}"
+    
+    @pytest.mark.parametrize("x", [
+        1.0,
+        -1.0,
+    ])
+    def test_one_and_negative_one(self, x):
+        """Test spacing(±1.0) equals ±machine epsilon"""
+        q_x = QuadPrecision(x)
+        result = np.spacing(q_x)
+        
+        finfo = np.finfo(QuadPrecDType())
+        q_zero = QuadPrecision(0)
+        
+        # For binary floating point, spacing(±1.0) = ±eps
+        expected = finfo.eps if x > 0 else -finfo.eps
+        assert result == expected, \
+            f"spacing({x}) should equal {expected}, got {result}"
+        
+        if x > 0:
+            assert result > q_zero, "spacing(1.0) should be positive"
+        else:
+            assert result < q_zero, "spacing(-1.0) should be negative"
+    
+    @pytest.mark.parametrize("x", [
+        1.0, -1.0,
+        2.0, -2.0,
+        10.0, -10.0,
+        100.0, -100.0,
+        1e10, -1e10,
+        1e-10, -1e-10,
+        0.5, -0.5,
+        0.25, -0.25,
+    ])
+    def test_positive_magnitude(self, x):
+        """Test that spacing always has positive magnitude"""
+        q_x = QuadPrecision(x)
+        result = np.spacing(q_x)
+        
+        q_zero = QuadPrecision(0)
+        # The absolute value should be positive
+        abs_result = np.abs(result)
+        assert abs_result > q_zero, f"|spacing({x})| should be positive, got {abs_result}"
+    
+    def test_smallest_subnormal(self):
+        """Test spacing at smallest subnormal value"""
+        finfo = np.finfo(QuadPrecDType())
+        smallest = finfo.smallest_subnormal
+        
+        result = np.spacing(smallest)
+        
+        q_zero = QuadPrecision(0)
+        # spacing(smallest_subnormal) should be smallest_subnormal itself
+        # (it's the minimum spacing in the subnormal range)
+        assert result == smallest, \
+            f"spacing(smallest_subnormal) should be smallest_subnormal, got {result}"
+        assert result > q_zero, "Result should be positive"
+    
+    @pytest.mark.parametrize("x", [
+        1.5, -1.5,
+        3.7, -3.7,
+        42.0, -42.0,
+        1e8, -1e8,
+    ])
+    def test_finite_values(self, x):
+        """Test spacing on various finite values"""
+        q_x = QuadPrecision(x)
+        result = np.spacing(q_x)
+        
+        q_zero = QuadPrecision(0)
+        # Result should be finite
+        assert np.isfinite(result), \
+            f"spacing({x}) should be finite, got {result}"
+        
+        # Result should be non-zero
+        assert result != q_zero, \
+            f"spacing({x}) should be non-zero, got {result}"
+        
+        # Result should have same sign as input
+        assert np.signbit(result) == np.signbit(q_x), \
+            f"spacing({x}) should have same sign as {x}"
+    
+    def test_array_spacing(self):
+        """Test spacing on an array of QuadPrecision values"""
+        values = [1.0, -1.0, 2.0, -2.0, 0.0, 10.0, -10.0]
+        q_array = np.array([QuadPrecision(v) for v in values])
+        
+        result = np.spacing(q_array)
+        
+        q_zero = QuadPrecision(0)
+        # Check each result
+        for i, val in enumerate(values):
+            q_val = QuadPrecision(val)
+            if val != 0:
+                assert np.signbit(result[i]) == np.signbit(q_val), \
+                    f"Sign mismatch for spacing({val})"
+            else:
+                assert result[i] > q_zero, \
+                    f"spacing(0) should be positive, got {result[i]}"
+    
+    @pytest.mark.parametrize("x", [
+        1e-100, -1e-100,
+        1e-200, -1e-200,
+    ])
+    def test_subnormal_range(self, x):
+        """Test spacing in subnormal range"""
+        q_x = QuadPrecision(x)
+        result = np.spacing(q_x)
+        
+        finfo = np.finfo(QuadPrecDType())
+        
+        # In subnormal range, spacing should be smallest_subnormal
+        # or at least very small
+        assert np.abs(result) >= finfo.smallest_subnormal, \
+            f"spacing({x}) should be >= smallest_subnormal"
+        
+        q_zero = QuadPrecision(0)
+        # Sign should match (but for very small subnormals, spacing might underflow to zero)
+        if result != q_zero:
+            assert np.signbit(result) == np.signbit(q_x), \
+                f"spacing({x}) should have same sign as {x}"
 
