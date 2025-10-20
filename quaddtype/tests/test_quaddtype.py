@@ -2429,3 +2429,76 @@ class TestSpacing:
             assert np.signbit(result) == np.signbit(q_x), \
                 f"spacing({x}) should have same sign as {x}"
 
+
+class TestModf:
+    """Test cases for np.modf function with QuadPrecision dtype"""
+    
+    @pytest.mark.parametrize("x", [
+        # Basic positive/negative numbers
+        "3.14159", "-3.14159", "2.71828", "-2.71828", "1.5", "-1.5", "0.75", "-0.75",
+        # Integers (fractional part should be zero)
+        "0.0", "-0.0", "1.0", "-1.0", "5.0", "-5.0", "42.0", "-42.0",
+        # Small numbers
+        "0.001", "-0.001", "0.000123", "-0.000123",
+        # Large numbers  
+        "1e10", "-1e10", "1e15", "-1e15",
+        # Numbers close to integers
+        "0.999999999999", "-0.999999999999", "1.000000000001", "-1.000000000001",
+        # Special values
+        "inf", "-inf", "nan",
+        # Edge cases for sign consistency
+        "5.7", "-5.7", "0.3", "-0.3"
+    ])
+    def test_modf(self, x):
+        """Test modf against NumPy's behavior"""
+        quad_x = QuadPrecision(x)
+        
+        # Compute modf for both QuadPrecision and float64
+        quad_frac, quad_int = np.modf(quad_x)
+        
+        # Create numpy float64 for reference
+        try:
+            float_x = np.float64(x)
+            np_frac, np_int = np.modf(float_x)
+        except (ValueError, OverflowError):
+            # Handle cases where string can't convert to float64 (like "nan")
+            float_x = np.float64(float(x))
+            np_frac, np_int = np.modf(float_x)
+        
+        # Check return types
+        assert isinstance(quad_frac, QuadPrecision), f"Fractional part should be QuadPrecision for {x}"
+        assert isinstance(quad_int, QuadPrecision), f"Integral part should be QuadPrecision for {x}"
+        
+        # Direct comparison with NumPy results
+        if np.isnan(np_frac):
+            assert np.isnan(quad_frac), f"Expected NaN fractional part for modf({x})"
+        else:
+            np.testing.assert_allclose(
+                quad_frac, np_frac, rtol=1e-12, atol=1e-15,
+                err_msg=f"Fractional part mismatch for modf({x})"
+            )
+            
+        if np.isnan(np_int):
+            assert np.isnan(quad_int), f"Expected NaN integral part for modf({x})"  
+        elif np.isinf(np_int):
+            assert np.isinf(quad_int), f"Expected inf integral part for modf({x})"
+            assert np.signbit(quad_int) == np.signbit(np_int), f"Sign mismatch for inf integral part modf({x})"
+        else:
+            np.testing.assert_allclose(
+                quad_int, np_int, rtol=1e-12, atol=1e-15,
+                err_msg=f"Integral part mismatch for modf({x})"
+            )
+        
+        # Check sign preservation for zero values
+        if np_frac == 0.0:
+            assert np.signbit(quad_frac) == np.signbit(np_frac), f"Zero fractional sign mismatch for modf({x})"
+        if np_int == 0.0:
+            assert np.signbit(quad_int) == np.signbit(np_int), f"Zero integral sign mismatch for modf({x})"
+        
+        # Verify reconstruction property for finite values
+        if np.isfinite(float_x) and not np.isnan(float_x):
+            reconstructed = quad_int + quad_frac
+            np.testing.assert_allclose(
+                reconstructed, quad_x, rtol=1e-12, atol=1e-15,
+                err_msg=f"Reconstruction failed for modf({x}): {quad_int} + {quad_frac} != {quad_x}"
+            )
