@@ -77,7 +77,7 @@
 | isnan         | ✅    | ✅                                                                   |
 | signbit       | ✅    | ✅                                                                   |
 | copysign      | ✅    | ✅                                                                   |
-| nextafter     |       |                                                                      |
+| nextafter     | ✅    | ✅                                                                   |
 | spacing       |       |                                                                      |
 | modf          |       |                                                                      |
 | ldexp         |       |                                                                      |
