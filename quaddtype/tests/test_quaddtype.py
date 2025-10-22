@@ -2255,6 +2255,7 @@ class TestNextAfter:
                 assert result > q_x, f"nextafter({x}, {y}) should be > {x}, got {result}"
             elif expected_dir == "less":
                 assert result < q_x, f"nextafter({x}, {y}) should be < {x}, got {result}"
+
 class TestSpacing:
     """Test cases for np.spacing function with QuadPrecision dtype"""
     
@@ -2341,7 +2342,7 @@ class TestSpacing:
         0.5, -0.5,
         0.25, -0.25,
     ])
-    def test_positive_magnitude(self, x):
+    def test_spacing_is_non_zero(self, x):
         """Test that spacing always has positive magnitude"""
         q_x = QuadPrecision(x)
         result = np.spacing(q_x)
@@ -2428,6 +2429,33 @@ class TestSpacing:
         if result != q_zero:
             assert np.signbit(result) == np.signbit(q_x), \
                 f"spacing({x}) should have same sign as {x}"
+            
+    def test_smallest_normal_spacing(self):
+        """Test spacing for smallest normal value and 2*smallest normal"""
+        finfo = np.finfo(QuadPrecDType())
+        smallest_normal = finfo.smallest_normal
+        
+        # Test spacing at smallest normal value
+        result1 = np.spacing(smallest_normal)
+        
+        # Test spacing at 2 * smallest normal value
+        two_smallest_normal = 2 * smallest_normal
+        result2 = np.spacing(two_smallest_normal)
+        
+        q_zero = QuadPrecision("0")
+        
+        # spacing(smallest_normal) should be smallest_subnormal
+        # (the spacing at the boundary between subnormal and normal range)
+        expected1 = finfo.smallest_subnormal
+        assert result1 == expected1, \
+            f"spacing(smallest_normal) should be {expected1}, got {result1}"
+        assert result1 > q_zero, "Result should be positive"
+        
+        # The scaling relationship: spacing(2*x) = 2*spacing(x) for normal numbers
+        expected2 = 2 * finfo.smallest_subnormal
+        assert result2 == expected2, \
+            f"spacing(2*smallest_normal) should be {expected2}, got {result2}"
+        assert result2 > q_zero, "Result should be positive"
 
 
 class TestModf:
