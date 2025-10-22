@@ -267,6 +267,147 @@ create_quad_logical_not_ufunc(PyObject *numpy, const char *ufunc_name)
     return 0;
 }
 
+// Resolver for unary ufuncs with 2 outputs (like modf)
+static NPY_CASTING
+quad_unary_op_2out_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtypes[],
+                                       PyArray_Descr *const given_descrs[], PyArray_Descr *loop_descrs[],
+                                       npy_intp *NPY_UNUSED(view_offset))
+{
+    // Input descriptor
+    Py_INCREF(given_descrs[0]);
+    loop_descrs[0] = given_descrs[0];
+
+    // Output descriptors (2 outputs)
+    for (int i = 1; i < 3; i++) {
+        if (given_descrs[i] == NULL) {
+            Py_INCREF(given_descrs[0]);
+            loop_descrs[i] = given_descrs[0];
+        }
+        else {
+            Py_INCREF(given_descrs[i]);
+            loop_descrs[i] = given_descrs[i];
+        }
+    }
+
+    QuadPrecDTypeObject *descr_in = (QuadPrecDTypeObject *)given_descrs[0];
+    QuadPrecDTypeObject *descr_out1 = (QuadPrecDTypeObject *)loop_descrs[1];
+    QuadPrecDTypeObject *descr_out2 = (QuadPrecDTypeObject *)loop_descrs[2];
+
+    if (descr_in->backend != descr_out1->backend || descr_in->backend != descr_out2->backend) {
+        return NPY_UNSAFE_CASTING;
+    }
+
+    return NPY_NO_CASTING;
+}
+
+// Strided loop for unary ops with 2 outputs (unaligned)
+template <unary_op_2out_quad_def sleef_op, unary_op_2out_longdouble_def longdouble_op>
+int
+quad_generic_unary_op_2out_strided_loop_unaligned(PyArrayMethod_Context *context, char *const data[],
+                                                  npy_intp const dimensions[], npy_intp const strides[],
+                                                  NpyAuxData *auxdata)
+{
+    npy_intp N = dimensions[0];
+    char *in_ptr = data[0];
+    char *out1_ptr = data[1];
+    char *out2_ptr = data[2];
+    npy_intp in_stride = strides[0];
+    npy_intp out1_stride = strides[1];
+    npy_intp out2_stride = strides[2];
+
+    QuadPrecDTypeObject *descr = (QuadPrecDTypeObject *)context->descriptors[0];
+    QuadBackendType backend = descr->backend;
+    size_t elem_size = (backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
+
+    quad_value in, out1, out2;
+    while (N--) {
+        memcpy(&in, in_ptr, elem_size);
+        if (backend == BACKEND_SLEEF) {
+            sleef_op(&in.sleef_value, &out1.sleef_value, &out2.sleef_value);
+        }
+        else {
+            longdouble_op(&in.longdouble_value, &out1.longdouble_value, &out2.longdouble_value);
+        }
+        memcpy(out1_ptr, &out1, elem_size);
+        memcpy(out2_ptr, &out2, elem_size);
+
+        in_ptr += in_stride;
+        out1_ptr += out1_stride;
+        out2_ptr += out2_stride;
+    }
+    return 0;
+}
+
+// Strided loop for unary ops with 2 outputs (aligned)
+template <unary_op_2out_quad_def sleef_op, unary_op_2out_longdouble_def longdouble_op>
+int
+quad_generic_unary_op_2out_strided_loop_aligned(PyArrayMethod_Context *context, char *const data[],
+                                               npy_intp const dimensions[], npy_intp const strides[],
+                                               NpyAuxData *auxdata)
+{
+    npy_intp N = dimensions[0];
+    char *in_ptr = data[0];
+    char *out1_ptr = data[1];
+    char *out2_ptr = data[2];
+    npy_intp in_stride = strides[0];
+    npy_intp out1_stride = strides[1];
+    npy_intp out2_stride = strides[2];
+
+    QuadPrecDTypeObject *descr = (QuadPrecDTypeObject *)context->descriptors[0];
+    QuadBackendType backend = descr->backend;
+
+    while (N--) {
+        if (backend == BACKEND_SLEEF) {
+            sleef_op((Sleef_quad *)in_ptr, (Sleef_quad *)out1_ptr, (Sleef_quad *)out2_ptr);
+        }
+        else {
+            longdouble_op((long double *)in_ptr, (long double *)out1_ptr, (long double *)out2_ptr);
+        }
+        in_ptr += in_stride;
+        out1_ptr += out1_stride;
+        out2_ptr += out2_stride;
+    }
+    return 0;
+}
+
+// Create unary ufunc with 2 outputs
+template <unary_op_2out_quad_def sleef_op, unary_op_2out_longdouble_def longdouble_op>
+int
+create_quad_unary_2out_ufunc(PyObject *numpy, const char *ufunc_name)
+{
+    PyObject *ufunc = PyObject_GetAttrString(numpy, ufunc_name);
+    if (ufunc == NULL) {
+        return -1;
+    }
+
+    // 1 input, 2 outputs
+    PyArray_DTypeMeta *dtypes[3] = {&QuadPrecDType, &QuadPrecDType, &QuadPrecDType};
+
+    PyType_Slot slots[] = {
+            {NPY_METH_resolve_descriptors, (void *)&quad_unary_op_2out_resolve_descriptors},
+            {NPY_METH_strided_loop,
+             (void *)&quad_generic_unary_op_2out_strided_loop_aligned<sleef_op, longdouble_op>},
+            {NPY_METH_unaligned_strided_loop,
+             (void *)&quad_generic_unary_op_2out_strided_loop_unaligned<sleef_op, longdouble_op>},
+            {0, NULL}};
+
+    PyArrayMethod_Spec Spec = {
+            .name = "quad_unary_2out",
+            .nin = 1,
+            .nout = 2,
+            .casting = NPY_NO_CASTING,
+            .flags = NPY_METH_SUPPORTS_UNALIGNED,
+            .dtypes = dtypes,
+            .slots = slots,
+    };
+
+    if (PyUFunc_AddLoopFromSpec(ufunc, &Spec) < 0) {
+        return -1;
+    }
+
+    return 0;
+}
+
 int
 init_quad_unary_ops(PyObject *numpy)
 {
@@ -391,6 +532,11 @@ init_quad_unary_ops(PyObject *numpy)
 
     // Logical operations (unary: not)
     if (create_quad_logical_not_ufunc<quad_logical_not, ld_logical_not>(numpy, "logical_not") < 0) {
+        return -1;
+    }
+    
+    // Unary operations with 2 outputs
+    if (create_quad_unary_2out_ufunc<quad_modf, ld_modf>(numpy, "modf") < 0) {
         return -1;
     }
     

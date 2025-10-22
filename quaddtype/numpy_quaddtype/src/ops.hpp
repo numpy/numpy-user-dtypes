@@ -10,6 +10,8 @@
 
 // Unary Quad Operations
 typedef Sleef_quad (*unary_op_quad_def)(const Sleef_quad *);
+// Unary Quad operations with 2 outputs (for modf, frexp)
+typedef void (*unary_op_2out_quad_def)(const Sleef_quad *, Sleef_quad *, Sleef_quad *);
 
 static Sleef_quad
 quad_negative(const Sleef_quad *op)
@@ -1359,6 +1361,23 @@ ld_spacing(const long double *x)
     long double result = next - (*x);
     
     return result;
+}
+
+// Unary operations with 2 outputs
+static inline void
+quad_modf(const Sleef_quad *a, Sleef_quad *out_fractional, Sleef_quad *out_integral)
+{
+    // int part stored in out_integral
+    *out_fractional = Sleef_modfq1(*a, out_integral);
+}
+
+// Unary long double operations with 2 outputs  
+typedef void (*unary_op_2out_longdouble_def)(const long double *, long double *, long double *);
+
+static inline void
+ld_modf(const long double *a, long double *out_fractional, long double *out_integral)
+{
+    *out_fractional = modfl(*a, out_integral);
 }
 
 // comparison quad functions

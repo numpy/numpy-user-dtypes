@@ -79,7 +79,7 @@
 | copysign      | ✅    | ✅                                                                   |
 | nextafter     | ✅    | ✅                                                                   |
 | spacing       | ✅    | ✅                                                                   |
-| modf          |       |                                                                      |
+| modf          | ✅    | ✅                                                                   |
 | ldexp         |       |                                                                      |
 | frexp         |       |                                                                      |
 | floor         | ✅    | ✅                                                                   |
