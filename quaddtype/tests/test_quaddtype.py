@@ -2513,7 +2513,7 @@ class TestModf:
             assert np.signbit(quad_int) == np.signbit(np_int), f"Sign mismatch for inf integral part modf({x})"
         else:
             np.testing.assert_allclose(
-                quad_int, np_int, rtol=1e-12, atol=1e-15,
+                quad_int, np_int, rtol=1e-12, atol=0,
                 err_msg=f"Integral part mismatch for modf({x})"
             )
         
