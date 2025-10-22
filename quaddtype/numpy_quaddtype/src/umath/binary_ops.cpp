@@ -451,7 +451,7 @@ create_quad_ldexp_ufunc(PyObject *numpy, const char *ufunc_name)
     return 0;
 }
 
-// Create binary ufunc with 2 outputs (generic for divmod, modf, frexp, etc.)
+// Create binary ufunc with 2 outputs
 template <binary_op_2out_quad_def sleef_op, binary_op_2out_longdouble_def longdouble_op>
 int
 create_quad_binary_2out_ufunc(PyObject *numpy, const char *ufunc_name)

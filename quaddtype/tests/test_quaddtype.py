@@ -2670,3 +2670,203 @@ class TestLdexp:
         # Sign should be preserved
         assert np.signbit(quad_result) == np.signbit(float(x_val)), \
             f"Sign should be preserved for underflow ldexp({x_val}, {exp_val})"
+
+
+class TestFrexp:
+    """Tests for frexp function (decompose x into mantissa and exponent)"""
+    
+    @pytest.mark.parametrize("x_val", [
+        "1.0",
+        "2.0",
+        "3.0",
+        "4.0",
+        "0.5",
+        "0.25",
+        "8.0",
+        "16.0",
+        "-1.0",
+        "-2.0",
+        "-3.0",
+        "-4.0",
+        "-0.5",
+        "-0.25",
+        "-8.0",
+        "-16.0",
+        "1.5",
+        "2.5",
+        "3.5",
+        "-1.5",
+        "-2.5",
+        "0.1",
+        "0.9",
+        "1000.0",
+        "-1000.0",
+    ])
+    def test_frexp_basic(self, x_val):
+        """Test frexp with basic values - work directly with QuadPrecision"""
+        quad_x = QuadPrecision(x_val)
+        
+        # Get results
+        quad_m, quad_e = np.frexp(quad_x)
+        
+        # Check types
+        assert isinstance(quad_m, QuadPrecision), f"Mantissa should be QuadPrecision for frexp({x_val})"
+        assert isinstance(quad_e, (int, np.integer)), f"Exponent should be integer for frexp({x_val})"
+        
+        # Verify mantissa is in correct range: 0.5 <= |mantissa| < 1.0
+        abs_m = abs(quad_m)
+        half = QuadPrecision("0.5")
+        one = QuadPrecision("1.0")
+        assert abs_m >= half and abs_m < one, \
+            f"Mantissa {quad_m} for frexp({x_val}) not in [0.5, 1.0) range"
+        
+        # Verify reconstruction: x = mantissa * 2^exponent using ldexp
+        reconstructed = np.ldexp(quad_m, int(quad_e))
+        # Compare directly without float conversion
+        assert reconstructed == quad_x, \
+            f"Reconstruction failed for frexp({x_val}): {reconstructed} != {quad_x}"
+        
+        # Compare with NumPy float64 to ensure results are close
+        float_x = np.float64(x_val)
+        float_m, float_e = np.frexp(float_x)
+        
+        # Mantissa should be close to float64 result (within float64 precision)
+        np.testing.assert_allclose(
+            quad_m, float_m, rtol=1e-15, atol=1e-15,
+            err_msg=f"Mantissa differs from NumPy float64 for frexp({x_val})"
+        )
+        
+        # Exponent should match exactly for values in float64 range
+        assert quad_e == float_e, \
+            f"Exponent mismatch with NumPy for frexp({x_val}): {quad_e} != {float_e}"
+    
+    @pytest.mark.parametrize("x_val", [
+        "0.0",
+        "-0.0",
+    ])
+    def test_frexp_zero(self, x_val):
+        """Test frexp with zero values (should return ±0 mantissa, exponent 0)"""
+        quad_x = QuadPrecision(x_val)
+        
+        quad_m, quad_e = np.frexp(quad_x)
+        
+        # Mantissa should be zero with same sign
+        zero = QuadPrecision("0.0")
+        assert quad_m == zero, f"Mantissa should be zero for frexp({x_val})"
+        assert np.signbit(quad_m) == np.signbit(quad_x), \
+            f"Sign mismatch for frexp({x_val}) mantissa"
+        
+        # Exponent should be 0
+        assert quad_e == 0, f"Exponent should be 0 for frexp({x_val})"
+        
+        # Compare with NumPy float64
+        float_x = np.float64(x_val)
+        float_m, float_e = np.frexp(float_x)
+        
+        # Mantissa should match (both zero with same sign)
+        np.testing.assert_allclose(
+            quad_m, float_m, rtol=0, atol=0,
+            err_msg=f"Mantissa differs from NumPy float64 for frexp({x_val})"
+        )
+        assert np.signbit(quad_m) == np.signbit(float_m), \
+            f"Sign mismatch with NumPy for frexp({x_val})"
+        
+        # Exponent should match
+        assert quad_e == float_e, \
+            f"Exponent mismatch with NumPy for frexp({x_val}): {quad_e} != {float_e}"
+    
+    @pytest.mark.parametrize("x_val", [
+        "inf",
+        "-inf",
+    ])
+    def test_frexp_inf(self, x_val):
+        """Test frexp with infinity (should return ±inf mantissa, exponent 0)"""
+        quad_x = QuadPrecision(x_val)
+        
+        quad_m, quad_e = np.frexp(quad_x)
+        
+        # Mantissa should be infinity with same sign
+        assert np.isinf(quad_m), f"Mantissa should be infinity for frexp({x_val})"
+        assert np.signbit(quad_m) == np.signbit(quad_x), \
+            f"Sign mismatch for frexp({x_val}) mantissa"
+        
+        # Exponent should be 0
+        assert quad_e == 0, f"Exponent should be 0 for frexp({x_val})"
+        
+        # Compare with NumPy float64
+        float_x = np.float64(x_val)
+        float_m, float_e = np.frexp(float_x)
+        
+        # Both should be infinity with same sign
+        assert np.isinf(float_m), f"NumPy mantissa should also be infinity for frexp({x_val})"
+        assert np.signbit(quad_m) == np.signbit(float_m), \
+            f"Sign mismatch with NumPy for frexp({x_val})"
+        
+        # Exponent should match
+        assert quad_e == float_e, \
+            f"Exponent mismatch with NumPy for frexp({x_val}): {quad_e} != {float_e}"
+    
+    @pytest.mark.parametrize("x_val", [
+        "nan",
+        "-nan",
+    ])
+    def test_frexp_nan(self, x_val):
+        """Test frexp with NaN (should return NaN mantissa, exponent 0)"""
+        quad_x = QuadPrecision(x_val)
+        
+        quad_m, quad_e = np.frexp(quad_x)
+        
+        # Mantissa should be NaN
+        assert np.isnan(quad_m), f"Mantissa should be NaN for frexp({x_val})"
+        
+        # Exponent should be 0
+        assert quad_e == 0, f"Exponent should be 0 for frexp({x_val})"
+        
+        # Compare with NumPy float64
+        float_x = np.float64(x_val)
+        float_m, float_e = np.frexp(float_x)
+        
+        # Both should be NaN
+        assert np.isnan(float_m), f"NumPy mantissa should also be NaN for frexp({x_val})"
+        
+        # Exponent should match
+        assert quad_e == float_e, \
+            f"Exponent mismatch with NumPy for frexp({x_val}): {quad_e} != {float_e}"
+    
+    def test_frexp_very_large(self):
+        """Test frexp with very large values"""
+        # Large value that's still finite
+        quad_x = QuadPrecision("1e100")
+        
+        quad_m, quad_e = np.frexp(quad_x)
+        
+        # Verify mantissa range
+        abs_m = abs(quad_m)
+        half = QuadPrecision("0.5")
+        one = QuadPrecision("1.0")
+        assert abs_m >= half and abs_m < one, \
+            f"Mantissa {quad_m} for large value not in [0.5, 1.0) range"
+        
+        # Verify reconstruction using ldexp (preserves full quad precision)
+        reconstructed = np.ldexp(quad_m, int(quad_e))
+        assert reconstructed == quad_x, \
+            f"Reconstruction failed for large value: {reconstructed} != {quad_x}"
+    
+    def test_frexp_very_small(self):
+        """Test frexp with very small positive values"""
+        # Small positive value
+        quad_x = QuadPrecision("1e-100")
+        
+        quad_m, quad_e = np.frexp(quad_x)
+        
+        # Verify mantissa range
+        abs_m = abs(quad_m)
+        half = QuadPrecision("0.5")
+        one = QuadPrecision("1.0")
+        assert abs_m >= half and abs_m < one, \
+            f"Mantissa {quad_m} for small value not in [0.5, 1.0) range"
+        
+        # Verify reconstruction using ldexp (preserves full quad precision)
+        reconstructed = np.ldexp(quad_m, int(quad_e))
+        assert reconstructed == quad_x, \
+            f"Reconstruction failed for small value: {reconstructed} != {quad_x}"

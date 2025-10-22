@@ -408,6 +408,165 @@ create_quad_unary_2out_ufunc(PyObject *numpy, const char *ufunc_name)
     return 0;
 }
 
+// Frexp-specific resolver: QuadPrecDType -> (QuadPrecDType, int32)
+static NPY_CASTING
+quad_frexp_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtypes[],
+                               PyArray_Descr *const given_descrs[], PyArray_Descr *loop_descrs[],
+                               npy_intp *NPY_UNUSED(view_offset))
+{
+    // Input descriptor
+    Py_INCREF(given_descrs[0]);
+    loop_descrs[0] = given_descrs[0];
+
+    // Output 1: mantissa (same dtype as input)
+    if (given_descrs[1] == NULL) {
+        Py_INCREF(given_descrs[0]);
+        loop_descrs[1] = given_descrs[0];
+    }
+    else {
+        Py_INCREF(given_descrs[1]);
+        loop_descrs[1] = given_descrs[1];
+    }
+
+    // Output 2: exponent (int32)
+    if (given_descrs[2] == NULL) {
+        loop_descrs[2] = PyArray_DescrFromType(NPY_INT32);
+    }
+    else {
+        Py_INCREF(given_descrs[2]);
+        loop_descrs[2] = given_descrs[2];
+    }
+
+    QuadPrecDTypeObject *descr_in = (QuadPrecDTypeObject *)given_descrs[0];
+    QuadPrecDTypeObject *descr_out1 = (QuadPrecDTypeObject *)loop_descrs[1];
+
+    if (descr_in->backend != descr_out1->backend) {
+        return NPY_UNSAFE_CASTING;
+    }
+
+    return NPY_NO_CASTING;
+}
+
+// Strided loop for frexp (unaligned)
+template <frexp_op_quad_def sleef_op, frexp_op_longdouble_def longdouble_op>
+int
+quad_frexp_strided_loop_unaligned(PyArrayMethod_Context *context, char *const data[],
+                                  npy_intp const dimensions[], npy_intp const strides[],
+                                  NpyAuxData *auxdata)
+{
+    npy_intp N = dimensions[0];
+    char *in_ptr = data[0];
+    char *out_mantissa_ptr = data[1];
+    char *out_exp_ptr = data[2];
+    npy_intp in_stride = strides[0];
+    npy_intp out_mantissa_stride = strides[1];
+    npy_intp out_exp_stride = strides[2];
+
+    QuadPrecDTypeObject *descr = (QuadPrecDTypeObject *)context->descriptors[0];
+    QuadBackendType backend = descr->backend;
+    size_t elem_size = (backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
+
+    quad_value in, out_mantissa;
+    int out_exp;
+    
+    while (N--) {
+        memcpy(&in, in_ptr, elem_size);
+        if (backend == BACKEND_SLEEF) {
+            out_mantissa.sleef_value = sleef_op(&in.sleef_value, &out_exp);
+        }
+        else {
+            out_mantissa.longdouble_value = longdouble_op(&in.longdouble_value, &out_exp);
+        }
+        memcpy(out_mantissa_ptr, &out_mantissa, elem_size);
+        memcpy(out_exp_ptr, &out_exp, sizeof(int));
+
+        in_ptr += in_stride;
+        out_mantissa_ptr += out_mantissa_stride;
+        out_exp_ptr += out_exp_stride;
+    }
+    return 0;
+}
+
+// Strided loop for frexp (aligned)
+template <frexp_op_quad_def sleef_op, frexp_op_longdouble_def longdouble_op>
+int
+quad_frexp_strided_loop_aligned(PyArrayMethod_Context *context, char *const data[],
+                               npy_intp const dimensions[], npy_intp const strides[],
+                               NpyAuxData *auxdata)
+{
+    npy_intp N = dimensions[0];
+    char *in_ptr = data[0];
+    char *out_mantissa_ptr = data[1];
+    char *out_exp_ptr = data[2];
+    npy_intp in_stride = strides[0];
+    npy_intp out_mantissa_stride = strides[1];
+    npy_intp out_exp_stride = strides[2];
+
+    QuadPrecDTypeObject *descr = (QuadPrecDTypeObject *)context->descriptors[0];
+    QuadBackendType backend = descr->backend;
+
+    int out_exp;
+    
+    while (N--) {
+        if (backend == BACKEND_SLEEF) {
+            Sleef_quad mantissa = sleef_op((Sleef_quad *)in_ptr, &out_exp);
+            memcpy(out_mantissa_ptr, &mantissa, sizeof(Sleef_quad));
+        }
+        else {
+            long double mantissa = longdouble_op((long double *)in_ptr, &out_exp);
+            memcpy(out_mantissa_ptr, &mantissa, sizeof(long double));
+        }
+        memcpy(out_exp_ptr, &out_exp, sizeof(int));
+
+        in_ptr += in_stride;
+        out_mantissa_ptr += out_mantissa_stride;
+        out_exp_ptr += out_exp_stride;
+    }
+    return 0;
+}
+
+
+template <frexp_op_quad_def sleef_op, frexp_op_longdouble_def longdouble_op>
+int
+create_quad_frexp_ufunc(PyObject *numpy, const char *ufunc_name)
+{
+    PyObject *ufunc = PyObject_GetAttrString(numpy, ufunc_name);
+    if (ufunc == NULL) {
+        return -1;
+    }
+
+    // 1 input (QuadPrecDType), 2 outputs (QuadPrecDType, int32)
+    PyArray_DTypeMeta *dtypes[3] = {
+        &QuadPrecDType,
+        &QuadPrecDType,
+        &PyArray_Int32DType
+    };
+
+    PyType_Slot slots[] = {
+            {NPY_METH_resolve_descriptors, (void *)&quad_frexp_resolve_descriptors},
+            {NPY_METH_strided_loop,
+             (void *)&quad_frexp_strided_loop_aligned<sleef_op, longdouble_op>},
+            {NPY_METH_unaligned_strided_loop,
+             (void *)&quad_frexp_strided_loop_unaligned<sleef_op, longdouble_op>},
+            {0, NULL}};
+
+    PyArrayMethod_Spec Spec = {
+            .name = "quad_frexp",
+            .nin = 1,
+            .nout = 2,
+            .casting = NPY_NO_CASTING,
+            .flags = NPY_METH_SUPPORTS_UNALIGNED,
+            .dtypes = dtypes,
+            .slots = slots,
+    };
+
+    if (PyUFunc_AddLoopFromSpec(ufunc, &Spec) < 0) {
+        return -1;
+    }
+
+    return 0;
+}
+
 int
 init_quad_unary_ops(PyObject *numpy)
 {
@@ -537,6 +696,11 @@ init_quad_unary_ops(PyObject *numpy)
     
     // Unary operations with 2 outputs
     if (create_quad_unary_2out_ufunc<quad_modf, ld_modf>(numpy, "modf") < 0) {
+        return -1;
+    }
+    
+    // Frexp: special case with (QuadPrecDType, int32) outputs
+    if (create_quad_frexp_ufunc<quad_frexp, ld_frexp>(numpy, "frexp") < 0) {
         return -1;
     }
     

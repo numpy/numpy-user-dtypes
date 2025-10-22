@@ -1051,6 +1051,10 @@ quad_spacing(const Sleef_quad *x)
 typedef Sleef_quad (*ldexp_op_quad_def)(const Sleef_quad *, const int *);
 typedef long double (*ldexp_op_longdouble_def)(const long double *, const int *);
 
+// Frexp operations: quad -> (quad mantissa, int exponent)
+typedef Sleef_quad (*frexp_op_quad_def)(const Sleef_quad *, int *);
+typedef long double (*frexp_op_longdouble_def)(const long double *, int *);
+
 static inline Sleef_quad
 quad_ldexp(const Sleef_quad *x, const int *exp)
 {
@@ -1099,6 +1103,67 @@ ld_ldexp(const long double *x, const int *exp)
     long double result = ldexpl(*x, *exp);
     
     return result;
+}
+
+static inline Sleef_quad
+quad_frexp(const Sleef_quad *x, int *exp)
+{
+    // frexp(x) returns mantissa m and exponent e such that x = m * 2^e
+    // where 0.5 <= |m| < 1.0
+    // NumPy's documentation says "between -1 and 1" but actual behavior is:
+    // - Positive x: mantissa in [0.5, 1.0)
+    // - Negative x: mantissa in (-1.0, -0.5]
+    // This matches SLEEF's Sleef_frexpq1 behavior exactly.
+    
+    // NaN input -> NaN output with exponent 0
+    if (Sleef_iunordq1(*x, *x)) {
+        *exp = 0;
+        return *x;
+    }
+    
+    // ±0 -> mantissa ±0 with exponent 0 (preserves sign of zero)
+    if (Sleef_icmpeqq1(*x, QUAD_ZERO)) {
+        *exp = 0;
+        return *x;
+    }
+    
+    // ±inf -> mantissa ±inf with exponent 0 (preserves sign of infinity)
+    if (quad_isinf(x)) {
+        *exp = 0;
+        return *x;
+    }
+    
+    Sleef_quad mantissa = Sleef_frexpq1(*x, exp);
+    
+    return mantissa;
+}
+
+static inline long double
+ld_frexp(const long double *x, int *exp)
+{
+    // frexp(x) returns mantissa m and exponent e such that x = m * 2^e
+    
+    // NaN input -> NaN output with exponent 0
+    if (isnan(*x)) {
+        *exp = 0;
+        return *x;
+    }
+    
+    // ±0 -> mantissa ±0 with exponent 0 (preserves sign of zero)
+    if (*x == 0.0L) {
+        *exp = 0;
+        return *x;
+    }
+    
+    // ±inf -> mantissa ±inf with exponent 0 (preserves sign of infinity)
+    if (isinf(*x)) {
+        *exp = 0;
+        return *x;
+    }
+    
+    long double mantissa = frexpl(*x, exp);
+    
+    return mantissa;
 }
 
 // Binary long double operations
