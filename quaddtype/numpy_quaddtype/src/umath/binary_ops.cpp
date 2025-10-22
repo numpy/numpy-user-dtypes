@@ -345,10 +345,10 @@ quad_ldexp_strided_loop_unaligned(PyArrayMethod_Context *context, char *const da
     size_t elem_size = (backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
 
     quad_value in1, out;
-    int in2;
+    int32_t in2;
     while (N--) {
         memcpy(&in1, in1_ptr, elem_size);
-        memcpy(&in2, in2_ptr, sizeof(int));
+        memcpy(&in2, in2_ptr, sizeof(int32_t));
         if (backend == BACKEND_SLEEF) {
             out.sleef_value = sleef_op(&in1.sleef_value, &in2);
         } else {
@@ -382,10 +382,12 @@ quad_ldexp_strided_loop_aligned(PyArrayMethod_Context *context, char *const data
     QuadBackendType backend = descr->backend;
 
     while (N--) {
+        int32_t *exp = (int32_t *)in2_ptr;
+        
         if (backend == BACKEND_SLEEF) {
-            *(Sleef_quad *)out_ptr = sleef_op((Sleef_quad *)in1_ptr, (int *)in2_ptr);
+            *(Sleef_quad *)out_ptr = sleef_op((Sleef_quad *)in1_ptr, exp);
         } else {
-            *(long double *)out_ptr = longdouble_op((long double *)in1_ptr, (int *)in2_ptr);
+            *(long double *)out_ptr = longdouble_op((long double *)in1_ptr, exp);
         }
 
         in1_ptr += in1_stride;

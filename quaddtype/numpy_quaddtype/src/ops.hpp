@@ -1047,14 +1047,15 @@ quad_spacing(const Sleef_quad *x)
     return result;
 }
 
-// Mixed-type operations (quad, int) -> quad
-typedef Sleef_quad (*ldexp_op_quad_def)(const Sleef_quad *, const int *);
-typedef long double (*ldexp_op_longdouble_def)(const long double *, const int *);
+// Mixed-type operations (quad, int32) -> quad
+typedef Sleef_quad (*ldexp_op_quad_def)(const Sleef_quad *, const int32_t *);
+typedef long double (*ldexp_op_longdouble_def)(const long double *, const int32_t *);
 
 static inline Sleef_quad
-quad_ldexp(const Sleef_quad *x, const int *exp)
+quad_ldexp(const Sleef_quad *x, const int32_t *exp)
 {
     // ldexp(x, exp) returns x * 2^exp
+    // SLEEF expects: Sleef_quad, int32_t
     
     // NaN input -> NaN output (with sign preserved)
     if (Sleef_iunordq1(*x, *x)) {
@@ -1071,15 +1072,17 @@ quad_ldexp(const Sleef_quad *x, const int *exp)
         return *x;
     }
     
+    // Pass dereferenced values directly to SLEEF (no conversion needed)
     Sleef_quad result = Sleef_ldexpq1(*x, *exp);
     
     return result;
 }
 
 static inline long double
-ld_ldexp(const long double *x, const int *exp)
+ld_ldexp(const long double *x, const int32_t *exp)
 {
     // ldexp(x, exp) returns x * 2^exp
+    // stdlib ldexpl expects: long double, int
     
     // NaN input -> NaN output
     if (isnan(*x)) {
@@ -1096,6 +1099,7 @@ ld_ldexp(const long double *x, const int *exp)
         return *x;
     }
     
+    // Cast int32_t to int for stdlib function
     long double result = ldexpl(*x, *exp);
     
     return result;
