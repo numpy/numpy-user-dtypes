@@ -165,7 +165,6 @@ jobs:
         env:
           CIBW_BUILD: "cp311-* cp312-* cp313-* cp314-* cp313t-* cp314t-*"
           CIBW_ENABLE: cpython-prerelease cpython-freethreading
-          CIBW_SKIP: "pp* cp36-* cp37-* cp38-* cp39-* cp310-*"
           CIBW_ARCHS_WINDOWS: ${{ matrix.architecture == 'x86' && 'x86' || 'AMD64' }}
           CIBW_BUILD_VERBOSITY: "3"
           DISTUTILS_USE_SDK: "1"
