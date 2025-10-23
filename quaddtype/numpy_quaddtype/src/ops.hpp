@@ -1047,7 +1047,7 @@ quad_spacing(const Sleef_quad *x)
     return result;
 }
 
-// Mixed-type operations (quad, int32) -> quad
+// Mixed-type operations (quad, int) -> quad
 typedef Sleef_quad (*ldexp_op_quad_def)(const Sleef_quad *, const int *);
 typedef long double (*ldexp_op_longdouble_def)(const long double *, const int *);
 
