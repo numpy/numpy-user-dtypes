@@ -344,11 +344,38 @@ quad_ldexp_strided_loop_unaligned(PyArrayMethod_Context *context, char *const da
     QuadBackendType backend = descr->backend;
     size_t elem_size = (backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
 
+    // Get the actual integer descriptor to determine its size
+    PyArray_Descr *int_descr = context->descriptors[1];
+    int int_size = int_descr->elsize;
+
     quad_value in1, out;
     int in2;
     while (N--) {
         memcpy(&in1, in1_ptr, elem_size);
-        memcpy(&in2, in2_ptr, sizeof(int));
+        
+        // Read the integer value correctly based on its actual size
+        // to handle endianness properly
+        if (int_size == sizeof(npy_int32)) {
+            npy_int32 temp_int;
+            memcpy(&temp_int, in2_ptr, sizeof(npy_int32));
+            in2 = (int)temp_int;
+        } else if (int_size == sizeof(npy_int64)) {
+            npy_int64 temp_int;
+            memcpy(&temp_int, in2_ptr, sizeof(npy_int64));
+            in2 = (int)temp_int;
+        } else if (int_size == sizeof(npy_int16)) {
+            npy_int16 temp_int;
+            memcpy(&temp_int, in2_ptr, sizeof(npy_int16));
+            in2 = (int)temp_int;
+        } else if (int_size == sizeof(npy_int8)) {
+            npy_int8 temp_int;
+            memcpy(&temp_int, in2_ptr, sizeof(npy_int8));
+            in2 = (int)temp_int;
+        } else {
+            // Fallback for other sizes
+            memcpy(&in2, in2_ptr, sizeof(int));
+        }
+        
         if (backend == BACKEND_SLEEF) {
             out.sleef_value = sleef_op(&in1.sleef_value, &in2);
         } else {
@@ -381,13 +408,32 @@ quad_ldexp_strided_loop_aligned(PyArrayMethod_Context *context, char *const data
     QuadPrecDTypeObject *descr = (QuadPrecDTypeObject *)context->descriptors[0];
     QuadBackendType backend = descr->backend;
 
+    // Get the actual integer descriptor to determine its size
+    PyArray_Descr *int_descr = context->descriptors[1];
+    int int_size = int_descr->elsize;
+
     while (N--) {
-        int *exp = (int *)in2_ptr;
+        int exp_value;
+        
+        // Read the integer value correctly based on its actual size
+        // to handle endianness properly
+        if (int_size == sizeof(npy_int32)) {
+            exp_value = (int)(*(npy_int32 *)in2_ptr);
+        } else if (int_size == sizeof(npy_int64)) {
+            exp_value = (int)(*(npy_int64 *)in2_ptr);
+        } else if (int_size == sizeof(npy_int16)) {
+            exp_value = (int)(*(npy_int16 *)in2_ptr);
+        } else if (int_size == sizeof(npy_int8)) {
+            exp_value = (int)(*(npy_int8 *)in2_ptr);
+        } else {
+            // Fallback: cast directly (may not work on big-endian)
+            exp_value = *(int *)in2_ptr;
+        }
         
         if (backend == BACKEND_SLEEF) {
-            *(Sleef_quad *)out_ptr = sleef_op((Sleef_quad *)in1_ptr, exp);
+            *(Sleef_quad *)out_ptr = sleef_op((Sleef_quad *)in1_ptr, &exp_value);
         } else {
-            *(long double *)out_ptr = longdouble_op((long double *)in1_ptr, exp);
+            *(long double *)out_ptr = longdouble_op((long double *)in1_ptr, &exp_value);
         }
 
         in1_ptr += in1_stride;
