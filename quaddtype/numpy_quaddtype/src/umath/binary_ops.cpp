@@ -283,7 +283,7 @@ quad_generic_binop_2out_strided_loop_aligned(PyArrayMethod_Context *context, cha
 }
 
 // todo: I'll preferrable get all this code duplication in templates later
-// Special resolve descriptors for ldexp (QuadPrecDType, int32) -> QuadPrecDType
+// resolve descriptors for ldexp (QuadPrecDType, int) -> QuadPrecDType
 static NPY_CASTING
 quad_ldexp_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtypes[],
                                PyArray_Descr *const given_descrs[],
@@ -296,13 +296,9 @@ quad_ldexp_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtypes[]
     Py_INCREF(given_descrs[0]);
     loop_descrs[0] = given_descrs[0];
 
-    // Input 1: int (no need to incref, it's a builtin dtype)
-    if (given_descrs[1] == NULL) {
-        loop_descrs[1] = PyArray_DescrFromType(NPY_INT);
-    } else {
-        Py_INCREF(given_descrs[1]);
-        loop_descrs[1] = given_descrs[1];
-    }
+    // Input 1: Use NPY_INTP (int64 on 64-bit, int32 on 32-bit) to match platform integer size
+    // This ensures we can handle the full range of PyArray_PyLongDType without data loss
+    loop_descrs[1] = PyArray_DescrFromType(NPY_INTP);
 
     // Output: QuadPrecDType with same backend as input
     if (given_descrs[2] == NULL) {
@@ -322,7 +318,8 @@ quad_ldexp_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtypes[]
             loop_descrs[2] = given_descrs[2];
         }
     }
-    return NPY_NO_CASTING;
+    // Return SAFE_CASTING to allow conversion from other integer types to intp
+    return NPY_SAFE_CASTING;
 }
 
 // Strided loop for ldexp (unaligned)
@@ -333,9 +330,9 @@ quad_ldexp_strided_loop_unaligned(PyArrayMethod_Context *context, char *const da
                                   NpyAuxData *auxdata)
 {
     npy_intp N = dimensions[0];
-    char *in1_ptr = data[0];  // quad
-    char *in2_ptr = data[1];  // int32
-    char *out_ptr = data[2];  // quad
+    char *in1_ptr = data[0];
+    char *in2_ptr = data[1];
+    char *out_ptr = data[2];
     npy_intp in1_stride = strides[0];
     npy_intp in2_stride = strides[1];
     npy_intp out_stride = strides[2];
@@ -344,42 +341,18 @@ quad_ldexp_strided_loop_unaligned(PyArrayMethod_Context *context, char *const da
     QuadBackendType backend = descr->backend;
     size_t elem_size = (backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
 
-    // Get the actual integer descriptor to determine its size
-    PyArray_Descr *int_descr = context->descriptors[1];
-    int int_size = int_descr->elsize;
-
     quad_value in1, out;
-    int in2;
+    npy_intp in2_intp;  // Platform-native integer (int64 on 64-bit, int32 on 32-bit)
     while (N--) {
         memcpy(&in1, in1_ptr, elem_size);
+        memcpy(&in2_intp, in2_ptr, sizeof(npy_intp));
         
-        // Read the integer value correctly based on its actual size
-        // to handle endianness properly
-        if (int_size == sizeof(npy_int32)) {
-            npy_int32 temp_int;
-            memcpy(&temp_int, in2_ptr, sizeof(npy_int32));
-            in2 = (int)temp_int;
-        } else if (int_size == sizeof(npy_int64)) {
-            npy_int64 temp_int;
-            memcpy(&temp_int, in2_ptr, sizeof(npy_int64));
-            in2 = (int)temp_int;
-        } else if (int_size == sizeof(npy_int16)) {
-            npy_int16 temp_int;
-            memcpy(&temp_int, in2_ptr, sizeof(npy_int16));
-            in2 = (int)temp_int;
-        } else if (int_size == sizeof(npy_int8)) {
-            npy_int8 temp_int;
-            memcpy(&temp_int, in2_ptr, sizeof(npy_int8));
-            in2 = (int)temp_int;
-        } else {
-            // Fallback for other sizes
-            memcpy(&in2, in2_ptr, sizeof(int));
-        }
+        int exp_value = (int)in2_intp;
         
         if (backend == BACKEND_SLEEF) {
-            out.sleef_value = sleef_op(&in1.sleef_value, &in2);
+            out.sleef_value = sleef_op(&in1.sleef_value, &exp_value);
         } else {
-            out.longdouble_value = longdouble_op(&in1.longdouble_value, &in2);
+            out.longdouble_value = longdouble_op(&in1.longdouble_value, &exp_value);
         }
         memcpy(out_ptr, &out, elem_size);
 
@@ -398,9 +371,9 @@ quad_ldexp_strided_loop_aligned(PyArrayMethod_Context *context, char *const data
                                 NpyAuxData *auxdata)
 {
     npy_intp N = dimensions[0];
-    char *in1_ptr = data[0];  // quad
-    char *in2_ptr = data[1];  // int32
-    char *out_ptr = data[2];  // quad
+    char *in1_ptr = data[0]; 
+    char *in2_ptr = data[1];
+    char *out_ptr = data[2];
     npy_intp in1_stride = strides[0];
     npy_intp in2_stride = strides[1];
     npy_intp out_stride = strides[2];
@@ -408,27 +381,9 @@ quad_ldexp_strided_loop_aligned(PyArrayMethod_Context *context, char *const data
     QuadPrecDTypeObject *descr = (QuadPrecDTypeObject *)context->descriptors[0];
     QuadBackendType backend = descr->backend;
 
-    // Get the actual integer descriptor to determine its size
-    PyArray_Descr *int_descr = context->descriptors[1];
-    int int_size = int_descr->elsize;
-
     while (N--) {
-        int exp_value;
-        
-        // Read the integer value correctly based on its actual size
-        // to handle endianness properly
-        if (int_size == sizeof(npy_int32)) {
-            exp_value = (int)(*(npy_int32 *)in2_ptr);
-        } else if (int_size == sizeof(npy_int64)) {
-            exp_value = (int)(*(npy_int64 *)in2_ptr);
-        } else if (int_size == sizeof(npy_int16)) {
-            exp_value = (int)(*(npy_int16 *)in2_ptr);
-        } else if (int_size == sizeof(npy_int8)) {
-            exp_value = (int)(*(npy_int8 *)in2_ptr);
-        } else {
-            // Fallback: cast directly (may not work on big-endian)
-            exp_value = *(int *)in2_ptr;
-        }
+        npy_intp exp_intp = *(npy_intp *)in2_ptr;
+        int exp_value = (int)exp_intp;
         
         if (backend == BACKEND_SLEEF) {
             *(Sleef_quad *)out_ptr = sleef_op((Sleef_quad *)in1_ptr, &exp_value);
