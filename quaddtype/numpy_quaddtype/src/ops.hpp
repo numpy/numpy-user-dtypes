@@ -28,7 +28,7 @@ quad_positive(const Sleef_quad *op)
 static inline Sleef_quad
 quad_sign(const Sleef_quad *op)
 {
-    int32_t sign = Sleef_icmpq1(*op, QUAD_ZERO);
+    int sign = Sleef_icmpq1(*op, QUAD_ZERO);
     // sign(x=NaN) = x; otherwise sign(x) in { -1.0; 0.0; +1.0 }
     return Sleef_iunordq1(*op, *op) ? *op : Sleef_cast_from_int64q1(sign);
 }
@@ -1043,6 +1043,62 @@ quad_spacing(const Sleef_quad *x)
     
     // spacing = next - x (preserves sign)
     Sleef_quad result = Sleef_subq1_u05(next, *x);
+    
+    return result;
+}
+
+// Mixed-type operations (quad, int) -> quad
+typedef Sleef_quad (*ldexp_op_quad_def)(const Sleef_quad *, const int *);
+typedef long double (*ldexp_op_longdouble_def)(const long double *, const int *);
+
+static inline Sleef_quad
+quad_ldexp(const Sleef_quad *x, const int *exp)
+{
+    // ldexp(x, exp) returns x * 2^exp
+    // SLEEF expects: Sleef_quad, int
+    
+    // NaN input -> NaN output (with sign preserved)
+    if (Sleef_iunordq1(*x, *x)) {
+        return *x;
+    }
+    
+    // ±0 * 2^exp = ±0 (preserves sign of zero)
+    if (Sleef_icmpeqq1(*x, QUAD_ZERO)) {
+        return *x;
+    }
+    
+    // ±inf * 2^exp = ±inf (preserves sign of infinity)
+    if (quad_isinf(x)) {
+        return *x;
+    }
+    
+    Sleef_quad result = Sleef_ldexpq1(*x, *exp);
+    
+    return result;
+}
+
+static inline long double
+ld_ldexp(const long double *x, const int *exp)
+{
+    // ldexp(x, exp) returns x * 2^exp
+    // stdlib ldexpl expects: long double, int
+    
+    // NaN input -> NaN output
+    if (isnan(*x)) {
+        return *x;
+    }
+    
+    // ±0 * 2^exp = ±0 (preserves sign of zero)
+    if (*x == 0.0L) {
+        return *x;
+    }
+    
+    // ±inf * 2^exp = ±inf (preserves sign of infinity)
+    if (isinf(*x)) {
+        return *x;
+    }
+    
+    long double result = ldexpl(*x, *exp);
     
     return result;
 }

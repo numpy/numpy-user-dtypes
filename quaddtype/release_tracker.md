@@ -80,7 +80,7 @@
 | nextafter     | ✅    | ✅                                                                   |
 | spacing       | ✅    | ✅                                                                   |
 | modf          | ✅    | ✅                                                                   |
-| ldexp         |       |                                                                      |
+| ldexp         | ✅    | ✅                                                                   |
 | frexp         |       |                                                                      |
 | floor         | ✅    | ✅                                                                   |
 | ceil          | ✅    | ✅                                                                   |

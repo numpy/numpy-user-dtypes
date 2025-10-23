@@ -2530,3 +2530,144 @@ class TestModf:
                 reconstructed, quad_x, rtol=1e-12, atol=1e-15,
                 err_msg=f"Reconstruction failed for modf({x}): {quad_int} + {quad_frac} != {quad_x}"
             )
+
+
+class TestLdexp:
+    """Tests for ldexp function (x * 2**exp)"""
+    
+    @pytest.mark.parametrize("x_val,exp_val", [
+        ("1.0", 0),
+        ("1.0", 1),
+        ("1.0", 2),
+        ("1.0", 10),
+        ("1.0", -1),
+        ("1.0", -2),
+        ("1.0", -10),
+        ("2.5", 3),
+        ("0.5", 5),
+        ("-3.0", 4),
+        ("-0.75", -2),
+        ("1.5", 100),
+        ("1.5", -100),
+    ])
+    def test_ldexp_basic(self, x_val, exp_val):
+        """Test ldexp with basic values"""
+        quad_x = QuadPrecision(x_val)
+        float_x = np.float64(x_val)
+        
+        quad_result = np.ldexp(quad_x, exp_val)
+        float_result = np.ldexp(float_x, exp_val)
+        
+        assert isinstance(quad_result, QuadPrecision), f"Result should be QuadPrecision for ldexp({x_val}, {exp_val})"
+        
+        np.testing.assert_allclose(
+            quad_result, float_result, rtol=1e-12, atol=1e-15,
+            err_msg=f"ldexp({x_val}, {exp_val}) mismatch"
+        )
+        
+        # Verify against direct calculation for finite results
+        if np.isfinite(float_result):
+            expected = float(x_val) * (2 ** exp_val)
+            np.testing.assert_allclose(
+                quad_result, expected, rtol=1e-10,
+                err_msg=f"ldexp({x_val}, {exp_val}) doesn't match x * 2^exp"
+            )
+    
+    @pytest.mark.parametrize("x_val,exp_val", [
+        ("0.0", 0),
+        ("0.0", 1),
+        ("0.0", -1),
+        ("0.0", 100),
+        ("0.0", -100),
+        ("-0.0", 0),
+        ("-0.0", 1),
+        ("-0.0", -1),
+        ("-0.0", 100),
+        ("-0.0", -100),
+    ])
+    def test_ldexp_zero(self, x_val, exp_val):
+        """Test ldexp with zero values (should preserve sign)"""
+        quad_x = QuadPrecision(x_val)
+        float_x = np.float64(x_val)
+        
+        quad_result = np.ldexp(quad_x, exp_val)
+        float_result = np.ldexp(float_x, exp_val)
+        
+        # Zero * 2^exp = zero (with sign preserved)
+        assert quad_result == 0.0, f"ldexp({x_val}, {exp_val}) should be zero"
+        assert np.signbit(quad_result) == np.signbit(float_result), \
+            f"Sign mismatch for ldexp({x_val}, {exp_val})"
+    
+    @pytest.mark.parametrize("x_val,exp_val", [
+        ("inf", 0),
+        ("inf", 1),
+        ("inf", -1),
+        ("inf", 100),
+        ("-inf", 0),
+        ("-inf", 1),
+        ("-inf", -1),
+        ("-inf", 100),
+    ])
+    def test_ldexp_inf(self, x_val, exp_val):
+        """Test ldexp with infinity (should preserve infinity and sign)"""
+        quad_x = QuadPrecision(x_val)
+        float_x = np.float64(x_val)
+        
+        quad_result = np.ldexp(quad_x, exp_val)
+        float_result = np.ldexp(float_x, exp_val)
+        
+        assert np.isinf(quad_result), f"ldexp({x_val}, {exp_val}) should be infinity"
+        assert np.signbit(quad_result) == np.signbit(float_result), \
+            f"Sign mismatch for ldexp({x_val}, {exp_val})"
+    
+    @pytest.mark.parametrize("x_val,exp_val", [
+        ("nan", 0),
+        ("nan", 1),
+        ("nan", -1),
+        ("nan", 100),
+        ("-nan", 0),
+    ])
+    def test_ldexp_nan(self, x_val, exp_val):
+        """Test ldexp with NaN (should return NaN)"""
+        quad_x = QuadPrecision(x_val)
+        
+        quad_result = np.ldexp(quad_x, exp_val)
+        
+        assert np.isnan(quad_result), f"ldexp({x_val}, {exp_val}) should be NaN"
+    
+    @pytest.mark.parametrize("x_val,exp_val", [
+        ("1.5", 16384),  # Large positive exponent (likely overflow)
+        ("2.0", 20000),
+    ])
+    def test_ldexp_overflow(self, x_val, exp_val):
+        """Test ldexp with overflow to infinity"""
+        quad_x = QuadPrecision(x_val)
+        float_x = np.float64(x_val)
+        
+        quad_result = np.ldexp(quad_x, exp_val)
+        float_result = np.ldexp(float_x, exp_val)
+        
+        # Both should overflow to infinity
+        assert np.isinf(quad_result), f"ldexp({x_val}, {exp_val}) should overflow to infinity"
+        assert np.isinf(float_result), f"numpy ldexp({x_val}, {exp_val}) should overflow to infinity"
+        assert np.signbit(quad_result) == np.signbit(float_result), \
+            f"Sign mismatch for overflow ldexp({x_val}, {exp_val})"
+    
+    @pytest.mark.parametrize("x_val,exp_val", [
+        ("1.5", -16500),  # Large negative exponent (likely underflow)
+        ("2.0", -20000),
+    ])
+    def test_ldexp_underflow(self, x_val, exp_val):
+        """Test ldexp with underflow to zero"""
+        quad_x = QuadPrecision(x_val)
+        float_x = np.float64(x_val)
+        
+        quad_result = np.ldexp(quad_x, exp_val)
+        float_result = np.ldexp(float_x, exp_val)
+        
+        # Both should underflow to zero
+        assert quad_result == 0.0, f"ldexp({x_val}, {exp_val}) should underflow to zero"
+        assert float_result == 0.0, f"numpy ldexp({x_val}, {exp_val}) should underflow to zero"
+        # Sign should be preserved
+        assert np.signbit(quad_result) == np.signbit(float(x_val)), \
+            f"Sign should be preserved for underflow ldexp({x_val}, {exp_val})"
