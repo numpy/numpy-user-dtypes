@@ -14,6 +14,7 @@
 #include "scalar.h"
 #include "scalar_ops.h"
 #include "dragon4.h"
+#include "dtype.h"
 
 // For IEEE 754 binary128 (quad precision), we need 36 decimal digits 
 // to guarantee round-trip conversion (string -> parse -> equals original value)
@@ -42,7 +43,77 @@ QuadPrecision_raw_new(QuadBackendType backend)
 
 QuadPrecisionObject *
 QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
-{
+{   
+    // Handle numpy scalars (np.int32, np.float32, etc.) before arrays
+    // We need to check this before PySequence_Check because some numpy scalars are sequences
+    if (PyArray_CheckScalar(value)) {
+        QuadPrecisionObject *self = QuadPrecision_raw_new(backend);
+        if (!self)
+            return NULL;
+        
+        // Try as floating point first
+        if (PyArray_IsScalar(value, Floating)) {
+            PyObject *py_float = PyNumber_Float(value);
+            if (py_float == NULL) {
+                Py_DECREF(self);
+                return NULL;
+            }
+            double dval = PyFloat_AsDouble(py_float);
+            Py_DECREF(py_float);
+            
+            if (backend == BACKEND_SLEEF) {
+                self->value.sleef_value = Sleef_cast_from_doubleq1(dval);
+            }
+            else {
+                self->value.longdouble_value = (long double)dval;
+            }
+            return self;
+        }
+        // Try as integer
+        else if (PyArray_IsScalar(value, Integer)) {
+            PyObject *py_int = PyNumber_Long(value);
+            if (py_int == NULL) {
+                Py_DECREF(self);
+                return NULL;
+            }
+            long long lval = PyLong_AsLongLong(py_int);
+            Py_DECREF(py_int);
+            
+            if (backend == BACKEND_SLEEF) {
+                self->value.sleef_value = Sleef_cast_from_int64q1(lval);
+            }
+            else {
+                self->value.longdouble_value = (long double)lval;
+            }
+            return self;
+        }
+        // For other scalar types, fall through to error handling
+        Py_DECREF(self);
+    }
+    
+    // this checks arrays and sequences (array, tuple)
+    // rejects strings; they're parsed below
+    if (PyArray_Check(value) || (PySequence_Check(value) && !PyUnicode_Check(value) && !PyBytes_Check(value))) 
+    {
+        QuadPrecDTypeObject *dtype_descr = new_quaddtype_instance(backend);
+        if (dtype_descr == NULL) {
+            return NULL;
+        }
+        
+        // steals reference to the descriptor
+        PyObject *result = PyArray_FromAny(
+            value,
+            (PyArray_Descr *)dtype_descr,
+            0,
+            0,
+            NPY_ARRAY_ENSUREARRAY, // this should handle the casting if possible
+            NULL
+        );
+        
+        // PyArray_FromAny steals the reference to dtype_descr, so no need to DECREF
+        return (QuadPrecisionObject *)result;
+    }
+
     QuadPrecisionObject *self = QuadPrecision_raw_new(backend);
     if (!self)
         return NULL;
@@ -105,21 +176,21 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
             const char *type_cstr = PyUnicode_AsUTF8(type_str);
             if (type_cstr != NULL) {
                 PyErr_Format(PyExc_TypeError,
-                             "QuadPrecision value must be a quad, float, int or string, but got %s "
+                             "QuadPrecision value must be a quad, float, int, string, array or sequence, but got %s "
                              "instead",
                              type_cstr);
             }
             else {
                 PyErr_SetString(
                         PyExc_TypeError,
-                        "QuadPrecision value must be a quad, float, int or string, but got an "
+                        "QuadPrecision value must be a quad, float, int, string, array or sequence, but got an "
                         "unknown type instead");
             }
             Py_DECREF(type_str);
         }
         else {
             PyErr_SetString(PyExc_TypeError,
-                            "QuadPrecision value must be a quad, float, int or string, but got an "
+                            "QuadPrecision value must be a quad, float, int, string, array or sequence, but got an "
                             "unknown type instead");
         }
         Py_DECREF(self);
