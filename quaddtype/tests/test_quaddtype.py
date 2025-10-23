@@ -2583,6 +2583,7 @@ class TestLdexp:
         ("-0.0", 1),
         ("-0.0", -1),
         ("-0.0", 100),
+        ("-0.0", -100),
     ])
     def test_ldexp_zero(self, x_val, exp_val):
         """Test ldexp with zero values (should preserve sign)"""
