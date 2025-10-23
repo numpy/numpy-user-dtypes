@@ -13,6 +13,85 @@ def test_create_scalar_simple():
     assert isinstance(QuadPrecision(1), QuadPrecision)
 
 
+class TestQuadPrecisionArrayCreation:
+    """Test suite for QuadPrecision array creation from sequences and arrays."""
+    
+    def test_create_array_from_list(self):
+        """Test that QuadPrecision can create arrays from lists."""
+        # Test with simple list
+        result = QuadPrecision([3, 4, 5])
+        assert isinstance(result, np.ndarray)
+        assert result.dtype.name == "QuadPrecDType128"
+        assert result.shape == (3,)
+        assert np.array_equal(result, np.array([3, 4, 5], dtype=QuadPrecDType))
+        
+        # Test with float list
+        result = QuadPrecision([1.5, 2.5, 3.5])
+        assert isinstance(result, np.ndarray)
+        assert result.dtype.name == "QuadPrecDType128"
+        assert result.shape == (3,)
+
+    def test_create_array_from_tuple(self):
+        """Test that QuadPrecision can create arrays from tuples."""
+        result = QuadPrecision((10, 20, 30))
+        assert isinstance(result, np.ndarray)
+        assert result.dtype.name == "QuadPrecDType128"
+        assert result.shape == (3,)
+        assert np.array_equal(result, np.array([10, 20, 30], dtype=QuadPrecDType))
+
+    def test_create_array_from_ndarray(self):
+        """Test that QuadPrecision can create arrays from numpy arrays."""
+        arr = np.array([1, 2, 3, 4])
+        result = QuadPrecision(arr)
+        assert isinstance(result, np.ndarray)
+        assert result.dtype.name == "QuadPrecDType128"
+        assert result.shape == (4,)
+        assert np.array_equal(result, arr.astype(QuadPrecDType))
+
+    def test_create_2d_array_from_nested_list(self):
+        """Test that QuadPrecision can create 2D arrays from nested lists."""
+        result = QuadPrecision([[1, 2], [3, 4]])
+        assert isinstance(result, np.ndarray)
+        assert result.dtype.name == "QuadPrecDType128"
+        assert result.shape == (2, 2)
+        expected = np.array([[1, 2], [3, 4]], dtype=QuadPrecDType)
+        assert np.array_equal(result, expected)
+
+    def test_create_array_with_backend(self):
+        """Test that QuadPrecision respects backend parameter for arrays."""
+        # Test with sleef backend (default)
+        result_sleef = QuadPrecision([1, 2, 3], backend='sleef')
+        assert isinstance(result_sleef, np.ndarray)
+        assert result_sleef.dtype == QuadPrecDType(backend='sleef')
+        
+        # Test with longdouble backend
+        result_ld = QuadPrecision([1, 2, 3], backend='longdouble')
+        assert isinstance(result_ld, np.ndarray)
+        assert result_ld.dtype == QuadPrecDType(backend='longdouble')
+
+    def test_quad_precision_array_vs_astype_equivalence(self):
+        """Test that QuadPrecision(array) is equivalent to array.astype(QuadPrecDType)."""
+        test_arrays = [
+            [1, 2, 3],
+            [1.5, 2.5, 3.5],
+            [[1, 2], [3, 4]],
+            np.array([10, 20, 30]),
+        ]
+        
+        for arr in test_arrays:
+            result_quad = QuadPrecision(arr)
+            result_astype = np.array(arr).astype(QuadPrecDType)
+            assert np.array_equal(result_quad, result_astype)
+            assert result_quad.dtype == result_astype.dtype
+
+    def test_create_empty_array(self):
+        """Test that QuadPrecision can create arrays from empty sequences."""
+        result = QuadPrecision([])
+        assert isinstance(result, np.ndarray)
+        assert result.dtype.name == "QuadPrecDType128"
+        assert result.shape == (0,)
+
+
 def test_string_roundtrip():
     # Test with various values that require full quad precision
     test_values = [
