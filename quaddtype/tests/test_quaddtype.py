@@ -91,6 +91,105 @@ class TestQuadPrecisionArrayCreation:
         assert result.dtype.name == "QuadPrecDType128"
         assert result.shape == (0,)
 
+    def test_create_from_numpy_int_scalars(self):
+        """Test that QuadPrecision can create scalars from numpy integer types."""
+        # Test np.int32
+        result = QuadPrecision(np.int32(42))
+        assert isinstance(result, QuadPrecision)
+        assert float(result) == 42.0
+        
+        # Test np.int64
+        result = QuadPrecision(np.int64(100))
+        assert isinstance(result, QuadPrecision)
+        assert float(result) == 100.0
+        
+        # Test np.uint32
+        result = QuadPrecision(np.uint32(255))
+        assert isinstance(result, QuadPrecision)
+        assert float(result) == 255.0
+        
+        # Test np.int8
+        result = QuadPrecision(np.int8(-128))
+        assert isinstance(result, QuadPrecision)
+        assert float(result) == -128.0
+
+    def test_create_from_numpy_float_scalars(self):
+        """Test that QuadPrecision can create scalars from numpy floating types."""
+        # Test np.float64
+        result = QuadPrecision(np.float64(3.14))
+        assert isinstance(result, QuadPrecision)
+        assert abs(float(result) - 3.14) < 1e-10
+        
+        # Test np.float32
+        result = QuadPrecision(np.float32(2.71))
+        assert isinstance(result, QuadPrecision)
+        # Note: float32 has limited precision, so we use a looser tolerance
+        assert abs(float(result) - 2.71) < 1e-5
+        
+        # Test np.float16
+        result = QuadPrecision(np.float16(1.5))
+        assert isinstance(result, QuadPrecision)
+        assert abs(float(result) - 1.5) < 1e-3
+
+    def test_create_from_zero_dimensional_array(self):
+        """Test that QuadPrecision can create from 0-d numpy arrays."""
+        # 0-d array from scalar
+        arr_0d = np.array(5.5)
+        result = QuadPrecision(arr_0d)
+        assert isinstance(result, np.ndarray)
+        assert result.shape == ()  # 0-d array
+        assert result.dtype.name == "QuadPrecDType128"
+        
+        # Another test with integer
+        arr_0d = np.array(42)
+        result = QuadPrecision(arr_0d)
+        assert isinstance(result, np.ndarray)
+        assert result.shape == ()
+
+    def test_numpy_scalar_with_backend(self):
+        """Test that numpy scalars respect the backend parameter."""
+        # Test with sleef backend
+        result = QuadPrecision(np.int32(10), backend='sleef')
+        assert isinstance(result, QuadPrecision)
+        assert "backend='sleef'" in repr(result)
+        
+        # Test with longdouble backend
+        result = QuadPrecision(np.float64(3.14), backend='longdouble')
+        assert isinstance(result, QuadPrecision)
+        assert "backend='longdouble'" in repr(result)
+
+    def test_numpy_scalar_types_coverage(self):
+        """Test a comprehensive set of numpy scalar types."""
+        # Integer types
+        int_types = [
+            (np.int8, 10),
+            (np.int16, 1000),
+            (np.int32, 100000),
+            (np.int64, 10000000),
+            (np.uint8, 200),
+            (np.uint16, 50000),
+            (np.uint32, 4000000000),
+        ]
+        
+        for dtype, value in int_types:
+            result = QuadPrecision(dtype(value))
+            assert isinstance(result, QuadPrecision), f"Failed for {dtype.__name__}"
+            assert float(result) == float(value), f"Value mismatch for {dtype.__name__}"
+        
+        # Float types
+        float_types = [
+            (np.float16, 1.5),
+            (np.float32, 2.5),
+            (np.float64, 3.5),
+        ]
+        
+        for dtype, value in float_types:
+            result = QuadPrecision(dtype(value))
+            assert isinstance(result, QuadPrecision), f"Failed for {dtype.__name__}"
+            # Use appropriate tolerance based on dtype precision
+            expected = float(dtype(value))
+            assert abs(float(result) - expected) < 1e-5, f"Value mismatch for {dtype.__name__}"
+
 
 def test_string_roundtrip():
     # Test with various values that require full quad precision

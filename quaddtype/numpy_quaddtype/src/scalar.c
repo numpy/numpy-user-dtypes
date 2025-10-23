@@ -44,7 +44,54 @@ QuadPrecision_raw_new(QuadBackendType backend)
 QuadPrecisionObject *
 QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
 {   
+    // Handle numpy scalars (np.int32, np.float32, etc.) before arrays
+    // We need to check this before PySequence_Check because some numpy scalars are sequences
+    if (PyArray_CheckScalar(value)) {
+        QuadPrecisionObject *self = QuadPrecision_raw_new(backend);
+        if (!self)
+            return NULL;
+        
+        // Try as floating point first
+        if (PyArray_IsScalar(value, Floating)) {
+            PyObject *py_float = PyNumber_Float(value);
+            if (py_float == NULL) {
+                Py_DECREF(self);
+                return NULL;
+            }
+            double dval = PyFloat_AsDouble(py_float);
+            Py_DECREF(py_float);
+            
+            if (backend == BACKEND_SLEEF) {
+                self->value.sleef_value = Sleef_cast_from_doubleq1(dval);
+            }
+            else {
+                self->value.longdouble_value = (long double)dval;
+            }
+            return self;
+        }
+        // Try as integer
+        else if (PyArray_IsScalar(value, Integer)) {
+            PyObject *py_int = PyNumber_Long(value);
+            if (py_int == NULL) {
+                Py_DECREF(self);
+                return NULL;
+            }
+            long long lval = PyLong_AsLongLong(py_int);
+            Py_DECREF(py_int);
+            
+            if (backend == BACKEND_SLEEF) {
+                self->value.sleef_value = Sleef_cast_from_int64q1(lval);
+            }
+            else {
+                self->value.longdouble_value = (long double)lval;
+            }
+            return self;
+        }
+        // For other scalar types, fall through to error handling
+        Py_DECREF(self);
+    }
     
+    // this checks arrays and sequences (array, tuple)
     if (PyArray_Check(value) || (PySequence_Check(value) && !PyUnicode_Check(value) && !PyBytes_Check(value))) 
     {
         QuadPrecDTypeObject *dtype_descr = new_quaddtype_instance(backend);
