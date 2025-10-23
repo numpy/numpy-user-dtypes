@@ -12,6 +12,42 @@ def test_create_scalar_simple():
     assert isinstance(QuadPrecision(1.63), QuadPrecision)
     assert isinstance(QuadPrecision(1), QuadPrecision)
 
+
+def test_string_roundtrip():
+    # Test with various values that require full quad precision
+    test_values = [
+        QuadPrecision("0.417022004702574000667425480060047"),  # Random value
+        QuadPrecision("1.23456789012345678901234567890123456789"),  # Many digits
+        numpy_quaddtype.pi,  # Mathematical constant
+        numpy_quaddtype.e,
+        QuadPrecision("1e-100"),  # Very small
+        QuadPrecision("1e100"),   # Very large
+        QuadPrecision("3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117067982148086513282306647093844609550582231725359408128481117450284102701938521105559644622948954930381964428810975665933446128475648233"),  # very precise pi
+    ]
+    
+    for original in test_values:
+        string_repr = str(original)
+        reconstructed = QuadPrecision(string_repr)
+        
+        # Values should be exactly equal (bit-for-bit identical)
+        assert reconstructed == original, (
+            f"Round-trip failed for {repr(original)}:\n"
+            f"  Original:      {repr(original)}\n"
+            f"  String:        {string_repr}\n"
+            f"  Reconstructed: {repr(reconstructed)}"
+        )
+        
+        # Also verify repr() preserves value
+        repr_str = repr(original)
+        # Extract the string value from repr format: QuadPrecision('value', backend='...')
+        value_from_repr = repr_str.split("'")[1]
+        reconstructed_from_repr = QuadPrecision(value_from_repr)
+        
+        assert reconstructed_from_repr == original, (
+            f"Round-trip from repr() failed for {repr(original)}"
+        )
+
+
 @pytest.mark.parametrize("name,expected", [("pi", np.pi), ("e", np.e), ("log2e", np.log2(np.e)), ("log10e", np.log10(np.e)), ("ln2", np.log(2.0)), ("ln10", np.log(10.0))])
 def test_math_constant(name, expected):
     assert isinstance(getattr(numpy_quaddtype, name), QuadPrecision)
