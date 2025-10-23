@@ -298,7 +298,7 @@ quad_ldexp_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtypes[]
 
     // Input 1: int (no need to incref, it's a builtin dtype)
     if (given_descrs[1] == NULL) {
-        loop_descrs[1] = PyArray_DescrFromType(NPY_INT32);
+        loop_descrs[1] = PyArray_DescrFromType(NPY_INT);
     } else {
         Py_INCREF(given_descrs[1]);
         loop_descrs[1] = given_descrs[1];
@@ -345,10 +345,10 @@ quad_ldexp_strided_loop_unaligned(PyArrayMethod_Context *context, char *const da
     size_t elem_size = (backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
 
     quad_value in1, out;
-    int32_t in2;
+    int in2;
     while (N--) {
         memcpy(&in1, in1_ptr, elem_size);
-        memcpy(&in2, in2_ptr, sizeof(int32_t));
+        memcpy(&in2, in2_ptr, sizeof(int));
         if (backend == BACKEND_SLEEF) {
             out.sleef_value = sleef_op(&in1.sleef_value, &in2);
         } else {
@@ -382,7 +382,7 @@ quad_ldexp_strided_loop_aligned(PyArrayMethod_Context *context, char *const data
     QuadBackendType backend = descr->backend;
 
     while (N--) {
-        int32_t *exp = (int32_t *)in2_ptr;
+        int *exp = (int *)in2_ptr;
         
         if (backend == BACKEND_SLEEF) {
             *(Sleef_quad *)out_ptr = sleef_op((Sleef_quad *)in1_ptr, exp);
