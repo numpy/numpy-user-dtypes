@@ -23,13 +23,14 @@ class TestQuadPrecisionArrayCreation:
         assert isinstance(result, np.ndarray)
         assert result.dtype.name == "QuadPrecDType128"
         assert result.shape == (3,)
-        assert np.array_equal(result, np.array([3, 4, 5], dtype=QuadPrecDType))
+        np.testing.assert_array_equal(result, np.array([3, 4, 5], dtype=QuadPrecDType(backend='sleef')))
         
         # Test with float list
         result = QuadPrecision([1.5, 2.5, 3.5])
         assert isinstance(result, np.ndarray)
         assert result.dtype.name == "QuadPrecDType128"
         assert result.shape == (3,)
+        np.testing.assert_array_equal(result, np.array([1.5, 2.5, 3.5], dtype=QuadPrecDType(backend='sleef')))
 
     def test_create_array_from_tuple(self):
         """Test that QuadPrecision can create arrays from tuples."""
@@ -37,7 +38,7 @@ class TestQuadPrecisionArrayCreation:
         assert isinstance(result, np.ndarray)
         assert result.dtype.name == "QuadPrecDType128"
         assert result.shape == (3,)
-        assert np.array_equal(result, np.array([10, 20, 30], dtype=QuadPrecDType))
+        np.testing.assert_array_equal(result, np.array([10, 20, 30], dtype=QuadPrecDType(backend='sleef')))
 
     def test_create_array_from_ndarray(self):
         """Test that QuadPrecision can create arrays from numpy arrays."""
@@ -46,7 +47,7 @@ class TestQuadPrecisionArrayCreation:
         assert isinstance(result, np.ndarray)
         assert result.dtype.name == "QuadPrecDType128"
         assert result.shape == (4,)
-        assert np.array_equal(result, arr.astype(QuadPrecDType))
+        np.testing.assert_array_equal(result, arr.astype(QuadPrecDType(backend='sleef')))
 
     def test_create_2d_array_from_nested_list(self):
         """Test that QuadPrecision can create 2D arrays from nested lists."""
@@ -54,8 +55,8 @@ class TestQuadPrecisionArrayCreation:
         assert isinstance(result, np.ndarray)
         assert result.dtype.name == "QuadPrecDType128"
         assert result.shape == (2, 2)
-        expected = np.array([[1, 2], [3, 4]], dtype=QuadPrecDType)
-        assert np.array_equal(result, expected)
+        expected = np.array([[1, 2], [3, 4]], dtype=QuadPrecDType(backend='sleef'))
+        np.testing.assert_array_equal(result, expected)
 
     def test_create_array_with_backend(self):
         """Test that QuadPrecision respects backend parameter for arrays."""
@@ -80,8 +81,8 @@ class TestQuadPrecisionArrayCreation:
         
         for arr in test_arrays:
             result_quad = QuadPrecision(arr)
-            result_astype = np.array(arr).astype(QuadPrecDType)
-            assert np.array_equal(result_quad, result_astype)
+            result_astype = np.array(arr).astype(QuadPrecDType(backend='sleef'))
+            np.testing.assert_array_equal(result_quad, result_astype)
             assert result_quad.dtype == result_astype.dtype
 
     def test_create_empty_array(self):
@@ -90,6 +91,8 @@ class TestQuadPrecisionArrayCreation:
         assert isinstance(result, np.ndarray)
         assert result.dtype.name == "QuadPrecDType128"
         assert result.shape == (0,)
+        expected = np.array([], dtype=QuadPrecDType(backend='sleef'))
+        np.testing.assert_array_equal(result, expected)
 
     def test_create_from_numpy_int_scalars(self):
         """Test that QuadPrecision can create scalars from numpy integer types."""
@@ -139,12 +142,16 @@ class TestQuadPrecisionArrayCreation:
         assert isinstance(result, np.ndarray)
         assert result.shape == ()  # 0-d array
         assert result.dtype.name == "QuadPrecDType128"
+        expected = np.array(5.5, dtype=QuadPrecDType(backend='sleef'))
+        np.testing.assert_array_equal(result, expected)
         
         # Another test with integer
         arr_0d = np.array(42)
         result = QuadPrecision(arr_0d)
         assert isinstance(result, np.ndarray)
         assert result.shape == ()
+        expected = np.array(42, dtype=QuadPrecDType(backend='sleef'))
+        np.testing.assert_array_equal(result, expected)
 
     def test_numpy_scalar_with_backend(self):
         """Test that numpy scalars respect the backend parameter."""

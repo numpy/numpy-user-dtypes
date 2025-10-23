@@ -92,6 +92,7 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
     }
     
     // this checks arrays and sequences (array, tuple)
+    // rejects strings; they're parsed below
     if (PyArray_Check(value) || (PySequence_Check(value) && !PyUnicode_Check(value) && !PyBytes_Check(value))) 
     {
         QuadPrecDTypeObject *dtype_descr = new_quaddtype_instance(backend);
@@ -99,7 +100,7 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
             return NULL;
         }
         
-
+        // steals reference to the descriptor
         PyObject *result = PyArray_FromAny(
             value,
             (PyArray_Descr *)dtype_descr,
