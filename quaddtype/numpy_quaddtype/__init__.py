@@ -8,6 +8,8 @@ from ._quaddtype_main import (
     get_quadblas_version
 )
 
+__version__ = "0.2.0"
+
 __all__ = [
     'QuadPrecision', 'QuadPrecDType', 'SleefQuadPrecision', 'LongDoubleQuadPrecision',
     'SleefQuadPrecDType', 'LongDoubleQuadPrecDType', 'is_longdouble_128', 
