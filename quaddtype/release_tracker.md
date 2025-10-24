@@ -81,7 +81,7 @@
 | spacing       | ✅    | ✅                                                                   |
 | modf          | ✅    | ✅                                                                   |
 | ldexp         | ✅    | ✅                                                                   |
-| frexp         |       |                                                                      |
+| frexp         | ✅    | ✅                                                                   |
 | floor         | ✅    | ✅                                                                   |
 | ceil          | ✅    | ✅                                                                   |
 | trunc         | ✅    | ✅                                                                   |
