@@ -28,7 +28,7 @@ quad_positive(const Sleef_quad *op)
 static inline Sleef_quad
 quad_sign(const Sleef_quad *op)
 {
-    int32_t sign = Sleef_icmpq1(*op, QUAD_ZERO);
+    int sign = Sleef_icmpq1(*op, QUAD_ZERO);
     // sign(x=NaN) = x; otherwise sign(x) in { -1.0; 0.0; +1.0 }
     return Sleef_iunordq1(*op, *op) ? *op : Sleef_cast_from_int64q1(sign);
 }
@@ -1059,6 +1059,7 @@ static inline Sleef_quad
 quad_ldexp(const Sleef_quad *x, const int *exp)
 {
     // ldexp(x, exp) returns x * 2^exp
+    // SLEEF expects: Sleef_quad, int
     
     // NaN input -> NaN output (with sign preserved)
     if (Sleef_iunordq1(*x, *x)) {
@@ -1084,6 +1085,7 @@ static inline long double
 ld_ldexp(const long double *x, const int *exp)
 {
     // ldexp(x, exp) returns x * 2^exp
+    // stdlib ldexpl expects: long double, int
     
     // NaN input -> NaN output
     if (isnan(*x)) {
