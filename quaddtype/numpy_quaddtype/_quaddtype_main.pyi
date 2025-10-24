@@ -4,8 +4,8 @@ import numpy as np
 from typing_extensions import Never, Self, override
 
 _Backend: TypeAlias = Literal["sleef", "longdouble"]
-_IntoQuad: TypeAlias = QuadPrecision | float | str
-_CastsQuad: TypeAlias = _IntoQuad | np.floating[Any] | np.integer[Any] | np.bool_
+_IntoQuad: TypeAlias = QuadPrecision | float | str | np.floating[Any] | np.integer[Any]
+_CastsQuad: TypeAlias = _IntoQuad | np.bool_
 
 @final
 class QuadPrecDType(np.dtype[QuadPrecision]):  # type: ignore[misc, type-var]  # pyright: ignore[reportGeneralTypeIssues, reportInvalidTypeArguments]
@@ -64,8 +64,15 @@ class QuadPrecDType(np.dtype[QuadPrecision]):  # type: ignore[misc, type-var]  #
     @override
     def __getitem__(self, key: Never, /) -> Self: ...  # type: ignore[override]
 
+# NOTE: Until `QuadPrecision` will become a subclass of `np.generic`, this class cannot
+# be considered "type-safe".
 @final
-class QuadPrecision:  # NOTE: It doesn't inherit from `np.generic` which is type-unsafe
+class QuadPrecision:
+    # NOTE: At runtime this constructor also accepts array-likes, for which it returns
+    # `np.ndarray` instances with `dtype=QuadPrecDType()`.
+    # But because of mypy limitations, it is currently impossible to annotate
+    # constructors that do no return instances of their class (or a subclass thereof).
+    # See https://github.com/python/mypy/issues/18343#issuecomment-2571784915
     def __new__(cls, /, value: _IntoQuad, backend: _Backend = "sleef") -> Self: ...
 
     # Rich comparison operators
