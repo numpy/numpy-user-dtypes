@@ -3000,60 +3000,45 @@ class TestFrexp:
     @pytest.mark.parametrize("x_val", [
         "inf",
         "-inf",
-    ])
-    def test_frexp_inf(self, x_val):
-        """Test frexp with infinity (should return ±inf mantissa, exponent 0)"""
-        quad_x = QuadPrecision(x_val)
-        
-        quad_m, quad_e = np.frexp(quad_x)
-        
-        # Mantissa should be infinity with same sign
-        assert np.isinf(quad_m), f"Mantissa should be infinity for frexp({x_val})"
-        assert np.signbit(quad_m) == np.signbit(quad_x), \
-            f"Sign mismatch for frexp({x_val}) mantissa"
-        
-        # Exponent should be 0
-        assert quad_e == 0, f"Exponent should be 0 for frexp({x_val})"
-        
-        # Compare with NumPy float64
-        float_x = np.float64(x_val)
-        float_m, float_e = np.frexp(float_x)
-        
-        # Both should be infinity with same sign
-        assert np.isinf(float_m), f"NumPy mantissa should also be infinity for frexp({x_val})"
-        assert np.signbit(quad_m) == np.signbit(float_m), \
-            f"Sign mismatch with NumPy for frexp({x_val})"
-        
-        # Exponent should match
-        assert quad_e == float_e, \
-            f"Exponent mismatch with NumPy for frexp({x_val}): {quad_e} != {float_e}"
-    
-    @pytest.mark.parametrize("x_val", [
         "nan",
         "-nan",
     ])
-    def test_frexp_nan(self, x_val):
-        """Test frexp with NaN (should return NaN mantissa, exponent 0)"""
+    def test_frexp_special_values(self, x_val):
+        """Test frexp with special values (inf, nan)
+        
+        For these edge cases, the C standard specifies that the exponent value
+        is unspecified/implementation-defined. We only verify that:
+        1. The mantissa matches the expected value (±inf or NaN)
+        2. The mantissa behavior matches NumPy's float64
+        3. The exponent is an integer type
+        
+        We do NOT compare exponent values as they can differ across platforms
+        (e.g., Linux returns 0, Windows returns -1).
+        """
         quad_x = QuadPrecision(x_val)
-        
         quad_m, quad_e = np.frexp(quad_x)
-        
-        # Mantissa should be NaN
-        assert np.isnan(quad_m), f"Mantissa should be NaN for frexp({x_val})"
-        
-        # Exponent should be 0
-        assert quad_e == 0, f"Exponent should be 0 for frexp({x_val})"
         
         # Compare with NumPy float64
         float_x = np.float64(x_val)
         float_m, float_e = np.frexp(float_x)
         
-        # Both should be NaN
-        assert np.isnan(float_m), f"NumPy mantissa should also be NaN for frexp({x_val})"
+        # Exponent should be an integer type (but we don't check the value)
+        assert isinstance(quad_e, (int, np.integer)), \
+            f"Exponent should be integer type for frexp({x_val})"
         
-        # Exponent should match
-        assert quad_e == float_e, \
-            f"Exponent mismatch with NumPy for frexp({x_val}): {quad_e} != {float_e}"
+        # Check mantissa behavior
+        if "inf" in x_val:
+            # Mantissa should be infinity with same sign
+            assert np.isinf(quad_m), f"Mantissa should be infinity for frexp({x_val})"
+            assert np.isinf(float_m), f"NumPy mantissa should also be infinity for frexp({x_val})"
+            assert np.signbit(quad_m) == np.signbit(quad_x), \
+                f"Sign mismatch for frexp({x_val}) mantissa"
+            assert np.signbit(quad_m) == np.signbit(float_m), \
+                f"Sign mismatch with NumPy for frexp({x_val})"
+        else:  # nan
+            # Mantissa should be NaN
+            assert np.isnan(quad_m), f"Mantissa should be NaN for frexp({x_val})"
+            assert np.isnan(float_m), f"NumPy mantissa should also be NaN for frexp({x_val})"
     
     def test_frexp_very_large(self):
         """Test frexp with very large values"""
