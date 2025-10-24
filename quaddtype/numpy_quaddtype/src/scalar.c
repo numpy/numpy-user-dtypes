@@ -87,6 +87,24 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
             }
             return self;
         }
+        // Try as boolean
+        else if (PyArray_IsScalar(value, Bool)) {
+            PyObject *py_int = PyNumber_Long(value);
+            if (py_int == NULL) {
+                Py_DECREF(self);
+                return NULL;
+            }
+            long long lval = PyLong_AsLongLong(py_int);
+            Py_DECREF(py_int);
+            
+            if (backend == BACKEND_SLEEF) {
+                self->value.sleef_value = Sleef_cast_from_int64q1(lval);
+            }
+            else {
+                self->value.longdouble_value = (long double)lval;
+            }
+            return self;
+        }
         // For other scalar types, fall through to error handling
         Py_DECREF(self);
     }

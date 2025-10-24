@@ -134,6 +134,18 @@ class TestQuadPrecisionArrayCreation:
         assert isinstance(result, QuadPrecision)
         assert abs(float(result) - 1.5) < 1e-3
 
+    def test_create_from_numpy_bool_scalars(self):
+        """Test that QuadPrecision can create scalars from numpy boolean types."""
+        # Test np.bool_(True) converts to 1.0
+        result = QuadPrecision(np.bool_(True))
+        assert isinstance(result, QuadPrecision)
+        assert float(result) == 1.0
+        
+        # Test np.bool_(False) converts to 0.0
+        result = QuadPrecision(np.bool_(False))
+        assert isinstance(result, QuadPrecision)
+        assert float(result) == 0.0
+
     def test_create_from_zero_dimensional_array(self):
         """Test that QuadPrecision can create from 0-d numpy arrays."""
         # 0-d array from scalar
