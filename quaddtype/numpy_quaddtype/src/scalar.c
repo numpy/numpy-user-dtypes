@@ -315,6 +315,26 @@ QuadPrecision_dealloc(QuadPrecisionObject *self)
     Py_TYPE(self)->tp_free((PyObject *)self);
 }
 
+static PyObject *
+QuadPrecision_get_real(QuadPrecisionObject *self, void *closure)
+{
+    Py_INCREF(self);
+    return (PyObject *)self;
+}
+
+static PyObject *
+QuadPrecision_get_imag(QuadPrecisionObject *self, void *closure)
+{
+    // For real floating-point types, the imaginary part is always 0
+    return (PyObject *)QuadPrecision_raw_new(self->backend);
+}
+
+static PyGetSetDef QuadPrecision_getset[] = {
+    {"real", (getter)QuadPrecision_get_real, NULL, "Real part of the scalar", NULL},
+    {"imag", (getter)QuadPrecision_get_imag, NULL, "Imaginary part of the scalar (always 0 for real types)", NULL},
+    {NULL}  /* Sentinel */
+};
+
 PyTypeObject QuadPrecision_Type = {
         PyVarObject_HEAD_INIT(NULL, 0).tp_name = "numpy_quaddtype.QuadPrecision",
         .tp_basicsize = sizeof(QuadPrecisionObject),
@@ -325,6 +345,7 @@ PyTypeObject QuadPrecision_Type = {
         .tp_str = (reprfunc)QuadPrecision_str_dragon4,
         .tp_as_number = &quad_as_scalar,
         .tp_richcompare = (richcmpfunc)quad_richcompare,
+        .tp_getset = QuadPrecision_getset,
 };
 
 int
