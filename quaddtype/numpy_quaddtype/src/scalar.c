@@ -333,6 +333,42 @@ QuadPrecision_dealloc(QuadPrecisionObject *self)
     Py_TYPE(self)->tp_free((PyObject *)self);
 }
 
+static int
+QuadPrecision_getbuffer(QuadPrecisionObject *self, Py_buffer *view, int flags)
+{
+    if (view == NULL) {
+        PyErr_SetString(PyExc_ValueError, "NULL view in getbuffer");
+        return -1;
+    }
+
+    if ((flags & PyBUF_WRITABLE) == PyBUF_WRITABLE) {
+        PyErr_SetString(PyExc_BufferError, "QuadPrecision scalar is not writable");
+        return -1;
+    }
+
+    size_t elem_size = (self->backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
+
+    view->obj = (PyObject *)self;
+    Py_INCREF(self);
+    view->buf = &self->value;
+    view->len = elem_size;
+    view->readonly = 1;
+    view->itemsize = elem_size;
+    view->format = NULL;  // No format string for now
+    view->ndim = 0;
+    view->shape = NULL;
+    view->strides = NULL;
+    view->suboffsets = NULL;
+    view->internal = NULL;
+
+    return 0;
+}
+
+static PyBufferProcs QuadPrecision_as_buffer = {
+    .bf_getbuffer = (getbufferproc)QuadPrecision_getbuffer,
+    .bf_releasebuffer = NULL,
+};
+
 static PyObject *
 QuadPrecision_get_real(QuadPrecisionObject *self, void *closure)
 {
@@ -362,6 +398,7 @@ PyTypeObject QuadPrecision_Type = {
         .tp_repr = (reprfunc)QuadPrecision_repr_dragon4,
         .tp_str = (reprfunc)QuadPrecision_str_dragon4,
         .tp_as_number = &quad_as_scalar,
+        .tp_as_buffer = &QuadPrecision_as_buffer,
         .tp_richcompare = (richcmpfunc)quad_richcompare,
         .tp_getset = QuadPrecision_getset,
 };

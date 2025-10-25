@@ -3089,3 +3089,10 @@ class TestFrexp:
         reconstructed = np.ldexp(quad_m, int(quad_e))
         assert reconstructed == quad_x, \
             f"Reconstruction failed for small value: {reconstructed} != {quad_x}"
+# testng buffer
+def test_buffer():
+    a = QuadPrecision(1.0)
+    buff = a.data
+
+    reconstructed = np.frombuffer(buff, dtype=QuadPrecDType())[0]
+    assert reconstructed == a, "Buffer reconstruction failed"
