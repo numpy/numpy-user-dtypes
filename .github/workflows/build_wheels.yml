@@ -20,10 +20,10 @@ jobs:
     name: Build wheels on Linux
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: ">=3.11.0"
 
@@ -61,7 +61,7 @@ jobs:
           python -m cibuildwheel --output-dir wheelhouse
         working-directory: ./quaddtype
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           path: ./quaddtype/wheelhouse/*.whl
           name: wheels-linux
@@ -74,10 +74,10 @@ jobs:
         os: [macos-14, macos-15, macos-15-intel]
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: ">=3.11.0"
 
@@ -125,7 +125,7 @@ jobs:
           python -m cibuildwheel --output-dir wheelhouse
         working-directory: ./quaddtype
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           path: ./quaddtype/wheelhouse/*.whl
           name: wheels-${{ matrix.os }}
@@ -139,7 +139,7 @@ jobs:
         architecture: [x64]
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
 
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
@@ -147,7 +147,7 @@ jobs:
           arch: ${{ matrix.architecture }}
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: ">=3.11.0"
           architecture: ${{ matrix.architecture }}
@@ -185,7 +185,7 @@ jobs:
           if (-not (Test-Path wheelhouse/*.whl)) { throw "Wheel was not created" }
         working-directory: ./quaddtype
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           path: ./quaddtype/wheelhouse/*.whl
           name: wheels-windows-${{ matrix.architecture }}
@@ -194,10 +194,10 @@ jobs:
     name: Build SDist
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: ">=3.11.0"
 
@@ -222,7 +222,7 @@ jobs:
         working-directory: ./quaddtype
 
       - name: Upload SDist artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: sdist
           path: ./quaddtype/dist/*.tar.gz
@@ -248,7 +248,7 @@ jobs:
 
     steps:
       - name: Download all workflow run artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           pattern: "*"
           path: dist
