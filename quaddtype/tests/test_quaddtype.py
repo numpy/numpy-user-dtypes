@@ -3096,3 +3096,13 @@ def test_buffer():
 
     reconstructed = np.frombuffer(buff, dtype=QuadPrecDType())[0]
     assert reconstructed == a, "Buffer reconstruction failed"
+
+@pytest.mark.parametrize("value", [0.0, -0.0, 1.0, -1.0, 3.14, -2.71, "inf", "-inf", "nan"])
+def test_imag_real(value):
+    a = QuadPrecision(value)
+    if np.isnan(a):
+        assert np.isnan(a.real), "Real part of NaN should be NaN"
+        assert a.imag == QuadPrecision(0.0), "Imaginary part should be zero"
+        return
+    assert a.real == a, "Real part mismatch"
+    assert a.imag == QuadPrecision(0.0), "Imaginary part should be zero"
