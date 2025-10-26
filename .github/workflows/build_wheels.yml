@@ -217,7 +217,7 @@ jobs:
           LDFLAGS: "-fopenmp"
         run: |
           python -m build --sdist --no-isolation --outdir dist/
-          pip install --no-build-isolation dist/*.tar.gz[test] -v
+          pip install --no-build-isolation "$(ls dist/*.tar.gz)"[test] -v
           pytest -s tests
         working-directory: ./quaddtype
 
