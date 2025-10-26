@@ -81,6 +81,12 @@ class QuadPrecision:
     # See https://github.com/python/mypy/issues/18343#issuecomment-2571784915
     def __new__(cls, /, value: _IntoQuad, backend: _Backend = "sleef") -> Self: ...
 
+    # Attributes
+    @property
+    def real(self) -> Self: ...
+    @property
+    def imag(self) -> Self: ...
+
     # Rich comparison operators
     # NOTE: Unlike other numpy scalars, these return `builtins.bool`, not `np.bool`.
     @override
