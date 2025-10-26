@@ -1771,7 +1771,8 @@ class TestTrignometricFunctions:
     quad_result = numpy_op(quad_val)
     mpmath_result = mpmath_op(mpf_val)
     # convert mpmath result to quad for comparison
-    mpmath_result = QuadPrecision(str(mpmath_result))
+    # Use mp.nstr to get full precision (40 digits for quad precision)
+    mpmath_result = QuadPrecision(mp.nstr(mpmath_result, 40))
 
     # Handle NaN cases
     if np.isnan(mpmath_result):
@@ -1815,7 +1816,8 @@ class TestTrignometricFunctions:
     quad_result = numpy_op(quad_val)
     mpmath_result = mpmath_op(mpf_val)
     # convert mpmath result to quad for comparison
-    mpmath_result = QuadPrecision(str(mpmath_result))
+    # Use mp.nstr to get full precision (40 digits for quad precision)
+    mpmath_result = QuadPrecision(mp.nstr(mpmath_result, 40))
 
     # Handle NaN cases
     if np.isnan(mpmath_result):
@@ -1941,7 +1943,8 @@ class TestTrignometricFunctions:
     
     # For all other cases, compare with mpmath
     mpmath_result = mp.atan2(mpf_y, mpf_x)
-    mpmath_result = QuadPrecision(str(mpmath_result))
+    # Use mp.nstr to get full precision (40 digits for quad precision)
+    mpmath_result = QuadPrecision(mp.nstr(mpmath_result, 40))
 
     if np.isnan(mpmath_result):
         assert np.isnan(quad_result), f"Expected NaN for atan2({y}, {x}), got {quad_result}"
