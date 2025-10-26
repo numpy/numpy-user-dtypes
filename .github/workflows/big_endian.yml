@@ -140,7 +140,7 @@ jobs:
               python -m pip install --break-system-packages --no-deps . -v --no-build-isolation --force-reinstall &&
               
               # Install test dependencies separately
-              python -m pip install --break-system-packages pytest pytest-run-parallel pytest-timeout &&
+              python -m pip install --break-system-packages pytest pytest-run-parallel pytest-timeout mpmath &&
               
               cd ..
               python -m pytest -vvv --color=yes --timeout=600 --tb=short quaddtype/tests/
