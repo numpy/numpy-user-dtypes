@@ -76,14 +76,39 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
                 Py_DECREF(self);
                 return NULL;
             }
-            long long lval = PyLong_AsLongLong(py_int);
-            Py_DECREF(py_int);
             
-            if (backend == BACKEND_SLEEF) {
-                self->value.sleef_value = Sleef_cast_from_int64q1(lval);
+            int overflow = 0;
+            long long lval = PyLong_AsLongLongAndOverflow(py_int, &overflow);
+            
+            if (overflow != 0) 
+            {
+                // Integer is too large, convert to string and recursively call this function
+                PyObject *str_obj = PyObject_Str(py_int);
+                Py_DECREF(py_int);
+                if (str_obj == NULL) {
+                    Py_DECREF(self);
+                    return NULL;
+                }
+                
+                // Recursively convert from string
+                QuadPrecisionObject *result = QuadPrecision_from_object(str_obj, backend);
+                Py_DECREF(str_obj);
+                Py_DECREF(self);  // discard the default one
+                return result;
+            }
+            else if (lval == -1 && PyErr_Occurred()) {
+                Py_DECREF(py_int);
+                Py_DECREF(self);
+                return NULL;
             }
             else {
-                self->value.longdouble_value = (long double)lval;
+                Py_DECREF(py_int);
+                if (backend == BACKEND_SLEEF) {
+                    self->value.sleef_value = Sleef_cast_from_int64q1(lval);
+                }
+                else {
+                    self->value.longdouble_value = (long double)lval;
+                }
             }
             return self;
         }
@@ -94,14 +119,38 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
                 Py_DECREF(self);
                 return NULL;
             }
-            long long lval = PyLong_AsLongLong(py_int);
-            Py_DECREF(py_int);
             
-            if (backend == BACKEND_SLEEF) {
-                self->value.sleef_value = Sleef_cast_from_int64q1(lval);
+            int overflow = 0;
+            long long lval = PyLong_AsLongLongAndOverflow(py_int, &overflow);
+            
+            if (overflow != 0) {
+                // Integer is too large, convert to string and recursively call this function
+                PyObject *str_obj = PyObject_Str(py_int);
+                Py_DECREF(py_int);
+                if (str_obj == NULL) {
+                    Py_DECREF(self);
+                    return NULL;
+                }
+                
+                // Recursively convert from string
+                QuadPrecisionObject *result = QuadPrecision_from_object(str_obj, backend);
+                Py_DECREF(str_obj);
+                Py_DECREF(self);  // discard the default one
+                return result;
+            }
+            else if (lval == -1 && PyErr_Occurred()) {
+                Py_DECREF(py_int);
+                Py_DECREF(self);
+                return NULL;
             }
             else {
-                self->value.longdouble_value = (long double)lval;
+                Py_DECREF(py_int);
+                if (backend == BACKEND_SLEEF) {
+                    self->value.sleef_value = Sleef_cast_from_int64q1(lval);
+                }
+                else {
+                    self->value.longdouble_value = (long double)lval;
+                }
             }
             return self;
         }
@@ -145,7 +194,7 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
             self->value.longdouble_value = (long double)dval;
         }
     }
-    else if (PyUnicode_CheckExact(value)) {
+    else if (PyUnicode_Check(value)) {
         const char *s = PyUnicode_AsUTF8(value);
         char *endptr = NULL;
         if (backend == BACKEND_SLEEF) {
@@ -161,17 +210,35 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
         }
     }
     else if (PyLong_Check(value)) {
-        long long val = PyLong_AsLongLong(value);
-        if (val == -1 && PyErr_Occurred()) {
-            PyErr_SetString(PyExc_OverflowError, "Overflow Error, value out of range");
+        int overflow = 0;
+        long long val = PyLong_AsLongLongAndOverflow(value, &overflow);
+        
+        if (overflow != 0) {
+            // Integer is too large, convert to string and recursively call this function
+            PyObject *str_obj = PyObject_Str(value);
+            if (str_obj == NULL) {
+                Py_DECREF(self);
+                return NULL;
+            }
+            
+            // Recursively convert from string
+            QuadPrecisionObject *result = QuadPrecision_from_object(str_obj, backend);
+            Py_DECREF(str_obj);
+            Py_DECREF(self);  // discard the default one
+            return result;
+        }
+        else if (val == -1 && PyErr_Occurred()) {
             Py_DECREF(self);
             return NULL;
         }
-        if (backend == BACKEND_SLEEF) {
-            self->value.sleef_value = Sleef_cast_from_int64q1(val);
-        }
         else {
-            self->value.longdouble_value = (long double)val;
+            // No overflow, use the integer value directly
+            if (backend == BACKEND_SLEEF) {
+                self->value.sleef_value = Sleef_cast_from_int64q1(val);
+            }
+            else {
+                self->value.longdouble_value = (long double)val;
+            }
         }
     }
     else if (Py_TYPE(value) == &QuadPrecision_Type) {

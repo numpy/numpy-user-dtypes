@@ -16,6 +16,45 @@ def test_create_scalar_simple():
     assert isinstance(QuadPrecision(1), QuadPrecision)
 
 
+@pytest.mark.parametrize("int_val", [
+    # Very large integers that exceed long double range
+    2 ** 1024,
+    2 ** 2048,
+    10 ** 308,
+    10 ** 4000,
+    # Edge cases
+    0,
+    1,
+    -1,
+    # Negative large integers
+    -(2 ** 1024),
+])
+def test_create_scalar_from_large_int(int_val):
+    """Test that QuadPrecision can handle very large integers beyond long double range.
+    
+    This test ensures that integers like 2**1024, which overflow standard long double,
+    are properly converted via string representation to QuadPrecision without raising
+    overflow errors. The conversion should match the string-based conversion.
+    """
+    # Convert large int to QuadPrecision
+    result = QuadPrecision(int_val)
+    assert isinstance(result, QuadPrecision)
+    
+    # String conversion should give the same result
+    str_val = str(int_val)
+    result_from_str = QuadPrecision(str_val)
+    
+    # Both conversions should produce the same value
+    # (can be inf==inf on some platforms for very large values)
+    assert result == result_from_str
+    
+    # For zero and small values, verify exact conversion
+    if int_val == 0:
+        assert float(result) == 0.0
+    elif abs(int_val) == 1:
+        assert float(result) == float(int_val)
+
+
 class TestQuadPrecisionArrayCreation:
     """Test suite for QuadPrecision array creation from sequences and arrays."""
     
