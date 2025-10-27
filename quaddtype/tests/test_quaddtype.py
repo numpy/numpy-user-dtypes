@@ -3,8 +3,11 @@ import sys
 import numpy as np
 import operator
 
+from mpmath import mp
+
 import numpy_quaddtype
 from numpy_quaddtype import QuadPrecDType, QuadPrecision
+from numpy_quaddtype import pi as quad_pi
 
 
 def test_create_scalar_simple():
@@ -1735,6 +1738,225 @@ def test_divmod_broadcasting():
         np.testing.assert_allclose(float(quotients[i]), expected_quotients[i], rtol=1e-14)
         np.testing.assert_allclose(float(remainders[i]), expected_remainders[i], rtol=1e-14)
 
+class TestTrignometricFunctions:
+  @pytest.mark.parametrize("op", ["sin", "cos", "tan", "atan"])
+  @pytest.mark.parametrize("val", [
+      # Basic cases
+      "0.0", "-0.0", "1.0", "-1.0", "2.0", "-2.0",
+      # pi multiples
+      str(quad_pi), str(-quad_pi), str(2*quad_pi), str(-2*quad_pi), str(quad_pi/2), str(-quad_pi/2), str(3*quad_pi/2), str(-3*quad_pi/2),
+      # Small values
+      "1e-10", "-1e-10", "1e-15", "-1e-15",
+      # Values near one
+      "0.9", "-0.9", "0.9999", "-0.9999",
+      "1.1", "-1.1", "1.0001", "-1.0001",
+      # Medium values
+      "10.0", "-10.0", "20.0", "-20.0",
+      # Large values
+      "100.0", "200.0", "700.0", "1000.0", "1e100", "1e308",
+      "-100.0", "-200.0", "-700.0", "-1000.0", "-1e100", "-1e308",
+      # Fractional values
+      "0.5", "-0.5", "1.5", "-1.5", "2.5", "-2.5",
+      # Special values
+      "inf", "-inf", "nan",
+  ])
+  def test_sin_cos_tan(self, op, val):
+    mp.prec = 113  # Set precision to 113 bits (~34 decimal digits)
+    numpy_op = getattr(np, op)
+    mpmath_op = getattr(mp, op)
+    
+    quad_val = QuadPrecision(val)
+    mpf_val = mp.mpf(val)
+
+    quad_result = numpy_op(quad_val)
+    mpmath_result = mpmath_op(mpf_val)
+    # convert mpmath result to quad for comparison
+    # Use mp.nstr to get full precision (40 digits for quad precision)
+    mpmath_result = QuadPrecision(mp.nstr(mpmath_result, 40))
+
+    # Handle NaN cases
+    if np.isnan(mpmath_result):
+        assert np.isnan(quad_result), f"Expected NaN for {op}({val}), got {quad_result}"
+        return
+
+    # Handle infinity cases
+    if np.isinf(mpmath_result):
+        assert np.isinf(quad_result), f"Expected inf for {op}({val}), got {quad_result}"
+        assert np.sign(mpmath_result) == np.sign(quad_result), f"Infinity sign mismatch for {op}({val})"
+        return
+
+    # For finite non-zero results
+    np.testing.assert_allclose(quad_result, mpmath_result, rtol=1e-32, atol=1e-34,
+                              err_msg=f"Value mismatch for {op}({val}), expected {mpmath_result}, got {quad_result}")
+
+  # their domain is [-1 , 1]
+  @pytest.mark.parametrize("op", ["asin", "acos"])
+  @pytest.mark.parametrize("val", [
+    # Basic cases (valid domain)
+    "0.0", "-0.0", "1.0", "-1.0",
+    # Small values
+    "1e-10", "-1e-10", "1e-15", "-1e-15",
+    # Values near domain boundaries
+    "0.9", "-0.9", "0.9999", "-0.9999",
+    "0.99999999", "-0.99999999",
+    "0.999999999999", "-0.999999999999",
+    # Fractional values (within domain)
+    "0.5", "-0.5",
+    # Special values
+    "nan"
+  ])
+  def test_inverse_sin_cos(self, op, val):
+    mp.prec = 113  # Set precision to 113 bits (~34 decimal digits)
+    numpy_op = getattr(np, op)
+    mpmath_op = getattr(mp, op)
+    
+    quad_val = QuadPrecision(val)
+    mpf_val = mp.mpf(val)
+
+    quad_result = numpy_op(quad_val)
+    mpmath_result = mpmath_op(mpf_val)
+    # convert mpmath result to quad for comparison
+    # Use mp.nstr to get full precision (40 digits for quad precision)
+    mpmath_result = QuadPrecision(mp.nstr(mpmath_result, 40))
+
+    # Handle NaN cases
+    if np.isnan(mpmath_result):
+        assert np.isnan(quad_result), f"Expected NaN for {op}({val}), got {quad_result}"
+        return
+
+    # For finite non-zero results
+    np.testing.assert_allclose(quad_result, mpmath_result, rtol=1e-32, atol=1e-34,
+                              err_msg=f"Value mismatch for {op}({val}), expected {mpmath_result}, got {quad_result}")
+  
+  # mpmath's atan2 does not follow IEEE standards so hardcoding the edge cases
+  # for special edge cases check reference here: https://en.cppreference.com/w/cpp/numeric/math/atan2.html
+  # atan2: [Real x Real] -> [-pi , pi]
+  @pytest.mark.parametrize("y", [
+    # Basic cases
+    "0.0", "-0.0", "1.0", "-1.0", 
+    # Small values
+    "1e-10", "-1e-10", "1e-15", "-1e-15",
+    # Medium/Large values
+    "10.0", "-10.0", "100.0", "-100.0", "1000.0", "-1000.0",
+    # Fractional
+    "0.5", "-0.5", "2.5", "-2.5",
+    # Special
+    "inf", "-inf", "nan",
+  ])
+  @pytest.mark.parametrize("x", [
+      "0.0", "-0.0", "1.0", "-1.0",
+      "1e-10", "-1e-10",
+      "10.0", "-10.0", "100.0", "-100.0",
+      "0.5", "-0.5",
+      "inf", "-inf", "nan",
+  ])
+  def test_atan2(self, y, x):
+    mp.prec = 113
+    
+    quad_y = QuadPrecision(y)
+    quad_x = QuadPrecision(x)
+    mpf_y = mp.mpf(y)
+    mpf_x = mp.mpf(x)
+
+    quad_result = np.arctan2(quad_y, quad_x)
+    
+    # IEEE 754 special cases - hardcoded expectations
+    y_val = float(y)
+    x_val = float(x)
+    
+    # If either x is NaN or y is NaN, NaN is returned
+    if np.isnan(y_val) or np.isnan(x_val):
+        assert np.isnan(quad_result), f"Expected NaN for atan2({y}, {x}), got {quad_result}"
+        return
+    
+    # If y is ±0 and x is negative or -0, ±π is returned
+    if y_val == 0.0 and (x_val < 0.0 or (x_val == 0.0 and np.signbit(x_val))):
+        expected = quad_pi if not np.signbit(y_val) else -quad_pi
+        np.testing.assert_allclose(quad_result, expected, rtol=1e-32, atol=1e-34,
+                                  err_msg=f"Value mismatch for atan2({y}, {x}), expected {expected}, got {quad_result}")
+        return
+    
+    # If y is ±0 and x is positive or +0, ±0 is returned
+    if y_val == 0.0 and (x_val > 0.0 or (x_val == 0.0 and not np.signbit(x_val))):
+        assert quad_result == 0.0, f"Expected ±0 for atan2({y}, {x}), got {quad_result}"
+        assert np.signbit(quad_result) == np.signbit(y_val), f"Sign mismatch for atan2({y}, {x})"
+        return
+    
+    # If y is ±∞ and x is finite, ±π/2 is returned
+    if np.isinf(y_val) and np.isfinite(x_val):
+        expected = quad_pi / 2 if y_val > 0 else -quad_pi / 2
+        np.testing.assert_allclose(quad_result, expected, rtol=1e-32, atol=1e-34,
+                                  err_msg=f"Value mismatch for atan2({y}, {x}), expected {expected}, got {quad_result}")
+        return
+    
+    # If y is ±∞ and x is -∞, ±3π/4 is returned
+    if np.isinf(y_val) and np.isinf(x_val) and x_val < 0:
+        expected = 3 * quad_pi / 4 if y_val > 0 else -3 * quad_pi / 4
+        np.testing.assert_allclose(quad_result, expected, rtol=1e-32, atol=1e-34,
+                                  err_msg=f"Value mismatch for atan2({y}, {x}), expected {expected}, got {quad_result}")
+        return
+    
+    # If y is ±∞ and x is +∞, ±π/4 is returned
+    if np.isinf(y_val) and np.isinf(x_val) and x_val > 0:
+        expected = quad_pi / 4 if y_val > 0 else -quad_pi / 4
+        np.testing.assert_allclose(quad_result, expected, rtol=1e-32, atol=1e-34,
+                                  err_msg=f"Value mismatch for atan2({y}, {x}), expected {expected}, got {quad_result}")
+        return
+    
+    # If x is ±0 and y is negative, -π/2 is returned
+    if x_val == 0.0 and y_val < 0.0:
+        expected = -quad_pi / 2
+        np.testing.assert_allclose(quad_result, expected, rtol=1e-32, atol=1e-34,
+                                  err_msg=f"Value mismatch for atan2({y}, {x}), expected {expected}, got {quad_result}")
+        return
+    
+    # If x is ±0 and y is positive, +π/2 is returned
+    if x_val == 0.0 and y_val > 0.0:
+        expected = quad_pi / 2
+        np.testing.assert_allclose(quad_result, expected, rtol=1e-32, atol=1e-34,
+                                  err_msg=f"Value mismatch for atan2({y}, {x}), expected {expected}, got {quad_result}")
+        return
+    
+    # If x is -∞ and y is finite and positive, +π is returned
+    if np.isinf(x_val) and x_val < 0 and np.isfinite(y_val) and y_val > 0.0:
+        expected = quad_pi
+        np.testing.assert_allclose(quad_result, expected, rtol=1e-32, atol=1e-34,
+                                  err_msg=f"Value mismatch for atan2({y}, {x}), expected {expected}, got {quad_result}")
+        return
+    
+    # If x is -∞ and y is finite and negative, -π is returned
+    if np.isinf(x_val) and x_val < 0 and np.isfinite(y_val) and y_val < 0.0:
+        expected = -quad_pi
+        np.testing.assert_allclose(quad_result, expected, rtol=1e-32, atol=1e-34,
+                                  err_msg=f"Value mismatch for atan2({y}, {x}), expected {expected}, got {quad_result}")
+        return
+    
+    # If x is +∞ and y is finite and positive, +0 is returned
+    if np.isinf(x_val) and x_val > 0 and np.isfinite(y_val) and y_val > 0.0:
+        assert quad_result == 0.0 and not np.signbit(quad_result), f"Expected +0 for atan2({y}, {x}), got {quad_result}"
+        return
+    
+    # If x is +∞ and y is finite and negative, -0 is returned
+    if np.isinf(x_val) and x_val > 0 and np.isfinite(y_val) and y_val < 0.0:
+        assert quad_result == 0.0 and np.signbit(quad_result), f"Expected -0 for atan2({y}, {x}), got {quad_result}"
+        return
+    
+    # For all other cases, compare with mpmath
+    mpmath_result = mp.atan2(mpf_y, mpf_x)
+    # Use mp.nstr to get full precision (40 digits for quad precision)
+    mpmath_result = QuadPrecision(mp.nstr(mpmath_result, 40))
+
+    if np.isnan(mpmath_result):
+        assert np.isnan(quad_result), f"Expected NaN for atan2({y}, {x}), got {quad_result}"
+        return
+
+    if np.isinf(mpmath_result):
+        assert np.isinf(quad_result), f"Expected inf for atan2({y}, {x}), got {quad_result}"
+        assert np.sign(mpmath_result) == np.sign(quad_result), f"Infinity sign mismatch for atan2({y}, {x})"
+        return
+
+    np.testing.assert_allclose(quad_result, mpmath_result, rtol=1e-32, atol=1e-34,
+                              err_msg=f"Value mismatch for atan2({y}, {x}), expected {mpmath_result}, got {quad_result}")
 
 @pytest.mark.parametrize("op", ["sinh", "cosh", "tanh", "arcsinh", "arccosh", "arctanh"])
 @pytest.mark.parametrize("val", [
