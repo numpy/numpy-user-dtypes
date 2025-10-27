@@ -40,13 +40,13 @@
 | square        | ✅    | ✅                                                                   |
 | cbrt          | ✅    | ✅                                                                   |
 | reciprocal    | ✅    | ✅                                                                   |
-| sin           | ✅    | ❌ _Need: basic tests + edge cases (NaN/inf/0/π multiples/2π range)_ |
-| cos           | ✅    | ❌ _Need: basic tests + edge cases (NaN/inf/0/π multiples/2π range)_ |
-| tan           | ✅    | ❌ _Need: basic tests + edge cases (NaN/inf/0/π/2 asymptotes)_       |
-| arcsin        | ✅    | ❌ _Need: basic tests + edge cases (NaN/inf/±1/out-of-domain)_       |
-| arccos        | ✅    | ❌ _Need: basic tests + edge cases (NaN/inf/±1/out-of-domain)_       |
-| arctan        | ✅    | ❌ _Need: basic tests + edge cases (NaN/inf/0/asymptotes)_           |
-| arctan2       | ✅    | ❌ _Need: basic tests + edge cases (NaN/inf/0/quadrant coverage)_    |
+| sin           | ✅    | ✅                                                                   |
+| cos           | ✅    | ✅                                                                   |
+| tan           | ✅    | ✅                                                                   |
+| arcsin        | ✅    | ✅                                                                   |
+| arccos        | ✅    | ✅                                                                   |
+| arctan        | ✅    | ✅                                                                   |
+| arctan2       | ✅    | ✅                                                                   |
 | hypot         | ✅    | ✅                                                                   |
 | sinh          | ✅    | ✅                                                                   |
 | cosh          | ✅    | ✅                                                                   |
