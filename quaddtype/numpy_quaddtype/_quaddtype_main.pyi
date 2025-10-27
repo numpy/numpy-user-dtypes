@@ -1,6 +1,7 @@
 from typing import Any, Literal, TypeAlias, final, overload
 
 import numpy as np
+from numpy._typing import _128Bit  # pyright: ignore[reportPrivateUsage]
 from typing_extensions import Never, Self, override
 
 _Backend: TypeAlias = Literal["sleef", "longdouble"]
@@ -12,9 +13,10 @@ _IntoQuad: TypeAlias = (
     | np.integer[Any]
     | np.bool_
 )  # fmt: skip
+_ScalarItemArg: TypeAlias = Literal[0, -1] | tuple[Literal[0, -1]] | tuple[()]
 
 @final
-class QuadPrecDType(np.dtype[QuadPrecision]):  # type: ignore[misc, type-var]  # pyright: ignore[reportGeneralTypeIssues, reportInvalidTypeArguments]
+class QuadPrecDType(np.dtype[QuadPrecision]):  # type: ignore[misc]  # pyright: ignore[reportGeneralTypeIssues]
     def __new__(cls, /, backend: _Backend = "sleef") -> Self: ...
 
     # `numpy.dtype` overrides
@@ -70,61 +72,94 @@ class QuadPrecDType(np.dtype[QuadPrecision]):  # type: ignore[misc, type-var]  #
     @override
     def __getitem__(self, key: Never, /) -> Self: ...  # type: ignore[override]
 
-# NOTE: Until `QuadPrecision` will become a subclass of `np.generic`, this class cannot
-# be considered "type-safe".
 @final
-class QuadPrecision:
+class QuadPrecision(np.floating[_128Bit]):
     # NOTE: At runtime this constructor also accepts array-likes, for which it returns
     # `np.ndarray` instances with `dtype=QuadPrecDType()`.
     # But because of mypy limitations, it is currently impossible to annotate
     # constructors that do no return instances of their class (or a subclass thereof).
     # See https://github.com/python/mypy/issues/18343#issuecomment-2571784915
+    @override
     def __new__(cls, /, value: _IntoQuad, backend: _Backend = "sleef") -> Self: ...
 
-    # Attributes
+    # numpy.floating property overrides
+
     @property
+    @override
+    def dtype(self) -> QuadPrecDType: ...
+    @property
+    @override
     def real(self) -> Self: ...
     @property
+    @override
     def imag(self) -> Self: ...
 
-    # Rich comparison operators
-    # NOTE: Unlike other numpy scalars, these return `builtins.bool`, not `np.bool`.
+    # numpy.floating method overrides
+
+    @override
+    def item(self, arg0: _ScalarItemArg = ..., /) -> Self: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+    @override
+    def tolist(self, /) -> Self: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+
+    # Equality operators
     @override
     def __eq__(self, other: object, /) -> bool: ...
     @override
     def __ne__(self, other: object, /) -> bool: ...
-    def __lt__(self, other: _IntoQuad, /) -> bool: ...
-    def __le__(self, other: _IntoQuad, /) -> bool: ...
-    def __gt__(self, other: _IntoQuad, /) -> bool: ...
-    def __ge__(self, other: _IntoQuad, /) -> bool: ...
 
-    # Binary operators
-    def __add__(self, other: _IntoQuad, /) -> Self: ...
-    def __radd__(self, other: _IntoQuad, /) -> Self: ...
-    def __sub__(self, other: _IntoQuad, /) -> Self: ...
-    def __rsub__(self, other: _IntoQuad, /) -> Self: ...
-    def __mul__(self, other: _IntoQuad, /) -> Self: ...
-    def __rmul__(self, other: _IntoQuad, /) -> Self: ...
-    def __pow__(self, other: _IntoQuad, mod: None = None, /) -> Self: ...
-    def __rpow__(self, other: _IntoQuad, mod: None = None, /) -> Self: ...
-    def __truediv__(self, other: _IntoQuad, /) -> Self: ...
-    def __rtruediv__(self, other: _IntoQuad, /) -> Self: ...
-
-    # Unary operators
-    def __neg__(self, /) -> Self: ...
-    def __pos__(self, /) -> Self: ...
-    def __abs__(self, /) -> Self: ...
-
-    # Conversion methods
-    def __bool__(self, /) -> bool: ...
-    def __int__(self, /) -> int: ...
-    def __float__(self, /) -> float: ...
-
-    # String representation
+    # Rich comparison operators
+    # NOTE: Unlike other numpy scalars, these return `builtins.bool`, not `np.bool`.
     @override
-    def __repr__(self, /) -> str: ...
+    def __lt__(self, other: _IntoQuad, /) -> bool: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
     @override
-    def __str__(self, /) -> str: ...
+    def __le__(self, other: _IntoQuad, /) -> bool: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+    @override
+    def __gt__(self, other: _IntoQuad, /) -> bool: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+    @override
+    def __ge__(self, other: _IntoQuad, /) -> bool: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+
+    # Binary arithmetic operators
+    @override
+    def __add__(self, other: _IntoQuad, /) -> Self: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+    @override
+    def __radd__(self, other: _IntoQuad, /) -> Self: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+    @override
+    def __sub__(self, other: _IntoQuad, /) -> Self: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+    @override
+    def __rsub__(self, other: _IntoQuad, /) -> Self: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+    @override
+    def __mul__(self, other: _IntoQuad, /) -> Self: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+    @override
+    def __rmul__(self, other: _IntoQuad, /) -> Self: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+    @override
+    def __pow__(self, other: _IntoQuad, mod: None = None, /) -> Self: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+    @override
+    def __rpow__(self, other: _IntoQuad, mod: None = None, /) -> Self: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+    @override
+    def __truediv__(self, other: _IntoQuad, /) -> Self: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+    @override
+    def __rtruediv__(self, other: _IntoQuad, /) -> Self: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+
+    # Binary modulo operators
+    @override
+    def __floordiv__(self, other: _IntoQuad, /) -> Self: ...
+    @override
+    def __rfloordiv__(self, other: _IntoQuad, /) -> Self: ...
+    @override
+    def __mod__(self, other: _IntoQuad, /) -> Self: ...
+    @override
+    def __rmod__(self, other: _IntoQuad, /) -> Self: ...
+    @override
+    def __divmod__(self, other: _IntoQuad, /) -> tuple[Self, Self]: ...
+    @override
+    def __rdivmod__(self, other: _IntoQuad, /) -> tuple[Self, Self]: ...
+
+    # NOTE: is_integer() and as_integer_ratio() are defined on numpy.floating in the
+    # stubs, but don't exist at runtime. And because QuadPrecision does not have
+    # implement them, we use this hacky workaround to emulate their abscence.
+    # TODO: Remove after https://github.com/numpy/numpy-user-dtypes/issues/216
+    is_integer: Never  # pyright: ignore[reportIncompatibleMethodOverride]
+    as_integer_ratio: Never  # pyright: ignore[reportIncompatibleMethodOverride]
 
 #
 def is_longdouble_128() -> bool: ...
