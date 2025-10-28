@@ -77,7 +77,7 @@ class QuadPrecision(np.floating[_128Bit]):
     # NOTE: At runtime this constructor also accepts array-likes, for which it returns
     # `np.ndarray` instances with `dtype=QuadPrecDType()`.
     # But because of mypy limitations, it is currently impossible to annotate
-    # constructors that do no return instances of their class (or a subclass thereof).
+    # constructors that do not return instances of their class (or a subclass thereof).
     # See https://github.com/python/mypy/issues/18343#issuecomment-2571784915
     @override
     def __new__(cls, /, value: _IntoQuad, backend: _Backend = "sleef") -> Self: ...
@@ -155,8 +155,8 @@ class QuadPrecision(np.floating[_128Bit]):
     def __rdivmod__(self, other: _IntoQuad, /) -> tuple[Self, Self]: ...
 
     # NOTE: is_integer() and as_integer_ratio() are defined on numpy.floating in the
-    # stubs, but don't exist at runtime. And because QuadPrecision does not have
-    # implement them, we use this hacky workaround to emulate their abscence.
+    # stubs, but don't exist at runtime. And because QuadPrecision does not implement
+    # them, we use this hacky workaround to emulate their absence.
     # TODO: Remove after https://github.com/numpy/numpy-user-dtypes/issues/216
     is_integer: Never  # pyright: ignore[reportIncompatibleMethodOverride]
     as_integer_ratio: Never  # pyright: ignore[reportIncompatibleMethodOverride]
