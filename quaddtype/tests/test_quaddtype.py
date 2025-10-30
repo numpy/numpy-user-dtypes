@@ -411,12 +411,9 @@ class TestComparisonReductionOps:
         """Test all and any reduction operations."""
         quad_array = np.array([QuadPrecision(x) for x in input_array])
         float_array = np.array([float(x) for x in input_array])
-        if op == "all":
-            result = np.all(quad_array)
-            expected = np.all(float_array)
-        else:  # op == "any"
-            result = np.any(quad_array)
-            expected = np.any(float_array)
+        op = getattr(np, op)
+        result = op(quad_array)
+        expected = op(float_array)
         
         assert result == expected, (
             f"Reduction op '{op}' failed for input {input_array}: "
