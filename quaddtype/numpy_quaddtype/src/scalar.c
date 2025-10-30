@@ -383,6 +383,227 @@ QuadPrecision_get_imag(QuadPrecisionObject *self, void *closure)
     return (PyObject *)QuadPrecision_raw_new(self->backend);
 }
 
+// Method implementations for float compatibility
+static PyObject *
+QuadPrecision_is_integer(QuadPrecisionObject *self, PyObject *Py_UNUSED(ignored))
+{
+    Sleef_quad value;
+    
+    if (self->backend == BACKEND_SLEEF) {
+        value = self->value.sleef_value;
+    }
+    else {
+        value = Sleef_cast_from_doubleq1((double)self->value.longdouble_value);
+    }
+    
+    // Check if value is finite (not inf or nan)
+    // Using the same approach as quad_isfinite: abs(x) < inf
+    Sleef_quad abs_value = Sleef_fabsq1(value);
+    Sleef_quad pos_inf = Sleef_cast_from_doubleq1(INFINITY);
+    int32_t is_finite = Sleef_icmpltq1(abs_value, pos_inf);
+    
+    if (!is_finite) {
+        Py_RETURN_FALSE;
+    }
+    
+    // Check if value equals its truncated version
+    Sleef_quad truncated = Sleef_truncq1(value);
+    int32_t is_equal = Sleef_icmpeqq1(value, truncated);
+    
+    if (is_equal) {
+        Py_RETURN_TRUE;
+    }
+    else {
+        Py_RETURN_FALSE;
+    }
+}
+
+static PyObject *
+QuadPrecision_as_integer_ratio(QuadPrecisionObject *self, PyObject *Py_UNUSED(ignored))
+{
+    Sleef_quad value;
+    
+    if (self->backend == BACKEND_SLEEF) {
+        value = self->value.sleef_value;
+    }
+    else {
+        value = Sleef_cast_from_doubleq1((double)self->value.longdouble_value);
+    }
+    
+    // Check for infinity using: abs(x) == inf
+    Sleef_quad abs_value = Sleef_fabsq1(value);
+    Sleef_quad pos_inf = Sleef_cast_from_doubleq1(INFINITY);
+    int32_t is_inf = Sleef_icmpeqq1(abs_value, pos_inf);
+    
+    if (is_inf) {
+        PyErr_SetString(PyExc_OverflowError, "cannot convert Infinity to integer ratio");
+        return NULL;
+    }
+    
+    // Check for NaN using: x != x (NaN property)
+    int32_t is_nan = !Sleef_icmpeqq1(value, value);
+    
+    if (is_nan) {
+        PyErr_SetString(PyExc_ValueError, "cannot convert NaN to integer ratio");
+        return NULL;
+    }
+    
+    // Handle zero
+    Sleef_quad zero = Sleef_cast_from_int64q1(0);
+    if (Sleef_icmpeqq1(value, zero)) {
+        PyObject *numerator = PyLong_FromLong(0);
+        PyObject *denominator = PyLong_FromLong(1);
+        if (!numerator || !denominator) {
+            Py_XDECREF(numerator);
+            Py_XDECREF(denominator);
+            return NULL;
+        }
+        PyObject *result = PyTuple_Pack(2, numerator, denominator);
+        Py_DECREF(numerator);
+        Py_DECREF(denominator);
+        return result;
+    }
+    
+    // Remember the sign and work with absolute value
+    int is_negative = Sleef_icmpltq1(value, zero);
+    abs_value = Sleef_fabsq1(value);
+    
+    // Extract mantissa and exponent using frexp
+    // frexp returns value = mantissa * 2^exponent, where 0.5 <= |mantissa| < 1
+    int exponent;
+    Sleef_quad mantissa = Sleef_frexpq1(abs_value, &exponent);
+    
+    // For quad precision, we have 113 bits of precision  
+    // Scale mantissa by 2^113 to get all significant bits as an integer
+    const int QUAD_MANT_DIG = 113;
+    
+    // We'll build the numerator by converting the mantissa to a hex string
+    // and parsing it, which preserves all the precision
+    char hex_buffer[64];
+    Sleef_snprintf(hex_buffer, sizeof(hex_buffer), "%.28Qa", mantissa);
+    
+    // Parse the hex representation to get exact mantissa bits
+    // The format is like "0x1.fffffp+0" or similar
+    // We need to extract the mantissa and exponent separately
+    
+    // Instead of using hex parsing (which is complex), let's use a different approach:
+    // Build the mantissa as an integer by extracting 64-bit chunks
+    
+    // Multiply mantissa by 2^113 to shift all bits into the integer part
+    Sleef_quad scaled = Sleef_ldexpq1(mantissa, QUAD_MANT_DIG);
+    
+    // Now extract the integer value in two 64-bit chunks
+    // First get the upper 64 bits
+    Sleef_quad two_64 = Sleef_cast_from_doubleq1(18446744073709551616.0);  // 2^64
+    Sleef_quad upper_part = Sleef_floorq1(Sleef_divq1_u05(scaled, two_64));
+    uint64_t upper_bits = Sleef_cast_to_uint64q1(upper_part);
+    
+    // Get the lower 64 bits
+    Sleef_quad lower_part_quad = Sleef_subq1_u05(scaled, Sleef_mulq1_u05(upper_part, two_64));
+    uint64_t lower_bits = Sleef_cast_to_uint64q1(lower_part_quad);
+    
+    // Build Python integer from the two 64-bit parts
+    PyObject *upper_py = PyLong_FromUnsignedLongLong(upper_bits);
+    if (!upper_py) {
+        return NULL;
+    }
+    
+    PyObject *shift_64 = PyLong_FromLong(64);
+    if (!shift_64) {
+        Py_DECREF(upper_py);
+        return NULL;
+    }
+    
+    PyObject *shifted_upper = PyNumber_Lshift(upper_py, shift_64);
+    Py_DECREF(upper_py);
+    Py_DECREF(shift_64);
+    if (!shifted_upper) {
+        return NULL;
+    }
+    
+    PyObject *lower_py = PyLong_FromUnsignedLongLong(lower_bits);
+    if (!lower_py) {
+        Py_DECREF(shifted_upper);
+        return NULL;
+    }
+    
+    PyObject *numerator = PyNumber_Add(shifted_upper, lower_py);
+    Py_DECREF(shifted_upper);
+    Py_DECREF(lower_py);
+    if (!numerator) {
+        return NULL;
+    }
+    
+    // Calculate the final exponent
+    // value = mantissa * 2^exponent = (numerator / 2^113) * 2^exponent
+    // value = numerator * 2^(exponent - 113)
+    int final_exponent = exponent - QUAD_MANT_DIG;
+    
+    PyObject *denominator;
+    if (final_exponent >= 0) {
+        // Shift numerator left
+        PyObject *shift = PyLong_FromLong(final_exponent);
+        if (!shift) {
+            Py_DECREF(numerator);
+            return NULL;
+        }
+        PyObject *new_numerator = PyNumber_Lshift(numerator, shift);
+        Py_DECREF(shift);
+        Py_DECREF(numerator);
+        if (!new_numerator) {
+            return NULL;
+        }
+        numerator = new_numerator;
+        denominator = PyLong_FromLong(1);
+    }
+    else {
+        // Shift denominator left (denominator = 2^(-final_exponent))
+        PyObject *shift = PyLong_FromLong(-final_exponent);
+        if (!shift) {
+            Py_DECREF(numerator);
+            return NULL;
+        }
+        PyObject *one = PyLong_FromLong(1);
+        if (!one) {
+            Py_DECREF(shift);
+            Py_DECREF(numerator);
+            return NULL;
+        }
+        denominator = PyNumber_Lshift(one, shift);
+        Py_DECREF(one);
+        Py_DECREF(shift);
+        if (!denominator) {
+            Py_DECREF(numerator);
+            return NULL;
+        }
+    }
+    
+    // Apply sign
+    if (is_negative) {
+        PyObject *new_numerator = PyNumber_Negative(numerator);
+        Py_DECREF(numerator);
+        if (!new_numerator) {
+            Py_DECREF(denominator);
+            return NULL;
+        }
+        numerator = new_numerator;
+    }
+    
+    // Create and return the tuple
+    PyObject *result = PyTuple_Pack(2, numerator, denominator);
+    Py_DECREF(numerator);
+    Py_DECREF(denominator);
+    return result;
+}
+
+static PyMethodDef QuadPrecision_methods[] = {
+    {"is_integer", (PyCFunction)QuadPrecision_is_integer, METH_NOARGS,
+     "Return True if the value is an integer."},
+    {"as_integer_ratio", (PyCFunction)QuadPrecision_as_integer_ratio, METH_NOARGS,
+     "Return a pair of integers whose ratio is exactly equal to the original value."},
+    {NULL, NULL, 0, NULL}  /* Sentinel */
+};
+
 static PyGetSetDef QuadPrecision_getset[] = {
     {"real", (getter)QuadPrecision_get_real, NULL, "Real part of the scalar", NULL},
     {"imag", (getter)QuadPrecision_get_imag, NULL, "Imaginary part of the scalar (always 0 for real types)", NULL},
@@ -400,6 +621,7 @@ PyTypeObject QuadPrecision_Type = {
         .tp_as_number = &quad_as_scalar,
         .tp_as_buffer = &QuadPrecision_as_buffer,
         .tp_richcompare = (richcmpfunc)quad_richcompare,
+        .tp_methods = QuadPrecision_methods,
         .tp_getset = QuadPrecision_getset,
 };
 

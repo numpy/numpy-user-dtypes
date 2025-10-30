@@ -3508,3 +3508,239 @@ class TestFileIO:
             np.testing.assert_array_equal(result, expected)
         finally:
             os.unlink(fname)
+
+
+class TestFloatCompatibilityMethods:
+    """Test suite for float compatibility methods: is_integer() and as_integer_ratio()."""
+    
+    def test_is_integer_true_cases(self):
+        """Test is_integer() returns True for integer values."""
+        # Positive integers
+        assert QuadPrecision("1.0").is_integer()
+        assert QuadPrecision("42.0").is_integer()
+        assert QuadPrecision("1000.0").is_integer()
+        
+        # Negative integers
+        assert QuadPrecision("-1.0").is_integer()
+        assert QuadPrecision("-42.0").is_integer()
+        
+        # Zero
+        assert QuadPrecision("0.0").is_integer()
+        assert QuadPrecision("-0.0").is_integer()
+        
+        # Large integers
+        assert QuadPrecision("1e20").is_integer()
+        assert QuadPrecision("123456789012345678901234567890").is_integer()
+    
+    def test_is_integer_false_cases(self):
+        """Test is_integer() returns False for non-integer values."""
+        # Simple fractional values
+        assert not QuadPrecision("1.5").is_integer()
+        assert not QuadPrecision("3.14").is_integer()
+        assert not QuadPrecision("-2.5").is_integer()
+        
+        # Small fractional values
+        assert not QuadPrecision("0.1").is_integer()
+        assert not QuadPrecision("0.0001").is_integer()
+        
+        # Values close to integers but not exact
+        assert not QuadPrecision("1.0000000000001").is_integer()
+        assert not QuadPrecision("0.9999999999999").is_integer()
+    
+    def test_is_integer_special_values(self):
+        """Test is_integer() with special values."""
+        # Infinity should return False
+        inf = QuadPrecision("inf")
+        assert not inf.is_integer()
+        
+        neg_inf = QuadPrecision("-inf")
+        assert not neg_inf.is_integer()
+        
+        # NaN should return False
+        nan = QuadPrecision("nan")
+        assert not nan.is_integer()
+    
+    def test_is_integer_compatibility_with_float(self):
+        """Test is_integer() matches behavior of Python's float."""
+        test_values = ["0.0", "1.0", "1.5", "-3.0", "-3.7", "42.0"]
+        
+        for val_str in test_values:
+            quad_val = QuadPrecision(val_str)
+            float_val = float(val_str)
+            
+            assert quad_val.is_integer() == float_val.is_integer(), \
+                f"Mismatch for {val_str}: quad={quad_val.is_integer()}, float={float_val.is_integer()}"
+    
+    def test_as_integer_ratio_simple_cases(self):
+        """Test as_integer_ratio() for simple values."""
+        # Integer values
+        num, denom = QuadPrecision("1.0").as_integer_ratio()
+        assert num == 1 and denom == 1
+        
+        num, denom = QuadPrecision("42.0").as_integer_ratio()
+        assert num == 42 and denom == 1
+        
+        num, denom = QuadPrecision("-5.0").as_integer_ratio()
+        assert num == -5 and denom == 1
+        
+        # Zero
+        num, denom = QuadPrecision("0.0").as_integer_ratio()
+        assert num == 0 and denom == 1
+    
+    def test_as_integer_ratio_fractional_values(self):
+        """Test as_integer_ratio() for fractional values."""
+        # 0.5 = 1/2
+        num, denom = QuadPrecision("0.5").as_integer_ratio()
+        assert num / denom == 0.5
+        assert denom > 0  # Denominator should always be positive
+        
+        # 0.25 = 1/4
+        num, denom = QuadPrecision("0.25").as_integer_ratio()
+        assert num / denom == 0.25
+        
+        # 1.5 = 3/2
+        num, denom = QuadPrecision("1.5").as_integer_ratio()
+        assert num / denom == 1.5
+        
+        # -2.5 = -5/2
+        num, denom = QuadPrecision("-2.5").as_integer_ratio()
+        assert num / denom == -2.5
+    
+    def test_as_integer_ratio_reconstruction(self):
+        """Test that as_integer_ratio() can reconstruct the original value."""
+        test_values = ["3.14", "0.1", "1.414213562373095", "2.718281828459045", 
+                       "-1.23456789", "1000.001", "0.0001"]
+        
+        for val_str in test_values:
+            quad_val = QuadPrecision(val_str)
+            num, denom = quad_val.as_integer_ratio()
+            
+            # Reconstruct the value
+            reconstructed = QuadPrecision(num) / QuadPrecision(denom)
+            
+            # Should be very close (within quad precision limits)
+            assert reconstructed == quad_val, \
+                f"Failed to reconstruct {val_str}: got {reconstructed} from {num}/{denom}"
+    
+    def test_as_integer_ratio_return_types(self):
+        """Test that as_integer_ratio() returns Python ints."""
+        num, denom = QuadPrecision("3.14").as_integer_ratio()
+        
+        assert isinstance(num, int), f"Numerator should be int, got {type(num)}"
+        assert isinstance(denom, int), f"Denominator should be int, got {type(denom)}"
+    
+    def test_as_integer_ratio_denominator_positive(self):
+        """Test that denominator is always positive."""
+        test_values = ["-1.0", "-3.14", "-0.5", "1.0", "3.14", "0.5"]
+        
+        for val_str in test_values:
+            num, denom = QuadPrecision(val_str).as_integer_ratio()
+            assert denom > 0, f"Denominator should be positive for {val_str}, got {denom}"
+    
+    def test_as_integer_ratio_infinity_raises(self):
+        """Test that as_integer_ratio() raises OverflowError for infinity."""
+        inf = QuadPrecision("inf")
+        with pytest.raises(OverflowError, match="cannot convert Infinity to integer ratio"):
+            inf.as_integer_ratio()
+        
+        neg_inf = QuadPrecision("-inf")
+        with pytest.raises(OverflowError, match="cannot convert Infinity to integer ratio"):
+            neg_inf.as_integer_ratio()
+    
+    def test_as_integer_ratio_nan_raises(self):
+        """Test that as_integer_ratio() raises ValueError for NaN."""
+        nan = QuadPrecision("nan")
+        with pytest.raises(ValueError, match="cannot convert NaN to integer ratio"):
+            nan.as_integer_ratio()
+    
+    def test_as_integer_ratio_compatibility_with_float(self):
+        """Test as_integer_ratio() matches behavior of Python's float where possible."""
+        # For values that fit in float64 precision
+        test_values = ["1.0", "0.5", "3.14", "-2.5", "0.0"]
+        
+        for val_str in test_values:
+            quad_val = QuadPrecision(val_str)
+            float_val = float(val_str)
+            
+            quad_num, quad_denom = quad_val.as_integer_ratio()
+            float_num, float_denom = float_val.as_integer_ratio()
+            
+            # The ratios should be equal (though potentially in different reduced forms)
+            quad_ratio = quad_num / quad_denom
+            float_ratio = float_num / float_denom
+            
+            assert abs(quad_ratio - float_ratio) < 1e-15, \
+                f"Mismatch for {val_str}: quad={quad_num}/{quad_denom}, float={float_num}/{float_denom}"
+    
+    def test_as_integer_ratio_large_values(self):
+        """Test as_integer_ratio() with large values."""
+        # Large integer
+        large_val = QuadPrecision("1e20")
+        num, denom = large_val.as_integer_ratio()
+        assert num / denom == float(str(large_val))
+        
+        # Large fractional value
+        large_frac = QuadPrecision("1.23e15")
+        num, denom = large_frac.as_integer_ratio()
+        reconstructed = num / denom
+        assert abs(reconstructed - 1.23e15) < 1e10  # Allow some tolerance for large numbers
+    
+    def test_as_integer_ratio_small_values(self):
+        """Test as_integer_ratio() with very small values."""
+        small_val = QuadPrecision("1e-30")
+        num, denom = small_val.as_integer_ratio()
+        
+        # Reconstruct and verify
+        reconstructed = QuadPrecision(num) / QuadPrecision(denom)
+        assert reconstructed == small_val
+    
+    def test_methods_available_on_type(self):
+        """Test that methods are available on the QuadPrecision class."""
+        # Check that the methods exist
+        assert hasattr(QuadPrecision, 'is_integer')
+        assert hasattr(QuadPrecision, 'as_integer_ratio')
+        
+        # Check that they're callable
+        assert callable(getattr(QuadPrecision, 'is_integer'))
+        assert callable(getattr(QuadPrecision, 'as_integer_ratio'))
+    
+    def test_methods_available_on_instance(self):
+        """Test that methods are available on QuadPrecision instances."""
+        val = QuadPrecision("3.14")
+        
+        # Check that the methods exist on the instance
+        assert hasattr(val, 'is_integer')
+        assert hasattr(val, 'as_integer_ratio')
+        
+        # Check that they're callable
+        assert callable(val.is_integer)
+        assert callable(val.as_integer_ratio)
+    
+    def test_is_integer_with_different_backends(self):
+        """Test is_integer() with both SLEEF and longdouble backends."""
+        # Note: This test assumes longdouble backend is available
+        try:
+            sleef_val = QuadPrecision("3.0", backend="sleef")
+            assert sleef_val.is_integer()
+            
+            # Only test longdouble if it's actually 128-bit
+            if numpy_quaddtype.is_longdouble_128():
+                ld_val = QuadPrecision("3.0", backend="longdouble")
+                assert ld_val.is_integer()
+        except Exception:
+            pytest.skip("Backend not available")
+    
+    def test_as_integer_ratio_with_different_backends(self):
+        """Test as_integer_ratio() with both SLEEF and longdouble backends."""
+        try:
+            sleef_val = QuadPrecision("1.5", backend="sleef")
+            sleef_num, sleef_denom = sleef_val.as_integer_ratio()
+            assert sleef_num / sleef_denom == 1.5
+            
+            # Only test longdouble if it's actually 128-bit
+            if numpy_quaddtype.is_longdouble_128():
+                ld_val = QuadPrecision("1.5", backend="longdouble")
+                ld_num, ld_denom = ld_val.as_integer_ratio()
+                assert ld_num / ld_denom == 1.5
+        except Exception:
+            pytest.skip("Backend not available")
