@@ -1,6 +1,7 @@
 #include <Python.h>
 #include <sleef.h>
 #include <sleefquad.h>
+#include <ctype.h>
 
 #define PY_ARRAY_UNIQUE_SYMBOL QuadPrecType_ARRAY_API
 #define PY_UFUNC_UNIQUE_SYMBOL QuadPrecType_UFUNC_API
@@ -319,6 +320,80 @@ quadprec_fill(void *buffer, npy_intp length, void *arr_)
     return 0;
 }
 
+static int
+quadprec_scanfunc(FILE *fp, void *dptr, char *ignore, PyArray_Descr *descr_generic)
+{
+    QuadPrecDTypeObject *descr = (QuadPrecDTypeObject *)descr_generic;
+    char buffer[512];
+    int ch;
+    size_t i = 0;
+    
+    /* Skip whitespace */
+    while ((ch = fgetc(fp)) != EOF && isspace(ch)) {
+        /* continue */
+    }
+    
+    if (ch == EOF) {
+        return EOF;  /* Return EOF when end of file is reached */
+    }
+    
+    /* Read characters until we hit whitespace or EOF */
+    buffer[i++] = (char)ch;
+    while (i < sizeof(buffer) - 1) {
+        ch = fgetc(fp);
+        if (ch == EOF || isspace(ch)) {
+            if (ch != EOF) {
+                ungetc(ch, fp);  /* Put back the whitespace for separator handling */
+            }
+            break;
+        }
+        buffer[i++] = (char)ch;
+    }
+    buffer[i] = '\0';
+    
+    /* Convert string to quad precision */
+    char *endptr;
+    if (descr->backend == BACKEND_SLEEF) {
+        Sleef_quad val = Sleef_strtoq(buffer, &endptr);
+        if (endptr == buffer) {
+            return 0;  /* Return 0 on parse error (no items read) */
+        }
+        *(Sleef_quad *)dptr = val;
+    }
+    else {
+        long double val = strtold(buffer, &endptr);
+        if (endptr == buffer) {
+            return 0;  /* Return 0 on parse error (no items read) */
+        }
+        *(long double *)dptr = val;
+    }
+    
+    return 1;  /* Return 1 on success (1 item read) */
+}
+
+static int
+quadprec_fromstr(char *s, void *dptr, char **endptr, PyArray_Descr *descr_generic)
+{
+    QuadPrecDTypeObject *descr = (QuadPrecDTypeObject *)descr_generic;
+    
+    if (descr->backend == BACKEND_SLEEF) {
+        Sleef_quad val = Sleef_strtoq(s, endptr);
+        if (*endptr == s) {
+            return -1;
+        }
+        *(Sleef_quad *)dptr = val;
+    }
+    else {
+        long double val = strtold(s, endptr);
+        if (*endptr == s) {
+            return -1;
+        }
+        *(long double *)dptr = val;
+    }
+    
+    return 0;
+}
+
 static PyType_Slot QuadPrecDType_Slots[] = {
         {NPY_DT_ensure_canonical, &ensure_canonical},
         {NPY_DT_common_instance, &common_instance},
@@ -329,6 +404,8 @@ static PyType_Slot QuadPrecDType_Slots[] = {
         {NPY_DT_default_descr, &quadprec_default_descr},
         {NPY_DT_get_constant, &quadprec_get_constant},
         {NPY_DT_PyArray_ArrFuncs_fill, &quadprec_fill},
+        {NPY_DT_PyArray_ArrFuncs_scanfunc, &quadprec_scanfunc},
+        {NPY_DT_PyArray_ArrFuncs_fromstr, &quadprec_fromstr},
         {0, NULL}};
 
 static PyObject *

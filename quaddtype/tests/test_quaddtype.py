@@ -3328,3 +3328,183 @@ def test_imag_real(value):
         return
     assert a.real == a, "Real part mismatch"
     assert a.imag == QuadPrecision(0.0), "Imaginary part should be zero"
+
+
+class TestStringParsing:
+    """Test suite for string parsing functionality (fromstr and scanfunc)."""
+    
+    def test_fromstring_simple(self):
+        """Test np.fromstring with simple values."""
+        result = np.fromstring("1.5 2.5 3.5", sep=" ", dtype=QuadPrecDType(backend='sleef'))
+        expected = np.array([1.5, 2.5, 3.5], dtype=QuadPrecDType(backend='sleef'))
+        np.testing.assert_array_equal(result, expected)
+    
+    def test_fromstring_high_precision(self):
+        """Test np.fromstring preserves high precision values."""
+        # Create a high-precision value
+        finfo = np.finfo(QuadPrecision)
+        val = 1.0 + finfo.eps
+        val_str = str(val)
+        
+        # Parse it back
+        result = np.fromstring(val_str, sep=" ", dtype=QuadPrecDType(backend='sleef'))
+        expected = np.array([val], dtype=QuadPrecDType(backend='sleef'))
+        
+        # Should maintain precision
+        assert result[0] == expected[0], "High precision value not preserved"
+    
+    def test_fromstring_multiple_values(self):
+        """Test np.fromstring with multiple values."""
+        s = " 1.0 2.0 3.0 4.0 5.0"
+        result = np.fromstring(s, sep=" ", dtype=QuadPrecDType(backend='sleef'))
+        expected = np.array([1.0, 2.0, 3.0, 4.0, 5.0], dtype=QuadPrecDType(backend='sleef'))
+        np.testing.assert_array_equal(result, expected)
+    
+    def test_fromstring_newline_separator(self):
+        """Test np.fromstring with newline separator."""
+        s = "1.5\n2.5\n3.5"
+        result = np.fromstring(s, sep="\n", dtype=QuadPrecDType(backend='sleef'))
+        expected = np.array([1.5, 2.5, 3.5], dtype=QuadPrecDType(backend='sleef'))
+        np.testing.assert_array_equal(result, expected)
+    
+    def test_fromstring_scientific_notation(self):
+        """Test np.fromstring with scientific notation."""
+        s = "1.23e-10 4.56e20"
+        result = np.fromstring(s, sep=" ", dtype=QuadPrecDType(backend='sleef'))
+        expected = np.array([1.23e-10, 4.56e20], dtype=QuadPrecDType(backend='sleef'))
+        np.testing.assert_array_almost_equal(result, expected)
+    
+    def test_fromstring_negative_values(self):
+        """Test np.fromstring with negative values."""
+        s = "-1.5 -2.5 -3.5"
+        result = np.fromstring(s, sep=" ", dtype=QuadPrecDType(backend='sleef'))
+        expected = np.array([-1.5, -2.5, -3.5], dtype=QuadPrecDType(backend='sleef'))
+        np.testing.assert_array_equal(result, expected)
+
+
+class TestFileIO:
+    """Test suite for file I/O functionality (scanfunc)."""
+    
+    def test_fromfile_simple(self):
+        """Test np.fromfile with simple values."""
+        import tempfile
+        import os
+        
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
+            f.write("1.5\n2.5\n3.5")
+            fname = f.name
+        
+        try:
+            result = np.fromfile(fname, sep="\n", dtype=QuadPrecDType(backend='sleef'))
+            expected = np.array([1.5, 2.5, 3.5], dtype=QuadPrecDType(backend='sleef'))
+            np.testing.assert_array_equal(result, expected)
+        finally:
+            os.unlink(fname)
+    
+    def test_fromfile_space_separator(self):
+        """Test np.fromfile with space separator."""
+        import tempfile
+        import os
+        
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
+            f.write("1.0 2.0 3.0 4.0 5.0")
+            fname = f.name
+        
+        try:
+            result = np.fromfile(fname, sep=" ", dtype=QuadPrecDType(backend='sleef'))
+            expected = np.array([1.0, 2.0, 3.0, 4.0, 5.0], dtype=QuadPrecDType(backend='sleef'))
+            np.testing.assert_array_equal(result, expected)
+        finally:
+            os.unlink(fname)
+    
+    def test_tofile_fromfile_roundtrip(self):
+        """Test that tofile/fromfile roundtrips correctly."""
+        import tempfile
+        import os
+        
+        original = np.array([1.5, 2.5, 3.5, 4.5], dtype=QuadPrecDType(backend='sleef'))
+        
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
+            fname = f.name
+        
+        try:
+            # Write to file
+            original.tofile(fname, sep=" ")
+            
+            # Read back
+            result = np.fromfile(fname, sep=" ", dtype=QuadPrecDType(backend='sleef'))
+            
+            np.testing.assert_array_equal(result, original)
+        finally:
+            os.unlink(fname)
+    
+    def test_fromfile_high_precision(self):
+        """Test np.fromfile preserves high precision values."""
+        import tempfile
+        import os
+        
+        # Create a high-precision value
+        finfo = np.finfo(QuadPrecision)
+        val = 1.0 + finfo.eps
+        expected = np.array([val, val, val], dtype=QuadPrecDType(backend='sleef'))
+        
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
+            for v in expected:
+                f.write(str(v) + '\n')
+            fname = f.name
+        
+        try:
+            result = np.fromfile(fname, sep="\n", dtype=QuadPrecDType(backend='sleef'))
+            
+            # Check each value maintains precision
+            for i in range(len(expected)):
+                assert result[i] == expected[i], f"High precision value {i} not preserved"
+        finally:
+            os.unlink(fname)
+    
+    def test_fromfile_no_trailing_newline(self):
+        """Test np.fromfile handles files without trailing newline."""
+        import tempfile
+        import os
+        
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
+            # Write without trailing newline
+            f.write("1.5\n2.5\n3.5")
+            fname = f.name
+        
+        try:
+            result = np.fromfile(fname, sep="\n", dtype=QuadPrecDType(backend='sleef'))
+            expected = np.array([1.5, 2.5, 3.5], dtype=QuadPrecDType(backend='sleef'))
+            np.testing.assert_array_equal(result, expected)
+        finally:
+            os.unlink(fname)
+    
+    def test_fromfile_empty_file(self):
+        """Test np.fromfile with empty file."""
+        import tempfile
+        import os
+        
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
+            fname = f.name
+        
+        try:
+            result = np.fromfile(fname, sep="\n", dtype=QuadPrecDType(backend='sleef'))
+            assert len(result) == 0, "Empty file should produce empty array"
+        finally:
+            os.unlink(fname)
+    
+    def test_fromfile_single_value(self):
+        """Test np.fromfile with single value."""
+        import tempfile
+        import os
+        
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
+            f.write("42.0")
+            fname = f.name
+        
+        try:
+            result = np.fromfile(fname, sep=" ", dtype=QuadPrecDType(backend='sleef'))
+            expected = np.array([42.0], dtype=QuadPrecDType(backend='sleef'))
+            np.testing.assert_array_equal(result, expected)
+        finally:
+            os.unlink(fname)
