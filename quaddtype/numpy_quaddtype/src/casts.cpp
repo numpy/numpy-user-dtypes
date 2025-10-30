@@ -502,6 +502,8 @@ template <>
 inline npy_byte
 from_quad<npy_byte>(quad_value x, QuadBackendType backend)
 {
+    // reduction ops often give warning, we can handle the NAN casting
+    // this behaviour might apply to all casting
     if (backend == BACKEND_SLEEF) {
         return (npy_byte)Sleef_cast_to_int64q1(x.sleef_value);
     }
