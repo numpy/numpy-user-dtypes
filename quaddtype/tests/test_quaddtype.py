@@ -435,16 +435,16 @@ class TestComparisonReductionOps:
     def test_scalar_reduction_ops(self, val_str):
         """Test reduction operations on scalar QuadPrecision values."""
         quad_val = QuadPrecision(val_str)
-        float_val = float(val_str)
-        
-        result_all = np.all(quad_val)
-        expected_all_result = np.all(float_val)
+        float_val = np.float64(val_str)
+
+        result_all = quad_val.all()
+        expected_all_result = float_val.all()
         assert result_all == expected_all_result, (
             f"Scalar all failed for {val_str}: expected {expected_all_result}, got {result_all}"
         )
         
-        result_any = np.any(quad_val)
-        expected_any_result = np.any(float_val)
+        result_any = quad_val.any()
+        expected_any_result = float_val.any()
         assert result_any == expected_any_result, (
             f"Scalar any failed for {val_str}: expected {expected_any_result}, got {result_any}"
         )
