@@ -439,11 +439,11 @@ PyObject* quad_to_pylong(Sleef_quad value)
     char buffer[128];
 
     // Sleef_snprintf call is thread-unsafe
-    // LOCK_SLEEF;
+    LOCK_SLEEF;
     // Format as integer (%.0Qf gives integer with no decimal places)
     // Q modifier means pass Sleef_quad by value
     int written = Sleef_snprintf(buffer, sizeof(buffer), "%.0Qf", value);
-    // UNLOCK_SLEEF;
+    UNLOCK_SLEEF;
     if (written < 0 || written >= sizeof(buffer)) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to convert quad to string");
         return NULL;
