@@ -494,7 +494,7 @@ QuadPrecision_as_integer_ratio(QuadPrecisionObject *self, PyObject *Py_UNUSED(ig
     exponent -= FLOAT128_PRECISION;
     ```
     This should work but give non-simplified, huge integers (although they also come down to same representation)
-    We can also do gcd to find simplified values, but it'll add more O(log(N)) {which in theory seem better}
+    We can also do gcd to find simplified values, but it'll add more O(log(N))
     For the sake of simplicity and fixed 128-bit nature, we will loop till 113 only
     */
 
