@@ -22,6 +22,18 @@
 // src: https://en.wikipedia.org/wiki/Quadruple-precision_floating-point_format
 #define SLEEF_QUAD_DECIMAL_DIG 36
 
+#if PY_VERSION_HEX < 0x30d00b3
+static PyThread_type_lock sleef_lock;
+#define LOCK_SLEEF PyThread_acquire_lock(sleef_lock, WAIT_LOCK)
+#define UNLOCK_SLEEF PyThread_release_lock(sleef_lock)
+#else
+static PyMutex sleef_lock = {0};
+#define LOCK_SLEEF PyMutex_Lock(&sleef_lock)
+#define UNLOCK_SLEEF PyMutex_Unlock(&sleef_lock)
+#endif
+
+
+
 
 QuadPrecisionObject *
 QuadPrecision_raw_new(QuadBackendType backend)
@@ -422,13 +434,16 @@ QuadPrecision_is_integer(QuadPrecisionObject *self, PyObject *Py_UNUSED(ignored)
     }
 }
 
-// this is thread-unsafe
 PyObject* quad_to_pylong(Sleef_quad value)
 {
     char buffer[128];
+
+    // Sleef_snprintf call is thread-unsafe
+    // LOCK_SLEEF;
     // Format as integer (%.0Qf gives integer with no decimal places)
     // Q modifier means pass Sleef_quad by value
     int written = Sleef_snprintf(buffer, sizeof(buffer), "%.0Qf", value);
+    // UNLOCK_SLEEF;
     if (written < 0 || written >= sizeof(buffer)) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to convert quad to string");
         return NULL;
@@ -502,7 +517,6 @@ QuadPrecision_as_integer_ratio(QuadPrecisionObject *self, PyObject *Py_UNUSED(ig
         mantissa = Sleef_mulq1_u05(mantissa, Sleef_cast_from_doubleq1(2.0));
         exponent--;
     }
-
 
     // numerator and denominators can't fit in int
     // convert items to PyLongObject from string instead
@@ -587,6 +601,13 @@ PyTypeObject QuadPrecision_Type = {
 int
 init_quadprecision_scalar(void)
 {
+#if PY_VERSION_HEX < 0x30d00b3
+    sleef_lock = PyThread_allocate_lock();
+    if (sleef_lock == NULL) {
+        PyErr_NoMemory();
+        return -1;
+    }
+#endif
     QuadPrecision_Type.tp_base = &PyFloatingArrType_Type;
     return PyType_Ready(&QuadPrecision_Type);
 }

@@ -21,11 +21,11 @@ from numpy_quaddtype import *
 
 def test_as_integer_ratio_reconstruction():
     """Multi-threaded test that as_integer_ratio() can reconstruct the original value."""
-    values = ["3.14", "0.1", "1.414213562373095", "2.718281828459045",
-    "-1.23456789", "1000.001", "0.0001", "1e20", "1.23e15", "1e-30", pi]
 
     def test(barrier):
       barrier.wait() # All threads start simultaneously
+      values = ["3.14", "0.1", "1.414213562373095", "2.718281828459045",
+      "-1.23456789", "1000.001", "0.0001", "1e20", "1.23e15", "1e-30", pi]
       for val in values:
         quad_val = QuadPrecision(val)
         num, denom = quad_val.as_integer_ratio()
