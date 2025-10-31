@@ -422,10 +422,137 @@ QuadPrecision_is_integer(QuadPrecisionObject *self, PyObject *Py_UNUSED(ignored)
     }
 }
 
+// this is thread-unsafe
+PyObject* quad_to_pylong(Sleef_quad value)
+{
+    char buffer[128];
+    // Format as integer (%.0Qf gives integer with no decimal places)
+    // Q modifier means pass Sleef_quad by value
+    int written = Sleef_snprintf(buffer, sizeof(buffer), "%.0Qf", value);
+    if (written < 0 || written >= sizeof(buffer)) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to convert quad to string");
+        return NULL;
+    }
+
+    PyObject *result = PyLong_FromString(buffer, NULL, 10);
+    
+    if (result == NULL) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to parse integer string");
+        return NULL;
+    }
+    
+    return result;
+}
+
+// inspired by the CPython implementation
+// https://github.com/python/cpython/blob/ac1ffd77858b62d169a08040c08aa5de26e145ac/Objects/floatobject.c#L1503C1-L1572C2
+// NOTE: a 128-bit 
 static PyObject *
 QuadPrecision_as_integer_ratio(QuadPrecisionObject *self, PyObject *Py_UNUSED(ignored))
 {
+
+    Sleef_quad value;
+    Sleef_quad pos_inf = sleef_q(+0x1000000000000LL, 0x0000000000000000ULL, 16384);
+    const int FLOAT128_PRECISION = 113;
     
+    if (self->backend == BACKEND_SLEEF) {
+        value = self->value.sleef_value;
+    }
+    else {
+        // lets also tackle ld from sleef functions as well
+        value = Sleef_cast_from_doubleq1((double)self->value.longdouble_value);
+    }
+    
+    if(Sleef_iunordq1(value, value)) {
+      PyErr_SetString(PyExc_ValueError, "Cannot convert NaN to integer ratio");
+      return NULL;
+    }
+    if(Sleef_icmpgeq1(Sleef_fabsq1(value), pos_inf)) {
+      PyErr_SetString(PyExc_OverflowError, "Cannot convert infinite value to integer ratio");
+      return NULL;
+    }
+
+    // Sleef_value == float_part * 2**exponent exactly
+    int exponent;
+    Sleef_quad mantissa = Sleef_frexpq1(value, &exponent); // within [0.5, 1.0)
+
+    /*
+    CPython loops for 300 (some huge number) to make sure 
+    float_part gets converted to the floor(float_part) i.e. near integer as
+    
+    for (i=0; i<300 && float_part != floor(float_part) ; i++) {
+        float_part *= 2.0;
+        exponent--;
+    }
+
+    It seems highly inefficient from performance perspective, maybe they pick 300 for future-proof
+    or If FLT_RADIX != 2, the 300 steps may leave a tiny fractional part
+
+    Another way can be doing as:
+    ```
+    mantissa = ldexpq(mantissa, FLOAT128_PRECISION);
+    exponent -= FLOAT128_PRECISION;
+    ```
+    This should work but give non-simplified, huge integers (although they also come down to same representation)
+    We can also do gcd to find simplified values, but it'll add more O(log(N)) {which in theory seem better}
+    For the sake of simplicity and fixed 128-bit nature, we will loop till 113 only
+    */
+
+    for (int i = 0; i < FLOAT128_PRECISION && !Sleef_icmpeqq1(mantissa, Sleef_floorq1(mantissa)); i++) {
+        mantissa = Sleef_mulq1_u05(mantissa, Sleef_cast_from_doubleq1(2.0));
+        exponent--;
+    }
+
+
+    // numerator and denominators can't fit in int
+    // convert items to PyLongObject from string instead
+
+    PyObject *py_exp = PyLong_FromLongLong(Py_ABS(exponent));
+    if(py_exp == NULL)
+    {
+        return NULL;
+    }
+    
+    PyObject *numerator = quad_to_pylong(mantissa);
+    if(numerator == NULL)
+    {
+        Py_DECREF(numerator);
+        return NULL;
+    }
+    PyObject *denominator = PyLong_FromLong(1);
+    if (denominator == NULL) {
+        Py_DECREF(numerator);
+        return NULL;
+    }
+
+    // fold in 2**exponent
+    if(exponent > 0)
+    {
+        PyObject *new_num = PyNumber_Lshift(numerator, py_exp);
+        Py_DECREF(numerator);
+        if(new_num == NULL)
+        {
+            Py_DECREF(denominator);
+            Py_DECREF(py_exp);
+            return NULL;
+        }
+        numerator = new_num;
+    }
+    else
+    {
+        PyObject *new_denom = PyNumber_Lshift(denominator, py_exp);
+        Py_DECREF(denominator);
+        if(new_denom == NULL)
+        {
+            Py_DECREF(numerator);
+            Py_DECREF(py_exp);
+            return NULL;
+        }
+        denominator = new_denom;
+    }
+
+    Py_DECREF(py_exp);
+    return PyTuple_Pack(2, numerator, denominator);
 }
 
 static PyMethodDef QuadPrecision_methods[] = {

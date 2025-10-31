@@ -3552,105 +3552,74 @@ class Test_Is_Integer_Methods:
         float_val = float(value)
         assert quad_val.is_integer() == float_val.is_integer()
     
-    # @pytest.mark.parametrize("value,expected_num,expected_denom", [
-    #     ("1.0", 1, 1),
-    #     ("42.0", 42, 1),
-    #     ("-5.0", -5, 1),
-    #     ("0.0", 0, 1),
-    # ])
-    # def test_as_integer_ratio_integers(self, value, expected_num, expected_denom):
-    #     """Test as_integer_ratio() for integer values."""
-    #     num, denom = QuadPrecision(value).as_integer_ratio()
-    #     assert num == expected_num and denom == expected_denom
+    @pytest.mark.parametrize("value,expected_num,expected_denom", [
+        ("1.0", 1, 1),
+        ("42.0", 42, 1),
+        ("-5.0", -5, 1),
+        ("0.0", 0, 1),
+        ("-0.0", 0, 1),
+    ])
+    def test_as_integer_ratio_integers(self, value, expected_num, expected_denom):
+        """Test as_integer_ratio() for integer values."""
+        num, denom = QuadPrecision(value).as_integer_ratio()
+        assert num == expected_num and denom == expected_denom
     
-    # @pytest.mark.parametrize("value,expected_ratio", [
-    #     ("0.5", 0.5),
-    #     ("0.25", 0.25),
-    #     ("1.5", 1.5),
-    #     ("-2.5", -2.5),
-    # ])
-    # def test_as_integer_ratio_fractional(self, value, expected_ratio):
-    #     """Test as_integer_ratio() for fractional values."""
-    #     num, denom = QuadPrecision(value).as_integer_ratio()
-    #     assert num / denom == expected_ratio
-    #     assert denom > 0  # Denominator should always be positive
+    @pytest.mark.parametrize("value,expected_ratio", [
+        ("0.5", 0.5),
+        ("0.25", 0.25),
+        ("1.5", 1.5),
+        ("-2.5", -2.5),
+    ])
+    def test_as_integer_ratio_fractional(self, value, expected_ratio):
+        """Test as_integer_ratio() for fractional values."""
+        num, denom = QuadPrecision(value).as_integer_ratio()
+        assert QuadPrecision(str(num)) / QuadPrecision(str(denom)) == QuadPrecision(str(expected_ratio))
+        assert denom > 0  # Denominator should always be positive
     
-    # @pytest.mark.parametrize("value", [
-    #     "3.14", "0.1", "1.414213562373095", "2.718281828459045",
-    #     "-1.23456789", "1000.001", "0.0001", "1e20", "1.23e15", "1e-30"
-    # ])
-    # def test_as_integer_ratio_reconstruction(self, value):
-    #     """Test that as_integer_ratio() can reconstruct the original value."""
-    #     quad_val = QuadPrecision(value)
-    #     num, denom = quad_val.as_integer_ratio()
-    #     reconstructed = QuadPrecision(num) / QuadPrecision(denom)
-    #     assert reconstructed == quad_val
+    @pytest.mark.parametrize("value", [
+        "3.14", "0.1", "1.414213562373095", "2.718281828459045",
+        "-1.23456789", "1000.001", "0.0001", "1e20", "1.23e15", "1e-30", quad_pi
+    ])
+    def test_as_integer_ratio_reconstruction(self, value):
+        """Test that as_integer_ratio() can reconstruct the original value."""
+        quad_val = QuadPrecision(value)
+        num, denom = quad_val.as_integer_ratio()
+        # todo: can remove str converstion after merging PR #213
+        reconstructed = QuadPrecision(str(num)) / QuadPrecision(str(denom))
+        assert reconstructed == quad_val
     
-    # def test_as_integer_ratio_return_types(self):
-    #     """Test that as_integer_ratio() returns Python ints."""
-    #     num, denom = QuadPrecision("3.14").as_integer_ratio()
-    #     assert isinstance(num, int)
-    #     assert isinstance(denom, int)
+    def test_as_integer_ratio_return_types(self):
+        """Test that as_integer_ratio() returns Python ints."""
+        num, denom = QuadPrecision("3.14").as_integer_ratio()
+        assert isinstance(num, int)
+        assert isinstance(denom, int)
     
-    # @pytest.mark.parametrize("value", ["-1.0", "-3.14", "-0.5", "1.0", "3.14", "0.5"])
-    # def test_as_integer_ratio_denominator_positive(self, value):
-    #     """Test that denominator is always positive."""
-    #     num, denom = QuadPrecision(value).as_integer_ratio()
-    #     assert denom > 0
+    @pytest.mark.parametrize("value", ["-1.0", "-3.14", "-0.5", "1.0", "3.14", "0.5"])
+    def test_as_integer_ratio_denominator_positive(self, value):
+        """Test that denominator is always positive."""
+        num, denom = QuadPrecision(value).as_integer_ratio()
+        assert denom > 0
     
-    # @pytest.mark.parametrize("value,exception,match", [
-    #     ("inf", OverflowError, "cannot convert Infinity to integer ratio"),
-    #     ("-inf", OverflowError, "cannot convert Infinity to integer ratio"),
-    #     ("nan", ValueError, "cannot convert NaN to integer ratio"),
-    # ])
-    # def test_as_integer_ratio_special_values_raise(self, value, exception, match):
-    #     """Test that as_integer_ratio() raises appropriate errors for special values."""
-    #     with pytest.raises(exception, match=match):
-    #         QuadPrecision(value).as_integer_ratio()
+    @pytest.mark.parametrize("value,exception,match", [
+        ("inf", OverflowError, "Cannot convert infinite value to integer ratio"),
+        ("-inf", OverflowError, "Cannot convert infinite value to integer ratio"),
+        ("nan", ValueError, "Cannot convert NaN to integer ratio"),
+    ])
+    def test_as_integer_ratio_special_values_raise(self, value, exception, match):
+        """Test that as_integer_ratio() raises appropriate errors for special values."""
+        with pytest.raises(exception, match=match):
+            QuadPrecision(value).as_integer_ratio()
     
-    # @pytest.mark.parametrize("value", ["1.0", "0.5", "3.14", "-2.5", "0.0"])
-    # def test_as_integer_ratio_compatibility_with_float(self, value):
-    #     """Test as_integer_ratio() matches behavior of Python's float where possible."""
-    #     quad_val = QuadPrecision(value)
-    #     float_val = float(value)
+    @pytest.mark.parametrize("value", ["1.0", "0.5", "3.14", "-2.5", "0.0"])
+    def test_as_integer_ratio_compatibility_with_float(self, value):
+        """Test as_integer_ratio() matches behavior of Python's float where possible."""
+        quad_val = QuadPrecision(value)
+        float_val = float(value)
         
-    #     quad_num, quad_denom = quad_val.as_integer_ratio()
-    #     float_num, float_denom = float_val.as_integer_ratio()
+        quad_num, quad_denom = quad_val.as_integer_ratio()
+        float_num, float_denom = float_val.as_integer_ratio()
         
-    #     # The ratios should be equal
-    #     quad_ratio = quad_num / quad_denom
-    #     float_ratio = float_num / float_denom
-    #     assert abs(quad_ratio - float_ratio) < 1e-15
-    
-    # def test_methods_available_on_type_and_instance(self):
-    #     """Test that methods are available on the QuadPrecision class and instances."""
-    #     # Check on type
-    #     assert hasattr(QuadPrecision, 'is_integer') and callable(QuadPrecision.is_integer)
-    #     assert hasattr(QuadPrecision, 'as_integer_ratio') and callable(QuadPrecision.as_integer_ratio)
-        
-    #     # Check on instance
-    #     val = QuadPrecision("3.14")
-    #     assert hasattr(val, 'is_integer') and callable(val.is_integer)
-    #     assert hasattr(val, 'as_integer_ratio') and callable(val.as_integer_ratio)
-    
-    # @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
-    # def test_is_integer_with_backends(self, backend):
-    #     """Test is_integer() with different backends."""
-    #     if backend == "longdouble" and not numpy_quaddtype.is_longdouble_128():
-    #         pytest.skip("longdouble backend not 128-bit")
-        
-    #     val = QuadPrecision("3.0", backend=backend)
-    #     assert val.is_integer()
-        
-    #     val2 = QuadPrecision("3.5", backend=backend)
-    #     assert not val2.is_integer()
-    
-    # @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
-    # def test_as_integer_ratio_with_backends(self, backend):
-    #     """Test as_integer_ratio() with different backends."""
-    #     if backend == "longdouble" and not numpy_quaddtype.is_longdouble_128():
-    #         pytest.skip("longdouble backend not 128-bit")
-        
-    #     val = QuadPrecision("1.5", backend=backend)
-    #     num, denom = val.as_integer_ratio()
-    #     assert num / denom == 1.5
+        # The ratios should be equal
+        quad_ratio = quad_num / quad_denom
+        float_ratio = float_num / float_denom
+        assert abs(quad_ratio - float_ratio) < 1e-15
