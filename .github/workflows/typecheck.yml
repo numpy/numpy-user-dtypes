@@ -5,7 +5,7 @@ on:
   pull_request:
     paths:
       - .github/workflows/typecheck.yml
-      - quaddtype/numpy_quaddtype/*
+      - quaddtype/numpy_quaddtype/**
       - quaddtype/meson.build
       - quaddtype/pyproject.toml
   workflow_dispatch:
