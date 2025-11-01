@@ -16,6 +16,66 @@ def test_create_scalar_simple():
     assert isinstance(QuadPrecision(1), QuadPrecision)
 
 
+@pytest.mark.parametrize("int_val", [
+    # Very large integers that exceed long double range
+    2 ** 1024,
+    2 ** 2048,
+    10 ** 308,
+    10 ** 4000,
+    # Edge cases
+    0,
+    1,
+    -1,
+    # Negative large integers
+    -(2 ** 1024),
+])
+def test_create_scalar_from_large_int(int_val):
+    """Test that QuadPrecision can handle very large integers beyond long double range.
+    
+    This test ensures that integers like 2**1024, which overflow standard long double,
+    are properly converted via string representation to QuadPrecision without raising
+    overflow errors. The conversion should match the string-based conversion.
+    """
+    # Convert large int to QuadPrecision
+    result = QuadPrecision(int_val)
+    assert isinstance(result, QuadPrecision)
+    
+    # String conversion should give the same result
+    str_val = str(int_val)
+    result_from_str = QuadPrecision(str_val)
+    
+    # Both conversions should produce the same value
+    # (can be inf==inf on some platforms for very large values)
+    assert result == result_from_str
+    
+    # For zero and small values, verify exact conversion
+    if int_val == 0:
+        assert float(result) == 0.0
+    elif abs(int_val) == 1:
+        assert float(result) == float(int_val)
+
+
+def test_create_scalar_from_int_with_broken_str():
+    """Test that QuadPrecision handles errors when __str__ fails on large integers.
+    
+    This test checks the error handling path in scalar.c where PyObject_Str(py_int)
+    returns NULL. We simulate this by subclassing int with a __str__ method
+    that raises an exception.
+    """
+    class BrokenInt(int):
+        def __str__(self):
+            raise RuntimeError("Intentionally broken __str__ method")
+    
+    # Create an instance with a value that will overflow long long (> 2**63 - 1)
+    # This triggers the string conversion path in quad_from_py_int
+    broken_int = BrokenInt(2 ** 1024)
+    
+    # When PyLong_AsLongLongAndOverflow returns overflow,
+    # it tries to convert to string, which should fail and propagate the error
+    with pytest.raises(RuntimeError, match="Intentionally broken __str__ method"):
+        QuadPrecision(broken_int)
+
+
 class TestQuadPrecisionArrayCreation:
     """Test suite for QuadPrecision array creation from sequences and arrays."""
     
@@ -246,6 +306,68 @@ def test_string_roundtrip():
         assert reconstructed_from_repr == original, (
             f"Round-trip from repr() failed for {repr(original)}"
         )
+
+
+def test_string_subclass_parsing():
+    """Test that QuadPrecision handles string subclasses correctly.
+    
+    This tests the PyUnicode_Check path in scalar.c lines 195-209,
+    verifying that string subclasses work and that parsing errors
+    are properly handled.
+    """
+    class MyString(str):
+        """A custom string subclass"""
+        pass
+    
+    # Test valid string subclass - should parse correctly
+    valid_str = MyString("3.14159265358979323846")
+    result = QuadPrecision(valid_str)
+    assert isinstance(result, QuadPrecision)
+    expected = QuadPrecision("3.14159265358979323846")
+    assert result == expected
+    
+    # Test with scientific notation
+    sci_str = MyString("1.23e-100")
+    result = QuadPrecision(sci_str)
+    assert isinstance(result, QuadPrecision)
+    
+    # Test with negative value
+    neg_str = MyString("-42.5")
+    result = QuadPrecision(neg_str)
+    assert float(result) == -42.5
+    
+    # Test invalid string - should raise ValueError
+    invalid_str = MyString("not a number")
+    with pytest.raises(ValueError, match="Unable to parse string to QuadPrecision"):
+        QuadPrecision(invalid_str)
+    
+    # Test partially valid string (has trailing garbage)
+    partial_str = MyString("3.14abc")
+    with pytest.raises(ValueError, match="Unable to parse string to QuadPrecision"):
+        QuadPrecision(partial_str)
+    
+    # Test empty string
+    empty_str = MyString("")
+    with pytest.raises(ValueError, match="Unable to parse string to QuadPrecision"):
+        QuadPrecision(empty_str)
+    
+    # Test string with leading garbage
+    leading_garbage = MyString("abc3.14")
+    with pytest.raises(ValueError, match="Unable to parse string to QuadPrecision"):
+        QuadPrecision(leading_garbage)
+    
+    # Test special values
+    inf_str = MyString("inf")
+    result = QuadPrecision(inf_str)
+    assert np.isinf(float(result))
+    
+    neg_inf_str = MyString("-inf")
+    result = QuadPrecision(neg_inf_str)
+    assert np.isinf(float(result)) and float(result) < 0
+    
+    nan_str = MyString("nan")
+    result = QuadPrecision(nan_str)
+    assert np.isnan(float(result))
 
 
 @pytest.mark.parametrize("name,expected", [("pi", np.pi), ("e", np.e), ("log2e", np.log2(np.e)), ("log10e", np.log10(np.e)), ("ln2", np.log(2.0)), ("ln10", np.log(10.0))])

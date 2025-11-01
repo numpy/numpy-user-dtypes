@@ -41,6 +41,52 @@ QuadPrecision_raw_new(QuadBackendType backend)
     return new;
 }
 
+static QuadPrecisionObject *
+quad_from_py_int(PyObject *py_int, QuadBackendType backend, QuadPrecisionObject *self_to_cleanup)
+{
+    int overflow = 0;
+    long long lval = PyLong_AsLongLongAndOverflow(py_int, &overflow);
+    
+    if (overflow != 0) {
+        // Integer is too large, convert to string and recursively call QuadPrecision_from_object
+        PyObject *str_obj = PyObject_Str(py_int);
+        if (str_obj == NULL) {
+            if (self_to_cleanup) {
+                Py_DECREF(self_to_cleanup);
+            }
+            return NULL;
+        }
+        
+        QuadPrecisionObject *result = QuadPrecision_from_object(str_obj, backend);
+        Py_DECREF(str_obj);
+        if (self_to_cleanup) {
+            Py_DECREF(self_to_cleanup);  // discard the default one
+        }
+        return result;
+    }
+    else if (lval == -1 && PyErr_Occurred()) {
+        if (self_to_cleanup) {
+            Py_DECREF(self_to_cleanup);
+        }
+        return NULL;
+    }
+   
+    // No overflow, use the integer value directly
+    QuadPrecisionObject *self = self_to_cleanup ? self_to_cleanup : QuadPrecision_raw_new(backend);
+    if (!self) {
+        return NULL;
+    }
+    
+    if (backend == BACKEND_SLEEF) {
+        self->value.sleef_value = Sleef_cast_from_int64q1(lval);
+    }
+    else {
+        self->value.longdouble_value = (long double)lval;
+    }
+    return self;
+    
+}
+
 QuadPrecisionObject *
 QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
 {   
@@ -76,16 +122,10 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
                 Py_DECREF(self);
                 return NULL;
             }
-            long long lval = PyLong_AsLongLong(py_int);
-            Py_DECREF(py_int);
             
-            if (backend == BACKEND_SLEEF) {
-                self->value.sleef_value = Sleef_cast_from_int64q1(lval);
-            }
-            else {
-                self->value.longdouble_value = (long double)lval;
-            }
-            return self;
+            QuadPrecisionObject *result = quad_from_py_int(py_int, backend, self);
+            Py_DECREF(py_int);
+            return result;
         }
         // Try as boolean
         else if (PyArray_IsScalar(value, Bool)) {
@@ -94,8 +134,15 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
                 Py_DECREF(self);
                 return NULL;
             }
+            
+            // Booleans are always 0 or 1, so no overflow check needed
             long long lval = PyLong_AsLongLong(py_int);
             Py_DECREF(py_int);
+            
+            if (lval == -1 && PyErr_Occurred()) {
+                Py_DECREF(self);
+                return NULL;
+            }
             
             if (backend == BACKEND_SLEEF) {
                 self->value.sleef_value = Sleef_cast_from_int64q1(lval);
@@ -145,7 +192,7 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
             self->value.longdouble_value = (long double)dval;
         }
     }
-    else if (PyUnicode_CheckExact(value)) {
+    else if (PyUnicode_Check(value)) {
         const char *s = PyUnicode_AsUTF8(value);
         char *endptr = NULL;
         if (backend == BACKEND_SLEEF) {
@@ -161,18 +208,7 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
         }
     }
     else if (PyLong_Check(value)) {
-        long long val = PyLong_AsLongLong(value);
-        if (val == -1 && PyErr_Occurred()) {
-            PyErr_SetString(PyExc_OverflowError, "Overflow Error, value out of range");
-            Py_DECREF(self);
-            return NULL;
-        }
-        if (backend == BACKEND_SLEEF) {
-            self->value.sleef_value = Sleef_cast_from_int64q1(val);
-        }
-        else {
-            self->value.longdouble_value = (long double)val;
-        }
+        return quad_from_py_int(value, backend, self);
     }
     else if (Py_TYPE(value) == &QuadPrecision_Type) {
         Py_DECREF(self);  // discard the default one
