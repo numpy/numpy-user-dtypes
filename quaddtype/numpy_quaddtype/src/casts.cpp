@@ -502,6 +502,9 @@ template <>
 inline npy_byte
 from_quad<npy_byte>(quad_value x, QuadBackendType backend)
 {
+    // runtime warnings often comes from/to casting of NaN, inf
+    // casting is used by ops at several positions leading to warnings
+    // fix can be catching the cases and returning corresponding type value without casting
     if (backend == BACKEND_SLEEF) {
         return (npy_byte)Sleef_cast_to_int64q1(x.sleef_value);
     }

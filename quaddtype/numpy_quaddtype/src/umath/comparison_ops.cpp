@@ -200,7 +200,7 @@ create_quad_comparison_ufunc(PyObject *numpy, const char *ufunc_name)
         return -1;
     }
 
-    PyObject *DTypes = PyTuple_Pack(3, &PyArrayDescr_Type, &PyArrayDescr_Type, &PyArray_BoolDType);
+    PyObject *DTypes = PyTuple_Pack(3, Py_None, Py_None, Py_None);
     if (DTypes == 0) {
         Py_DECREF(promoter_capsule);
         return -1;
