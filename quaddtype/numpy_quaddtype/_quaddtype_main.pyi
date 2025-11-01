@@ -1,5 +1,5 @@
 from typing import Any, Literal, TypeAlias, final, overload
-
+import builtins
 import numpy as np
 from numpy._typing import _128Bit  # pyright: ignore[reportPrivateUsage]
 from typing_extensions import Never, Self, override
@@ -157,9 +157,10 @@ class QuadPrecision(np.floating[_128Bit]):
     # NOTE: is_integer() and as_integer_ratio() are defined on numpy.floating in the
     # stubs, but don't exist at runtime. And because QuadPrecision does not implement
     # them, we use this hacky workaround to emulate their absence.
-    # TODO: Remove after https://github.com/numpy/numpy-user-dtypes/issues/216
-    is_integer: Never  # pyright: ignore[reportIncompatibleMethodOverride]
-    as_integer_ratio: Never  # pyright: ignore[reportIncompatibleMethodOverride]
+    @override
+    def is_integer(self, /) -> builtins.bool: ...
+    @override
+    def as_integer_ratio(self, /) -> tuple[int, int]: ...
 
 #
 def is_longdouble_128() -> bool: ...
