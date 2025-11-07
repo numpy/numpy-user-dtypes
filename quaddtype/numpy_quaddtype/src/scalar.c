@@ -461,7 +461,6 @@ PyObject* quad_to_pylong(Sleef_quad value)
 
 // inspired by the CPython implementation
 // https://github.com/python/cpython/blob/ac1ffd77858b62d169a08040c08aa5de26e145ac/Objects/floatobject.c#L1503C1-L1572C2
-// NOTE: a 128-bit 
 static PyObject *
 QuadPrecision_as_integer_ratio(QuadPrecisionObject *self, PyObject *Py_UNUSED(ignored))
 {
@@ -520,7 +519,6 @@ QuadPrecision_as_integer_ratio(QuadPrecisionObject *self, PyObject *Py_UNUSED(ig
 
     // numerator and denominators can't fit in int
     // convert items to PyLongObject from string instead
-
     PyObject *py_exp = PyLong_FromLongLong(Py_ABS(exponent));
     if(py_exp == NULL)
     {
@@ -530,11 +528,12 @@ QuadPrecision_as_integer_ratio(QuadPrecisionObject *self, PyObject *Py_UNUSED(ig
     PyObject *numerator = quad_to_pylong(mantissa);
     if(numerator == NULL)
     {
-        Py_DECREF(numerator);
+        Py_DECREF(py_exp);  
         return NULL;
     }
     PyObject *denominator = PyLong_FromLong(1);
     if (denominator == NULL) {
+        Py_DECREF(py_exp);
         Py_DECREF(numerator);
         return NULL;
     }

@@ -15,4 +15,4 @@ python -m pip install . -vv --no-build-isolation 2>&1 | tee build_log.txt
 # export CFLAGS="-fsanitize=thread -g -O0" 
 # export CXXFLAGS="-fsanitize=thread -g -O0"
 # export LDFLAGS="-fsanitize=thread"
-# python -m pip install . -vv --no-build-isolation -Csetup-args=-Db_sanitize=thread 2>&1 | tee build_log.txt
+# CC=clang CXX=clang++ python -m pip install . -vv --no-build-isolation -Csetup-args=-Db_sanitize=thread 2>&1 | tee build_log.txt
