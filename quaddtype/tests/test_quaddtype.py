@@ -3630,3 +3630,118 @@ class TestFileIO:
             np.testing.assert_array_equal(result, expected)
         finally:
             os.unlink(fname)
+
+
+class Test_Is_Integer_Methods:
+    """Test suite for float compatibility methods: is_integer() and as_integer_ratio()."""
+    
+    @pytest.mark.parametrize("value,expected", [
+        # Positive integers
+        ("1.0", True),
+        ("42.0", True),
+        ("1000.0", True),
+        # Negative integers
+        ("-1.0", True),
+        ("-42.0", True),
+        # Zero
+        ("0.0", True),
+        ("-0.0", True),
+        # Large integers
+        ("1e20", True),
+        ("123456789012345678901234567890", True),
+        # Fractional values
+        ("1.5", False),
+        ("3.14", False),
+        ("-2.5", False),
+        ("0.1", False),
+        ("0.0001", False),
+        # Values close to integers but not exact
+        ("1.0000000000001", False),
+        ("0.9999999999999", False),
+        # Special values
+        ("inf", False),
+        ("-inf", False),
+        ("nan", False),
+    ])
+    def test_is_integer(self, value, expected):
+        """Test is_integer() returns correct result for various values."""
+        assert QuadPrecision(value).is_integer() == expected
+    
+    @pytest.mark.parametrize("value", ["0.0", "1.0", "1.5", "-3.0", "-3.7", "42.0"])
+    def test_is_integer_compatibility_with_float(self, value):
+        """Test is_integer() matches behavior of Python's float."""
+        quad_val = QuadPrecision(value)
+        float_val = float(value)
+        assert quad_val.is_integer() == float_val.is_integer()
+    
+    @pytest.mark.parametrize("value,expected_num,expected_denom", [
+        ("1.0", 1, 1),
+        ("42.0", 42, 1),
+        ("-5.0", -5, 1),
+        ("0.0", 0, 1),
+        ("-0.0", 0, 1),
+    ])
+    def test_as_integer_ratio_integers(self, value, expected_num, expected_denom):
+        """Test as_integer_ratio() for integer values."""
+        num, denom = QuadPrecision(value).as_integer_ratio()
+        assert num == expected_num and denom == expected_denom
+    
+    @pytest.mark.parametrize("value,expected_ratio", [
+        ("0.5", 0.5),
+        ("0.25", 0.25),
+        ("1.5", 1.5),
+        ("-2.5", -2.5),
+    ])
+    def test_as_integer_ratio_fractional(self, value, expected_ratio):
+        """Test as_integer_ratio() for fractional values."""
+        num, denom = QuadPrecision(value).as_integer_ratio()
+        assert QuadPrecision(str(num)) / QuadPrecision(str(denom)) == QuadPrecision(str(expected_ratio))
+        assert denom > 0  # Denominator should always be positive
+    
+    @pytest.mark.parametrize("value", [
+        "3.14", "0.1", "1.414213562373095", "2.718281828459045",
+        "-1.23456789", "1000.001", "0.0001", "1e20", "1.23e15", "1e-30", quad_pi
+    ])
+    def test_as_integer_ratio_reconstruction(self, value):
+        """Test that as_integer_ratio() can reconstruct the original value."""
+        quad_val = QuadPrecision(value)
+        num, denom = quad_val.as_integer_ratio()
+        # todo: can remove str converstion after merging PR #213
+        reconstructed = QuadPrecision(str(num)) / QuadPrecision(str(denom))
+        assert reconstructed == quad_val
+    
+    def test_as_integer_ratio_return_types(self):
+        """Test that as_integer_ratio() returns Python ints."""
+        num, denom = QuadPrecision("3.14").as_integer_ratio()
+        assert isinstance(num, int)
+        assert isinstance(denom, int)
+    
+    @pytest.mark.parametrize("value", ["-1.0", "-3.14", "-0.5", "1.0", "3.14", "0.5"])
+    def test_as_integer_ratio_denominator_positive(self, value):
+        """Test that denominator is always positive."""
+        num, denom = QuadPrecision(value).as_integer_ratio()
+        assert denom > 0
+    
+    @pytest.mark.parametrize("value,exception,match", [
+        ("inf", OverflowError, "Cannot convert infinite value to integer ratio"),
+        ("-inf", OverflowError, "Cannot convert infinite value to integer ratio"),
+        ("nan", ValueError, "Cannot convert NaN to integer ratio"),
+    ])
+    def test_as_integer_ratio_special_values_raise(self, value, exception, match):
+        """Test that as_integer_ratio() raises appropriate errors for special values."""
+        with pytest.raises(exception, match=match):
+            QuadPrecision(value).as_integer_ratio()
+    
+    @pytest.mark.parametrize("value", ["1.0", "0.5", "3.14", "-2.5", "0.0"])
+    def test_as_integer_ratio_compatibility_with_float(self, value):
+        """Test as_integer_ratio() matches behavior of Python's float where possible."""
+        quad_val = QuadPrecision(value)
+        float_val = float(value)
+        
+        quad_num, quad_denom = quad_val.as_integer_ratio()
+        float_num, float_denom = float_val.as_integer_ratio()
+        
+        # The ratios should be equal
+        quad_ratio = quad_num / quad_denom
+        float_ratio = float_num / float_denom
+        assert abs(quad_ratio - float_ratio) < 1e-15

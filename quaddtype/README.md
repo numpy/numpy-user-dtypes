@@ -31,6 +31,7 @@ np.array([1,2,3], dtype=QuadPrecDType("longdouble"))
 - **CMake** (≥3.15)
 - **Python 3.10+**
 - **Git**
+- **NumPy >= 2.4** (build from source)
 
 ### Linux/Unix/macOS
 
@@ -48,11 +49,11 @@ pip install numpy pytest
 # export CFLAGS="-DDISABLE_QUADBLAS"
 # export CXXFLAGS="-DDISABLE_QUADBLAS"
 
-python -m pip install . -v
+python -m pip install . -v --no-build-isolation
 
 # Run the tests
 cd ..
-python -m pytest
+python -m pytest/quaddtype/tests/
 ```
 
 ### Windows
@@ -94,14 +95,14 @@ python -m pytest
 
    ```powershell
    # Build and install the package
-   python -m pip install . -v
+   python -m pip install . -v --no-build-isolation
    ```
 
 5. **Test Installation**
 
    ```powershell
    # Run tests
-   pytest -s tests/
+   pytest -s ..\quaddtype\tests\
    ```
 
 6. **QBLAS Disabled**: QuadBLAS optimization is automatically disabled on Windows builds due to MSVC compatibility issues. This is handled by the `-DDISABLE_QUADBLAS` compiler flag.
@@ -112,3 +113,58 @@ python -m pytest
    - VS 2017: `"Visual Studio 15 2017"`
 
 8. **Architecture**: The instructions are for x64. For x86 builds, change `-A x64` to `-A Win32`.
+
+## Building with ThreadSanitizer (TSan)
+
+This is a development feature to help detect threading issues. To build `numpy-quaddtype` with TSan enabled, follow these steps:
+
+> Use of clang is recommended with machine NOT supporting `libquadmath` (like ARM64). Set the compiler to clang/clang++ before proceeding.
+> ```bash
+> export CC=clang
+> export CXX=clang++
+> ```
+
+1. Compile free-threaded CPython with TSan support. Follow the [Python Free-Threading Guide](https://py-free-threading.github.io/thread_sanitizer/#compile-free-threaded-cpython-with-tsan) for detailed instructions.
+2. Create and activate a virtual environment using the TSan-enabled Python build.
+3. Installing dependencies:
+
+  ```bash
+  python -m pip install meson meson-python wheel ninja
+  # Need NumPy built with TSan as well
+  python -m pip install "numpy @ git+https://github.com/numpy/numpy" -C'setup-args=-Db_sanitize=thread'
+  ```
+4. Building SLEEF with TSan:
+
+  ```bash
+  # clone the repository
+  git clone -b 3.8 https://github.com/shibatch/sleef.git
+  cd sleef
+  
+  # Build SLEEF with TSan
+  cmake \
+  -DCMAKE_C_COMPILER=clang \
+  -DCMAKE_CXX_COMPILER=clang++ \
+  -DCMAKE_C_FLAGS="-fsanitize=thread -g -O1" \
+  -DCMAKE_CXX_FLAGS="-fsanitize=thread -g -O1" \
+  -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread" \
+  -DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=thread" \
+  -DSLEEF_BUILD_QUAD=ON \
+  -DSLEEF_BUILD_TESTS=OFF \
+  -S . -B build
+
+  cmake --build build -j
+
+  # Install the built library and headers into the system path (/usr/local)
+  sudo cmake --install build --prefix=/usr/local
+  ```
+5. Build and install `numpy-quaddtype` with TSan:
+
+  ```bash
+  # SLEEF is already installed with TSan, we need to provide proper flags to numpy-quaddtype's meson file
+  # So that it does not build SLEEF again and use the installed one.
+
+  export CFLAGS="-fsanitize=thread -g -O0" 
+  export CXXFLAGS="-fsanitize=thread -g -O0"
+  export LDFLAGS="-fsanitize=thread"
+  python -m pip install . -vv --no-build-isolation -Csetup-args=-Db_sanitize=thread
+  ```

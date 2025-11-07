@@ -12,6 +12,7 @@ if host_machine.system() == 'windows'
   parallel_flag = []
 endif
 
+# For building sleef with TSan, delete the sleef subproject and follow the README instructions to build sleef externally.
 sleef_configure = run_command([
     cmake, 
     '-S', meson.current_source_dir(),
