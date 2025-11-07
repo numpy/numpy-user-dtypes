@@ -152,8 +152,6 @@ quad_comparison_reduce_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *co
                                         PyArray_Descr *loop_descrs[],
                                         npy_intp *NPY_UNUSED(view_offset))
 {
-    QuadPrecDTypeObject *descr_in1 = (QuadPrecDTypeObject *)given_descrs[0];
-    QuadPrecDTypeObject *descr_in2 = (QuadPrecDTypeObject *)given_descrs[1];
     NPY_CASTING casting = NPY_SAFE_CASTING;
     
     for (int i = 0; i < 2; i++) {
@@ -312,7 +310,7 @@ create_quad_comparison_ufunc(PyObject *numpy, const char *ufunc_name)
     PyType_Slot slots_reduce[] = {
             {NPY_METH_resolve_descriptors, (void *)&quad_comparison_reduce_resolve_descriptors},
             {NPY_METH_strided_loop,
-             (void *)&quad_reduce_comp_strided_loop_unaligned<sleef_comp, ld_comp>},
+             (void *)&quad_reduce_comp_strided_loop_aligned<sleef_comp, ld_comp>},
             {NPY_METH_unaligned_strided_loop,
              (void *)&quad_reduce_comp_strided_loop_unaligned<sleef_comp, ld_comp>},
             {0, NULL}};
