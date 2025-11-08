@@ -219,6 +219,25 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
             return NULL;
         }
     }
+    else if (PyBytes_Check(value)) {
+        const char *s = PyBytes_AsString(value);
+        if (s == NULL) {
+            Py_DECREF(self);
+            return NULL;
+        }
+        char *endptr = NULL;
+        if (backend == BACKEND_SLEEF) {
+            self->value.sleef_value = Sleef_strtoq(s, &endptr);
+        }
+        else {
+            self->value.longdouble_value = strtold(s, &endptr);
+        }
+        if (*endptr != '\0' || endptr == s) {
+            PyErr_SetString(PyExc_ValueError, "Unable to parse bytes to QuadPrecision");
+            Py_DECREF(self);
+            return NULL;
+        }
+    }
     else if (PyLong_Check(value)) {
         return quad_from_py_int(value, backend, self);
     }
@@ -242,21 +261,21 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
             const char *type_cstr = PyUnicode_AsUTF8(type_str);
             if (type_cstr != NULL) {
                 PyErr_Format(PyExc_TypeError,
-                             "QuadPrecision value must be a quad, float, int, string, array or sequence, but got %s "
+                             "QuadPrecision value must be a quad, float, int, string, bytes, array or sequence, but got %s "
                              "instead",
                              type_cstr);
             }
             else {
                 PyErr_SetString(
                         PyExc_TypeError,
-                        "QuadPrecision value must be a quad, float, int, string, array or sequence, but got an "
+                        "QuadPrecision value must be a quad, float, int, string, bytes, array or sequence, but got an "
                         "unknown type instead");
             }
             Py_DECREF(type_str);
         }
         else {
             PyErr_SetString(PyExc_TypeError,
-                            "QuadPrecision value must be a quad, float, int, string, array or sequence, but got an "
+                            "QuadPrecision value must be a quad, float, int, string, bytes, array or sequence, but got an "
                             "unknown type instead");
         }
         Py_DECREF(self);
