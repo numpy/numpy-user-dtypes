@@ -15,24 +15,13 @@
 #include "scalar_ops.h"
 #include "dragon4.h"
 #include "dtype.h"
+#include "lock.h"
 
 // For IEEE 754 binary128 (quad precision), we need 36 decimal digits 
 // to guarantee round-trip conversion (string -> parse -> equals original value)
 // Formula: ceil(1 + MANT_DIG * log10(2)) = ceil(1 + 113 * 0.30103) = 36
 // src: https://en.wikipedia.org/wiki/Quadruple-precision_floating-point_format
 #define SLEEF_QUAD_DECIMAL_DIG 36
-
-#if PY_VERSION_HEX < 0x30d00b3
-static PyThread_type_lock sleef_lock;
-#define LOCK_SLEEF PyThread_acquire_lock(sleef_lock, WAIT_LOCK)
-#define UNLOCK_SLEEF PyThread_release_lock(sleef_lock)
-#else
-static PyMutex sleef_lock = {0};
-#define LOCK_SLEEF PyMutex_Lock(&sleef_lock)
-#define UNLOCK_SLEEF PyMutex_Unlock(&sleef_lock)
-#endif
-
-
 
 
 QuadPrecisionObject *
@@ -655,13 +644,6 @@ PyTypeObject QuadPrecision_Type = {
 int
 init_quadprecision_scalar(void)
 {
-#if PY_VERSION_HEX < 0x30d00b3
-    sleef_lock = PyThread_allocate_lock();
-    if (sleef_lock == NULL) {
-        PyErr_NoMemory();
-        return -1;
-    }
-#endif
     QuadPrecision_Type.tp_base = &PyFloatingArrType_Type;
     return PyType_Ready(&QuadPrecision_Type);
 }
