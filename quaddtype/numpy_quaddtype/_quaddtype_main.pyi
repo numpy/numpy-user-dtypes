@@ -8,7 +8,9 @@ _Backend: TypeAlias = Literal["sleef", "longdouble"]
 _IntoQuad: TypeAlias = (
     QuadPrecision
     | float
+    | int
     | str
+    | bytes
     | np.floating[Any]
     | np.integer[Any]
     | np.bool_
