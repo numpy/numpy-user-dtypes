@@ -507,6 +507,67 @@ def test_array_minmax(op, a, b):
         assert np.signbit(float_res) == np.signbit(
             quad_res), f"Zero sign mismatch for {op}({a}, {b})"
 
+class TestComparisonReductionOps:
+    """Test suite for comparison reduction operations on QuadPrecision arrays."""
+    
+    @pytest.mark.parametrize("op", ["all", "any"])
+    @pytest.mark.parametrize("input_array", [
+        (["1.0", "2.0", "3.0"]),
+        (["1.0", "0.0", "3.0"]),
+        (["0.0", "0.0", "0.0"]),
+        # Including negative zero
+        (["-0.0", "0.0"]),
+        # Including NaN (should be treated as true)
+        (["nan", "1.0"]),
+        (["nan", "0.0"]),
+        (["nan", "nan"]),
+        # inf cases
+        (["inf", "1.0"]),
+        (["-inf", "0.0"]),
+        (["inf", "-inf"]),
+        # Mixed cases
+        (["1.0", "-0.0", "nan", "inf"]),
+        (["0.0", "-0.0", "nan", "-inf"]),
+    ])
+    def test_reduction_ops(self, op, input_array):
+        """Test all and any reduction operations."""
+        quad_array = np.array([QuadPrecision(x) for x in input_array])
+        float_array = np.array([float(x) for x in input_array])
+        op = getattr(np, op)
+        result = op(quad_array)
+        expected = op(float_array)
+        
+        assert result == expected, (
+            f"Reduction op '{op}' failed for input {input_array}: "
+            f"expected {expected}, got {result}"
+        )
+
+    @pytest.mark.parametrize("val_str", [
+        "0.0",
+        "-0.0",
+        "1.0",
+        "-1.0",
+        "nan",
+        "inf",
+        "-inf",
+    ])
+    def test_scalar_reduction_ops(self, val_str):
+        """Test reduction operations on scalar QuadPrecision values."""
+        quad_val = QuadPrecision(val_str)
+        float_val = np.float64(val_str)
+
+        result_all = quad_val.all()
+        expected_all_result = float_val.all()
+        assert result_all == expected_all_result, (
+            f"Scalar all failed for {val_str}: expected {expected_all_result}, got {result_all}"
+        )
+        
+        result_any = quad_val.any()
+        expected_any_result = float_val.any()
+        assert result_any == expected_any_result, (
+            f"Scalar any failed for {val_str}: expected {expected_any_result}, got {result_any}"
+        )
+
 
 # Logical operations tests
 @pytest.mark.parametrize("op", ["logical_and", "logical_or", "logical_xor"])

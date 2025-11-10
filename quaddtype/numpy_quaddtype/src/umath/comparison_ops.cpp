@@ -23,7 +23,6 @@
 #include "binary_ops.h"
 #include "comparison_ops.h"
 
-
 static NPY_CASTING
 quad_comparison_op_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtypes[],
                                        PyArray_Descr *const given_descrs[],
@@ -145,6 +144,117 @@ quad_generic_comp_strided_loop_aligned(PyArrayMethod_Context *context, char *con
     }
     return 0;
 }
+// todo: It'll be better to generate separate templates for aligned and unaligned loops
+// Resolve desc and strided loops for logical reduction (Bool, Quad) => Bool
+static NPY_CASTING
+quad_comparison_reduce_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtypes[],
+                                        PyArray_Descr *const given_descrs[],
+                                        PyArray_Descr *loop_descrs[],
+                                        npy_intp *NPY_UNUSED(view_offset))
+{
+    NPY_CASTING casting = NPY_SAFE_CASTING;
+    
+    for (int i = 0; i < 2; i++) {
+        Py_INCREF(given_descrs[i]);
+        loop_descrs[i] = given_descrs[i];
+    }
+
+    // Set up output descriptor
+    loop_descrs[2] = PyArray_DescrFromType(NPY_BOOL);
+    if (!loop_descrs[2]) {
+        return (NPY_CASTING)-1;
+    }
+    return casting;
+}
+
+template <cmp_quad_def sleef_comp, cmp_londouble_def ld_comp>
+int
+quad_reduce_comp_strided_loop_aligned(PyArrayMethod_Context *context, char *const data[],
+                                       npy_intp const dimensions[], npy_intp const strides[],
+                                       NpyAuxData *auxdata)
+{
+    npy_intp N = dimensions[0];
+    char *in1_ptr = data[0];  // bool
+    char *in2_ptr = data[1];  // quad
+    char *out_ptr = data[2];  // bool
+    npy_intp in1_stride = strides[0];
+    npy_intp in2_stride = strides[1];
+    npy_intp out_stride = strides[2];
+
+    QuadPrecDTypeObject *descr = (QuadPrecDTypeObject *)context->descriptors[1];
+    QuadBackendType backend = descr->backend;
+    while (N--) {
+        npy_bool in1 = *(npy_bool *)in1_ptr;
+        quad_value in1_quad;
+        quad_value in2;
+
+        npy_bool result;
+
+        if (backend == BACKEND_SLEEF) {
+            in1_quad.sleef_value = Sleef_cast_from_int64q1(in1);
+            in2.sleef_value = *(Sleef_quad *)in2_ptr;
+            result = sleef_comp(&in1_quad.sleef_value, &in2.sleef_value);
+        }
+        else {
+            in1_quad.longdouble_value = static_cast<long double>(in1);
+            in2.longdouble_value = *(long double *)in2_ptr;
+            result = ld_comp(&in1_quad.longdouble_value, &in2.longdouble_value);
+        }
+
+        *(npy_bool *)out_ptr = result;
+
+        in1_ptr += in1_stride;
+        in2_ptr += in2_stride;
+        out_ptr += out_stride;
+    }
+    return 0;
+}
+
+template <cmp_quad_def sleef_comp, cmp_londouble_def ld_comp>
+int
+quad_reduce_comp_strided_loop_unaligned(PyArrayMethod_Context *context, char *const data[],
+                               npy_intp const dimensions[], npy_intp const strides[],
+                               NpyAuxData *auxdata)
+{
+    npy_intp N = dimensions[0];
+    char *in1_ptr = data[0];  // bool
+    char *in2_ptr = data[1];  // quad
+    char *out_ptr = data[2];  // bool
+    npy_intp in1_stride = strides[0];
+    npy_intp in2_stride = strides[1];
+    npy_intp out_stride = strides[2];
+
+    QuadPrecDTypeObject *descr = (QuadPrecDTypeObject *)context->descriptors[1];
+    QuadBackendType backend = descr->backend;
+    size_t elem_size = (backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
+
+    npy_bool in1;
+    quad_value in1_quad, in2;
+    while (N--) {
+        memcpy(&in1, in1_ptr, sizeof(npy_bool));
+        if(backend == BACKEND_SLEEF)
+            in1_quad.sleef_value = Sleef_cast_from_int64q1(in1);
+        else
+            in1_quad.longdouble_value = static_cast<long double>(in1);
+        memcpy(&in2, in2_ptr, elem_size);
+        npy_bool result;
+
+        if (backend == BACKEND_SLEEF) {
+            result = sleef_comp(&in1_quad.sleef_value, &in2.sleef_value);
+        }
+        else {
+            result = ld_comp(&in1_quad.longdouble_value, &in2.longdouble_value);
+        }
+
+        memcpy(out_ptr, &result, sizeof(npy_bool));
+
+        in1_ptr += in1_stride;
+        in2_ptr += in2_stride;
+        out_ptr += out_stride;
+    }
+    return 0;
+}
+
 
 NPY_NO_EXPORT int
 comparison_ufunc_promoter(PyUFuncObject *ufunc, PyArray_DTypeMeta *op_dtypes[],
@@ -191,6 +301,31 @@ create_quad_comparison_ufunc(PyObject *numpy, const char *ufunc_name)
     };
 
     if (PyUFunc_AddLoopFromSpec(ufunc, &Spec) < 0) {
+        return -1;
+    }
+
+    // registering the reduce methods
+    PyArray_DTypeMeta *dtypes_reduce[3] = {&PyArray_BoolDType, &QuadPrecDType, &PyArray_BoolDType};
+
+    PyType_Slot slots_reduce[] = {
+            {NPY_METH_resolve_descriptors, (void *)&quad_comparison_reduce_resolve_descriptors},
+            {NPY_METH_strided_loop,
+             (void *)&quad_reduce_comp_strided_loop_aligned<sleef_comp, ld_comp>},
+            {NPY_METH_unaligned_strided_loop,
+             (void *)&quad_reduce_comp_strided_loop_unaligned<sleef_comp, ld_comp>},
+            {0, NULL}};
+
+    PyArrayMethod_Spec Spec_reduce = {
+            .name = "quad_comp",
+            .nin = 2,
+            .nout = 1,
+            .casting = NPY_SAFE_CASTING,
+            .flags = NPY_METH_SUPPORTS_UNALIGNED,
+            .dtypes = dtypes_reduce,
+            .slots = slots_reduce,
+    };
+
+    if (PyUFunc_AddLoopFromSpec(ufunc, &Spec_reduce) < 0) {
         return -1;
     }
 
