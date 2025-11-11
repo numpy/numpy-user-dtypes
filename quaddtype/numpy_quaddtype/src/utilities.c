@@ -1,4 +1,5 @@
 #include "utilities.h"
+#include <stdlib.h>
 
 void cstring_to_quad(const char *str, QuadBackendType backend, quad_value *out_value, char **endptr)
 {
