@@ -16,6 +16,7 @@
 #include "dragon4.h"
 #include "dtype.h"
 #include "lock.h"
+#include "utilities.h"
 
 // For IEEE 754 binary128 (quad precision), we need 36 decimal digits 
 // to guarantee round-trip conversion (string -> parse -> equals original value)
@@ -196,12 +197,7 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
     else if (PyUnicode_Check(value)) {
         const char *s = PyUnicode_AsUTF8(value);
         char *endptr = NULL;
-        if (backend == BACKEND_SLEEF) {
-            self->value.sleef_value = Sleef_strtoq(s, &endptr);
-        }
-        else {
-            self->value.longdouble_value = strtold(s, &endptr);
-        }
+        cstring_to_quad(s, backend, &self->value, &endptr);
         if (*endptr != '\0' || endptr == s) {
             PyErr_SetString(PyExc_ValueError, "Unable to parse string to QuadPrecision");
             Py_DECREF(self);
@@ -215,12 +211,7 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
             return NULL;
         }
         char *endptr = NULL;
-        if (backend == BACKEND_SLEEF) {
-            self->value.sleef_value = Sleef_strtoq(s, &endptr);
-        }
-        else {
-            self->value.longdouble_value = strtold(s, &endptr);
-        }
+        cstring_to_quad(s, backend, &self->value, &endptr);
         if (*endptr != '\0' || endptr == s) {
             PyErr_SetString(PyExc_ValueError, "Unable to parse bytes to QuadPrecision");
             Py_DECREF(self);

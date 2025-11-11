@@ -9,11 +9,6 @@ extern "C" {
 #include <sleef.h>
 #include "quad_common.h"
 
-typedef union {
-    Sleef_quad sleef_value;
-    long double longdouble_value;
-} quad_value;
-
 typedef struct {
     PyObject_HEAD
     quad_value value;
