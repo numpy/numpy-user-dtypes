@@ -4,7 +4,8 @@
 #include "quad_common.h"
 #include <sleef.h>
 #include <sleefquad.h>
+#include <stdbool.h>
 
-void cstring_to_quad(const char *str, QuadBackendType backend, quad_value *out_value, char **endptr);
+int cstring_to_quad(const char *str, QuadBackendType backend, quad_value *out_value, char **endptr, bool require_full_parse);
 
 #endif

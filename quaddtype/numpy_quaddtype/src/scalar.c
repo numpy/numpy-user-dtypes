@@ -197,8 +197,8 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
     else if (PyUnicode_Check(value)) {
         const char *s = PyUnicode_AsUTF8(value);
         char *endptr = NULL;
-        cstring_to_quad(s, backend, &self->value, &endptr);
-        if (*endptr != '\0' || endptr == s) {
+        int err = cstring_to_quad(s, backend, &self->value, &endptr, true);
+        if (err < 0) {
             PyErr_SetString(PyExc_ValueError, "Unable to parse string to QuadPrecision");
             Py_DECREF(self);
             return NULL;
@@ -211,8 +211,8 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
             return NULL;
         }
         char *endptr = NULL;
-        cstring_to_quad(s, backend, &self->value, &endptr);
-        if (*endptr != '\0' || endptr == s) {
+        int err = cstring_to_quad(s, backend, &self->value, &endptr, true);
+        if (err < 0) {
             PyErr_SetString(PyExc_ValueError, "Unable to parse bytes to QuadPrecision");
             Py_DECREF(self);
             return NULL;
