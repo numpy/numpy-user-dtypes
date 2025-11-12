@@ -15,24 +15,14 @@
 #include "scalar_ops.h"
 #include "dragon4.h"
 #include "dtype.h"
+#include "lock.h"
+#include "utilities.h"
 
 // For IEEE 754 binary128 (quad precision), we need 36 decimal digits 
 // to guarantee round-trip conversion (string -> parse -> equals original value)
 // Formula: ceil(1 + MANT_DIG * log10(2)) = ceil(1 + 113 * 0.30103) = 36
 // src: https://en.wikipedia.org/wiki/Quadruple-precision_floating-point_format
 #define SLEEF_QUAD_DECIMAL_DIG 36
-
-#if PY_VERSION_HEX < 0x30d00b3
-static PyThread_type_lock sleef_lock;
-#define LOCK_SLEEF PyThread_acquire_lock(sleef_lock, WAIT_LOCK)
-#define UNLOCK_SLEEF PyThread_release_lock(sleef_lock)
-#else
-static PyMutex sleef_lock = {0};
-#define LOCK_SLEEF PyMutex_Lock(&sleef_lock)
-#define UNLOCK_SLEEF PyMutex_Unlock(&sleef_lock)
-#endif
-
-
 
 
 QuadPrecisionObject *
@@ -207,14 +197,23 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
     else if (PyUnicode_Check(value)) {
         const char *s = PyUnicode_AsUTF8(value);
         char *endptr = NULL;
-        if (backend == BACKEND_SLEEF) {
-            self->value.sleef_value = Sleef_strtoq(s, &endptr);
-        }
-        else {
-            self->value.longdouble_value = strtold(s, &endptr);
-        }
-        if (*endptr != '\0' || endptr == s) {
+        int err = cstring_to_quad(s, backend, &self->value, &endptr, true);
+        if (err < 0) {
             PyErr_SetString(PyExc_ValueError, "Unable to parse string to QuadPrecision");
+            Py_DECREF(self);
+            return NULL;
+        }
+    }
+    else if (PyBytes_Check(value)) {
+        const char *s = PyBytes_AsString(value);
+        if (s == NULL) {
+            Py_DECREF(self);
+            return NULL;
+        }
+        char *endptr = NULL;
+        int err = cstring_to_quad(s, backend, &self->value, &endptr, true);
+        if (err < 0) {
+            PyErr_SetString(PyExc_ValueError, "Unable to parse bytes to QuadPrecision");
             Py_DECREF(self);
             return NULL;
         }
@@ -242,21 +241,21 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
             const char *type_cstr = PyUnicode_AsUTF8(type_str);
             if (type_cstr != NULL) {
                 PyErr_Format(PyExc_TypeError,
-                             "QuadPrecision value must be a quad, float, int, string, array or sequence, but got %s "
+                             "QuadPrecision value must be a quad, float, int, string, bytes, array or sequence, but got %s "
                              "instead",
                              type_cstr);
             }
             else {
                 PyErr_SetString(
                         PyExc_TypeError,
-                        "QuadPrecision value must be a quad, float, int, string, array or sequence, but got an "
+                        "QuadPrecision value must be a quad, float, int, string, bytes, array or sequence, but got an "
                         "unknown type instead");
             }
             Py_DECREF(type_str);
         }
         else {
             PyErr_SetString(PyExc_TypeError,
-                            "QuadPrecision value must be a quad, float, int, string, array or sequence, but got an "
+                            "QuadPrecision value must be a quad, float, int, string, bytes, array or sequence, but got an "
                             "unknown type instead");
         }
         Py_DECREF(self);
@@ -636,13 +635,6 @@ PyTypeObject QuadPrecision_Type = {
 int
 init_quadprecision_scalar(void)
 {
-#if PY_VERSION_HEX < 0x30d00b3
-    sleef_lock = PyThread_allocate_lock();
-    if (sleef_lock == NULL) {
-        PyErr_NoMemory();
-        return -1;
-    }
-#endif
     QuadPrecision_Type.tp_base = &PyFloatingArrType_Type;
     return PyType_Ready(&QuadPrecision_Type);
 }

@@ -12,6 +12,7 @@
 #include "numpy/dtype_api.h"
 #include "numpy/ufuncobject.h"
 
+#include "lock.h"
 #include "scalar.h"
 #include "dtype.h"
 #include "umath/umath.h"
@@ -95,6 +96,8 @@ PyInit__quaddtype_main(void)
 #ifdef Py_GIL_DISABLED
     PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
 #endif
+
+    init_sleef_locks();
 
     if (init_quadprecision_scalar() < 0)
         goto error;

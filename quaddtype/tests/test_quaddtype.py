@@ -308,6 +308,134 @@ def test_string_roundtrip():
         )
 
 
+class TestBytesSupport:
+    """Test suite for QuadPrecision bytes input support."""
+    
+    @pytest.mark.parametrize("original", [
+        QuadPrecision("0.417022004702574000667425480060047"),  # Random value
+        QuadPrecision("1.23456789012345678901234567890123456789"),  # Many digits
+        pytest.param(numpy_quaddtype.pi, id="pi"),  # Mathematical constant
+        pytest.param(numpy_quaddtype.e, id="e"),
+        QuadPrecision("1e-100"),  # Very small
+        QuadPrecision("1e100"),   # Very large
+        QuadPrecision("-3.14159265358979323846264338327950288419"),  # Negative pi
+        QuadPrecision("0.0"),  # Zero
+        QuadPrecision("-0.0"),  # Negative zero
+        QuadPrecision("1.0"),  # One
+        QuadPrecision("-1.0"),  # Negative one
+    ])
+    def test_bytes_roundtrip(self, original):
+        """Test that bytes representations of quad precision values roundtrip correctly."""
+        string_repr = str(original)
+        bytes_repr = string_repr.encode("ascii")
+        reconstructed = QuadPrecision(bytes_repr)
+        
+        # Values should be exactly equal (bit-for-bit identical)
+        assert reconstructed == original, (
+            f"Bytes round-trip failed for {repr(original)}:\n"
+            f"  Original:      {repr(original)}\n"
+            f"  Bytes:         {bytes_repr}\n"
+            f"  Reconstructed: {repr(reconstructed)}"
+        )
+    
+    @pytest.mark.parametrize("bytes_val,expected_str", [
+        # Simple numeric values
+        (b"1.0", "1.0"),
+        (b"-1.0", "-1.0"),
+        (b"0.0", "0.0"),
+        (b"3.14159", "3.14159"),
+        # Scientific notation
+        (b"1e10", "1e10"),
+        (b"1e-10", "1e-10"),
+        (b"2.5e100", "2.5e100"),
+        (b"-3.7e-50", "-3.7e-50"),
+    ])
+    def test_bytes_creation_basic(self, bytes_val, expected_str):
+        """Test basic creation of QuadPrecision from bytes objects."""
+        assert QuadPrecision(bytes_val) == QuadPrecision(expected_str)
+    
+    @pytest.mark.parametrize("bytes_val,check_func", [
+        # Very large and very small numbers
+        (b"1e308", lambda x: x == QuadPrecision("1e308")),
+        (b"1e-308", lambda x: x == QuadPrecision("1e-308")),
+        # Special values
+        (b"inf", lambda x: np.isinf(x)),
+        (b"-inf", lambda x: np.isinf(x) and x < 0),
+        (b"nan", lambda x: np.isnan(x)),
+    ])
+    def test_bytes_creation_edge_cases(self, bytes_val, check_func):
+        """Test edge cases for QuadPrecision creation from bytes."""
+        val = QuadPrecision(bytes_val)
+        assert check_func(val)
+    
+    @pytest.mark.parametrize("invalid_bytes", [
+        b"",  # Empty bytes
+        b"not_a_number",  # Invalid format
+        b"1.23abc",  # Trailing garbage
+        b"abc1.23",  # Leading garbage
+    ])
+    def test_bytes_invalid_input(self, invalid_bytes):
+        """Test that invalid bytes input raises appropriate errors."""
+        with pytest.raises(ValueError, match="Unable to parse bytes to QuadPrecision"):
+            QuadPrecision(invalid_bytes)
+    
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    @pytest.mark.parametrize("bytes_val", [
+        b"1.0",
+        b"-1.0",
+        b"3.141592653589793238462643383279502884197",
+        b"1e100",
+        b"1e-100",
+        b"0.0",
+    ])
+    def test_bytes_backend_consistency(self, backend, bytes_val):
+        """Test that bytes parsing works consistently across backends."""
+        quad_val = QuadPrecision(bytes_val, backend=backend)
+        str_val = QuadPrecision(bytes_val.decode("ascii"), backend=backend)
+        
+        # Bytes and string should produce identical results
+        assert quad_val == str_val, (
+            f"Backend {backend}: bytes and string parsing differ for {bytes_val}\n"
+            f"  From bytes:  {repr(quad_val)}\n"
+            f"  From string: {repr(str_val)}"
+        )
+    
+    @pytest.mark.parametrize("bytes_val,expected_str", [
+        # Leading whitespace is OK (consumed by parser)
+        (b" 1.0", "1.0"),
+        (b"  3.14", "3.14"),
+    ])
+    def test_bytes_whitespace_valid(self, bytes_val, expected_str):
+        """Test handling of valid whitespace in bytes input."""
+        assert QuadPrecision(bytes_val) == QuadPrecision(expected_str)
+    
+    @pytest.mark.parametrize("invalid_bytes", [
+        b"1.0 ",  # Trailing whitespace
+        b"1.0  ",  # Multiple trailing spaces
+        b"1 .0",  # Internal whitespace
+        b"1. 0",  # Internal whitespace
+    ])
+    def test_bytes_whitespace_invalid(self, invalid_bytes):
+        """Test that invalid whitespace in bytes input raises errors."""
+        with pytest.raises(ValueError, match="Unable to parse bytes to QuadPrecision"):
+            QuadPrecision(invalid_bytes)
+    
+    @pytest.mark.parametrize("test_str", [
+        "1.0",
+        "-3.14159265358979323846264338327950288419",
+        "1e100",
+        "2.71828182845904523536028747135266249775",
+    ])
+    def test_bytes_encoding_compatibility(self, test_str):
+        """Test that bytes created from different encodings work correctly."""
+        from_string = QuadPrecision(test_str)
+        from_bytes = QuadPrecision(test_str.encode("ascii"))
+        from_bytes_utf8 = QuadPrecision(test_str.encode("utf-8"))
+        
+        assert from_string == from_bytes
+        assert from_string == from_bytes_utf8
+
+
 def test_string_subclass_parsing():
     """Test that QuadPrecision handles string subclasses correctly.
     

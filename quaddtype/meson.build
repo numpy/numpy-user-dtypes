@@ -175,6 +175,10 @@ srcs = [
     'numpy_quaddtype/src/umath/matmul.h',
     'numpy_quaddtype/src/umath/matmul.cpp',
     'numpy_quaddtype/src/constants.hpp',
+    'numpy_quaddtype/src/lock.h',
+    'numpy_quaddtype/src/lock.c',
+    'numpy_quaddtype/src/utilities.h',
+    'numpy_quaddtype/src/utilities.c',
 ]
 
 py.install_sources(

@@ -830,7 +830,7 @@ init_casts_internal(void)
     add_spec(quad2quad_spec);
 
     PyArray_DTypeMeta **void_dtypes = new PyArray_DTypeMeta *[2]{&PyArray_VoidDType, &QuadPrecDType};
-    PyType_Slot *void_slots = new PyType_Slot[]{
+    PyType_Slot *void_slots = new PyType_Slot[4]{
         {NPY_METH_resolve_descriptors, (void *)&void_to_quad_resolve_descriptors},
         {NPY_METH_strided_loop, (void *)&void_to_quad_strided_loop},
         {NPY_METH_unaligned_strided_loop, (void *)&void_to_quad_strided_loop},

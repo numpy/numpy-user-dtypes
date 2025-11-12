@@ -9,6 +9,7 @@ _IntoQuad: TypeAlias = (
     QuadPrecision
     | float
     | str
+    | bytes
     | np.floating[Any]
     | np.integer[Any]
     | np.bool_

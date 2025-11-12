@@ -13,11 +13,13 @@
 #include "numpy/ndarraytypes.h"
 #include "numpy/dtype_api.h"
 
+#include "quad_common.h"
 #include "scalar.h"
 #include "casts.h"
 #include "dtype.h"
 #include "dragon4.h"
 #include "constants.hpp"
+#include "utilities.h"
 
 static inline int
 quad_load(void *x, char *data_ptr, QuadBackendType backend)
@@ -353,19 +355,16 @@ quadprec_scanfunc(FILE *fp, void *dptr, char *ignore, PyArray_Descr *descr_gener
     
     /* Convert string to quad precision */
     char *endptr;
+    quad_value val;
+    int err = cstring_to_quad(buffer, descr->backend, &val, &endptr, true);
+    if (err < 0) {
+        return 0;  /* Return 0 on parse error (no items read) */
+    }
     if (descr->backend == BACKEND_SLEEF) {
-        Sleef_quad val = Sleef_strtoq(buffer, &endptr);
-        if (endptr == buffer) {
-            return 0;  /* Return 0 on parse error (no items read) */
-        }
-        *(Sleef_quad *)dptr = val;
+        *(Sleef_quad *)dptr = val.sleef_value;
     }
     else {
-        long double val = strtold(buffer, &endptr);
-        if (endptr == buffer) {
-            return 0;  /* Return 0 on parse error (no items read) */
-        }
-        *(long double *)dptr = val;
+       *(long double *)dptr = val.longdouble_value;
     }
     
     return 1;  /* Return 1 on success (1 item read) */
@@ -375,22 +374,17 @@ static int
 quadprec_fromstr(char *s, void *dptr, char **endptr, PyArray_Descr *descr_generic)
 {
     QuadPrecDTypeObject *descr = (QuadPrecDTypeObject *)descr_generic;
-    
-    if (descr->backend == BACKEND_SLEEF) {
-        Sleef_quad val = Sleef_strtoq(s, endptr);
-        if (*endptr == s) {
-            return -1;
-        }
-        *(Sleef_quad *)dptr = val;
+    quad_value val;
+    int err = cstring_to_quad(s, descr->backend, &val, endptr, false);
+    if (err < 0) {
+        return -1;
+    }
+    if(descr->backend == BACKEND_SLEEF) {
+        *(Sleef_quad *)dptr = val.sleef_value;
     }
     else {
-        long double val = strtold(s, endptr);
-        if (*endptr == s) {
-            return -1;
-        }
-        *(long double *)dptr = val;
+        *(long double *)dptr = val.longdouble_value;
     }
-    
     return 0;
 }
 
