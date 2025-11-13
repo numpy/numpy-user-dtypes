@@ -22,6 +22,7 @@ extern "C" {
 #include "dtype.h"
 
 #define NUM_CASTS 34  // 16 to_casts + 16 from_casts + 1 quad_to_quad + 1 void_to_quad
+#define QUAD_STR_WIDTH 50   // 42 is enough for scientific notation float128, just keeping some buffer
 
 static NPY_CASTING
 quad_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self),
