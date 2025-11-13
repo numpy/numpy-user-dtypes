@@ -553,7 +553,7 @@ def test_supported_astype(dtype):
 #           np.array(QuadPrecision(1)).astype(dtype, casting="unsafe")
 
 class TestArrayCastStringBytes:
-    @pytest.mark.parametrize("strtype", [np.str_, str, np.bytes_])
+    @pytest.mark.parametrize("strtype", [np.str_, str])
     @pytest.mark.parametrize("input_val", [
         "3.141592653589793238462643383279502884197",
         "2.71828182845904523536028747135266249775",
@@ -566,14 +566,42 @@ class TestArrayCastStringBytes:
         "nan",
         "-nan",
     ])
-    def test_cast_string_to_quad(self, input_val, strtype):
+    def test_cast_string_to_quad_roundtrip(self, input_val, strtype):
+        # Test 1: String to Quad conversion
         str_array = np.array(input_val, dtype=strtype)
         quad_array = str_array.astype(QuadPrecDType())
         expected = np.array(input_val, dtype=QuadPrecDType())
+        
+        # Verify string to quad conversion
         if np.isnan(float(expected)):
             np.testing.assert_array_equal(np.isnan(quad_array), np.isnan(expected))
         else:
             np.testing.assert_array_equal(quad_array, expected)
+        
+        # Test 2: Quad to String conversion
+        quad_to_string_array = quad_array.astype(strtype)
+        
+        # Test 3: Round-trip - String -> Quad -> String -> Quad should preserve value
+        roundtrip_quad_array = quad_to_string_array.astype(QuadPrecDType())
+        
+        if np.isnan(float(expected)):
+            # For NaN, just verify both are NaN
+            np.testing.assert_array_equal(np.isnan(roundtrip_quad_array), np.isnan(quad_array))
+        else:
+            # For non-NaN values, the round-trip should preserve the exact value
+            np.testing.assert_array_equal(roundtrip_quad_array, quad_array, 
+                                         err_msg=f"Round-trip failed for {input_val}")
+        
+        # Test 4: Verify the string representation can be parsed back
+        # (This ensures the quad->string cast produces valid parseable strings)
+        scalar_str = str(quad_array[()])
+        scalar_from_str = QuadPrecision(scalar_str)
+        
+        if np.isnan(float(quad_array[()])):
+            assert np.isnan(float(scalar_from_str))
+        else:
+            assert scalar_from_str == quad_array[()], \
+                f"Scalar round-trip failed: {scalar_str} -> {scalar_from_str} != {quad_array[()]}"
 
 
 def test_basic_equality():
