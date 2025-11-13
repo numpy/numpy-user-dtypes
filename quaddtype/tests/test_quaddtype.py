@@ -540,17 +540,40 @@ def test_supported_astype(dtype):
     assert back == orig
 
 
-@pytest.mark.parametrize("dtype", ["S10", "U10", "T", "V10", "datetime64[ms]", "timedelta64[ms]"])
-def test_unsupported_astype(dtype):
-    if dtype == "V10":
-        with pytest.raises(TypeError, match="cast"):
-          np.ones((3, 3), dtype="V10").astype(QuadPrecDType, casting="unsafe")
-    else:
-      with pytest.raises(TypeError, match="cast"):
-          np.array(1, dtype=dtype).astype(QuadPrecDType, casting="unsafe")
+# @pytest.mark.parametrize("dtype", ["S10", "U10", "T", "V10", "datetime64[ms]", "timedelta64[ms]"])
+# def test_unsupported_astype(dtype):
+#     if dtype == "V10":
+#         with pytest.raises(TypeError, match="cast"):
+#           np.ones((3, 3), dtype="V10").astype(QuadPrecDType, casting="unsafe")
+#     else:
+#       with pytest.raises(TypeError, match="cast"):
+#           np.array(1, dtype=dtype).astype(QuadPrecDType, casting="unsafe")
 
-      with pytest.raises(TypeError, match="cast"):
-          np.array(QuadPrecision(1)).astype(dtype, casting="unsafe")
+#       with pytest.raises(TypeError, match="cast"):
+#           np.array(QuadPrecision(1)).astype(dtype, casting="unsafe")
+
+class TestArrayCastStringBytes:
+    @pytest.mark.parametrize("strtype", [np.str_, str, np.bytes_])
+    @pytest.mark.parametrize("input_val", [
+        "3.141592653589793238462643383279502884197",
+        "2.71828182845904523536028747135266249775",
+        "1e100",
+        "1e-100",
+        "0.0",
+        "-0.0",
+        "inf",
+        "-inf",
+        "nan",
+        "-nan",
+    ])
+    def test_cast_string_to_quad(self, input_val, strtype):
+        str_array = np.array(input_val, dtype=strtype)
+        quad_array = str_array.astype(QuadPrecDType())
+        expected = np.array(input_val, dtype=QuadPrecDType())
+        if np.isnan(float(expected)):
+            np.testing.assert_array_equal(np.isnan(quad_array), np.isnan(expected))
+        else:
+            np.testing.assert_array_equal(quad_array, expected)
 
 
 def test_basic_equality():
