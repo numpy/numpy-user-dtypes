@@ -225,8 +225,7 @@ unicode_to_quad_convert(const Py_UCS4 *ucs4_str, npy_intp unicode_size_chars,
     }
     
     // Check that we parsed the entire string (skip trailing whitespace)
-    while (*endptr == ' ' || *endptr == '\t' || *endptr == '\n' || 
-           *endptr == '\r' || *endptr == '\f' || *endptr == '\v') {
+    while (ascii_isspace(*endptr)) {
         endptr++;
     }
     

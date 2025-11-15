@@ -5,32 +5,31 @@
 #include "utilities.h"
 #include "constants.hpp"
 
-// Locale-independent ASCII character classification helpers
-static int
+int
 ascii_isspace(int c)
 {
     return c == ' ' || c == '\f' || c == '\n' || c == '\r' || c == '\t' || c == '\v';
 }
 
-static int
+int
 ascii_isalpha(char c)
 {
     return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
 }
 
-static int
+int
 ascii_isdigit(char c)
 {
     return (c >= '0' && c <= '9');
 }
 
-static int
+int
 ascii_isalnum(char c)
 {
     return ascii_isdigit(c) || ascii_isalpha(c);
 }
 
-static int
+int
 ascii_tolower(int c)
 {
     if (c >= 'A' && c <= 'Z') {
@@ -40,7 +39,7 @@ ascii_tolower(int c)
 }
 
 // inspired from NumPyOS_ascii_strncasecmp
-static int
+int
 ascii_strncasecmp(const char *s1, const char *s2, size_t n)
 {
     while (n > 0 && *s1 != '\0' && *s2 != '\0') {

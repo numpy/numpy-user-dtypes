@@ -11,9 +11,16 @@ extern "C" {
 #include <stdbool.h>
 
 int cstring_to_quad(const char *str, QuadBackendType backend, quad_value *out_value, char **endptr, bool require_full_parse);
+int ascii_isspace(int c);
+int ascii_isalpha(char c);
+int ascii_isdigit(char c);
+int ascii_isalnum(char c);
+int ascii_tolower(int c);
+int ascii_strncasecmp(const char *s1, const char *s2, size_t n);
 
 // Locale-independent ASCII string to quad parser (inspired by NumPyOS_ascii_strtold)
 int NumPyOS_ascii_strtoq(const char *s, QuadBackendType backend, quad_value *out_value, char **endptr);
+
 
 // Helper function: Convert quad_value to Sleef_quad for Dragon4
 Sleef_quad
