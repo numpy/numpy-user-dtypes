@@ -1,6 +1,10 @@
 #ifndef QUAD_CONSTANTS_HPP
 #define QUAD_CONSTANTS_HPP
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <sleef.h>
 #include <sleefquad.h>
 #include <stdint.h>
@@ -129,5 +133,9 @@ static inline ConstantResult get_sleef_constant_by_name(const char* constant_nam
     
     return result;
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // QUAD_CONSTANTS_HPP

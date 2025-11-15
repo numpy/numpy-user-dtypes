@@ -18,12 +18,6 @@
 #include "lock.h"
 #include "utilities.h"
 
-// For IEEE 754 binary128 (quad precision), we need 36 decimal digits 
-// to guarantee round-trip conversion (string -> parse -> equals original value)
-// Formula: ceil(1 + MANT_DIG * log10(2)) = ceil(1 + 113 * 0.30103) = 36
-// src: https://en.wikipedia.org/wiki/Quadruple-precision_floating-point_format
-#define SLEEF_QUAD_DECIMAL_DIG 36
-
 
 QuadPrecisionObject *
 QuadPrecision_raw_new(QuadBackendType backend)
