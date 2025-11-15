@@ -599,6 +599,181 @@ class TestArrayCastStringBytes:
                 f"Scalar round-trip failed: {scalar_str} -> {scalar_from_str} != {quad_array[()]}"
 
 
+class TestStringParsingEdgeCases:
+    """Test edge cases in NumPyOS_ascii_strtoq string parsing"""
+    
+    @pytest.mark.parametrize("input_str,expected_sign", [
+        ("inf", 1),
+        ("+inf", 1),
+        ("-inf", -1),
+        ("Inf", 1),
+        ("+Inf", 1),
+        ("-Inf", -1),
+        ("INF", 1),
+        ("+INF", 1),
+        ("-INF", -1),
+        ("infinity", 1),
+        ("+infinity", 1),
+        ("-infinity", -1),
+        ("Infinity", 1),
+        ("+Infinity", 1),
+        ("-Infinity", -1),
+        ("INFINITY", 1),
+        ("+INFINITY", 1),
+        ("-INFINITY", -1),
+    ])
+    def test_infinity_sign_preservation(self, input_str, expected_sign):
+        """Test that +/- signs are correctly applied to infinity values"""
+        arr = np.array([input_str], dtype='U20')
+        result = arr.astype(QuadPrecDType())
+        
+        assert np.isinf(float(str(result[0]))), f"Expected inf for '{input_str}'"
+        
+        actual_sign = 1 if float(str(result[0])) > 0 else -1
+        assert actual_sign == expected_sign, \
+            f"Sign mismatch for '{input_str}': got {actual_sign}, expected {expected_sign}"
+    
+    @pytest.mark.parametrize("input_str", [
+        "nan", "+nan", "-nan",  # Note: NaN sign is typically ignored
+        "NaN", "+NaN", "-NaN",
+        "NAN", "+NAN", "-NAN",
+        "nan()", "nan(123)", "nan(abc_)", "NAN(XYZ)",
+    ])
+    def test_nan_case_insensitive(self, input_str):
+        """Test case-insensitive NaN parsing with optional payloads"""
+        arr = np.array([input_str], dtype='U20')
+        result = arr.astype(QuadPrecDType())
+        
+        assert np.isnan(float(str(result[0]))), f"Expected NaN for '{input_str}'"
+    
+    @pytest.mark.parametrize("input_str,expected_val", [
+        ("3.14", 3.14),
+        ("+3.14", 3.14),
+        ("-3.14", -3.14),
+        ("0.0", 0.0),
+        ("+0.0", 0.0),
+        ("-0.0", -0.0),
+        ("1e10", 1e10),
+        ("+1e10", 1e10),
+        ("-1e10", -1e10),
+        ("1.23e-45", 1.23e-45),
+        ("+1.23e-45", 1.23e-45),
+        ("-1.23e-45", -1.23e-45),
+    ])
+    def test_numeric_sign_handling(self, input_str, expected_val):
+        """Test that +/- signs are correctly handled for numeric values"""
+        arr = np.array([input_str], dtype='U20')
+        result = arr.astype(QuadPrecDType())
+        
+        result_val = float(str(result[0]))
+        
+        # For zero, check sign separately
+        if expected_val == 0.0:
+            assert result_val == 0.0
+            if input_str.startswith('-'):
+                assert np.signbit(result_val), f"Expected negative zero for '{input_str}'"
+            else:
+                assert not np.signbit(result_val), f"Expected positive zero for '{input_str}'"
+        else:
+            np.testing.assert_allclose(result_val, expected_val, rtol=1e-10)
+    
+    @pytest.mark.parametrize("input_str", [
+        "  3.14  ",
+        "\t3.14\t",
+        "\n3.14\n",
+        "\r3.14\r",
+        "  \t\n\r  3.14  \t\n\r  ",
+        "  inf  ",
+        "\t-inf\t",
+        "  nan  ",
+    ])
+    def test_whitespace_handling(self, input_str):
+        """Test that leading/trailing whitespace is handled correctly"""
+        arr = np.array([input_str], dtype='U20')
+        result = arr.astype(QuadPrecDType())
+        
+        # Should not raise an error
+        result_str = str(result[0])
+        assert result_str  # Should have a value
+    
+    @pytest.mark.parametrize("invalid_str", [
+        "abc",           # Non-numeric
+        "3.14.15",       # Multiple decimals
+        "1.23e",         # Incomplete scientific notation
+        "e10",           # Scientific notation without base
+        "3.14abc",       # Trailing non-numeric
+        "++3.14",        # Double sign
+        "--3.14",        # Double sign
+        "+-3.14",        # Mixed signs
+        "in",            # Incomplete inf
+        "na",            # Incomplete nan
+        "infinit",       # Incomplete infinity
+    ])
+    def test_invalid_strings_raise_error(self, invalid_str):
+        """Test that invalid strings raise ValueError"""
+        arr = np.array([invalid_str], dtype='U20')
+        
+        with pytest.raises(ValueError):
+            arr.astype(QuadPrecDType())
+    
+    @pytest.mark.parametrize("input_str", [
+        "3.14ñ",         # Trailing non-ASCII
+        "ñ3.14",         # Leading non-ASCII  
+        "3.1€4",         # Mid non-ASCII
+        "π",             # Greek pi
+    ])
+    def test_non_ascii_raises_error(self, input_str):
+        """Test that non-ASCII characters raise ValueError"""
+        arr = np.array([input_str], dtype='U20')
+        
+        with pytest.raises(ValueError):
+            arr.astype(QuadPrecDType())
+    
+    def test_numpy_longdouble_compatibility(self):
+        """Test that our parsing matches NumPy's longdouble for common cases"""
+        test_cases = [
+            "inf", "INF", "Inf", "-inf", "+infinity",
+            "nan", "NAN", "NaN", 
+            "3.14", "-2.718", "1e10", "-1.23e-45",
+        ]
+        
+        for test_str in test_cases:
+            arr = np.array([test_str], dtype='U20')
+            
+            # NumPy's built-in
+            np_result = arr.astype(np.longdouble)
+            
+            # Our QuadPrecision
+            quad_result = arr.astype(QuadPrecDType())
+            
+            np_val = np_result[0]
+            quad_val = float(str(quad_result[0]))
+            
+            if np.isnan(np_val):
+                assert np.isnan(quad_val), f"NumPy gives NaN but QuadPrec doesn't for '{test_str}'"
+            elif np.isinf(np_val):
+                assert np.isinf(quad_val), f"NumPy gives inf but QuadPrec doesn't for '{test_str}'"
+                assert np.sign(np_val) == np.sign(quad_val), \
+                    f"Inf sign mismatch for '{test_str}': NumPy={np.sign(np_val)}, Quad={np.sign(quad_val)}"
+            else:
+                np.testing.assert_allclose(quad_val, np_val, rtol=1e-10)
+    
+    def test_locale_independence(self):
+        """Test that parsing always uses '.' for decimal, not locale-specific separator"""
+        # This should parse correctly (period as decimal)
+        arr = np.array(["3.14"], dtype='U20')
+        result = arr.astype(QuadPrecDType())
+        assert float(str(result[0])) == 3.14
+        
+        # In some locales ',' is decimal separator, but we should always use '.'
+        # So "3,14" should either error or parse as "3" (stopping at comma)
+        # Since require_full_parse validation happens in casts.cpp, and we check
+        # for trailing content, this should raise ValueError
+        arr_comma = np.array(["3,14"], dtype='U20')
+        with pytest.raises(ValueError):
+            arr_comma.astype(QuadPrecDType())
+
+
 def test_basic_equality():
     assert QuadPrecision("12") == QuadPrecision(
         "12.0") == QuadPrecision("12.00")

@@ -203,34 +203,46 @@ static inline int
 unicode_to_quad_convert(const Py_UCS4 *ucs4_str, npy_intp unicode_size_chars,
                        QuadBackendType backend, quad_value *out_val)
 {
-    // Temporary buffer to convert UCS4 to null-terminated char string
-    char temp_str[QUAD_STR_WIDTH + 1];
-    npy_intp copy_len = unicode_size_chars < QUAD_STR_WIDTH ? unicode_size_chars : QUAD_STR_WIDTH;
-    
-    // Convert UCS4 characters to ASCII/char
-    npy_intp i;
-    for (i = 0; i < copy_len; i++) {
-        Py_UCS4 c = ucs4_str[i];
-        
-        // reject non-ASCII characters
-        if (c > 127) {
-            PyErr_Format(PyExc_ValueError,
-                        "Cannot cast non-ASCII character '%c' to QuadPrecision", c);
-            return -1;
-        }
-        
-        temp_str[i] = (char)c;
-    }
-    temp_str[i] = '\0';
-    
-    char *endptr;
-    int err = cstring_to_quad(temp_str, backend, out_val, &endptr, true);
-    if (err < 0) {
-        PyErr_Format(PyExc_ValueError,
-                    "could not convert string to QuadPrecision: np.str_('%s')", temp_str);
+    // Convert UCS4 to Python Unicode object then to UTF-8 bytes
+    // This is more robust than manual UCS4→char conversion
+    PyObject *unicode_obj = PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND, ucs4_str, unicode_size_chars);
+    if (unicode_obj == NULL) {
         return -1;
     }
     
+    // Convert to UTF-8 bytes
+    const char *utf8_str = PyUnicode_AsUTF8(unicode_obj);
+    if (utf8_str == NULL) {
+        Py_DECREF(unicode_obj);
+        return -1;
+    }
+    
+    // Use locale-independent parser
+    char *endptr;
+    int err = NumPyOS_ascii_strtoq(utf8_str, backend, out_val, &endptr);
+    
+    // Check for parse errors
+    if (err < 0) {
+        PyErr_Format(PyExc_ValueError,
+                    "could not convert string to QuadPrecision: np.str_('%s')", utf8_str);
+        Py_DECREF(unicode_obj);
+        return -1;
+    }
+    
+    // Check that we parsed the entire string (skip trailing whitespace)
+    while (*endptr == ' ' || *endptr == '\t' || *endptr == '\n' || 
+           *endptr == '\r' || *endptr == '\f' || *endptr == '\v') {
+        endptr++;
+    }
+    
+    if (*endptr != '\0') {
+        PyErr_Format(PyExc_ValueError,
+                    "could not convert string to QuadPrecision: np.str_('%s')", utf8_str);
+        Py_DECREF(unicode_obj);
+        return -1;
+    }
+    
+    Py_DECREF(unicode_obj);
     return 0;
 }
 
