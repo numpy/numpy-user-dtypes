@@ -18,3 +18,15 @@ char **endptr, bool require_full_parse)
   
   return 0; // success
 }
+
+// Helper function: Convert quad_value to Sleef_quad for Dragon4
+Sleef_quad
+quad_to_sleef_quad(const quad_value *in_val, QuadBackendType backend)
+{
+    if (backend == BACKEND_SLEEF) {
+        return in_val->sleef_value;
+    }
+    else {
+        return Sleef_cast_from_doubleq1(in_val->longdouble_value);
+    }
+}

@@ -198,6 +198,42 @@ unicode_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMet
     return NPY_UNSAFE_CASTING;
 }
 
+// Helper function: Convert UCS4 string to quad_value
+static inline int
+unicode_to_quad_convert(const Py_UCS4 *ucs4_str, npy_intp unicode_size_chars,
+                       QuadBackendType backend, quad_value *out_val)
+{
+    // Temporary buffer to convert UCS4 to null-terminated char string
+    char temp_str[QUAD_STR_WIDTH + 1];
+    npy_intp copy_len = unicode_size_chars < QUAD_STR_WIDTH ? unicode_size_chars : QUAD_STR_WIDTH;
+    
+    // Convert UCS4 characters to ASCII/char
+    npy_intp i;
+    for (i = 0; i < copy_len; i++) {
+        Py_UCS4 c = ucs4_str[i];
+        
+        // reject non-ASCII characters
+        if (c > 127) {
+            PyErr_Format(PyExc_ValueError,
+                        "Cannot cast non-ASCII character '%c' to QuadPrecision", c);
+            return -1;
+        }
+        
+        temp_str[i] = (char)c;
+    }
+    temp_str[i] = '\0';
+    
+    char *endptr;
+    int err = cstring_to_quad(temp_str, backend, out_val, &endptr, true);
+    if (err < 0) {
+        PyErr_Format(PyExc_ValueError,
+                    "could not convert string to QuadPrecision: np.str_('%s')", temp_str);
+        return -1;
+    }
+    
+    return 0;
+}
+
 static int
 unicode_to_quad_strided_loop_unaligned(PyArrayMethod_Context *context, char *const data[],
                                        npy_intp const dimensions[], npy_intp const strides[],
@@ -217,33 +253,10 @@ unicode_to_quad_strided_loop_unaligned(PyArrayMethod_Context *context, char *con
     npy_intp unicode_size_chars = descrs[0]->elsize / 4;
 
     while (N--) {
-        // Temporary buffer to convert UCS4 to null-terminated char string
-        char temp_str[QUAD_STR_WIDTH + 1];
-        npy_intp copy_len =
-                unicode_size_chars < QUAD_STR_WIDTH ? unicode_size_chars : QUAD_STR_WIDTH;
-        // Convert UCS4 characters to ASCII/char
         Py_UCS4 *ucs4_str = (Py_UCS4 *)in_ptr;
-        npy_intp i;
-        for (i = 0; i < copy_len; i++) {
-            Py_UCS4 c = ucs4_str[i];
-
-            // reject non-ASCII characters
-            if (c > 127) {
-                PyErr_Format(PyExc_ValueError,
-                             "Cannot cast non-ASCII character '%c' to QuadPrecision", c);
-                return -1;
-            }
-
-            temp_str[i] = (char)c;
-        }
-        temp_str[i] = '\0';
-
         quad_value out_val;
-        char *endptr;
-        int err = cstring_to_quad(temp_str, backend, &out_val, &endptr, true);
-        if (err < 0) {
-            PyErr_Format(PyExc_ValueError,
-                         "could not convert string to QuadPrecision: np.str_('%s')", temp_str);
+        
+        if (unicode_to_quad_convert(ucs4_str, unicode_size_chars, backend, &out_val) < 0) {
             return -1;
         }
 
@@ -280,33 +293,10 @@ unicode_to_quad_strided_loop_aligned(PyArrayMethod_Context *context, char *const
     npy_intp unicode_size_chars = descrs[0]->elsize / 4;
 
     while (N--) {
-        // Temporary buffer to convert UCS4 to null-terminated char string
-        char temp_str[QUAD_STR_WIDTH + 1];
-        npy_intp copy_len =
-                unicode_size_chars < QUAD_STR_WIDTH ? unicode_size_chars : QUAD_STR_WIDTH;
-        // Convert UCS4 characters to ASCII/char
         Py_UCS4 *ucs4_str = (Py_UCS4 *)in_ptr;
-        npy_intp i;
-        for (i = 0; i < copy_len; i++) {
-            Py_UCS4 c = ucs4_str[i];
-
-            // reject non-ASCII characters
-            if (c > 127) {
-                PyErr_Format(PyExc_ValueError,
-                             "Cannot cast non-ASCII character '%c' to QuadPrecision", c);
-                return -1;
-            }
-
-            temp_str[i] = (char)c;
-        }
-        temp_str[i] = '\0';
-
         quad_value out_val;
-        char *endptr;
-        int err = cstring_to_quad(temp_str, backend, &out_val, &endptr, true);
-        if (err < 0) {
-            PyErr_Format(PyExc_ValueError,
-                         "could not convert string to QuadPrecision: np.str_('%s')", temp_str);
+        
+        if (unicode_to_quad_convert(ucs4_str, unicode_size_chars, backend, &out_val) < 0) {
             return -1;
         }
 
@@ -351,6 +341,56 @@ quad_to_unicode_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMet
     return NPY_UNSAFE_CASTING;
 }
 
+// Helper function: Convert quad to string with adaptive notation
+static inline PyObject *
+quad_to_string_adaptive(Sleef_quad *sleef_val, npy_intp unicode_size_chars)
+{
+    // Try positional format first to see if it would fit
+    PyObject *positional_str = Dragon4_Positional_QuadDType(
+            sleef_val, DigitMode_Unique, CutoffMode_TotalLength, SLEEF_QUAD_DECIMAL_DIG, 0, 1,
+            TrimMode_LeaveOneZero, 1, 0);
+
+    if (positional_str == NULL) {
+        return NULL;
+    }
+
+    const char *pos_str = PyUnicode_AsUTF8(positional_str);
+    if (pos_str == NULL) {
+        Py_DECREF(positional_str);
+        return NULL;
+    }
+
+    npy_intp pos_len = strlen(pos_str);
+
+    // If positional format fits, use it; otherwise use scientific notation
+    if (pos_len <= unicode_size_chars) {
+        return positional_str;  // Keep the positional string
+    }
+    else {
+        Py_DECREF(positional_str);
+        // Use scientific notation with full precision
+        return Dragon4_Scientific_QuadDType(sleef_val, DigitMode_Unique,
+                                           SLEEF_QUAD_DECIMAL_DIG, 0, 1,
+                                           TrimMode_LeaveOneZero, 1, 2);
+    }
+}
+
+// Helper function: Copy string to UCS4 output buffer
+static inline void
+copy_string_to_ucs4(const char *str, Py_UCS4 *out_ucs4, npy_intp unicode_size_chars)
+{
+    npy_intp str_len = strlen(str);
+    
+    for (npy_intp i = 0; i < unicode_size_chars; i++) {
+        if (i < str_len) {
+            out_ucs4[i] = (Py_UCS4)str[i];
+        }
+        else {
+            out_ucs4[i] = 0;
+        }
+    }
+}
+
 static int
 quad_to_unicode_loop_unaligned(PyArrayMethod_Context *context, char *const data[],
                                npy_intp const dimensions[], npy_intp const strides[],
@@ -379,44 +419,12 @@ quad_to_unicode_loop_unaligned(PyArrayMethod_Context *context, char *const data[
         }
 
         // Convert to Sleef_quad for Dragon4
-        Sleef_quad sleef_val;
-        if (backend == BACKEND_SLEEF) {
-            sleef_val = in_val.sleef_value;
-        }
-        else {
-            sleef_val = Sleef_cast_from_doubleq1(in_val.longdouble_value);
-        }
+        Sleef_quad sleef_val = quad_to_sleef_quad(&in_val, backend);
 
-        // If positional format fits, use it; otherwise use scientific notation
-        PyObject *py_str;
-        PyObject *positional_str = Dragon4_Positional_QuadDType(
-                &sleef_val, DigitMode_Unique, CutoffMode_TotalLength, SLEEF_QUAD_DECIMAL_DIG, 0, 1,
-                TrimMode_LeaveOneZero, 1, 0);
-
-        if (positional_str == NULL) {
+        // Get string representation with adaptive notation
+        PyObject *py_str = quad_to_string_adaptive(&sleef_val, unicode_size_chars);
+        if (py_str == NULL) {
             return -1;
-        }
-
-        const char *pos_str = PyUnicode_AsUTF8(positional_str);
-        if (pos_str == NULL) {
-            Py_DECREF(positional_str);
-            return -1;
-        }
-
-        npy_intp pos_len = strlen(pos_str);
-
-        if (pos_len <= unicode_size_chars) {
-            py_str = positional_str;  // Keep the positional string
-        }
-        else {
-            Py_DECREF(positional_str);
-            // Use scientific notation with full precision
-            py_str = Dragon4_Scientific_QuadDType(&sleef_val, DigitMode_Unique,
-                                                  SLEEF_QUAD_DECIMAL_DIG, 0, 1,
-                                                  TrimMode_LeaveOneZero, 1, 2);
-            if (py_str == NULL) {
-                return -1;
-            }
         }
 
         const char *temp_str = PyUnicode_AsUTF8(py_str);
@@ -427,16 +435,7 @@ quad_to_unicode_loop_unaligned(PyArrayMethod_Context *context, char *const data[
 
         // Convert char string to UCS4 and store in output
         Py_UCS4 *out_ucs4 = (Py_UCS4 *)out_ptr;
-        npy_intp str_len = strlen(temp_str);
-
-        for (npy_intp i = 0; i < unicode_size_chars; i++) {
-            if (i < str_len) {
-                out_ucs4[i] = (Py_UCS4)temp_str[i];
-            }
-            else {
-                out_ucs4[i] = 0;
-            }
-        }
+        copy_string_to_ucs4(temp_str, out_ucs4, unicode_size_chars);
 
         Py_DECREF(py_str);
 
@@ -474,43 +473,12 @@ quad_to_unicode_loop_aligned(PyArrayMethod_Context *context, char *const data[],
         }
 
         // Convert to Sleef_quad for Dragon4
-        Sleef_quad sleef_val;
-        if (backend == BACKEND_SLEEF) {
-            sleef_val = in_val.sleef_value;
-        }
-        else {
-            sleef_val = Sleef_cast_from_doubleq1(in_val.longdouble_value);
-        }
+        Sleef_quad sleef_val = quad_to_sleef_quad(&in_val, backend);
 
-        PyObject *py_str;
-        PyObject *positional_str = Dragon4_Positional_QuadDType(
-                &sleef_val, DigitMode_Unique, CutoffMode_TotalLength, SLEEF_QUAD_DECIMAL_DIG, 0, 1,
-                TrimMode_LeaveOneZero, 1, 0);
-
-        if (positional_str == NULL) {
+        // Get string representation with adaptive notation
+        PyObject *py_str = quad_to_string_adaptive(&sleef_val, unicode_size_chars);
+        if (py_str == NULL) {
             return -1;
-        }
-
-        const char *pos_str = PyUnicode_AsUTF8(positional_str);
-        if (pos_str == NULL) {
-            Py_DECREF(positional_str);
-            return -1;
-        }
-
-        npy_intp pos_len = strlen(pos_str);
-
-        if (pos_len <= unicode_size_chars) {
-            py_str = positional_str;
-        }
-        else {
-            Py_DECREF(positional_str);
-            // Use scientific notation with full precision
-            py_str = Dragon4_Scientific_QuadDType(&sleef_val, DigitMode_Unique,
-                                                  SLEEF_QUAD_DECIMAL_DIG, 0, 1,
-                                                  TrimMode_LeaveOneZero, 1, 2);
-            if (py_str == NULL) {
-                return -1;
-            }
         }
 
         const char *temp_str = PyUnicode_AsUTF8(py_str);
@@ -521,16 +489,7 @@ quad_to_unicode_loop_aligned(PyArrayMethod_Context *context, char *const data[],
 
         // Convert char string to UCS4 and store in output
         Py_UCS4 *out_ucs4 = (Py_UCS4 *)out_ptr;
-        npy_intp str_len = strlen(temp_str);
-
-        for (npy_intp i = 0; i < unicode_size_chars; i++) {
-            if (i < str_len) {
-                out_ucs4[i] = (Py_UCS4)temp_str[i];
-            }
-            else {
-                out_ucs4[i] = 0;
-            }
-        }
+        copy_string_to_ucs4(temp_str, out_ucs4, unicode_size_chars);
 
         Py_DECREF(py_str);
 
