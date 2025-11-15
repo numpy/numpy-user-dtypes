@@ -203,25 +203,20 @@ static inline int
 unicode_to_quad_convert(const Py_UCS4 *ucs4_str, npy_intp unicode_size_chars,
                        QuadBackendType backend, quad_value *out_val)
 {
-    // Convert UCS4 to Python Unicode object then to UTF-8 bytes
-    // This is more robust than manual UCS4→char conversion
     PyObject *unicode_obj = PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND, ucs4_str, unicode_size_chars);
     if (unicode_obj == NULL) {
         return -1;
     }
-    
-    // Convert to UTF-8 bytes
+
     const char *utf8_str = PyUnicode_AsUTF8(unicode_obj);
     if (utf8_str == NULL) {
         Py_DECREF(unicode_obj);
         return -1;
     }
     
-    // Use locale-independent parser
     char *endptr;
     int err = NumPyOS_ascii_strtoq(utf8_str, backend, out_val, &endptr);
     
-    // Check for parse errors
     if (err < 0) {
         PyErr_Format(PyExc_ValueError,
                     "could not convert string to QuadPrecision: np.str_('%s')", utf8_str);
