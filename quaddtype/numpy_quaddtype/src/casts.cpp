@@ -327,16 +327,17 @@ quad_to_unicode_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMet
                                     PyArray_Descr *given_descrs[2], PyArray_Descr *loop_descrs[2],
                                     npy_intp *view_offset)
 {
-    Py_INCREF(given_descrs[0]);
-    loop_descrs[0] = given_descrs[0];
+    npy_intp required_size_chars = QUAD_STR_WIDTH;
+    npy_intp required_size_bytes = required_size_chars * 4;  // UCS4 = 4 bytes per char
 
     if (given_descrs[1] == NULL) {
+        // Create descriptor with required size
         PyArray_Descr *unicode_descr = PyArray_DescrNewFromType(NPY_UNICODE);
         if (unicode_descr == nullptr) {
             return (NPY_CASTING)-1;
         }
 
-        unicode_descr->elsize = QUAD_STR_WIDTH * 4;  // bytes
+        unicode_descr->elsize = required_size_bytes;
         loop_descrs[1] = unicode_descr;
     }
     else {
@@ -344,8 +345,17 @@ quad_to_unicode_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMet
         loop_descrs[1] = given_descrs[1];
     }
 
+    // Set the input descriptor
+    Py_INCREF(given_descrs[0]);
+    loop_descrs[0] = given_descrs[0];
+
     *view_offset = 0;
-    return NPY_UNSAFE_CASTING;
+
+    // If target descriptor is wide enough, it's a safe cast
+    if (loop_descrs[1]->elsize >= required_size_bytes) {
+        return NPY_SAFE_CASTING;
+    }
+    return NPY_SAME_KIND_CASTING;
 }
 
 // Helper function: Convert quad to string with adaptive notation
