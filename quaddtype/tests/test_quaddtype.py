@@ -601,7 +601,20 @@ class TestArrayCastStringBytes:
 
 class TestStringParsingEdgeCases:
     """Test edge cases in NumPyOS_ascii_strtoq string parsing"""
-    
+    @pytest.mark.parametrize("input_str", ['3.14', '-2.71', '0.0', '1e10', '-1e-10'])
+    @pytest.mark.parametrize("byte_order", ['<', '>'])
+    def test_numeric_string_parsing(self, input_str, byte_order):
+        """Test that numeric strings are parsed correctly regardless of byte order"""
+        strtype = np.dtype(f'{byte_order}U20')
+        arr = np.array([input_str], dtype=strtype)
+        result = arr.astype(QuadPrecDType())
+        
+        expected = np.array(input_str, dtype=np.float64)
+        
+        np.testing.assert_allclose(result, expected,
+                                      err_msg=f"Failed parsing '{input_str}' with byte order '{byte_order}'")
+
+
     @pytest.mark.parametrize("input_str,expected_sign", [
         ("inf", 1),
         ("+inf", 1),

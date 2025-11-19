@@ -181,12 +181,21 @@ unicode_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMet
                                     PyArray_Descr *given_descrs[2], PyArray_Descr *loop_descrs[2],
                                     npy_intp *view_offset)
 {
-    Py_INCREF(given_descrs[0]);
-    loop_descrs[0] = given_descrs[0];
+    if (!PyArray_ISNBO(given_descrs[0]->byteorder)) {
+        loop_descrs[0] = PyArray_DescrNewByteorder(given_descrs[0], NPY_NATIVE);
+        if (loop_descrs[0] == nullptr) {
+            return (NPY_CASTING)-1;
+        }
+    }
+    else {
+        Py_INCREF(given_descrs[0]);
+        loop_descrs[0] = given_descrs[0];
+    }
 
     if (given_descrs[1] == NULL) {
         loop_descrs[1] = (PyArray_Descr *)new_quaddtype_instance(BACKEND_SLEEF);
         if (loop_descrs[1] == nullptr) {
+            Py_DECREF(loop_descrs[0]);
             return (NPY_CASTING)-1;
         }
     }
