@@ -25,7 +25,7 @@ np.array([1,2,3], dtype=QuadPrecDType("longdouble"))
 
 ## Installation from source
 
-#### Prerequisites
+### Prerequisites
 
 - **gcc/clang**
 - **CMake** (≥3.15)
@@ -43,7 +43,7 @@ python3 -m venv temp
 source temp/bin/activate
 
 # Install the package
-pip install numpy pytest
+pip install numpy pytest meson-python
 
 # To build without QBLAS (default for MSVC)
 # export CFLAGS="-DDISABLE_QUADBLAS"
