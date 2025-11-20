@@ -14,6 +14,7 @@ extern "C" {
 #include "numpy/dtype_api.h"
 }
 #include <cstring>
+#include <cstdlib>
 #include "sleef.h"
 #include "sleefquad.h"
 
@@ -26,7 +27,7 @@ extern "C" {
 #include "dragon4.h"
 #include "ops.hpp"
 
-#define NUM_CASTS 36  // 17 to_casts + 17 from_casts + 1 quad_to_quad + 1 void_to_quad
+#define NUM_CASTS 38  // 17 to_casts + 17 from_casts + 1 quad_to_quad + 1 void_to_quad
 #define QUAD_STR_WIDTH 50  // 42 is enough for scientific notation float128, just keeping some buffer
 
 static NPY_CASTING
@@ -518,6 +519,290 @@ quad_to_unicode_loop_aligned(PyArrayMethod_Context *context, char *const data[],
 
         Py_DECREF(py_str);
 
+        in_ptr += in_stride;
+        out_ptr += out_stride;
+    }
+
+    return 0;
+}
+
+// Bytes to QuadDType casting
+static NPY_CASTING
+bytes_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta *dtypes[2],
+                                   PyArray_Descr *given_descrs[2], PyArray_Descr *loop_descrs[2],
+                                   npy_intp *view_offset)
+{
+    // Bytes dtype doesn't have byte order concerns like Unicode
+    Py_INCREF(given_descrs[0]);
+    loop_descrs[0] = given_descrs[0];
+
+    if (given_descrs[1] == NULL) {
+        loop_descrs[1] = (PyArray_Descr *)new_quaddtype_instance(BACKEND_SLEEF);
+        if (loop_descrs[1] == nullptr) {
+            Py_DECREF(loop_descrs[0]);
+            return (NPY_CASTING)-1;
+        }
+    }
+    else {
+        Py_INCREF(given_descrs[1]);
+        loop_descrs[1] = given_descrs[1];
+    }
+
+    return NPY_UNSAFE_CASTING;
+}
+
+// Helper function: Convert bytes string to quad_value
+static inline int
+bytes_to_quad_convert(const char *bytes_str, npy_intp bytes_size,
+                      QuadBackendType backend, quad_value *out_val)
+{
+    // Create a null-terminated copy since bytes might not be null-terminated
+    char *temp_str = (char *)malloc(bytes_size + 1);
+    if (temp_str == NULL) {
+        PyErr_NoMemory();
+        return -1;
+    }
+    
+    memcpy(temp_str, bytes_str, bytes_size);
+    temp_str[bytes_size] = '\0';
+    
+    // Find the actual end (null byte or first occurrence)
+    npy_intp actual_len = 0;
+    while (actual_len < bytes_size && temp_str[actual_len] != '\0') {
+        actual_len++;
+    }
+    temp_str[actual_len] = '\0';
+    
+    char *endptr;
+    int err = NumPyOS_ascii_strtoq(temp_str, backend, out_val, &endptr);
+    
+    if (err < 0) {
+        PyErr_Format(PyExc_ValueError,
+                    "could not convert bytes to QuadPrecision: np.bytes_(%s)", temp_str);
+        free(temp_str);
+        return -1;
+    }
+    
+    while (ascii_isspace(*endptr)) {
+        endptr++;
+    }
+    
+    if (*endptr != '\0') {
+        PyErr_Format(PyExc_ValueError,
+                    "could not convert bytes to QuadPrecision: np.bytes_(%s)", temp_str);
+        free(temp_str);
+        return -1;
+    }
+    
+    free(temp_str);
+    return 0;
+}
+
+static int
+bytes_to_quad_strided_loop_unaligned(PyArrayMethod_Context *context, char *const data[],
+                                     npy_intp const dimensions[], npy_intp const strides[],
+                                     void *NPY_UNUSED(auxdata))
+{
+    npy_intp N = dimensions[0];
+    char *in_ptr = data[0];
+    char *out_ptr = data[1];
+    npy_intp in_stride = strides[0];
+    npy_intp out_stride = strides[1];
+
+    PyArray_Descr *const *descrs = context->descriptors;
+    QuadPrecDTypeObject *descr_out = (QuadPrecDTypeObject *)descrs[1];
+    QuadBackendType backend = descr_out->backend;
+
+    npy_intp bytes_size = descrs[0]->elsize;
+    size_t elem_size = (backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
+
+    while (N--) {
+        quad_value out_val;
+        
+        if (bytes_to_quad_convert(in_ptr, bytes_size, backend, &out_val) < 0) {
+            return -1;
+        }
+        
+        memcpy(out_ptr, &out_val, elem_size);
+
+        in_ptr += in_stride;
+        out_ptr += out_stride;
+    }
+
+    return 0;
+}
+
+static int
+bytes_to_quad_strided_loop_aligned(PyArrayMethod_Context *context, char *const data[],
+                                   npy_intp const dimensions[], npy_intp const strides[],
+                                   void *NPY_UNUSED(auxdata))
+{
+    npy_intp N = dimensions[0];
+    char *in_ptr = data[0];
+    char *out_ptr = data[1];
+    npy_intp in_stride = strides[0];
+    npy_intp out_stride = strides[1];
+
+    PyArray_Descr *const *descrs = context->descriptors;
+    QuadPrecDTypeObject *descr_out = (QuadPrecDTypeObject *)descrs[1];
+    QuadBackendType backend = descr_out->backend;
+
+    npy_intp bytes_size = descrs[0]->elsize;
+
+    while (N--) {
+        quad_value out_val;
+        
+        if (bytes_to_quad_convert(in_ptr, bytes_size, backend, &out_val) < 0) {
+            return -1;
+        }
+
+        if (backend == BACKEND_SLEEF) {
+            *(Sleef_quad *)(out_ptr) = out_val.sleef_value;
+        }
+        else {
+            *(long double *)(out_ptr) = out_val.longdouble_value;
+        }
+
+        in_ptr += in_stride;
+        out_ptr += out_stride;
+    }
+
+    return 0;
+}
+
+// QuadDType to bytes
+static NPY_CASTING
+quad_to_bytes_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta *dtypes[2],
+                                   PyArray_Descr *given_descrs[2], PyArray_Descr *loop_descrs[2],
+                                   npy_intp *view_offset)
+{
+    npy_intp required_size_bytes = QUAD_STR_WIDTH;
+
+    if (given_descrs[1] == NULL) {
+        PyArray_Descr *new_descr = PyArray_DescrNewFromType(NPY_STRING);
+        if (new_descr == NULL) {
+            return (NPY_CASTING)-1;
+        }
+        new_descr->elsize = required_size_bytes;
+        loop_descrs[1] = new_descr;
+    }
+    else {
+        Py_INCREF(given_descrs[1]);
+        loop_descrs[1] = given_descrs[1];
+    }
+
+    Py_INCREF(given_descrs[0]);
+    loop_descrs[0] = given_descrs[0];
+
+    *view_offset = 0;
+
+    // If target descriptor is wide enough, it's a safe cast
+    if (loop_descrs[1]->elsize >= required_size_bytes) {
+        return NPY_SAFE_CASTING;
+    }
+    return NPY_SAME_KIND_CASTING;
+}
+
+// Helper function: Copy string to bytes output buffer
+static inline void
+copy_string_to_bytes(const char *str, char *out_bytes, npy_intp bytes_size)
+{
+    npy_intp str_len = strlen(str);
+    
+    npy_intp copy_len = (str_len < bytes_size) ? str_len : bytes_size;
+    memcpy(out_bytes, str, copy_len);
+    
+    // Pad remaining space with null bytes
+    for (npy_intp i = copy_len; i < bytes_size; i++) {
+        out_bytes[i] = '\0';
+    }
+}
+
+static int
+quad_to_bytes_loop_unaligned(PyArrayMethod_Context *context, char *const data[],
+                             npy_intp const dimensions[], npy_intp const strides[],
+                             void *NPY_UNUSED(auxdata))
+{
+    npy_intp N = dimensions[0];
+    char *in_ptr = data[0];
+    char *out_ptr = data[1];
+    npy_intp in_stride = strides[0];
+    npy_intp out_stride = strides[1];
+
+    PyArray_Descr *const *descrs = context->descriptors;
+    QuadPrecDTypeObject *descr_in = (QuadPrecDTypeObject *)descrs[0];
+    QuadBackendType backend = descr_in->backend;
+
+    npy_intp bytes_size = descrs[1]->elsize;
+    size_t elem_size = (backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
+
+    while (N--) {
+        quad_value in_val;
+        if (backend == BACKEND_SLEEF) {
+            memcpy(&in_val.sleef_value, in_ptr, sizeof(Sleef_quad));
+        }
+        else {
+            memcpy(&in_val.longdouble_value, in_ptr, sizeof(long double));
+        }
+        Sleef_quad sleef_val = quad_to_sleef_quad(&in_val, backend);
+        PyObject *py_str = quad_to_string_adaptive(&sleef_val, bytes_size);
+        if (py_str == NULL) {
+            return -1;
+        }
+        const char *temp_str = PyUnicode_AsUTF8(py_str);
+        if (temp_str == NULL) {
+            Py_DECREF(py_str);
+            return -1;
+        }
+
+        copy_string_to_bytes(temp_str, out_ptr, bytes_size);
+
+        Py_DECREF(py_str);
+
+        in_ptr += in_stride;
+        out_ptr += out_stride;
+    }
+
+    return 0;
+}
+
+static int
+quad_to_bytes_loop_aligned(PyArrayMethod_Context *context, char *const data[],
+                           npy_intp const dimensions[], npy_intp const strides[],
+                           void *NPY_UNUSED(auxdata))
+{
+    npy_intp N = dimensions[0];
+    char *in_ptr = data[0];
+    char *out_ptr = data[1];
+    npy_intp in_stride = strides[0];
+    npy_intp out_stride = strides[1];
+
+    PyArray_Descr *const *descrs = context->descriptors;
+    QuadPrecDTypeObject *descr_in = (QuadPrecDTypeObject *)descrs[0];
+    QuadBackendType backend = descr_in->backend;
+
+    npy_intp bytes_size = descrs[1]->elsize;
+
+    while (N--) {
+        quad_value in_val;
+        if (backend == BACKEND_SLEEF) {
+            in_val.sleef_value = *(Sleef_quad *)in_ptr;
+        }
+        else {
+            in_val.longdouble_value = *(long double *)in_ptr;
+        }
+        Sleef_quad sleef_val = quad_to_sleef_quad(&in_val, backend);
+        PyObject *py_str = quad_to_string_adaptive(&sleef_val, bytes_size);
+        if (py_str == NULL) {
+            return -1;
+        }
+        const char *temp_str = PyUnicode_AsUTF8(py_str);
+        if (temp_str == NULL) {
+            Py_DECREF(py_str);
+            return -1;
+        }
+
+        copy_string_to_bytes(temp_str, out_ptr, bytes_size);        Py_DECREF(py_str);
         in_ptr += in_stride;
         out_ptr += out_stride;
     }
@@ -1276,6 +1561,44 @@ init_casts_internal(void)
             .slots = quad_to_unicode_slots,
     };
     add_spec(quad_to_unicode_spec);
+
+    // Bytes to QuadPrecision cast
+    PyArray_DTypeMeta **bytes_to_quad_dtypes = new PyArray_DTypeMeta *[2]{&PyArray_BytesDType, &QuadPrecDType};
+    PyType_Slot *bytes_to_quad_slots = new PyType_Slot[4]{
+            {NPY_METH_resolve_descriptors, (void *)&bytes_to_quad_resolve_descriptors},
+            {NPY_METH_strided_loop, (void *)&bytes_to_quad_strided_loop_aligned},
+            {NPY_METH_unaligned_strided_loop, (void *)&bytes_to_quad_strided_loop_unaligned},
+            {0, nullptr}};
+
+    PyArrayMethod_Spec *bytes_to_quad_spec = new PyArrayMethod_Spec{
+            .name = "cast_Bytes_to_QuadPrec",
+            .nin = 1,
+            .nout = 1,
+            .casting = NPY_UNSAFE_CASTING,
+            .flags = NPY_METH_SUPPORTS_UNALIGNED,
+            .dtypes = bytes_to_quad_dtypes,
+            .slots = bytes_to_quad_slots,
+    };
+    add_spec(bytes_to_quad_spec);
+
+    // QuadPrecision to Bytes
+    PyArray_DTypeMeta **quad_to_bytes_dtypes = new PyArray_DTypeMeta *[2]{&QuadPrecDType, &PyArray_BytesDType};
+    PyType_Slot *quad_to_bytes_slots = new PyType_Slot[4]{
+            {NPY_METH_resolve_descriptors, (void *)&quad_to_bytes_resolve_descriptors},
+            {NPY_METH_strided_loop, (void *)&quad_to_bytes_loop_aligned},
+            {NPY_METH_unaligned_strided_loop, (void *)&quad_to_bytes_loop_unaligned},
+            {0, nullptr}};
+
+    PyArrayMethod_Spec *quad_to_bytes_spec = new PyArrayMethod_Spec{
+            .name = "cast_QuadPrec_to_Bytes",
+            .nin = 1,
+            .nout = 1,
+            .casting = NPY_UNSAFE_CASTING,
+            .flags = NPY_METH_SUPPORTS_UNALIGNED,
+            .dtypes = quad_to_bytes_dtypes,
+            .slots = quad_to_bytes_slots,
+    };
+    add_spec(quad_to_bytes_spec);
 
     specs[spec_count] = nullptr;
     return specs;

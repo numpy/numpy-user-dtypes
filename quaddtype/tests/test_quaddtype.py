@@ -597,6 +597,154 @@ class TestArrayCastStringBytes:
         else:
             assert scalar_from_str == quad_array[()], \
                 f"Scalar round-trip failed: {scalar_str} -> {scalar_from_str} != {quad_array[()]}"
+    
+    @pytest.mark.parametrize("input_val", [
+        b"3.141592653589793238462643383279502884197",
+        b"2.71828182845904523536028747135266249775",
+        b"1e100",
+        b"1e-100",
+        b"0.0",
+        b"-0.0",
+        b"inf",
+        b"-inf",
+        b"nan",
+        b"-nan",
+    ])
+    def test_cast_bytes_to_quad_roundtrip(self, input_val):
+        """Test bytes -> quad -> bytes round-trip conversion"""
+        bytes_array = np.array(input_val, dtype='S50')
+        quad_array = bytes_array.astype(QuadPrecDType())
+        expected = np.array(input_val.decode('utf-8'), dtype=QuadPrecDType())
+        
+        if np.isnan(float(expected)):
+            np.testing.assert_array_equal(np.isnan(quad_array), np.isnan(expected))
+        else:
+            np.testing.assert_array_equal(quad_array, expected)
+        
+        quad_to_bytes_array = quad_array.astype('S50')
+        
+        # Round-trip - Bytes -> Quad -> Bytes -> Quad should preserve value
+        roundtrip_quad_array = quad_to_bytes_array.astype(QuadPrecDType())
+        
+        if np.isnan(float(expected)):
+            np.testing.assert_array_equal(np.isnan(roundtrip_quad_array), np.isnan(quad_array))
+        else:
+            np.testing.assert_array_equal(roundtrip_quad_array, quad_array, 
+                                         err_msg=f"Round-trip failed for {input_val}")
+    
+    @pytest.mark.parametrize("dtype_str", ['S10', 'S20', 'S30', 'S50', 'S100'])
+    def test_bytes_different_sizes(self, dtype_str):
+        """Test bytes casting with different buffer sizes"""
+        quad_val = np.array([1.23456789012345678901234567890], dtype=QuadPrecDType())
+        bytes_val = quad_val.astype(dtype_str)
+        
+        # Should not raise error
+        assert bytes_val.dtype.str.startswith('|S')
+        
+        # Should be able to parse back
+        roundtrip = bytes_val.astype(QuadPrecDType())
+        
+        # For smaller sizes, precision may be truncated, so use approximate comparison
+        # For larger sizes (S50+), should be exact
+        if dtype_str in ['S50', 'S100']:
+            np.testing.assert_array_equal(roundtrip, quad_val)
+        else:
+            # Smaller sizes may lose precision due to string truncation
+            np.testing.assert_allclose(roundtrip, quad_val, rtol=1e-8)
+    
+    @pytest.mark.parametrize("input_bytes", [
+        b'1.5',
+        b'2.25',
+        b'3.14159265358979323846',
+        b'-1.5',
+        b'-2.25',
+        b'1.23e50',
+        b'-4.56e-100',
+    ])
+    def test_bytes_to_quad_basic_values(self, input_bytes):
+        """Test basic numeric bytes to quad conversion"""
+        bytes_array = np.array([input_bytes], dtype='S50')
+        quad_array = bytes_array.astype(QuadPrecDType())
+        
+        # Should successfully convert
+        assert quad_array.dtype.name == "QuadPrecDType128"
+        
+        # Value should match string conversion
+        str_val = input_bytes.decode('utf-8')
+        expected = QuadPrecision(str_val)
+        assert quad_array[0] == expected
+    
+    @pytest.mark.parametrize("special_bytes,check_func", [
+        (b'inf', lambda x: np.isinf(float(str(x))) and float(str(x)) > 0),
+        (b'-inf', lambda x: np.isinf(float(str(x))) and float(str(x)) < 0),
+        (b'nan', lambda x: np.isnan(float(str(x)))),
+        (b'Infinity', lambda x: np.isinf(float(str(x))) and float(str(x)) > 0),
+        (b'-Infinity', lambda x: np.isinf(float(str(x))) and float(str(x)) < 0),
+        (b'NaN', lambda x: np.isnan(float(str(x)))),
+    ])
+    def test_bytes_special_values(self, special_bytes, check_func):
+        """Test special values (inf, nan) in bytes format"""
+        bytes_array = np.array([special_bytes], dtype='S20')
+        quad_array = bytes_array.astype(QuadPrecDType())
+        
+        assert check_func(quad_array[0]), f"Failed for {special_bytes}"
+    
+    def test_bytes_array_vectorized(self):
+        """Test vectorized bytes to quad conversion"""
+        bytes_array = np.array([b'1.5', b'2.25', b'3.14159', b'-1.0', b'1e100'], dtype='S50')
+        quad_array = bytes_array.astype(QuadPrecDType())
+        
+        assert quad_array.shape == (5,)
+        assert quad_array.dtype.name == "QuadPrecDType128"
+        
+        # Check individual values
+        assert quad_array[0] == QuadPrecision('1.5')
+        assert quad_array[1] == QuadPrecision('2.25')
+        assert quad_array[2] == QuadPrecision('3.14159')
+        assert quad_array[3] == QuadPrecision('-1.0')
+        assert quad_array[4] == QuadPrecision('1e100')
+    
+    def test_quad_to_bytes_preserves_precision(self):
+        """Test that quad to bytes conversion preserves high precision"""
+        # Use a high-precision value
+        quad_val = np.array([QuadPrecision("3.141592653589793238462643383279502884197")], 
+                           dtype=QuadPrecDType())
+        bytes_val = quad_val.astype('S50')
+        
+        # Convert back and verify precision is maintained
+        roundtrip = bytes_val.astype(QuadPrecDType())
+        np.testing.assert_array_equal(roundtrip, quad_val)
+    
+    @pytest.mark.parametrize("invalid_bytes", [
+        b'not_a_number',
+        b'1.23.45',
+        b'abc123',
+        b'1e',
+        b'++1.0',
+        b'1.0abc',
+    ])
+    def test_invalid_bytes_raise_error(self, invalid_bytes):
+        """Test that invalid bytes raise ValueError"""
+        bytes_array = np.array([invalid_bytes], dtype='S50')
+        
+        with pytest.raises(ValueError, match="could not convert bytes to QuadPrecision"):
+            bytes_array.astype(QuadPrecDType())
+    
+    def test_bytes_with_null_terminator(self):
+        """Test bytes with embedded null terminators are handled correctly"""
+        # Bytes arrays can have null padding
+        bytes_array = np.array([b'1.5'], dtype='S20')
+        # This creates a 20-byte array with '1.5' followed by null bytes
+        
+        quad_array = bytes_array.astype(QuadPrecDType())
+        assert quad_array[0] == QuadPrecision('1.5')
+    
+    def test_empty_bytes_raises_error(self):
+        """Test that empty bytes raise ValueError"""
+        bytes_array = np.array([b''], dtype='S50')
+        
+        with pytest.raises(ValueError):
+            bytes_array.astype(QuadPrecDType())
 
 
 class TestStringParsingEdgeCases:
@@ -848,6 +996,227 @@ class TestStringParsingEdgeCases:
         
         with pytest.raises(ValueError, match="could not convert string to QuadPrecision"):
             arr.astype(QuadPrecDType())
+        
+    @pytest.mark.parametrize("input_bytes", [
+        b'3.14', b'-2.71', b'0.0', b'1e10', b'-1e-10'
+    ])
+    def test_bytes_numeric_parsing(self, input_bytes):
+        """Test that numeric bytes are parsed correctly"""
+        arr = np.array([input_bytes], dtype='S20')
+        result = arr.astype(QuadPrecDType())
+        
+        expected = np.array(input_bytes.decode('utf-8'), dtype=np.float64)
+        np.testing.assert_allclose(result, expected,
+                                  err_msg=f"Failed parsing bytes {input_bytes}")
+    
+    @pytest.mark.parametrize("input_bytes,expected_sign", [
+        (b"inf", 1),
+        (b"+inf", 1),
+        (b"-inf", -1),
+        (b"Inf", 1),
+        (b"+Inf", 1),
+        (b"-Inf", -1),
+        (b"INF", 1),
+        (b"+INF", 1),
+        (b"-INF", -1),
+        (b"infinity", 1),
+        (b"+infinity", 1),
+        (b"-infinity", -1),
+        (b"Infinity", 1),
+        (b"+Infinity", 1),
+        (b"-Infinity", -1),
+        (b"INFINITY", 1),
+        (b"+INFINITY", 1),
+        (b"-INFINITY", -1),
+    ])
+    def test_bytes_infinity_sign_preservation(self, input_bytes, expected_sign):
+        """Test that +/- signs are correctly applied to infinity values in bytes"""
+        arr = np.array([input_bytes], dtype='S20')
+        result = arr.astype(QuadPrecDType())
+        
+        assert np.isinf(float(str(result[0]))), f"Expected inf for bytes {input_bytes}"
+        
+        actual_sign = 1 if float(str(result[0])) > 0 else -1
+        assert actual_sign == expected_sign, \
+            f"Sign mismatch for bytes {input_bytes}: got {actual_sign}, expected {expected_sign}"
+    
+    @pytest.mark.parametrize("input_bytes", [
+        b"nan", b"+nan", b"-nan",
+        b"NaN", b"+NaN", b"-NaN",
+        b"NAN", b"+NAN", b"-NAN",
+        b"nan()", b"nan(123)", b"nan(abc_)", b"NAN(XYZ)",
+    ])
+    def test_bytes_nan_case_insensitive(self, input_bytes):
+        """Test case-insensitive NaN parsing with optional payloads in bytes"""
+        arr = np.array([input_bytes], dtype='S20')
+        result = arr.astype(QuadPrecDType())
+        
+        assert np.isnan(float(str(result[0]))), f"Expected NaN for bytes {input_bytes}"
+    
+    @pytest.mark.parametrize("input_bytes,expected_val", [
+        (b"3.14", 3.14),
+        (b"+3.14", 3.14),
+        (b"-3.14", -3.14),
+        (b"0.0", 0.0),
+        (b"+0.0", 0.0),
+        (b"-0.0", -0.0),
+        (b"1e10", 1e10),
+        (b"+1e10", 1e10),
+        (b"-1e10", -1e10),
+        (b"1.23e-45", 1.23e-45),
+        (b"+1.23e-45", 1.23e-45),
+        (b"-1.23e-45", -1.23e-45),
+    ])
+    def test_bytes_numeric_sign_handling(self, input_bytes, expected_val):
+        """Test that +/- signs are correctly handled for numeric values in bytes"""
+        arr = np.array([input_bytes], dtype='S20')
+        result = arr.astype(QuadPrecDType())
+        
+        result_val = float(str(result[0]))
+        
+        # For zero, check sign separately
+        if expected_val == 0.0:
+            assert result_val == 0.0
+            if input_bytes.startswith(b'-'):
+                assert np.signbit(result_val), f"Expected negative zero for bytes {input_bytes}"
+            else:
+                assert not np.signbit(result_val), f"Expected positive zero for bytes {input_bytes}"
+        else:
+            np.testing.assert_allclose(result_val, expected_val, rtol=1e-10)
+    
+    @pytest.mark.parametrize("input_bytes", [
+        b"  3.14  ",
+        b"\t3.14\t",
+        b"\n3.14\n",
+        b"\r3.14\r",
+        b"  \t\n\r  3.14  \t\n\r  ",
+        b"  inf  ",
+        b"\t-inf\t",
+        b"  nan  ",
+    ])
+    def test_bytes_whitespace_handling(self, input_bytes):
+        """Test that leading/trailing whitespace is handled correctly in bytes"""
+        arr = np.array([input_bytes], dtype='S50')
+        result = arr.astype(QuadPrecDType())
+        
+        # Should not raise an error
+        result_str = str(result[0])
+        assert result_str  # Should have a value
+    
+    @pytest.mark.parametrize("invalid_bytes", [
+        b"abc",           # Non-numeric
+        b"3.14.15",       # Multiple decimals
+        b"1.23e",         # Incomplete scientific notation
+        b"e10",           # Scientific notation without base
+        b"3.14abc",       # Trailing non-numeric
+        b"++3.14",        # Double sign
+        b"--3.14",        # Double sign
+        b"+-3.14",        # Mixed signs
+        b"in",            # Incomplete inf
+        b"na",            # Incomplete nan
+        b"infinit",       # Incomplete infinity
+    ])
+    def test_bytes_invalid_raises_error(self, invalid_bytes):
+        """Test that invalid bytes raise ValueError"""
+        arr = np.array([invalid_bytes], dtype='S20')
+        
+        with pytest.raises(ValueError, match="could not convert bytes to QuadPrecision"):
+            arr.astype(QuadPrecDType())
+    
+    @pytest.mark.parametrize("input_bytes,description", [
+        (b"  1.23  ", "space - leading and trailing"),
+        (b"\t1.23\t", "tab - leading and trailing"),
+        (b"\n1.23\n", "newline - leading and trailing"),
+        (b"\r1.23\r", "carriage return - leading and trailing"),
+        (b" \t\n\r1.23 \t\n\r", "mixed whitespace"),
+        (b"\t\t\t3.14\t\t\t", "multiple tabs"),
+        (b"   inf   ", "infinity with spaces"),
+        (b"\t\t-inf\t\t", "negative infinity with tabs"),
+        (b"\n\nnan\n\n", "nan with newlines"),
+    ])
+    def test_bytes_whitespace_characters(self, input_bytes, description):
+        """Test all ASCII whitespace characters in bytes format"""
+        arr = np.array([input_bytes], dtype='S50')
+        result = arr.astype(QuadPrecDType())
+        
+        # Should successfully parse without errors
+        result_val = str(result[0])
+        assert result_val, f"Failed to parse bytes with {description}"
+    
+    @pytest.mark.parametrize("invalid_bytes,description", [
+        (b"1.23 abc", "trailing non-whitespace after number"),
+        (b"  1.23xyz  ", "trailing garbage with surrounding whitespace"),
+        (b"abc 123", "leading garbage before number"),
+        (b"1.23    a", "letter after multiple spaces"),
+        (b"\t1.23\tabc\t", "tabs with garbage in middle"),
+    ])
+    def test_bytes_whitespace_with_invalid_trailing(self, invalid_bytes, description):
+        """Test that bytes with invalid trailing content are rejected even with whitespace"""
+        arr = np.array([invalid_bytes], dtype='S50')
+        
+        with pytest.raises(ValueError, match="could not convert bytes to QuadPrecision"):
+            arr.astype(QuadPrecDType())
+    
+    def test_bytes_null_padding(self):
+        """Test that null-padded bytes are handled correctly"""
+        # Create a bytes array with explicit null padding
+        arr = np.array([b'1.5'], dtype='S20')  # 20 bytes with '1.5' followed by nulls
+        result = arr.astype(QuadPrecDType())
+        
+        assert result[0] == QuadPrecision('1.5')
+    
+    def test_bytes_exact_size_no_null(self):
+        """Test bytes array where content exactly fills the buffer"""
+        # Create a string that exactly fits
+        test_str = b'1.234567890'  # 11 bytes
+        arr = np.array([test_str], dtype='S11')
+        result = arr.astype(QuadPrecDType())
+        
+        expected = QuadPrecision(test_str.decode('utf-8'))
+        assert result[0] == expected
+    
+    @pytest.mark.parametrize("size", [10, 20, 50, 100])
+    def test_bytes_various_buffer_sizes(self, size):
+        """Test bytes parsing with various buffer sizes"""
+        test_bytes = b'3.14159'
+        dtype_str = f'S{size}'
+        arr = np.array([test_bytes], dtype=dtype_str)
+        result = arr.astype(QuadPrecDType())
+        
+        expected = QuadPrecision(test_bytes.decode('utf-8'))
+        assert result[0] == expected
+    
+    def test_bytes_scientific_notation_variations(self):
+        """Test various scientific notation formats in bytes"""
+        test_cases = [
+            (b'1e10', 1e10),
+            (b'1E10', 1e10),
+            (b'1.23e-45', 1.23e-45),
+            (b'1.23E-45', 1.23e-45),
+            (b'1.23e+45', 1.23e45),
+            (b'1.23E+45', 1.23e45),
+        ]
+        
+        for input_bytes, expected_val in test_cases:
+            arr = np.array([input_bytes], dtype='S20')
+            result = arr.astype(QuadPrecDType())
+            result_val = float(str(result[0]))
+            np.testing.assert_allclose(result_val, expected_val, rtol=1e-10,
+                                      err_msg=f"Failed for {input_bytes}")
+    
+    def test_bytes_high_precision_values(self):
+        """Test bytes with very high precision numeric strings"""
+        high_precision_bytes = b'3.141592653589793238462643383279502884197'
+        arr = np.array([high_precision_bytes], dtype='S50')
+        result = arr.astype(QuadPrecDType())
+        
+        # Should not raise error and produce a valid quad value
+        assert result.dtype.name == "QuadPrecDType128"
+        
+        # Round-trip should preserve value
+        back_to_bytes = result.astype('S50')
+        roundtrip = back_to_bytes.astype(QuadPrecDType())
+        np.testing.assert_array_equal(roundtrip, result)
 
     def test_empty_string_and_whitespace_only(self):
         """Test that empty strings and whitespace-only strings raise errors"""
