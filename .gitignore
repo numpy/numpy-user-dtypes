@@ -142,3 +142,6 @@ compile_commands.json
 /quaddtype/subprojects/qblas/
 /quaddtype/subprojects/sleef/
 .wraplock
+
+# docs
+/quaddtype/docs/_build/
