@@ -996,9 +996,7 @@ class TestStringParsingEdgeCases:
         
         with pytest.raises(ValueError, match="could not convert string to QuadPrecision"):
             arr.astype(QuadPrecDType())
-    
-    # ========== BYTES-SPECIFIC TESTS ==========
-    
+        
     @pytest.mark.parametrize("input_bytes", [
         b'3.14', b'-2.71', b'0.0', b'1e10', b'-1e-10'
     ])
