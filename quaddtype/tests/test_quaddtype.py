@@ -540,7 +540,7 @@ def test_supported_astype(dtype):
     assert back == orig
 
 
-@pytest.mark.parametrize("dtype", ["S10", "U10", "T", "V10", "datetime64[ms]", "timedelta64[ms]"])
+@pytest.mark.parametrize("dtype", ["V10", "datetime64[ms]", "timedelta64[ms]"])
 def test_unsupported_astype(dtype):
     if dtype == "V10":
         with pytest.raises(TypeError, match="cast"):
@@ -551,6 +551,365 @@ def test_unsupported_astype(dtype):
 
       with pytest.raises(TypeError, match="cast"):
           np.array(QuadPrecision(1)).astype(dtype, casting="unsafe")
+
+class TestArrayCastStringBytes:
+    @pytest.mark.parametrize("strtype", [np.str_, str])
+    @pytest.mark.parametrize("input_val", [
+        "3.141592653589793238462643383279502884197",
+        "2.71828182845904523536028747135266249775",
+        "1e100",
+        "1e-100",
+        "0.0",
+        "-0.0",
+        "inf",
+        "-inf",
+        "nan",
+        "-nan",
+    ])
+    def test_cast_string_to_quad_roundtrip(self, input_val, strtype):
+        str_array = np.array(input_val, dtype=strtype)
+        quad_array = str_array.astype(QuadPrecDType())
+        expected = np.array(input_val, dtype=QuadPrecDType())
+        
+        if np.isnan(float(expected)):
+            np.testing.assert_array_equal(np.isnan(quad_array), np.isnan(expected))
+        else:
+            np.testing.assert_array_equal(quad_array, expected)
+        
+        quad_to_string_array = quad_array.astype(strtype)
+        
+        # Round-trip - String -> Quad -> String -> Quad should preserve value
+        roundtrip_quad_array = quad_to_string_array.astype(QuadPrecDType())
+        
+        if np.isnan(float(expected)):
+            np.testing.assert_array_equal(np.isnan(roundtrip_quad_array), np.isnan(quad_array))
+        else:
+            np.testing.assert_array_equal(roundtrip_quad_array, quad_array, 
+                                         err_msg=f"Round-trip failed for {input_val}")
+        
+        # Verify the string representation can be parsed back
+        # (This ensures the quad->string cast produces valid parseable strings)
+        scalar_str = str(quad_array[()])
+        scalar_from_str = QuadPrecision(scalar_str)
+        
+        if np.isnan(float(quad_array[()])):
+            assert np.isnan(float(scalar_from_str))
+        else:
+            assert scalar_from_str == quad_array[()], \
+                f"Scalar round-trip failed: {scalar_str} -> {scalar_from_str} != {quad_array[()]}"
+
+
+class TestStringParsingEdgeCases:
+    """Test edge cases in NumPyOS_ascii_strtoq string parsing"""
+    @pytest.mark.parametrize("input_str", ['3.14', '-2.71', '0.0', '1e10', '-1e-10'])
+    @pytest.mark.parametrize("byte_order", ['<', '>'])
+    def test_numeric_string_parsing(self, input_str, byte_order):
+        """Test that numeric strings are parsed correctly regardless of byte order"""
+        strtype = np.dtype(f'{byte_order}U20')
+        arr = np.array([input_str], dtype=strtype)
+        result = arr.astype(QuadPrecDType())
+        
+        expected = np.array(input_str, dtype=np.float64)
+        
+        np.testing.assert_allclose(result, expected,
+                                      err_msg=f"Failed parsing '{input_str}' with byte order '{byte_order}'")
+
+
+    @pytest.mark.parametrize("input_str,expected_sign", [
+        ("inf", 1),
+        ("+inf", 1),
+        ("-inf", -1),
+        ("Inf", 1),
+        ("+Inf", 1),
+        ("-Inf", -1),
+        ("INF", 1),
+        ("+INF", 1),
+        ("-INF", -1),
+        ("infinity", 1),
+        ("+infinity", 1),
+        ("-infinity", -1),
+        ("Infinity", 1),
+        ("+Infinity", 1),
+        ("-Infinity", -1),
+        ("INFINITY", 1),
+        ("+INFINITY", 1),
+        ("-INFINITY", -1),
+    ])
+    def test_infinity_sign_preservation(self, input_str, expected_sign):
+        """Test that +/- signs are correctly applied to infinity values"""
+        arr = np.array([input_str], dtype='U20')
+        result = arr.astype(QuadPrecDType())
+        
+        assert np.isinf(float(str(result[0]))), f"Expected inf for '{input_str}'"
+        
+        actual_sign = 1 if float(str(result[0])) > 0 else -1
+        assert actual_sign == expected_sign, \
+            f"Sign mismatch for '{input_str}': got {actual_sign}, expected {expected_sign}"
+    
+    @pytest.mark.parametrize("input_str", [
+        "nan", "+nan", "-nan",  # Note: NaN sign is typically ignored
+        "NaN", "+NaN", "-NaN",
+        "NAN", "+NAN", "-NAN",
+        "nan()", "nan(123)", "nan(abc_)", "NAN(XYZ)",
+    ])
+    def test_nan_case_insensitive(self, input_str):
+        """Test case-insensitive NaN parsing with optional payloads"""
+        arr = np.array([input_str], dtype='U20')
+        result = arr.astype(QuadPrecDType())
+        
+        assert np.isnan(float(str(result[0]))), f"Expected NaN for '{input_str}'"
+    
+    @pytest.mark.parametrize("input_str,expected_val", [
+        ("3.14", 3.14),
+        ("+3.14", 3.14),
+        ("-3.14", -3.14),
+        ("0.0", 0.0),
+        ("+0.0", 0.0),
+        ("-0.0", -0.0),
+        ("1e10", 1e10),
+        ("+1e10", 1e10),
+        ("-1e10", -1e10),
+        ("1.23e-45", 1.23e-45),
+        ("+1.23e-45", 1.23e-45),
+        ("-1.23e-45", -1.23e-45),
+    ])
+    def test_numeric_sign_handling(self, input_str, expected_val):
+        """Test that +/- signs are correctly handled for numeric values"""
+        arr = np.array([input_str], dtype='U20')
+        result = arr.astype(QuadPrecDType())
+        
+        result_val = float(str(result[0]))
+        
+        # For zero, check sign separately
+        if expected_val == 0.0:
+            assert result_val == 0.0
+            if input_str.startswith('-'):
+                assert np.signbit(result_val), f"Expected negative zero for '{input_str}'"
+            else:
+                assert not np.signbit(result_val), f"Expected positive zero for '{input_str}'"
+        else:
+            np.testing.assert_allclose(result_val, expected_val, rtol=1e-10)
+    
+    @pytest.mark.parametrize("input_str", [
+        "  3.14  ",
+        "\t3.14\t",
+        "\n3.14\n",
+        "\r3.14\r",
+        "  \t\n\r  3.14  \t\n\r  ",
+        "  inf  ",
+        "\t-inf\t",
+        "  nan  ",
+    ])
+    def test_whitespace_handling(self, input_str):
+        """Test that leading/trailing whitespace is handled correctly"""
+        arr = np.array([input_str], dtype='U20')
+        result = arr.astype(QuadPrecDType())
+        
+        # Should not raise an error
+        result_str = str(result[0])
+        assert result_str  # Should have a value
+    
+    @pytest.mark.parametrize("invalid_str", [
+        "abc",           # Non-numeric
+        "3.14.15",       # Multiple decimals
+        "1.23e",         # Incomplete scientific notation
+        "e10",           # Scientific notation without base
+        "3.14abc",       # Trailing non-numeric
+        "++3.14",        # Double sign
+        "--3.14",        # Double sign
+        "+-3.14",        # Mixed signs
+        "in",            # Incomplete inf
+        "na",            # Incomplete nan
+        "infinit",       # Incomplete infinity
+    ])
+    def test_invalid_strings_raise_error(self, invalid_str):
+        """Test that invalid strings raise ValueError"""
+        arr = np.array([invalid_str], dtype='U20')
+        
+        with pytest.raises(ValueError):
+            arr.astype(QuadPrecDType())
+    
+    @pytest.mark.parametrize("input_str", [
+        "3.14ñ",         # Trailing non-ASCII
+        "ñ3.14",         # Leading non-ASCII  
+        "3.1€4",         # Mid non-ASCII
+        "π",             # Greek pi
+    ])
+    def test_non_ascii_raises_error(self, input_str):
+        """Test that non-ASCII characters raise ValueError"""
+        arr = np.array([input_str], dtype='U20')
+        
+        with pytest.raises(ValueError):
+            arr.astype(QuadPrecDType())
+    
+    def test_numpy_longdouble_compatibility(self):
+        """Test that our parsing matches NumPy's longdouble for common cases"""
+        test_cases = [
+            "inf", "INF", "Inf", "-inf", "+infinity",
+            "nan", "NAN", "NaN", 
+            "3.14", "-2.718", "1e10", "-1.23e-45",
+        ]
+        
+        for test_str in test_cases:
+            arr = np.array([test_str], dtype='U20')
+            
+            # NumPy's built-in
+            np_result = arr.astype(np.longdouble)
+            
+            # Our QuadPrecision
+            quad_result = arr.astype(QuadPrecDType())
+            
+            np_val = np_result[0]
+            quad_val = float(str(quad_result[0]))
+            
+            if np.isnan(np_val):
+                assert np.isnan(quad_val), f"NumPy gives NaN but QuadPrec doesn't for '{test_str}'"
+            elif np.isinf(np_val):
+                assert np.isinf(quad_val), f"NumPy gives inf but QuadPrec doesn't for '{test_str}'"
+                assert np.sign(np_val) == np.sign(quad_val), \
+                    f"Inf sign mismatch for '{test_str}': NumPy={np.sign(np_val)}, Quad={np.sign(quad_val)}"
+            else:
+                np.testing.assert_allclose(quad_val, np_val, rtol=1e-10)
+    
+    def test_locale_independence(self):
+        """Test that parsing always uses '.' for decimal, not locale-specific separator"""
+        # This should parse correctly (period as decimal)
+        arr = np.array(["3.14"], dtype='U20')
+        result = arr.astype(QuadPrecDType())
+        assert float(str(result[0])) == 3.14
+        
+        # In some locales ',' is decimal separator, but we should always use '.'
+        # So "3,14" should either error or parse as "3" (stopping at comma)
+        # Since require_full_parse validation happens in casts.cpp, and we check
+        # for trailing content, this should raise ValueError
+        arr_comma = np.array(["3,14"], dtype='U20')
+        with pytest.raises(ValueError):
+            arr_comma.astype(QuadPrecDType())
+
+    @pytest.mark.parametrize("input_str,description", [
+        ("  1.23  ", "space - leading and trailing"),
+        ("\t1.23\t", "tab - leading and trailing"),
+        ("\n1.23\n", "newline - leading and trailing"),
+        ("\r1.23\r", "carriage return - leading and trailing"),
+        ("\v1.23\v", "vertical tab - leading and trailing"),
+        ("\f1.23\f", "form feed - leading and trailing"),
+        (" \t\n\r\v\f1.23 \t\n\r\v\f", "all 6 whitespace chars - mixed"),
+        ("\t\t\t3.14\t\t\t", "multiple tabs"),
+        ("   inf   ", "infinity with spaces"),
+        ("\t\t-inf\t\t", "negative infinity with tabs"),
+        ("\n\nnan\n\n", "nan with newlines"),
+        ("\r\r-nan\r\r", "negative nan with carriage returns"),
+        ("\v\v1e10\v\v", "scientific notation with vertical tabs"),
+        ("\f\f-1.23e-45\f\f", "negative scientific with form feeds"),
+    ])
+    def test_all_six_whitespace_characters(self, input_str, description):
+        """Test all 6 ASCII whitespace characters (space, tab, newline, carriage return, vertical tab, form feed)
+        
+        This tests the ascii_isspace() helper function in casts.cpp which matches
+        CPython's Py_ISSPACE and NumPy's NumPyOS_ascii_isspace behavior.
+        The 6 characters are: 0x09(\t), 0x0A(\n), 0x0B(\v), 0x0C(\f), 0x0D(\r), 0x20(space)
+        """
+        arr = np.array([input_str], dtype='U50')
+        result = arr.astype(QuadPrecDType())
+        
+        # Should successfully parse without errors
+        result_val = str(result[0])
+        assert result_val, f"Failed to parse with {description}"
+        
+        # Verify the value is correct (strip whitespace and compare)
+        stripped = input_str.strip(' \t\n\r\v\f')
+        expected_arr = np.array([stripped], dtype='U50')
+        expected = expected_arr.astype(QuadPrecDType())
+        
+        if np.isnan(float(str(expected[0]))):
+            assert np.isnan(float(str(result[0]))), f"NaN parsing failed for {description}"
+        elif np.isinf(float(str(expected[0]))):
+            assert np.isinf(float(str(result[0]))), f"Inf parsing failed for {description}"
+            assert np.sign(float(str(expected[0]))) == np.sign(float(str(result[0]))), \
+                f"Inf sign mismatch for {description}"
+        else:
+            assert result[0] == expected[0], f"Value mismatch for {description}"
+
+    @pytest.mark.parametrize("invalid_str,description", [
+        ("1.23 abc", "trailing non-whitespace after number"),
+        ("  1.23xyz  ", "trailing garbage with surrounding whitespace"),
+        ("abc 123", "leading garbage before number"),
+        ("1.23\x01", "control char (SOH) after number"),
+        ("1.23    a", "letter after multiple spaces"),
+        ("\t1.23\tabc\t", "tabs with garbage in middle"),
+    ])
+    def test_whitespace_with_invalid_trailing_content(self, invalid_str, description):
+        """Test that strings with invalid trailing content are rejected even with whitespace
+        
+        This ensures the trailing whitespace check in casts.cpp properly validates
+        that only whitespace follows the parsed number, not other characters.
+        """
+        arr = np.array([invalid_str], dtype='U50')
+        
+        with pytest.raises(ValueError, match="could not convert string to QuadPrecision"):
+            arr.astype(QuadPrecDType())
+
+    def test_empty_string_and_whitespace_only(self):
+        """Test that empty strings and whitespace-only strings raise errors"""
+        test_cases = [
+            "",           # Empty string
+            " ",          # Single space
+            "  ",         # Multiple spaces
+            "\t",         # Single tab
+            "\n",         # Single newline
+            "\r",         # Single carriage return
+            "\v",         # Single vertical tab
+            "\f",         # Single form feed
+            " \t\n\r\v\f", # All whitespace characters
+            "   \t\t\n\n  ", # Mixed whitespace
+        ]
+        
+        for test_str in test_cases:
+            arr = np.array([test_str], dtype='U20')
+            with pytest.raises(ValueError, match="could not convert string to QuadPrecision"):
+                arr.astype(QuadPrecDType())
+
+    @pytest.mark.parametrize("boundary_str,description", [
+        ("1e4932", "near max exponent for quad precision"),
+        ("1e-4932", "near min exponent for quad precision"),
+        ("1.189731495357231765085759326628007016196477" + "e4932", "very large number"),
+        ("3.362103143112093506262677817321752602596e-4932", "very small number"),
+        ("-1.189731495357231765085759326628007016196477" + "e4932", "very large negative"),
+        ("-3.362103143112093506262677817321752602596e-4932", "very small negative"),
+    ])
+    def test_extreme_exponent_values(self, boundary_str, description):
+        """Test parsing of numbers with extreme exponents near quad precision limits
+        
+        IEEE 754 binary128 has exponent range of approximately ±4932
+        """
+        arr = np.array([boundary_str], dtype='U100')
+        result = arr.astype(QuadPrecDType())
+        
+        # Should parse successfully (may result in inf for overflow cases)
+        result_str = str(result[0])
+        assert result_str, f"Failed to parse {description}"
+
+    @pytest.mark.parametrize("precision_str", [
+        "3.141592653589793238462643383279502884197",  # 36 digits (quad precision)
+        "2.718281828459045235360287471352662497757",  # e to 36 digits
+        "1.414213562373095048801688724209698078569",  # sqrt(2) to 36 digits
+        "-1.732050807568877293527446341505872366942", # -sqrt(3) to 36 digits
+    ])
+    def test_full_precision_parsing(self, precision_str):
+        """Test that strings with full quad precision (36 decimal digits) parse correctly
+        
+        This ensures the full precision is preserved during string -> quad conversion
+        """
+        arr = np.array([precision_str], dtype='U50')
+        result = arr.astype(QuadPrecDType())
+        
+        # Convert back to string and verify roundtrip preserves precision
+        back_to_str = result.astype('U50')
+        roundtrip = back_to_str.astype(QuadPrecDType())
+        
+        # Roundtrip should preserve the value
+        assert result[0] == roundtrip[0], \
+            f"Precision lost in roundtrip for {precision_str}"
 
 
 def test_basic_equality():
