@@ -4499,6 +4499,9 @@ class TestPickle:
             expected_backend = 0 if backend == 'sleef' else 1
             assert loaded_arr1.dtype.backend == expected_backend
             assert loaded_arr2.dtype.backend == expected_backend
+            
+            # Close the file before cleanup (required on Windows)
+            loaded.close()
         finally:
             os.unlink(fname)
     
@@ -4527,6 +4530,9 @@ class TestPickle:
             assert loaded_arr.dtype == original.dtype
             expected_backend = 0 if backend == 'sleef' else 1
             assert loaded_arr.dtype.backend == expected_backend
+            
+            # Close the file before cleanup (required on Windows)
+            loaded.close()
         finally:
             os.unlink(fname)
     
@@ -4566,6 +4572,9 @@ class TestPickle:
                         assert np.signbit(loaded_arr[i]) == np.signbit(original[i])
             
             assert loaded_arr.dtype == original.dtype
+            
+            # Close the file before cleanup (required on Windows)
+            loaded.close()
         finally:
             os.unlink(fname)
     
@@ -4605,6 +4614,9 @@ class TestPickle:
             expected_backend = 0 if backend == 'sleef' else 1
             for key in ['scalar', 'one_d', 'two_d', 'three_d']:
                 assert loaded[key].dtype.backend == expected_backend
+            
+            # Close the file before cleanup (required on Windows)
+            loaded.close()
         finally:
             os.unlink(fname)
     
@@ -4645,6 +4657,9 @@ class TestPickle:
             # Also check element-wise equality
             for i in range(len(original)):
                 assert loaded_arr[i] == original[i]
+            
+            # Close the file before cleanup (required on Windows)
+            loaded.close()
         finally:
             os.unlink(fname)
     
