@@ -20,6 +20,10 @@ _ScalarItemArg: TypeAlias = Literal[0, -1] | tuple[Literal[0, -1]] | tuple[()]
 class QuadPrecDType(np.dtype[QuadPrecision]):  # type: ignore[misc]  # pyright: ignore[reportGeneralTypeIssues]
     def __new__(cls, /, backend: _Backend = "sleef") -> Self: ...
 
+    # QuadPrecDType specific attributes
+    @property
+    def backend(self) -> Literal[0, 1]: ...
+
     # `numpy.dtype` overrides
     names: None  # pyright: ignore[reportIncompatibleVariableOverride]
     @property
