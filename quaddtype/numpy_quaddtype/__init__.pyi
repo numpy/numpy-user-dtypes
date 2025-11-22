@@ -12,7 +12,6 @@ from ._quaddtype_main import (
 )
 
 class QuadBackend(enum.IntEnum):
-    """Backend type for QuadPrecision computations."""
     SLEEF = 0
     LONGDOUBLE = 1
 
