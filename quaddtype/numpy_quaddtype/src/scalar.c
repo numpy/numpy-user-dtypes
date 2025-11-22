@@ -605,7 +605,15 @@ static PyMethodDef QuadPrecision_methods[] = {
     {NULL, NULL, 0, NULL}  /* Sentinel */
 };
 
+static PyObject *
+QuadPrecision_get_dtype(QuadPrecisionObject *self, void *NPY_UNUSED(closure))
+{
+    QuadPrecDTypeObject *dtype = new_quaddtype_instance(self->backend);
+    return (PyObject *)dtype;
+}
+
 static PyGetSetDef QuadPrecision_getset[] = {
+    {"dtype", (getter)QuadPrecision_get_dtype, NULL, "Data type descriptor for this scalar", NULL},
     {"real", (getter)QuadPrecision_get_real, NULL, "Real part of the scalar", NULL},
     {"imag", (getter)QuadPrecision_get_imag, NULL, "Imaginary part of the scalar (always 0 for real types)", NULL},
     {NULL}  /* Sentinel */
