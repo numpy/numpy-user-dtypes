@@ -1,13 +1,10 @@
 from typing import Any, Literal, TypeAlias, final, overload
 import builtins
-import enum
 import numpy as np
 from numpy._typing import _128Bit  # pyright: ignore[reportPrivateUsage]
 from typing_extensions import Never, Self, override
 
-class QuadBackend(enum.IntEnum):
-    SLEEF = 0
-    LONGDOUBLE = 1
+from numpy_quaddtype import QuadBackend
 
 _Backend: TypeAlias = Literal["sleef", "longdouble"]
 _IntoQuad: TypeAlias = (

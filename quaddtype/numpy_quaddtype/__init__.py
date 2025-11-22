@@ -1,3 +1,5 @@
+import enum
+
 from ._quaddtype_main import (
     QuadPrecision,
     QuadPrecDType,
@@ -10,8 +12,16 @@ from ._quaddtype_main import (
 
 __version__ = "0.2.0"
 
+
+class QuadBackend(enum.IntEnum):
+    """Backend type for QuadPrecision computations."""
+    SLEEF = 0
+    LONGDOUBLE = 1
+
+
 __all__ = [
-    'QuadPrecision', 'QuadPrecDType', 'SleefQuadPrecision', 'LongDoubleQuadPrecision',
+    'QuadPrecision', 'QuadPrecDType', 'QuadBackend',
+    'SleefQuadPrecision', 'LongDoubleQuadPrecision',
     'SleefQuadPrecDType', 'LongDoubleQuadPrecDType', 'is_longdouble_128', 
     # Constants
     'pi', 'e', 'log2e', 'log10e', 'ln2', 'ln10', 'max_value', 'epsilon',

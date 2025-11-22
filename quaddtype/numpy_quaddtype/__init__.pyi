@@ -1,4 +1,5 @@
 from typing import Final
+import enum
 
 from ._quaddtype_main import (
     QuadPrecDType,
@@ -10,9 +11,15 @@ from ._quaddtype_main import (
     set_num_threads,
 )
 
+class QuadBackend(enum.IntEnum):
+    """Backend type for QuadPrecision computations."""
+    SLEEF = 0
+    LONGDOUBLE = 1
+
 __all__ = [
     "QuadPrecision",
     "QuadPrecDType",
+    "QuadBackend",
     "SleefQuadPrecision",
     "LongDoubleQuadPrecision",
     "SleefQuadPrecDType",
