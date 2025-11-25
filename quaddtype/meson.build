@@ -50,23 +50,23 @@ if sleef_dep.found() and sleef_dep.type_name() != 'internal'
       )
       use_system_sleef = true
     else
-      fallback_reason = 'quad-precision support is not working'
+      fallback_reason = 'System-wide SLEEF installation found but a test for quad precision support failed.'
     endif
   else
-    fallback_reason = 'sleefquad library is missing'
+    fallback_reason = 'System-wide SLEEF installation does not have a sleefquad library.'
   endif
 else
-  fallback_reason = 'SLEEF not found system-wide'
+  fallback_reason = 'Cannot find system-wide SLEEF installation.'
 endif
 
 if use_system_sleef
   message('Using system-wide SLEEF installation with quad-precision support')
 else
-  warning('Falling back to SLEEF subproject: ' + fallback_reason)
   sleef_subproj = subproject('sleef')
   sleef_dep = sleef_subproj.get_variable('sleef_dep')
   sleefquad_dep = sleef_subproj.get_variable('sleefquad_dep')
-  message('Using SLEEF subproject')
+  warning(fallback_reason)
+  message('Proceeding with vendored SLEEF subproject instead')
 endif
 
 incdir_numpy = run_command(py,
