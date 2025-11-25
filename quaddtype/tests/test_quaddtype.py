@@ -4293,3 +4293,18 @@ class Test_Is_Integer_Methods:
         quad_ratio = quad_num / quad_denom
         float_ratio = float_num / float_denom
         assert abs(quad_ratio - float_ratio) < 1e-15
+
+def test_quadprecision_scalar_dtype_expose():
+    quad_ld = QuadPrecision("1e100", backend="longdouble")
+    quad_sleef = QuadPrecision("1e100", backend="sleef")
+    assert quad_ld.dtype == QuadPrecDType(backend='longdouble')
+    assert np.dtype(quad_ld) == QuadPrecDType(backend='longdouble')
+    
+    #todo: Uncomment them when 232 is merged
+    # assert quad_ld.dtype.backend == 1
+    # assert np.dtype(quad_ld).backend == 1
+
+    assert quad_sleef.dtype == QuadPrecDType(backend='sleef')
+    assert np.dtype(quad_sleef) == QuadPrecDType(backend='sleef')
+    # assert quad_sleef.dtype.backend == 0
+    # assert np.dtype(quad_sleef).backend == 0
