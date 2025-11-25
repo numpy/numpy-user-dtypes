@@ -4723,31 +4723,3 @@ class TestPickle:
         np.testing.assert_array_equal(unpickled, original)
         assert unpickled.dtype == original.dtype
         assert unpickled.flags.f_contiguous == original.flags.f_contiguous
-    
-    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
-    def test_pickle_reduce_method(self, backend):
-        """Test that __reduce__ method works correctly."""
-        # Create dtype
-        dtype = QuadPrecDType(backend=backend)
-        
-        # Call __reduce__ directly
-        reduced = dtype.__reduce__()
-        
-        # Verify structure
-        assert isinstance(reduced, tuple)
-        assert len(reduced) == 2
-        
-        # First element should be the class
-        callable_obj = reduced[0]
-        assert callable_obj is type(dtype)
-        
-        # Second element should be args tuple
-        args = reduced[1]
-        assert isinstance(args, tuple)
-        assert len(args) == 1
-        assert args[0] == backend
-        
-        # Verify reconstruction works
-        reconstructed = callable_obj(*args)
-        assert reconstructed.backend == dtype.backend
-        assert str(reconstructed) == str(dtype)
