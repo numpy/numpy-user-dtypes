@@ -4300,11 +4300,440 @@ def test_quadprecision_scalar_dtype_expose():
     assert quad_ld.dtype == QuadPrecDType(backend='longdouble')
     assert np.dtype(quad_ld) == QuadPrecDType(backend='longdouble')
     
-    #todo: Uncomment them when 232 is merged
-    # assert quad_ld.dtype.backend == 1
-    # assert np.dtype(quad_ld).backend == 1
+    assert quad_ld.dtype.backend == 1
+    assert np.dtype(quad_ld).backend == 1
 
     assert quad_sleef.dtype == QuadPrecDType(backend='sleef')
     assert np.dtype(quad_sleef) == QuadPrecDType(backend='sleef')
-    # assert quad_sleef.dtype.backend == 0
-    # assert np.dtype(quad_sleef).backend == 0
+    assert quad_sleef.dtype.backend == 0
+    assert np.dtype(quad_sleef).backend == 0
+
+
+class TestPickle:
+    """Comprehensive test suite for pickle support in QuadPrecDType."""
+    
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_pickle_dtype_basic(self, backend):
+        """Test basic pickle/unpickle of QuadPrecDType instances."""
+        import pickle
+        
+        # Create original dtype
+        original = QuadPrecDType(backend=backend)
+        
+        # Pickle and unpickle
+        pickled = pickle.dumps(original)
+        unpickled = pickle.loads(pickled)
+        
+        # Verify dtype is preserved
+        assert isinstance(unpickled, type(original))
+        assert unpickled.backend == original.backend
+        assert str(unpickled) == str(original)
+    
+    @pytest.mark.parametrize("protocol", [0, 1, 2, 3, 4, 5])
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_pickle_dtype_all_protocols(self, protocol, backend):
+        """Test pickle with all pickle protocol versions."""
+        import pickle
+        
+        original = QuadPrecDType(backend=backend)
+        pickled = pickle.dumps(original, protocol=protocol)
+        unpickled = pickle.loads(pickled)
+        
+        assert unpickled.backend == original.backend
+        assert str(unpickled) == str(original)
+    
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    @pytest.mark.parametrize("value", [
+        "0.0", "-0.0", "1.0", "-1.0", 
+        "3.141592653589793238462643383279502884197",
+        "2.718281828459045235360287471352662497757",
+        "1e100", "1e-100", "-1e100", "-1e-100",
+        "inf", "-inf", "nan"
+    ])
+    def test_pickle_scalar(self, backend, value):
+        """Test pickle/unpickle of QuadPrecision scalars in arrays."""
+        import pickle
+        
+        # Create scalar as 0-d array (scalars pickle differently)
+        original = np.array(QuadPrecision(value, backend=backend))
+        
+        # Pickle and unpickle
+        pickled = pickle.dumps(original)
+        unpickled = pickle.loads(pickled)
+        
+        # Verify value is preserved
+        if np.isnan(float(original[()])):
+            assert np.isnan(float(unpickled[()]))
+        else:
+            assert unpickled[()] == original[()]
+            assert float(unpickled[()]) == float(original[()])
+        
+        # Verify dtype and backend
+        assert unpickled.dtype == original.dtype
+        assert unpickled.dtype.backend == original.dtype.backend
+    
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_pickle_array_1d(self, backend):
+        """Test pickle/unpickle of 1D arrays."""
+        import pickle
+        
+        # Create array
+        original = np.array([1.5, 2.5, 3.5, 4.5], dtype=QuadPrecDType(backend=backend))
+        
+        # Pickle and unpickle
+        pickled = pickle.dumps(original)
+        unpickled = pickle.loads(pickled)
+        
+        # Verify array is preserved
+        np.testing.assert_array_equal(unpickled, original)
+        assert unpickled.dtype == original.dtype
+        assert unpickled.dtype.backend == original.dtype.backend
+        assert unpickled.shape == original.shape
+    
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_pickle_array_2d(self, backend):
+        """Test pickle/unpickle of 2D arrays."""
+        import pickle
+        
+        # Create 2D array
+        original = np.array([[1.0, 2.0, 3.0],
+                            [4.0, 5.0, 6.0]], dtype=QuadPrecDType(backend=backend))
+        
+        # Pickle and unpickle
+        pickled = pickle.dumps(original)
+        unpickled = pickle.loads(pickled)
+        
+        # Verify array is preserved
+        np.testing.assert_array_equal(unpickled, original)
+        assert unpickled.dtype == original.dtype
+        assert unpickled.dtype.backend == original.dtype.backend
+        assert unpickled.shape == original.shape
+    
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_pickle_array_special_values(self, backend):
+        """Test pickle/unpickle of arrays with special values."""
+        import pickle
+        
+        # Create array with special values
+        original = np.array([
+            QuadPrecision("0.0", backend=backend),
+            QuadPrecision("-0.0", backend=backend),
+            QuadPrecision("inf", backend=backend),
+            QuadPrecision("-inf", backend=backend),
+            QuadPrecision("nan", backend=backend),
+            QuadPrecision("1e100", backend=backend),
+            QuadPrecision("1e-100", backend=backend),
+        ], dtype=QuadPrecDType(backend=backend))
+        
+        # Pickle and unpickle
+        pickled = pickle.dumps(original)
+        unpickled = pickle.loads(pickled)
+        
+        # Verify each element (handling NaN specially)
+        for i in range(len(original)):
+            if np.isnan(float(original[i])):
+                assert np.isnan(float(unpickled[i]))
+            else:
+                assert float(unpickled[i]) == float(original[i])
+                # Check sign for zeros
+                if float(original[i]) == 0.0:
+                    assert np.signbit(unpickled[i]) == np.signbit(original[i])
+        
+        assert unpickled.dtype == original.dtype
+    
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_pickle_empty_array(self, backend):
+        """Test pickle/unpickle of empty arrays."""
+        import pickle
+        
+        # Create empty array
+        original = np.array([], dtype=QuadPrecDType(backend=backend))
+        
+        # Pickle and unpickle
+        pickled = pickle.dumps(original)
+        unpickled = pickle.loads(pickled)
+        
+        # Verify empty array is preserved
+        assert len(unpickled) == 0
+        assert unpickled.dtype == original.dtype
+        assert unpickled.shape == original.shape
+    
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_pickle_high_precision_values(self, backend):
+        """Test that high precision is preserved through pickle."""
+        import pickle
+        
+        # Create high-precision values
+        pi_str = "3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117067"
+        e_str = "2.718281828459045235360287471352662497757247093699959574966967627724076630353547594571382178525166427"
+        
+        original = np.array([
+            QuadPrecision(pi_str, backend=backend),
+            QuadPrecision(e_str, backend=backend),
+        ], dtype=QuadPrecDType(backend=backend))
+        
+        # Pickle and unpickle
+        pickled = pickle.dumps(original)
+        unpickled = pickle.loads(pickled)
+        
+        # Verify high precision is maintained
+        for i in range(len(original)):
+            assert unpickled[i] == original[i]
+            assert str(unpickled[i]) == str(original[i])
+        
+        assert unpickled.dtype == original.dtype
+    
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_pickle_with_npz(self, backend):
+        """Test saving and loading arrays with np.savez."""
+        import tempfile
+        import os
+        
+        # Create arrays
+        arr1 = np.array([1.5, 2.5, 3.5], dtype=QuadPrecDType(backend=backend))
+        arr2 = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=QuadPrecDType(backend=backend))
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.npz') as f:
+            fname = f.name
+        
+        try:
+            # Save arrays
+            np.savez(fname, array1=arr1, array2=arr2)
+            
+            # Load arrays (custom dtypes require allow_pickle=True)
+            loaded = np.load(fname, allow_pickle=True)
+            loaded_arr1 = loaded['array1']
+            loaded_arr2 = loaded['array2']
+            
+            # Verify arrays are preserved
+            np.testing.assert_array_equal(loaded_arr1, arr1)
+            np.testing.assert_array_equal(loaded_arr2, arr2)
+            assert loaded_arr1.dtype == arr1.dtype
+            assert loaded_arr2.dtype == arr2.dtype
+            expected_backend = 0 if backend == 'sleef' else 1
+            assert loaded_arr1.dtype.backend == expected_backend
+            assert loaded_arr2.dtype.backend == expected_backend
+            
+            # Close the file before cleanup (required on Windows)
+            loaded.close()
+        finally:
+            os.unlink(fname)
+    
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_pickle_with_savez_compressed(self, backend):
+        """Test saving and loading arrays with np.savez_compressed."""
+        import tempfile
+        import os
+        
+        # Create array with many values
+        original = np.linspace(0, 100, 1000, dtype=np.float64).astype(QuadPrecDType(backend=backend))
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.npz') as f:
+            fname = f.name
+        
+        try:
+            # Save compressed
+            np.savez_compressed(fname, data=original)
+            
+            # Load (custom dtypes require allow_pickle=True)
+            loaded = np.load(fname, allow_pickle=True)
+            loaded_arr = loaded['data']
+            
+            # Verify array is preserved
+            np.testing.assert_array_equal(loaded_arr, original)
+            assert loaded_arr.dtype == original.dtype
+            expected_backend = 0 if backend == 'sleef' else 1
+            assert loaded_arr.dtype.backend == expected_backend
+            
+            # Close the file before cleanup (required on Windows)
+            loaded.close()
+        finally:
+            os.unlink(fname)
+    
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_pickle_npz_special_values(self, backend):
+        """Test np.savez with arrays containing special values."""
+        import tempfile
+        import os
+        
+        # Create array with special values
+        original = np.array([
+            QuadPrecision("0.0", backend=backend),
+            QuadPrecision("-0.0", backend=backend),
+            QuadPrecision("inf", backend=backend),
+            QuadPrecision("-inf", backend=backend),
+            QuadPrecision("nan", backend=backend),
+        ], dtype=QuadPrecDType(backend=backend))
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.npz') as f:
+            fname = f.name
+        
+        try:
+            # Save
+            np.savez(fname, special=original)
+            
+            # Load (custom dtypes require allow_pickle=True)
+            loaded = np.load(fname, allow_pickle=True)
+            loaded_arr = loaded['special']
+            
+            # Verify each element
+            for i in range(len(original)):
+                if np.isnan(float(original[i])):
+                    assert np.isnan(float(loaded_arr[i]))
+                else:
+                    assert float(loaded_arr[i]) == float(original[i])
+                    if float(original[i]) == 0.0:
+                        assert np.signbit(loaded_arr[i]) == np.signbit(original[i])
+            
+            assert loaded_arr.dtype == original.dtype
+            
+            # Close the file before cleanup (required on Windows)
+            loaded.close()
+        finally:
+            os.unlink(fname)
+    
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_pickle_npz_multiple_arrays(self, backend):
+        """Test np.savez with multiple arrays of different shapes."""
+        import tempfile
+        import os
+        
+        # Create arrays of different shapes
+        arr_scalar = np.array(QuadPrecision("42.0", backend=backend))
+        arr_1d = np.array([1.0, 2.0, 3.0], dtype=QuadPrecDType(backend=backend))
+        arr_2d = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=QuadPrecDType(backend=backend))
+        arr_3d = np.arange(24, dtype=np.float64).reshape((2, 3, 4)).astype(QuadPrecDType(backend=backend))
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.npz') as f:
+            fname = f.name
+        
+        try:
+            # Save all arrays
+            np.savez(fname, 
+                    scalar=arr_scalar,
+                    one_d=arr_1d,
+                    two_d=arr_2d,
+                    three_d=arr_3d)
+            
+            # Load (custom dtypes require allow_pickle=True)
+            loaded = np.load(fname, allow_pickle=True)
+            
+            # Verify all arrays
+            np.testing.assert_array_equal(loaded['scalar'], arr_scalar)
+            np.testing.assert_array_equal(loaded['one_d'], arr_1d)
+            np.testing.assert_array_equal(loaded['two_d'], arr_2d)
+            np.testing.assert_array_equal(loaded['three_d'], arr_3d)
+            
+            # Verify dtypes and backends
+            expected_backend = 0 if backend == 'sleef' else 1
+            for key in ['scalar', 'one_d', 'two_d', 'three_d']:
+                assert loaded[key].dtype.backend == expected_backend
+            
+            # Close the file before cleanup (required on Windows)
+            loaded.close()
+        finally:
+            os.unlink(fname)
+    
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_pickle_npz_exact_values(self, backend):
+        """Test that np.savez preserves exact values using np.testing.assert_allclose."""
+        import tempfile
+        import os
+        
+        # Create array with precise values
+        original = np.array([
+            1.0 / 3.0,  # Repeating decimal
+            np.sqrt(2.0),  # Irrational
+            np.pi,  # Pi
+            np.e,  # Euler's number
+            1.23456789012345678901234567890,  # Many digits
+        ], dtype=np.float64).astype(QuadPrecDType(backend=backend))
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.npz') as f:
+            fname = f.name
+        
+        try:
+            # Save
+            np.savez(fname, data=original)
+            
+            # Load (custom dtypes require allow_pickle=True)
+            loaded = np.load(fname, allow_pickle=True)
+            loaded_arr = loaded['data']
+            
+            # Verify exact values using assert_allclose
+            np.testing.assert_allclose(
+                loaded_arr.astype(np.float64),
+                original.astype(np.float64),
+                rtol=0, atol=0,  # Exact comparison
+                err_msg="Values changed after save/load"
+            )
+            
+            # Also check element-wise equality
+            for i in range(len(original)):
+                assert loaded_arr[i] == original[i]
+            
+            # Close the file before cleanup (required on Windows)
+            loaded.close()
+        finally:
+            os.unlink(fname)
+    
+    def test_pickle_backend_preservation_sleef_to_longdouble(self):
+        """Test that different backends maintain their identity through pickle."""
+        import pickle
+        
+        # Create arrays with different backends
+        sleef_arr = np.array([1.5, 2.5], dtype=QuadPrecDType(backend='sleef'))
+        longdouble_arr = np.array([1.5, 2.5], dtype=QuadPrecDType(backend='longdouble'))
+        
+        # Pickle both
+        sleef_pickled = pickle.dumps(sleef_arr)
+        longdouble_pickled = pickle.dumps(longdouble_arr)
+        
+        # Unpickle
+        sleef_unpickled = pickle.loads(sleef_pickled)
+        longdouble_unpickled = pickle.loads(longdouble_pickled)
+        
+        # Verify backends are preserved
+        assert sleef_unpickled.dtype.backend == 0  # BACKEND_SLEEF
+        assert longdouble_unpickled.dtype.backend == 1  # BACKEND_LONGDOUBLE
+        
+        # Verify they are different
+        assert sleef_unpickled.dtype.backend != longdouble_unpickled.dtype.backend
+    
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_pickle_array_view(self, backend):
+        """Test pickle/unpickle of array views."""
+        import pickle
+        
+        # Create array and view
+        base_array = np.arange(10, dtype=np.float64).astype(QuadPrecDType(backend=backend))
+        view = base_array[2:8:2]  # Slice with stride
+        
+        # Pickle and unpickle the view
+        pickled = pickle.dumps(view)
+        unpickled = pickle.loads(pickled)
+        
+        # Verify view is preserved
+        np.testing.assert_array_equal(unpickled, view)
+        assert unpickled.dtype == view.dtype
+        assert unpickled.shape == view.shape
+    
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_pickle_fortran_order(self, backend):
+        """Test pickle/unpickle of Fortran-ordered arrays."""
+        import pickle
+        
+        # Create Fortran-ordered array
+        original = np.array([[1.0, 2.0, 3.0],
+                            [4.0, 5.0, 6.0]], 
+                           dtype=QuadPrecDType(backend=backend),
+                           order='F')
+        
+        # Pickle and unpickle
+        pickled = pickle.dumps(original)
+        unpickled = pickle.loads(pickled)
+        
+        # Verify array is preserved
+        np.testing.assert_array_equal(unpickled, original)
+        assert unpickled.dtype == original.dtype
+        assert unpickled.flags.f_contiguous == original.flags.f_contiguous
