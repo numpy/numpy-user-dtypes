@@ -28,6 +28,65 @@ quad_to_sleef_quad(const quad_value *in_val, QuadBackendType backend);
 
 #ifdef __cplusplus
 }
-#endif
 
-#endif
+#include <cstring>
+
+// Load a value from memory, handling alignment
+template <bool Aligned, typename T>
+static inline T
+load(const char *ptr)
+{
+    if constexpr (Aligned) {
+        return *(const T *)ptr;
+    }
+    else {
+        T val;
+        std::memcpy(&val, ptr, sizeof(T));
+        return val;
+    }
+}
+
+// Store a value to memory, handling alignment
+template <bool Aligned, typename T>
+static inline void
+store(char *ptr, T val)
+{
+    if constexpr (Aligned) {
+        *(T *)ptr = val;
+    }
+    else {
+        std::memcpy(ptr, &val, sizeof(T));
+    }
+}
+
+// Load quad_value from memory based on backend and alignment
+template <bool Aligned>
+static inline quad_value
+load_quad(const char *ptr, QuadBackendType backend)
+{
+    quad_value val;
+    if (backend == BACKEND_SLEEF) {
+        val.sleef_value = load<Aligned, Sleef_quad>(ptr);
+    }
+    else {
+        val.longdouble_value = load<Aligned, long double>(ptr);
+    }
+    return val;
+}
+
+// Store quad_value to memory based on backend and alignment
+template <bool Aligned>
+static inline void
+store_quad(char *ptr, const quad_value &val, QuadBackendType backend)
+{
+    if (backend == BACKEND_SLEEF) {
+        store<Aligned, Sleef_quad>(ptr, val.sleef_value);
+    }
+    else {
+        store<Aligned, long double>(ptr, val.longdouble_value);
+    }
+}
+
+#endif  // __cplusplus
+
+#endif  // QUAD_UTILITIES_H
