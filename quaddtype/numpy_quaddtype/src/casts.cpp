@@ -460,7 +460,6 @@ bytes_to_quad_convert(const char *bytes_str, npy_intp bytes_size,
     }
     
     memcpy(temp_str, bytes_str, bytes_size);
-    temp_str[bytes_size] = '\0';
     
     // Find the actual end (null byte or first occurrence)
     npy_intp actual_len = 0;
@@ -561,21 +560,6 @@ quad_to_bytes_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta 
     return NPY_SAME_KIND_CASTING;
 }
 
-// Helper function: Copy string to bytes output buffer
-static inline void
-copy_string_to_bytes(const char *str, char *out_bytes, npy_intp bytes_size)
-{
-    npy_intp str_len = strlen(str);
-    
-    npy_intp copy_len = (str_len < bytes_size) ? str_len : bytes_size;
-    memcpy(out_bytes, str, copy_len);
-    
-    // Pad remaining space with null bytes
-    for (npy_intp i = copy_len; i < bytes_size; i++) {
-        out_bytes[i] = '\0';
-    }
-}
-
 template <bool Aligned>
 static int
 quad_to_bytes_loop(PyArrayMethod_Context *context, char *const data[],
@@ -607,7 +591,8 @@ quad_to_bytes_loop(PyArrayMethod_Context *context, char *const data[],
             return -1;
         }
 
-        copy_string_to_bytes(temp_str, out_ptr, bytes_size);
+        // Copy string to output buffer, padding with nulls
+        strncpy(out_ptr, temp_str, bytes_size);
 
         Py_DECREF(py_str);
 
