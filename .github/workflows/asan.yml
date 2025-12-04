@@ -1,0 +1,88 @@
+name: Address Sanitizer Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  clang_ASAN_UBSAN:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-tags: true
+
+      - name: Install system dependencies
+        run: |
+          brew install mpfr fftw cmake
+
+      - name: Set up LLVM
+        run: |
+          brew install llvm@19
+          LLVM_PREFIX=$(brew --prefix llvm@19)
+          echo "CC=$LLVM_PREFIX/bin/clang" >> $GITHUB_ENV
+          echo "CXX=$LLVM_PREFIX/bin/clang++" >> $GITHUB_ENV
+          echo "LDFLAGS=-L$LLVM_PREFIX/lib" >> $GITHUB_ENV
+          echo "CPPFLAGS=-I$LLVM_PREFIX/include" >> $GITHUB_ENV
+
+      - name: Set up pyenv
+        run: |
+          git clone https://github.com/pyenv/pyenv.git "$HOME/.pyenv"
+          PYENV_ROOT="$HOME/.pyenv"
+          PYENV_BIN="$PYENV_ROOT/bin"
+          PYENV_SHIMS="$PYENV_ROOT/shims"
+          echo "$PYENV_BIN" >> $GITHUB_PATH
+          echo "$PYENV_SHIMS" >> $GITHUB_PATH
+          echo "PYENV_ROOT=$PYENV_ROOT" >> $GITHUB_ENV
+
+      - name: Check pyenv is working
+        run: pyenv --version
+
+      - name: Build CPython with address sanitizer
+        run: |
+          CONFIGURE_OPTS="--with-address-sanitizer" pyenv install 3.14t
+          pyenv global 3.14t
+
+      - name: Install Python build dependencies
+        run: |
+          pip install meson meson-python ninja cython pytest hypothesis wheel build patchelf pytest-timeout
+
+      - name: Clone and build NumPy with ASan
+        run: |
+          git clone --depth 1 https://github.com/numpy/numpy.git numpy-asan
+          cd numpy-asan
+          git submodule update --init --recursive
+          # Build NumPy with address sanitizer using pip
+          pip install . -v --no-build-isolation \
+            -Csetup-args=-Db_sanitize=address,undefined \
+            -Csetup-args=-Db_lundef=false
+
+      - name: Build and install quaddtype with ASan
+        working-directory: quaddtype
+        run: |
+          pip install .[test] -v --no-build-isolation \
+            -Csetup-args=-Db_sanitize=address,undefined \
+            -Csetup-args=-Db_lundef=false
+
+      - name: Run quaddtype tests with ASan
+        working-directory: quaddtype
+        run: |
+          # pass -s to pytest to see ASAN errors and warnings, otherwise pytest captures them
+          ASAN_OPTIONS=detect_leaks=0:symbolize=1:strict_init_order=true:allocator_may_return_null=1 \
+          UBSAN_OPTIONS=halt_on_error=1 \
+          pytest -vvv -s --color=yes --timeout=600 --durations=10
