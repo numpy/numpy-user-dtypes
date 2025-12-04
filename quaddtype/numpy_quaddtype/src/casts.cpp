@@ -342,7 +342,8 @@ quad_to_string_adaptive(Sleef_quad *sleef_val, npy_intp unicode_size_chars)
         return NULL;
     }
 
-    npy_intp pos_len = strlen(pos_str);
+    // no need to scan full, only checking if its longer
+    npy_intp pos_len = strnlen(pos_str, unicode_size_chars + 1);
 
     // If positional format fits, use it; otherwise use scientific notation
     if (pos_len <= unicode_size_chars) {
@@ -354,22 +355,6 @@ quad_to_string_adaptive(Sleef_quad *sleef_val, npy_intp unicode_size_chars)
         return Dragon4_Scientific_QuadDType(sleef_val, DigitMode_Unique,
                                            SLEEF_QUAD_DECIMAL_DIG, 0, 1,
                                            TrimMode_LeaveOneZero, 1, 2);
-    }
-}
-
-// Helper function: Copy string to UCS4 output buffer
-static inline void
-copy_string_to_ucs4(const char *str, Py_UCS4 *out_ucs4, npy_intp unicode_size_chars)
-{
-    npy_intp str_len = strlen(str);
-    
-    for (npy_intp i = 0; i < unicode_size_chars; i++) {
-        if (i < str_len) {
-            out_ucs4[i] = (Py_UCS4)str[i];
-        }
-        else {
-            out_ucs4[i] = 0;
-        }
     }
 }
 
@@ -411,7 +396,13 @@ quad_to_unicode_loop(PyArrayMethod_Context *context, char *const data[],
 
         // Convert char string to UCS4 and store in output
         Py_UCS4 *out_ucs4 = (Py_UCS4 *)out_ptr;
-        copy_string_to_ucs4(temp_str, out_ucs4, unicode_size_chars);
+        npy_intp str_len = strnlen(temp_str, unicode_size_chars);
+        for (npy_intp i = 0; i < str_len; i++) {
+            out_ucs4[i] = (Py_UCS4)temp_str[i];
+        }
+        for (npy_intp i = str_len; i < unicode_size_chars; i++) {
+            out_ucs4[i] = 0;
+        }
 
         Py_DECREF(py_str);
 
