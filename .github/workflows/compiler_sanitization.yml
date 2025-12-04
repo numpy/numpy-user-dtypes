@@ -1,4 +1,4 @@
-name: Address Sanitizer Tests
+name: Compiler Sanitizer Tests
 
 on:
   push:
@@ -75,6 +75,7 @@ jobs:
       - name: Build and install quaddtype with ASan
         working-directory: quaddtype
         run: |
+          # Build with sanitizers - these flags propagate to subprojects (SLEEF, qblas) by default
           pip install .[test] -v --no-build-isolation \
             -Csetup-args=-Db_sanitize=address,undefined \
             -Csetup-args=-Db_lundef=false
