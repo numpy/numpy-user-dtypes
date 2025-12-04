@@ -83,6 +83,7 @@ jobs:
         working-directory: quaddtype
         run: |
           # pass -s to pytest to see ASAN errors and warnings, otherwise pytest captures them
+          # Note: UBSAN halt_on_error=0 because NumPy has some UBSAN issues that would abort tests
           ASAN_OPTIONS=detect_leaks=0:symbolize=1:strict_init_order=true:allocator_may_return_null=1 \
-          UBSAN_OPTIONS=halt_on_error=1 \
+          UBSAN_OPTIONS=halt_on_error=0 \
           pytest -vvv -s --color=yes --timeout=600 --durations=10
