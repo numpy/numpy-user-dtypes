@@ -82,8 +82,47 @@ jobs:
       - name: Run quaddtype tests with ASan
         working-directory: quaddtype
         run: |
-          # pass -s to pytest to see ASAN errors and warnings, otherwise pytest captures them
+          # Create a directory for sanitizer logs
+          mkdir -p ${{ github.workspace }}/sanitizer_logs
+          
+          # Run tests with sanitizer output redirected to log files
           # Note: UBSAN halt_on_error=0 because NumPy has some UBSAN issues that would abort tests
-          ASAN_OPTIONS=detect_leaks=0:symbolize=1:strict_init_order=true:allocator_may_return_null=1 \
-          UBSAN_OPTIONS=halt_on_error=0 \
-          pytest -vvv -s --color=yes --timeout=600 --durations=10
+          ASAN_OPTIONS=detect_leaks=0:symbolize=1:strict_init_order=true:allocator_may_return_null=1:log_path=${{ github.workspace }}/sanitizer_logs/asan \
+          UBSAN_OPTIONS=halt_on_error=0:log_path=${{ github.workspace }}/sanitizer_logs/ubsan \
+          pytest -vvv --color=yes --timeout=600 --durations=10
+
+      - name: Display quaddtype sanitizer warnings
+        if: always()
+        run: |
+          echo "=========================================="
+          echo "QUADDTYPE SANITIZER WARNINGS SUMMARY"
+          echo "=========================================="
+          
+          # Combine all sanitizer logs and filter for quaddtype-related issues
+          if ls ${{ github.workspace }}/sanitizer_logs/* 1> /dev/null 2>&1; then
+            cat ${{ github.workspace }}/sanitizer_logs/* 2>/dev/null | \
+              grep -A2 -B2 "quaddtype\|_quaddtype\|numpy_quaddtype" | \
+              sort -u || echo "No quaddtype-specific sanitizer warnings found."
+          else
+            echo "No sanitizer log files found."
+          fi
+          
+          echo ""
+          echo "=========================================="
+          echo "ASAN LOGS"
+          echo "=========================================="
+          if ls ${{ github.workspace }}/sanitizer_logs/asan* 1> /dev/null 2>&1; then
+            cat ${{ github.workspace }}/sanitizer_logs/asan* 2>/dev/null || echo "No ASAN logs available."
+          else
+            echo "No ASAN log files found."
+          fi
+          
+          echo ""
+          echo "=========================================="
+          echo "UBSAN LOGS"
+          echo "=========================================="
+          if ls ${{ github.workspace }}/sanitizer_logs/ubsan* 1> /dev/null 2>&1; then
+            cat ${{ github.workspace }}/sanitizer_logs/ubsan* 2>/dev/null || echo "No UBSAN logs available."
+          else
+            echo "No UBSAN log files found."
+          fi
