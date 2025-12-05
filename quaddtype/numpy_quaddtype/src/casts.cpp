@@ -1321,7 +1321,7 @@ init_casts_internal(void)
             .nin = 1,
             .nout = 1,
             .casting = NPY_UNSAFE_CASTING,
-            .flags = NPY_METH_SUPPORTS_UNALIGNED,
+            .flags = static_cast<NPY_ARRAYMETHOD_FLAGS>(NPY_METH_SUPPORTS_UNALIGNED | NPY_METH_REQUIRES_PYAPI),
             .dtypes = unicode_to_quad_dtypes,
             .slots = unicode_to_quad_slots,
     };
@@ -1340,7 +1340,7 @@ init_casts_internal(void)
             .nin = 1,
             .nout = 1,
             .casting = NPY_UNSAFE_CASTING,
-            .flags = NPY_METH_SUPPORTS_UNALIGNED,
+            .flags = static_cast<NPY_ARRAYMETHOD_FLAGS>(NPY_METH_SUPPORTS_UNALIGNED | NPY_METH_REQUIRES_PYAPI),
             .dtypes = quad_to_unicode_dtypes,
             .slots = quad_to_unicode_slots,
     };
@@ -1359,7 +1359,7 @@ init_casts_internal(void)
             .nin = 1,
             .nout = 1,
             .casting = NPY_UNSAFE_CASTING,
-            .flags = NPY_METH_SUPPORTS_UNALIGNED,
+            .flags = static_cast<NPY_ARRAYMETHOD_FLAGS>(NPY_METH_SUPPORTS_UNALIGNED | NPY_METH_REQUIRES_PYAPI),
             .dtypes = bytes_to_quad_dtypes,
             .slots = bytes_to_quad_slots,
     };
@@ -1378,7 +1378,7 @@ init_casts_internal(void)
             .nin = 1,
             .nout = 1,
             .casting = NPY_UNSAFE_CASTING,
-            .flags = NPY_METH_SUPPORTS_UNALIGNED,
+            .flags = static_cast<NPY_ARRAYMETHOD_FLAGS>(NPY_METH_SUPPORTS_UNALIGNED | NPY_METH_REQUIRES_PYAPI),
             .dtypes = quad_to_bytes_dtypes,
             .slots = quad_to_bytes_slots,
     };

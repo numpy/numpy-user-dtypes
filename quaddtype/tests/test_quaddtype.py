@@ -746,6 +746,18 @@ class TestArrayCastStringBytes:
         with pytest.raises(ValueError):
             bytes_array.astype(QuadPrecDType())
 
+    @pytest.mark.parametrize('dtype', ['S50', 'U50'])
+    @pytest.mark.parametrize('size', [500, 1000, 10000])
+    def test_large_array_casting(self, dtype, size):
+        """Test long array casting won't lead segfault, GIL enabled"""
+        arr = np.arange(size).astype(np.float32).astype(dtype)
+        quad_arr = arr.astype(QuadPrecDType())
+        assert quad_arr.dtype == QuadPrecDType()
+        assert quad_arr.size == size
+
+        # check roundtrip
+        roundtrip = quad_arr.astype(dtype)
+        np.testing.assert_array_equal(arr, roundtrip)
 
 class TestStringParsingEdgeCases:
     """Test edge cases in NumPyOS_ascii_strtoq string parsing"""
