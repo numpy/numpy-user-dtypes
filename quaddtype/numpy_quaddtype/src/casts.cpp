@@ -295,10 +295,14 @@ quad_to_unicode_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMet
     npy_intp required_size_chars = QUAD_STR_WIDTH;
     npy_intp required_size_bytes = required_size_chars * 4;  // UCS4 = 4 bytes per char
 
+    Py_INCREF(given_descrs[0]);
+    loop_descrs[0] = given_descrs[0];
+
     if (given_descrs[1] == NULL) {
         // Create descriptor with required size
         PyArray_Descr *unicode_descr = PyArray_DescrNewFromType(NPY_UNICODE);
         if (unicode_descr == nullptr) {
+            Py_DECREF(loop_descrs[0]);
             return (NPY_CASTING)-1;
         }
 
@@ -306,13 +310,20 @@ quad_to_unicode_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMet
         loop_descrs[1] = unicode_descr;
     }
     else {
-        Py_INCREF(given_descrs[1]);
-        loop_descrs[1] = given_descrs[1];
+        // Handle non-native byte order by requesting native byte order
+        // NumPy will handle the byte swapping automatically
+        if (!PyArray_ISNBO(given_descrs[1]->byteorder)) {
+            loop_descrs[1] = PyArray_DescrNewByteorder(given_descrs[1], NPY_NATIVE);
+            if (loop_descrs[1] == nullptr) {
+                Py_DECREF(loop_descrs[0]);
+                return (NPY_CASTING)-1;
+            }
+        }
+        else {
+            Py_INCREF(given_descrs[1]);
+            loop_descrs[1] = given_descrs[1];
+        }
     }
-
-    // Set the input descriptor
-    Py_INCREF(given_descrs[0]);
-    loop_descrs[0] = given_descrs[0];
 
     *view_offset = 0;
 

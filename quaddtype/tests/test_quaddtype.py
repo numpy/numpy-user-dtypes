@@ -746,19 +746,6 @@ class TestArrayCastStringBytes:
         with pytest.raises(ValueError):
             bytes_array.astype(QuadPrecDType())
 
-    @pytest.mark.parametrize('dtype', ['S50', 'U50'])
-    @pytest.mark.parametrize('size', [500, 1000, 10000])
-    def test_large_array_casting(self, dtype, size):
-        """Test long array casting won't lead segfault, GIL enabled"""
-        arr = np.arange(size).astype(np.float32).astype(dtype)
-        quad_arr = arr.astype(QuadPrecDType())
-        assert quad_arr.dtype == QuadPrecDType()
-        assert quad_arr.size == size
-
-        # check roundtrip
-        roundtrip = quad_arr.astype(dtype)
-        np.testing.assert_array_equal(arr, roundtrip)
-
 class TestStringParsingEdgeCases:
     """Test edge cases in NumPyOS_ascii_strtoq string parsing"""
     @pytest.mark.parametrize("input_str", ['3.14', '-2.71', '0.0', '1e10', '-1e-10'])
@@ -5118,3 +5105,30 @@ class TestPickle:
         np.testing.assert_array_equal(unpickled, original)
         assert unpickled.dtype == original.dtype
         assert unpickled.flags.f_contiguous == original.flags.f_contiguous
+
+@pytest.mark.parametrize("dtype", [
+    "bool",
+    "byte", "int8", "ubyte", "uint8",
+    "short", "int16", "ushort", "uint16",
+    "int", "int32", "uint", "uint32",
+    "long", "ulong",
+    "longlong", "int64", "ulonglong", "uint64",
+    "half", "float16",
+    "float", "float32",
+    "double", "float64",
+    "longdouble", "float96", "float128",
+    "S50", "U50", "<U50", ">U50",
+])
+@pytest.mark.parametrize('size', [500, 1000, 10000])
+def test_large_array_casting(dtype, size):
+    """Test long array casting won't lead segfault, GIL enabled"""
+    if dtype in ("float96", "float128") and getattr(np, dtype, None) is None:
+        pytest.skip(f"{dtype} is unsupported on the current platform")
+    arr = np.arange(size).astype(np.float32).astype(dtype)
+    quad_arr = arr.astype(QuadPrecDType())
+    assert quad_arr.dtype == QuadPrecDType()
+    assert quad_arr.size == size
+
+    # check roundtrip
+    roundtrip = quad_arr.astype(dtype)
+    np.testing.assert_array_equal(arr, roundtrip)
