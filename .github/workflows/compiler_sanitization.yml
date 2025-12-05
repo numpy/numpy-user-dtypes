@@ -95,19 +95,6 @@ jobs:
       - name: Display quaddtype sanitizer warnings
         if: always()
         run: |
-          echo "=========================================="
-          echo "QUADDTYPE SANITIZER WARNINGS SUMMARY"
-          echo "=========================================="
-          
-          # Combine all sanitizer logs and filter for quaddtype-related issues
-          if ls ${{ github.workspace }}/sanitizer_logs/* 1> /dev/null 2>&1; then
-            cat ${{ github.workspace }}/sanitizer_logs/* 2>/dev/null | \
-              grep -A2 -B2 "quaddtype\|_quaddtype\|numpy_quaddtype" | \
-              sort -u || echo "No quaddtype-specific sanitizer warnings found."
-          else
-            echo "No sanitizer log files found."
-          fi
-          
           echo ""
           echo "=========================================="
           echo "ASAN LOGS"
@@ -126,4 +113,24 @@ jobs:
             cat ${{ github.workspace }}/sanitizer_logs/ubsan* 2>/dev/null || echo "No UBSAN logs available."
           else
             echo "No UBSAN log files found."
+          fi
+
+      - name: Check for quaddtype sanitizer issues
+        if: always()
+        run: |
+          # Fail if any quaddtype-related sanitizer issues are found
+          QUADDTYPE_ISSUES=""
+          if ls ${{ github.workspace }}/sanitizer_logs/* 1> /dev/null 2>&1; then
+            QUADDTYPE_ISSUES=$(cat ${{ github.workspace }}/sanitizer_logs/* 2>/dev/null | \
+              grep -E "quaddtype|_quaddtype|numpy_quaddtype" || true)
+          fi
+          
+          if [ -n "$QUADDTYPE_ISSUES" ]; then
+            echo "=========================================="
+            echo "ERROR: Sanitizer issues found in quaddtype!"
+            echo "=========================================="
+            echo "$QUADDTYPE_ISSUES"
+            exit 1
+          else
+            echo "No quaddtype-specific sanitizer issues found."
           fi
