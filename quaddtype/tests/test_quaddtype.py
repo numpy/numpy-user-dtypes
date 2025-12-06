@@ -404,14 +404,15 @@ class TestBytesSupport:
         # Leading whitespace is OK (consumed by parser)
         (b" 1.0", "1.0"),
         (b"  3.14", "3.14"),
+        # Trailing whitespace is OK (matches Python's float() behavior)
+        (b"1.0 ", "1.0"),
+        (b"1.0  ", "1.0"),
     ])
     def test_bytes_whitespace_valid(self, bytes_val, expected_str):
         """Test handling of valid whitespace in bytes input."""
         assert QuadPrecision(bytes_val) == QuadPrecision(expected_str)
     
     @pytest.mark.parametrize("invalid_bytes", [
-        b"1.0 ",  # Trailing whitespace
-        b"1.0  ",  # Multiple trailing spaces
         b"1 .0",  # Internal whitespace
         b"1. 0",  # Internal whitespace
     ])
