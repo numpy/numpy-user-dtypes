@@ -59,7 +59,7 @@ sleef_dep = declare_dependency(
 )
 
 sleefquad_dep = declare_dependency(
-    dependencies: [sleef_build_dep],
+    dependencies: [sleef_build_dep, sleef_dep],
     compile_args: compile_args_list,
     link_args: ['-L' + meson.current_build_dir() / sleef_install_dir / 'lib', '-L' + meson.current_build_dir() / sleef_install_dir / 'lib64', '-lsleefquad']
 )
