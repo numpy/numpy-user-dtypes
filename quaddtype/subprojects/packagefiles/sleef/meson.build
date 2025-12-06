@@ -13,6 +13,12 @@ if host_machine.system() == 'windows'
 endif
 
 # For building sleef with TSan, delete the sleef subproject and follow the README instructions to build sleef externally.
+# Enable SIMD extensions that are OFF by default but required by qblas (will change in future)
+sleef_simd_flags = []
+if host_machine.cpu_family() == 'x86_64' or host_machine.cpu_family() == 'x86'
+  sleef_simd_flags = ['-DSLEEF_ENABLE_SSE2=ON']
+endif
+
 sleef_configure = run_command([
     cmake, 
     '-S', meson.current_source_dir(),
@@ -24,7 +30,7 @@ sleef_configure = run_command([
     '-DSLEEF_BUILD_INLINE_HEADERS=OFF',
     '-DCMAKE_POSITION_INDEPENDENT_CODE=ON',
     '-DCMAKE_INSTALL_PREFIX=' + meson.current_build_dir() / sleef_install_dir
-], check: false, capture: true)
+] + sleef_simd_flags, check: false, capture: true)
 
 if sleef_configure.returncode() != 0
     error('SLEEF CMake configuration failed: ' + sleef_configure.stderr())
