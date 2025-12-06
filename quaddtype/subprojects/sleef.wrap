@@ -1,8 +1,10 @@
 [wrap-git]
 directory=sleef
 url=https://github.com/shibatch/sleef.git
+revision=master
 patch_directory=sleef
 
 [provide]
 sleef = sleef_dep
 sleefquad = sleefquad_dep
+tlfloat = tlfloat_dep

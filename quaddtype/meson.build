@@ -47,7 +47,10 @@ if sleef_dep.found() and sleef_dep.type_name() != 'internal'
     
     if quad_works
       sleefquad_dep = declare_dependency(
-        dependencies: [sleef_dep, sleefquad_lib, tlfloat_lib]
+        dependencies: [sleef_dep, sleefquad_lib]
+      )
+      tlfloat_dep = declare_dependency(
+        dependencies: [tlfloat_lib]
       )
       use_system_sleef = true
     else
