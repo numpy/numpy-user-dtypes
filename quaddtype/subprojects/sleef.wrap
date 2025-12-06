@@ -1,7 +1,7 @@
 [wrap-git]
 directory=sleef
 url=https://github.com/shibatch/sleef.git
-revision=master
+revision=43a0252ba9331adc7fb10755021f802863678c38
 patch_directory=sleef
 
 [provide]
