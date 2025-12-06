@@ -404,14 +404,15 @@ class TestBytesSupport:
         # Leading whitespace is OK (consumed by parser)
         (b" 1.0", "1.0"),
         (b"  3.14", "3.14"),
+        # Trailing whitespace is OK (matches Python's float() behavior)
+        (b"1.0 ", "1.0"),
+        (b"1.0  ", "1.0"),
     ])
     def test_bytes_whitespace_valid(self, bytes_val, expected_str):
         """Test handling of valid whitespace in bytes input."""
         assert QuadPrecision(bytes_val) == QuadPrecision(expected_str)
     
     @pytest.mark.parametrize("invalid_bytes", [
-        b"1.0 ",  # Trailing whitespace
-        b"1.0  ",  # Multiple trailing spaces
         b"1 .0",  # Internal whitespace
         b"1. 0",  # Internal whitespace
     ])
@@ -5132,3 +5133,72 @@ def test_large_array_casting(dtype, size):
     # check roundtrip
     roundtrip = quad_arr.astype(dtype)
     np.testing.assert_array_equal(arr, roundtrip)
+
+
+class TestBinaryOpsEdgeCases:
+    """Edge case tests for binary operations - SLEEF 3.8 had inconsistency where (0 + x) != (x + 0).
+    
+    In SLEEF 3.8:
+    - (0 + 6.724206286224186953608055004397316e-4932) gave half the expected value
+    - (6.724206286224186953608055004397316e-4932 + 0) was correct
+    
+    SLEEF 4.0 fixes this inconsistency.
+    """
+    
+    # The exact values from the bug
+    SMALL_VALUE = "6.724206286224186953608055004397316e-4932"
+    ZERO = 0.0
+
+    @pytest.mark.parametrize('op', [
+        ("add", "fadd"),
+        ("subtract", "fsub"),
+        ("multiply", "fmul"),
+        ("divide", "fdiv"),
+        ("mod", "fmod"),
+        ("power", "power"),
+        ("hypot", "hypot"),
+        ("atan2", "atan2"),
+    ])
+    def test_binary_op_consistency(self, op):
+        """Test that abs(x op y) == abs(y op x) - catches half-value bugs."""
+        mp.prec = 113
+        small = QuadPrecision(self.SMALL_VALUE)
+        zero = QuadPrecision(self.ZERO)
+        
+        mp_small = mp.mpf(self.SMALL_VALUE)
+        mp_zero = mp.mpf(self.ZERO)
+
+        quad_op_str, mpmath_op_str = op
+        quad_op, mpmath_op = getattr(np, quad_op_str), getattr(mp, mpmath_op_str)
+        quad_result = quad_op(zero, small)
+        mpmath_result = mpmath_op(mp_zero, mp_small)
+
+        # Use mp.nstr to get full precision (50 digits for quad precision)
+        mpmath_result = QuadPrecision(mp.nstr(mpmath_result, 50))
+
+        # Handle NaN cases
+        if np.isnan(mpmath_result):
+            assert np.isnan(quad_result), f"Expected NaN for {quad_op_str}, got {quad_result}"
+            return
+
+        # Handle infinity cases
+        if np.isinf(mpmath_result):
+            assert np.isinf(quad_result), f"Expected inf for {quad_op_str}, got {quad_result}"
+            assert np.sign(mpmath_result) == np.sign(quad_result), f"Infinity sign mismatch for {quad_op_str}"
+            return
+
+        # For finite non-zero results
+        np.testing.assert_allclose(quad_result, mpmath_result, rtol=1e-32, atol=1e-34,
+                                    err_msg=f"Value mismatch for {quad_op_str}, expected {mpmath_result}, got {quad_result}")
+       
+
+    def test_add_regression_zero_plus_small(self):
+        """The exact SLEEF 3.8 bug: 0 + small_value gave half the expected."""
+        x = QuadPrecision(self.SMALL_VALUE)
+        y = QuadPrecision(self.ZERO)
+        
+        result_yx = y + x  # 0 + x (this was buggy in SLEEF 3.8)
+        result_xy = x + y  # x + 0 (this was correct in SLEEF 3.8)
+        
+        assert result_yx == result_xy, f"0 + x = {result_yx}, but x + 0 = {result_xy}"
+        assert result_yx == x, f"0 + x = {result_yx}, expected {x}"

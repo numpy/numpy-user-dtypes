@@ -134,12 +134,17 @@ NumPyOS_ascii_strtoq(const char *s, QuadBackendType backend, quad_value *out_val
             }
         }
 
-        // Set NaN value (sign is ignored for NaN)
+        // Set NaN value with sign preserved
         if (backend == BACKEND_SLEEF) {
-            out_value->sleef_value = QUAD_PRECISION_NAN;
+            Sleef_quad nan_val = QUAD_PRECISION_NAN;
+            // Apply sign to NaN (negative NaN has sign bit set)
+            if (sign < 0) {
+                nan_val = Sleef_negq1(nan_val);
+            }
+            out_value->sleef_value = nan_val;
         }
         else {
-            out_value->longdouble_value = nanl("");
+            out_value->longdouble_value = sign < 0 ? -nanl("") : nanl("");
         }
         
         if (endptr) {
@@ -157,15 +162,103 @@ int cstring_to_quad(const char *str, QuadBackendType backend, quad_value *out_va
 char **endptr, bool require_full_parse)
 {
   if(backend == BACKEND_SLEEF) {
-    out_value->sleef_value = Sleef_strtoq(str, endptr);
+    // SLEEF 4.0's Sleef_strtoq doesn't properly set endptr to indicate
+    // where parsing stopped. It always sets endptr to the end of the string.
+    // We need to manually validate and track the parse position.
+    
+    const char *p = str;
+    
+    // Skip leading whitespace
+    while (ascii_isspace(*p)) {
+      p++;
+    }
+    
+    // Track start of number (after whitespace)
+    const char *num_start = p;
+    
+    // Handle optional sign
+    if (*p == '+' || *p == '-') {
+      p++;
+    }
+    
+    // Must have at least one digit or decimal point followed by digit
+    int has_digits = 0;
+    int has_decimal = 0;
+    
+    // Parse integer part
+    while (ascii_isdigit(*p)) {
+      has_digits = 1;
+      p++;
+    }
+    
+    // Parse decimal point and fractional part
+    if (*p == '.') {
+      has_decimal = 1;
+      p++;
+      while (ascii_isdigit(*p)) {
+        has_digits = 1;
+        p++;
+      }
+    }
+    
+    // Must have at least one digit somewhere
+    if (!has_digits) {
+      if (endptr) *endptr = (char *)str;
+      return -1;
+    }
+    
+    // Parse optional exponent
+    if (*p == 'e' || *p == 'E') {
+      const char *exp_start = p;
+      p++;
+      
+      // Optional sign in exponent
+      if (*p == '+' || *p == '-') {
+        p++;
+      }
+      
+      // Must have at least one digit in exponent
+      if (!ascii_isdigit(*p)) {
+        // Invalid exponent, backtrack
+        p = exp_start;
+      } else {
+        while (ascii_isdigit(*p)) {
+          p++;
+        }
+      }
+    }
+    
+    // Now p points to where valid parsing ends
+    // SLEEF 4.0's Sleef_strtoq has a bug where it doesn't properly stop at whitespace
+    // or other delimiters. We need to create a null-terminated substring.
+    size_t len = p - str;
+    char *temp = (char *)malloc(len + 1);
+    if (!temp) {
+      if (endptr) *endptr = (char *)str;
+      return -1;
+    }
+    memcpy(temp, str, len);
+    temp[len] = '\0';
+    
+    // Call Sleef_strtoq with the bounded string
+    char *sleef_endptr;
+    out_value->sleef_value = Sleef_strtoq(temp, &sleef_endptr);
+    free(temp);
+    
+    // Set endptr to our calculated position
+    if (endptr) {
+      *endptr = (char *)p;
+    }
+    
   } else {
     out_value->longdouble_value = strtold(str, endptr);
   }
-  if(*endptr == str) 
+  
+  if(endptr && *endptr == str) 
     return -1; // parse error - nothing was parsed
   
   // If full parse is required
-  if(require_full_parse && **endptr != '\0')
+  if(require_full_parse && endptr && **endptr != '\0')
     return -1; // parse error - characters remain to be converted
   
   return 0; // success

@@ -22,7 +22,7 @@ permissions:
 
 jobs:
   big_endian_tests:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     continue-on-error: true
     strategy:
       fail-fast: false
