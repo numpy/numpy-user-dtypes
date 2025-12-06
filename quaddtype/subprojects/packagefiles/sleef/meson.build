@@ -8,8 +8,12 @@ sleef_install_dir = 'sleef_install'
 
 # turning off parallel build in windows
 parallel_flag = ['--parallel']
+build_config_flag = []
 if host_machine.system() == 'windows'
   parallel_flag = []
+  # On Windows with MSVC (multi-config generator), must specify --config Release
+  # to match the main project's release build and avoid runtime library mismatches
+  build_config_flag = ['--config', 'Release']
 endif
 
 # For building sleef with TSan, delete the sleef subproject and follow the README instructions to build sleef externally.
@@ -37,7 +41,7 @@ if sleef_configure.returncode() != 0
 endif
 
 sleef_build_target = custom_target('sleef_build',
-    command: [cmake, '--build', meson.current_build_dir() / sleef_build_dir, '--target', 'install'] + parallel_flag,
+    command: [cmake, '--build', meson.current_build_dir() / sleef_build_dir, '--target', 'install'] + build_config_flag + parallel_flag,
     output: 'sleef_built.stamp',
     console: true,
     build_always_stale: true,
