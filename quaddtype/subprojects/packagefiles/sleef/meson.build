@@ -1,4 +1,4 @@
-project('sleef', version: '3.8')
+project('sleef')
 
 cmake = find_program('cmake')
 ninja = find_program('ninja', 'make', required: false)
@@ -62,4 +62,10 @@ sleefquad_dep = declare_dependency(
     dependencies: [sleef_build_dep],
     compile_args: compile_args_list,
     link_args: ['-L' + meson.current_build_dir() / sleef_install_dir / 'lib', '-L' + meson.current_build_dir() / sleef_install_dir / 'lib64', '-lsleefquad']
+)
+
+tlfloat_dep = declare_dependency(
+    dependencies: [sleef_build_dep],
+    compile_args: compile_args_list,
+    link_args: ['-L' + meson.current_build_dir() / sleef_install_dir / 'lib', '-L' + meson.current_build_dir() / sleef_install_dir / 'lib64', '-ltlfloat']
 )
