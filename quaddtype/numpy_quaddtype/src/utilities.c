@@ -173,9 +173,6 @@ char **endptr, bool require_full_parse)
       p++;
     }
     
-    // Track start of number (after whitespace)
-    const char *num_start = p;
-    
     // Handle optional sign
     if (*p == '+' || *p == '-') {
       p++;
@@ -183,7 +180,6 @@ char **endptr, bool require_full_parse)
     
     // Must have at least one digit or decimal point followed by digit
     int has_digits = 0;
-    int has_decimal = 0;
     
     // Parse integer part
     while (ascii_isdigit(*p)) {
@@ -193,7 +189,6 @@ char **endptr, bool require_full_parse)
     
     // Parse decimal point and fractional part
     if (*p == '.') {
-      has_decimal = 1;
       p++;
       while (ascii_isdigit(*p)) {
         has_digits = 1;

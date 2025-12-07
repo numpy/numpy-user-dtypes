@@ -339,19 +339,6 @@ QuadPrecision_str(QuadPrecisionObject *self)
 }
 
 static PyObject *
-QuadPrecision_repr(QuadPrecisionObject *self)
-{
-    PyObject *str = QuadPrecision_str(self);
-    if (str == NULL) {
-        return NULL;
-    }
-    const char *backend_str = (self->backend == BACKEND_SLEEF) ? "sleef" : "longdouble";
-    PyObject *res = PyUnicode_FromFormat("QuadPrecision('%S', backend='%s')", str, backend_str);
-    Py_DECREF(str);
-    return res;
-}
-
-static PyObject *
 QuadPrecision_repr_dragon4(QuadPrecisionObject *self)
 {
     Dragon4_Options opt = {.scientific = 1,

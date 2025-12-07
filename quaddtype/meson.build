@@ -104,6 +104,11 @@ if not is_windows
     if cpp.has_argument('-fext-numeric-literals')
         add_project_arguments('-fext-numeric-literals', language: 'cpp')
     endif
+    
+    # Suppress warnings from system headers (sleefquad.h has many unused inline functions)
+    if cpp.has_argument('-Wno-unused-function')
+        add_project_arguments('-Wno-unused-function', language: ['c', 'cpp'])
+    endif
 endif
 
 # Thread-local storage detection (borrowed from NumPy)
