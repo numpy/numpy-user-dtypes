@@ -191,8 +191,17 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
     else if (PyUnicode_Check(value)) {
         const char *s = PyUnicode_AsUTF8(value);
         char *endptr = NULL;
-        int err = cstring_to_quad(s, backend, &self->value, &endptr, true);
+        int err = NumPyOS_ascii_strtoq(s, backend, &self->value, &endptr);
         if (err < 0) {
+            PyErr_SetString(PyExc_ValueError, "Unable to parse string to QuadPrecision");
+            Py_DECREF(self);
+            return NULL;
+        }
+        // Skip trailing whitespace (matches Python's float() behavior)
+        while (ascii_isspace(*endptr)) {
+            endptr++;
+        }
+        if (*endptr != '\0') {
             PyErr_SetString(PyExc_ValueError, "Unable to parse string to QuadPrecision");
             Py_DECREF(self);
             return NULL;
@@ -205,8 +214,17 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
             return NULL;
         }
         char *endptr = NULL;
-        int err = cstring_to_quad(s, backend, &self->value, &endptr, true);
+        int err = NumPyOS_ascii_strtoq(s, backend, &self->value, &endptr);
         if (err < 0) {
+            PyErr_SetString(PyExc_ValueError, "Unable to parse bytes to QuadPrecision");
+            Py_DECREF(self);
+            return NULL;
+        }
+        // Skip trailing whitespace (matches Python's float() behavior)
+        while (ascii_isspace(*endptr)) {
+            endptr++;
+        }
+        if (*endptr != '\0') {
             PyErr_SetString(PyExc_ValueError, "Unable to parse bytes to QuadPrecision");
             Py_DECREF(self);
             return NULL;
@@ -318,19 +336,6 @@ QuadPrecision_str(QuadPrecisionObject *self)
         snprintf(buffer, sizeof(buffer), "%.35Le", self->value.longdouble_value);
     }
     return PyUnicode_FromString(buffer);
-}
-
-static PyObject *
-QuadPrecision_repr(QuadPrecisionObject *self)
-{
-    PyObject *str = QuadPrecision_str(self);
-    if (str == NULL) {
-        return NULL;
-    }
-    const char *backend_str = (self->backend == BACKEND_SLEEF) ? "sleef" : "longdouble";
-    PyObject *res = PyUnicode_FromFormat("QuadPrecision('%S', backend='%s')", str, backend_str);
-    Py_DECREF(str);
-    return res;
 }
 
 static PyObject *
