@@ -1,7 +1,7 @@
 #define PY_ARRAY_UNIQUE_SYMBOL QuadPrecType_ARRAY_API
 #define PY_UFUNC_UNIQUE_SYMBOL QuadPrecType_UFUNC_API
 #define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
-#define NPY_TARGET_VERSION NPY_2_0_API_VERSION
+#define NPY_TARGET_VERSION NPY_2_4_API_VERSION
 #define NO_IMPORT_ARRAY
 #define NO_IMPORT_UFUNC
 
@@ -858,7 +858,8 @@ numpy_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta 
     }
 
     loop_descrs[0] = PyArray_GetDefaultDescr(dtypes[0]);
-    return NPY_SAFE_CASTING;
+    // since QUAD precision is the highest precision, we can always cast to it
+    return static_cast<NPY_CASTING>(NPY_SAFE_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
 }
 
 template <typename T>
