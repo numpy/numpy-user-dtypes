@@ -63,6 +63,105 @@ ascii_strncasecmp(const char *s1, const char *s2, size_t n)
 }
 
 /*
+ * Internal helper: Parse numeric string to quad-precision.
+ * Assumes no leading whitespace and no inf/nan (caller handles those).
+ * The 'start' parameter points to where the original string started (for endptr on error).
+ */
+static int
+cstring_to_quad_internal(const char *str, const char *start, QuadBackendType backend, 
+                         quad_value *out_value, char **endptr)
+{
+    if (backend == BACKEND_SLEEF) {
+        // SLEEF 4.0's Sleef_strtoq doesn't properly set endptr to indicate
+        // where parsing stopped. We need to manually validate and track the parse position.
+        
+        const char *p = str;
+        
+        // Handle optional sign
+        if (*p == '+' || *p == '-') {
+            p++;
+        }
+        
+        // Must have at least one digit or decimal point followed by digit
+        int has_digits = 0;
+        
+        // Parse integer part
+        while (ascii_isdigit(*p)) {
+            has_digits = 1;
+            p++;
+        }
+        
+        // Parse decimal point and fractional part
+        if (*p == '.') {
+            p++;
+            while (ascii_isdigit(*p)) {
+                has_digits = 1;
+                p++;
+            }
+        }
+        
+        // Must have at least one digit somewhere
+        if (!has_digits) {
+            if (endptr) *endptr = (char *)start;
+            return -1;
+        }
+        
+        // Parse optional exponent
+        if (*p == 'e' || *p == 'E') {
+            const char *exp_start = p;
+            p++;
+            
+            // Optional sign in exponent
+            if (*p == '+' || *p == '-') {
+                p++;
+            }
+            
+            // Must have at least one digit in exponent
+            if (!ascii_isdigit(*p)) {
+                // Invalid exponent, backtrack
+                p = exp_start;
+            } else {
+                while (ascii_isdigit(*p)) {
+                    p++;
+                }
+            }
+        }
+        
+        // Now p points to where valid parsing ends
+        // Create a null-terminated substring for SLEEF
+        size_t len = p - str;
+        char *temp = (char *)malloc(len + 1);
+        if (!temp) {
+            if (endptr) *endptr = (char *)start;
+            return -1;
+        }
+        memcpy(temp, str, len);
+        temp[len] = '\0';
+        
+        // Call Sleef_strtoq with the bounded string
+        char *sleef_endptr;
+        out_value->sleef_value = Sleef_strtoq(temp, &sleef_endptr);
+        free(temp);
+        
+        // Set endptr to our calculated position
+        if (endptr) {
+            *endptr = (char *)p;
+        }
+        
+    } else {
+        out_value->longdouble_value = strtold(str, endptr);
+    }
+    
+    if (endptr && *endptr == str) {
+        // Nothing was parsed - set endptr to original start
+        *endptr = (char *)start;
+        return -1;
+    }
+    
+    return 0; // success
+}
+
+/*
  * NumPyOS_ascii_strtoq:
  *
  * Locale-independent string to quad-precision parser.
@@ -71,7 +170,7 @@ ascii_strncasecmp(const char *s1, const char *s2, size_t n)
  * This function:
  * - Skips leading whitespace
  * - Recognizes inf/nan case-insensitively with optional signs and payloads
- * - Delegates to cstring_to_quad for numeric parsing
+ * - Parses numeric values
  *
  * Returns:
  *   0 on success
@@ -153,110 +252,9 @@ NumPyOS_ascii_strtoq(const char *s, QuadBackendType backend, quad_value *out_val
         return 0;
     }
     
-    // For numeric values, delegate to cstring_to_quad
-    // Pass the original string position (after whitespace, includes sign if present)
-    return cstring_to_quad(s, backend, out_value, endptr, false);
-}
-
-int cstring_to_quad(const char *str, QuadBackendType backend, quad_value *out_value, 
-char **endptr, bool require_full_parse)
-{
-  if(backend == BACKEND_SLEEF) {
-    // SLEEF 4.0's Sleef_strtoq doesn't properly set endptr to indicate
-    // where parsing stopped. It always sets endptr to the end of the string.
-    // We need to manually validate and track the parse position.
-    
-    const char *p = str;
-    
-    // Skip leading whitespace
-    while (ascii_isspace(*p)) {
-      p++;
-    }
-    
-    // Handle optional sign
-    if (*p == '+' || *p == '-') {
-      p++;
-    }
-    
-    // Must have at least one digit or decimal point followed by digit
-    int has_digits = 0;
-    
-    // Parse integer part
-    while (ascii_isdigit(*p)) {
-      has_digits = 1;
-      p++;
-    }
-    
-    // Parse decimal point and fractional part
-    if (*p == '.') {
-      p++;
-      while (ascii_isdigit(*p)) {
-        has_digits = 1;
-        p++;
-      }
-    }
-    
-    // Must have at least one digit somewhere
-    if (!has_digits) {
-      if (endptr) *endptr = (char *)str;
-      return -1;
-    }
-    
-    // Parse optional exponent
-    if (*p == 'e' || *p == 'E') {
-      const char *exp_start = p;
-      p++;
-      
-      // Optional sign in exponent
-      if (*p == '+' || *p == '-') {
-        p++;
-      }
-      
-      // Must have at least one digit in exponent
-      if (!ascii_isdigit(*p)) {
-        // Invalid exponent, backtrack
-        p = exp_start;
-      } else {
-        while (ascii_isdigit(*p)) {
-          p++;
-        }
-      }
-    }
-    
-    // Now p points to where valid parsing ends
-    // SLEEF 4.0's Sleef_strtoq has a bug where it doesn't properly stop at whitespace
-    // or other delimiters. We need to create a null-terminated substring.
-    size_t len = p - str;
-    char *temp = (char *)malloc(len + 1);
-    if (!temp) {
-      if (endptr) *endptr = (char *)str;
-      return -1;
-    }
-    memcpy(temp, str, len);
-    temp[len] = '\0';
-    
-    // Call Sleef_strtoq with the bounded string
-    char *sleef_endptr;
-    out_value->sleef_value = Sleef_strtoq(temp, &sleef_endptr);
-    free(temp);
-    
-    // Set endptr to our calculated position
-    if (endptr) {
-      *endptr = (char *)p;
-    }
-    
-  } else {
-    out_value->longdouble_value = strtold(str, endptr);
-  }
-  
-  if(endptr && *endptr == str) 
-    return -1; // parse error - nothing was parsed
-  
-  // If full parse is required
-  if(require_full_parse && endptr && **endptr != '\0')
-    return -1; // parse error - characters remain to be converted
-  
-  return 0; // success
+    // For numeric values, parse starting from 's' (includes sign if present)
+    // The sign is part of the number, not handled separately like inf/nan
+    return cstring_to_quad_internal(s, s, backend, out_value, endptr);
 }
 
 // Helper function: Convert quad_value to Sleef_quad for Dragon4
