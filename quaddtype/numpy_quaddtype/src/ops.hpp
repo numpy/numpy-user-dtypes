@@ -13,13 +13,13 @@ typedef Sleef_quad (*unary_op_quad_def)(const Sleef_quad *);
 // Unary Quad operations with 2 outputs (for modf, frexp)
 typedef void (*unary_op_2out_quad_def)(const Sleef_quad *, Sleef_quad *, Sleef_quad *);
 
-[[maybe_unused]] static Sleef_quad
+static inline Sleef_quad
 quad_negative(const Sleef_quad *op)
 {
     return Sleef_negq1(*op);
 }
 
-[[maybe_unused]] static Sleef_quad
+static inline Sleef_quad
 quad_positive(const Sleef_quad *op)
 {
     return *op;
