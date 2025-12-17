@@ -27,7 +27,7 @@ extern "C" {
 #include "dragon4.h"
 #include "ops.hpp"
 
-#define NUM_CASTS 38  // 17 to_casts + 17 from_casts + 1 quad_to_quad + 1 void_to_quad
+#define NUM_CASTS 40  // 17 to_casts + 17 from_casts + 1 quad_to_quad + 1 void_to_quad + 2 StringDType
 #define QUAD_STR_WIDTH 50  // 42 is enough for scientific notation float128, just keeping some buffer
 
 static NPY_CASTING
@@ -602,6 +602,227 @@ quad_to_bytes_loop(PyArrayMethod_Context *context, char *const data[],
         out_ptr += out_stride;
     }
 
+    return 0;
+}
+
+// StringDType to QuadDType casting
+static NPY_CASTING
+stringdtype_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta *dtypes[2],
+                                        PyArray_Descr *given_descrs[2], PyArray_Descr *loop_descrs[2],
+                                        npy_intp *view_offset)
+{
+    Py_INCREF(given_descrs[0]);
+    loop_descrs[0] = given_descrs[0];
+
+    if (given_descrs[1] == NULL) {
+        loop_descrs[1] = (PyArray_Descr *)new_quaddtype_instance(BACKEND_SLEEF);
+        if (loop_descrs[1] == nullptr) {
+            Py_DECREF(loop_descrs[0]);
+            return (NPY_CASTING)-1;
+        }
+    }
+    else {
+        Py_INCREF(given_descrs[1]);
+        loop_descrs[1] = given_descrs[1];
+    }
+
+    return NPY_UNSAFE_CASTING;
+}
+
+static int
+stringdtype_to_quad_strided_loop(PyArrayMethod_Context *context, char *const data[],
+                                 npy_intp const dimensions[], npy_intp const strides[],
+                                 void *NPY_UNUSED(auxdata))
+{
+    npy_intp N = dimensions[0];
+    char *in_ptr = data[0];
+    char *out_ptr = data[1];
+    npy_intp in_stride = strides[0];
+    npy_intp out_stride = strides[1];
+
+    PyArray_Descr *const *descrs = context->descriptors;
+    PyArray_StringDTypeObject *str_descr = (PyArray_StringDTypeObject *)descrs[0];
+    QuadPrecDTypeObject *descr_out = (QuadPrecDTypeObject *)descrs[1];
+    QuadBackendType backend = descr_out->backend;
+
+    npy_string_allocator *allocator = NpyString_acquire_allocator(str_descr);
+
+    while (N--) {
+        const npy_packed_static_string *ps = (npy_packed_static_string *)in_ptr;
+        npy_static_string s = {0, NULL};
+        int is_null = NpyString_load(allocator, ps, &s);
+        
+        if (is_null == -1) {
+            NpyString_release_allocator(allocator);
+            PyErr_SetString(PyExc_MemoryError, "Failed to load string in StringDType to Quad cast");
+            return -1;
+        }
+        else if (is_null) {
+            // Handle null string - use the default string if available, otherwise error
+            if (str_descr->has_string_na || str_descr->default_string.buf != NULL) {
+                s = str_descr->default_string;
+            }
+            else {
+                NpyString_release_allocator(allocator);
+                PyErr_SetString(PyExc_ValueError, "Cannot convert null string to QuadPrecision");
+                return -1;
+            }
+        }
+
+        // Create a null-terminated copy of the string
+        char *temp_str = (char *)malloc(s.size + 1);
+        if (temp_str == NULL) {
+            NpyString_release_allocator(allocator);
+            PyErr_NoMemory();
+            return -1;
+        }
+        memcpy(temp_str, s.buf, s.size);
+        temp_str[s.size] = '\0';
+
+        char *endptr;
+        quad_value out_val;
+        int err = NumPyOS_ascii_strtoq(temp_str, backend, &out_val, &endptr);
+
+        if (err < 0) {
+            PyErr_Format(PyExc_ValueError,
+                        "could not convert string to QuadPrecision: '%s'", temp_str);
+            free(temp_str);
+            NpyString_release_allocator(allocator);
+            return -1;
+        }
+
+        // Check that we parsed the entire string (skip trailing whitespace)
+        while (ascii_isspace(*endptr)) {
+            endptr++;
+        }
+
+        if (*endptr != '\0') {
+            PyErr_Format(PyExc_ValueError,
+                        "could not convert string to QuadPrecision: '%s'", temp_str);
+            free(temp_str);
+            NpyString_release_allocator(allocator);
+            return -1;
+        }
+
+        free(temp_str);
+
+        // Store the result - StringDType elements are always aligned
+        memcpy(out_ptr, &out_val, sizeof(quad_value));
+
+        in_ptr += in_stride;
+        out_ptr += out_stride;
+    }
+
+    NpyString_release_allocator(allocator);
+    return 0;
+}
+
+// QuadDType to StringDType casting
+static NPY_CASTING
+quad_to_stringdtype_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta *dtypes[2],
+                                        PyArray_Descr *given_descrs[2], PyArray_Descr *loop_descrs[2],
+                                        npy_intp *view_offset)
+{
+    Py_INCREF(given_descrs[0]);
+    loop_descrs[0] = given_descrs[0];
+
+    if (given_descrs[1] == NULL) {
+        // Create a new StringDType instance with coercion enabled
+        PyObject *args = PyTuple_New(0);
+        if (args == NULL) {
+            Py_DECREF(loop_descrs[0]);
+            return (NPY_CASTING)-1;
+        }
+        PyObject *kwargs = PyDict_New();
+        if (kwargs == NULL) {
+            Py_DECREF(args);
+            Py_DECREF(loop_descrs[0]);
+            return (NPY_CASTING)-1;
+        }
+        // Set coerce=True for the new instance
+        if (PyDict_SetItemString(kwargs, "coerce", Py_True) < 0) {
+            Py_DECREF(args);
+            Py_DECREF(kwargs);
+            Py_DECREF(loop_descrs[0]);
+            return (NPY_CASTING)-1;
+        }
+
+        loop_descrs[1] = (PyArray_Descr *)PyObject_Call(
+                (PyObject *)&PyArray_StringDType, args, kwargs);
+        Py_DECREF(args);
+        Py_DECREF(kwargs);
+
+        if (loop_descrs[1] == NULL) {
+            Py_DECREF(loop_descrs[0]);
+            return (NPY_CASTING)-1;
+        }
+    }
+    else {
+        Py_INCREF(given_descrs[1]);
+        loop_descrs[1] = given_descrs[1];
+    }
+
+    return NPY_SAFE_CASTING;
+}
+
+static int
+quad_to_stringdtype_strided_loop(PyArrayMethod_Context *context, char *const data[],
+                                 npy_intp const dimensions[], npy_intp const strides[],
+                                 void *NPY_UNUSED(auxdata))
+{
+    npy_intp N = dimensions[0];
+    char *in_ptr = data[0];
+    char *out_ptr = data[1];
+    npy_intp in_stride = strides[0];
+    npy_intp out_stride = strides[1];
+
+    PyArray_Descr *const *descrs = context->descriptors;
+    QuadPrecDTypeObject *descr_in = (QuadPrecDTypeObject *)descrs[0];
+    PyArray_StringDTypeObject *str_descr = (PyArray_StringDTypeObject *)descrs[1];
+    QuadBackendType backend = descr_in->backend;
+
+    npy_string_allocator *allocator = NpyString_acquire_allocator(str_descr);
+
+    while (N--) {
+        // Load the quad value - StringDType elements are always aligned
+        quad_value in_val;
+        memcpy(&in_val, in_ptr, sizeof(quad_value));
+
+        // Convert to Sleef_quad for Dragon4
+        Sleef_quad sleef_val = quad_to_sleef_quad(&in_val, backend);
+
+        // Get string representation with adaptive notation
+        // Use a large buffer size to allow for full precision
+        PyObject *py_str = quad_to_string_adaptive(&sleef_val, QUAD_STR_WIDTH);
+        if (py_str == NULL) {
+            NpyString_release_allocator(allocator);
+            return -1;
+        }
+
+        Py_ssize_t str_size;
+        const char *str_buf = PyUnicode_AsUTF8AndSize(py_str, &str_size);
+        if (str_buf == NULL) {
+            Py_DECREF(py_str);
+            NpyString_release_allocator(allocator);
+            return -1;
+        }
+
+        // Pack the string into the output
+        npy_packed_static_string *out_ps = (npy_packed_static_string *)out_ptr;
+        if (NpyString_pack(allocator, out_ps, str_buf, (size_t)str_size) < 0) {
+            Py_DECREF(py_str);
+            NpyString_release_allocator(allocator);
+            PyErr_SetString(PyExc_MemoryError, "Failed to pack string in Quad to StringDType cast");
+            return -1;
+        }
+
+        Py_DECREF(py_str);
+
+        in_ptr += in_stride;
+        out_ptr += out_stride;
+    }
+
+    NpyString_release_allocator(allocator);
     return 0;
 }
 
@@ -1394,6 +1615,44 @@ init_casts_internal(void)
             .slots = quad_to_bytes_slots,
     };
     add_spec(quad_to_bytes_spec);
+
+    // StringDType to QuadPrecision cast
+    PyArray_DTypeMeta **stringdtype_to_quad_dtypes = new PyArray_DTypeMeta *[2]{&PyArray_StringDType, &QuadPrecDType};
+    PyType_Slot *stringdtype_to_quad_slots = new PyType_Slot[4]{
+            {NPY_METH_resolve_descriptors, (void *)&stringdtype_to_quad_resolve_descriptors},
+            {NPY_METH_strided_loop, (void *)&stringdtype_to_quad_strided_loop},
+            {NPY_METH_unaligned_strided_loop, (void *)&stringdtype_to_quad_strided_loop},
+            {0, nullptr}};
+
+    PyArrayMethod_Spec *stringdtype_to_quad_spec = new PyArrayMethod_Spec{
+            .name = "cast_StringDType_to_QuadPrec",
+            .nin = 1,
+            .nout = 1,
+            .casting = NPY_UNSAFE_CASTING,
+            .flags = static_cast<NPY_ARRAYMETHOD_FLAGS>(NPY_METH_SUPPORTS_UNALIGNED | NPY_METH_REQUIRES_PYAPI),
+            .dtypes = stringdtype_to_quad_dtypes,
+            .slots = stringdtype_to_quad_slots,
+    };
+    add_spec(stringdtype_to_quad_spec);
+
+    // QuadPrecision to StringDType cast
+    PyArray_DTypeMeta **quad_to_stringdtype_dtypes = new PyArray_DTypeMeta *[2]{&QuadPrecDType, &PyArray_StringDType};
+    PyType_Slot *quad_to_stringdtype_slots = new PyType_Slot[4]{
+            {NPY_METH_resolve_descriptors, (void *)&quad_to_stringdtype_resolve_descriptors},
+            {NPY_METH_strided_loop, (void *)&quad_to_stringdtype_strided_loop},
+            {NPY_METH_unaligned_strided_loop, (void *)&quad_to_stringdtype_strided_loop},
+            {0, nullptr}};
+
+    PyArrayMethod_Spec *quad_to_stringdtype_spec = new PyArrayMethod_Spec{
+            .name = "cast_QuadPrec_to_StringDType",
+            .nin = 1,
+            .nout = 1,
+            .casting = NPY_SAFE_CASTING,
+            .flags = static_cast<NPY_ARRAYMETHOD_FLAGS>(NPY_METH_SUPPORTS_UNALIGNED | NPY_METH_REQUIRES_PYAPI),
+            .dtypes = quad_to_stringdtype_dtypes,
+            .slots = quad_to_stringdtype_slots,
+    };
+    add_spec(quad_to_stringdtype_spec);
 
     specs[spec_count] = nullptr;
     return specs;
