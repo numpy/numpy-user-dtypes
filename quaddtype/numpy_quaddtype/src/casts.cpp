@@ -611,13 +611,9 @@ stringdtype_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTyp
                                         PyArray_Descr *given_descrs[2], PyArray_Descr *loop_descrs[2],
                                         npy_intp *view_offset)
 {
-    Py_INCREF(given_descrs[0]);
-    loop_descrs[0] = given_descrs[0];
-
     if (given_descrs[1] == NULL) {
         loop_descrs[1] = (PyArray_Descr *)new_quaddtype_instance(BACKEND_SLEEF);
         if (loop_descrs[1] == nullptr) {
-            Py_DECREF(loop_descrs[0]);
             return (NPY_CASTING)-1;
         }
     }
@@ -626,7 +622,9 @@ stringdtype_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTyp
         loop_descrs[1] = given_descrs[1];
     }
 
-    // no notion of fix length, so always unsafe
+    Py_INCREF(given_descrs[0]);
+    loop_descrs[0] = given_descrs[0];
+
     return NPY_UNSAFE_CASTING;
 }
 
@@ -695,15 +693,11 @@ quad_to_stringdtype_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTyp
                                         PyArray_Descr *given_descrs[2], PyArray_Descr *loop_descrs[2],
                                         npy_intp *view_offset)
 {
-    Py_INCREF(given_descrs[0]);
-    loop_descrs[0] = given_descrs[0];
-
     if (given_descrs[1] == NULL) {
         // Default StringDType() already has coerce=True
         loop_descrs[1] = (PyArray_Descr *)PyObject_CallNoArgs(
                 (PyObject *)&PyArray_StringDType);
         if (loop_descrs[1] == NULL) {
-            Py_DECREF(loop_descrs[0]);
             return (NPY_CASTING)-1;
         }
     }
@@ -711,6 +705,9 @@ quad_to_stringdtype_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTyp
         Py_INCREF(given_descrs[1]);
         loop_descrs[1] = given_descrs[1];
     }
+
+    Py_INCREF(given_descrs[0]);
+    loop_descrs[0] = given_descrs[0];
 
     return NPY_SAFE_CASTING;
 }
