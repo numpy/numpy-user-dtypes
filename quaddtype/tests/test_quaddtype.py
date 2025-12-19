@@ -747,6 +747,189 @@ class TestArrayCastStringBytes:
         with pytest.raises(ValueError):
             bytes_array.astype(QuadPrecDType())
 
+
+class TestStringDTypeCasting:
+    @pytest.mark.parametrize("input_val", [
+        "3.141592653589793238462643383279502884197",
+        "2.71828182845904523536028747135266249775",
+        "1.0",
+        "-1.0",
+        "0.0",
+        "-0.0",
+        "1e100",
+        "1e-100",
+        "1.23456789012345678901234567890123456789",
+        "-9.87654321098765432109876543210987654321",
+    ])
+    def test_stringdtype_to_quad_basic(self, input_val):
+        """Test basic StringDType to QuadPrecision conversion"""
+        str_array = np.array([input_val], dtype=np.dtypes.StringDType())
+        quad_array = str_array.astype(QuadPrecDType())
+        
+        assert quad_array.dtype.name == "QuadPrecDType128"
+        expected = np.array([input_val], dtype=QuadPrecDType())
+        np.testing.assert_array_equal(quad_array, expected)
+    
+    @pytest.mark.parametrize("input_val", [
+        "3.1415926535897932384626433832795028",  # pi to quad precision
+        "2.7182818284590452353602874713526623",  # e to quad precision  
+        "1.0e+100",   # scientific notation (normalized form)
+        "1.0e-100",   # scientific notation (normalized form)
+        "0.0",
+        "-0.0",
+        "inf",
+        "-inf",
+        "nan",
+        "1.0",
+        "-1.0",
+        "123.456",
+        "-123.456",
+    ])
+    def test_stringdtype_roundtrip(self, input_val):
+        str_array = np.array([input_val], dtype=np.dtypes.StringDType())        
+        quad_array = str_array.astype(QuadPrecDType())        
+        result_str_array = quad_array.astype(np.dtypes.StringDType())
+        
+        np.testing.assert_array_equal(result_str_array, str_array)
+    
+    @pytest.mark.parametrize("original", [
+        QuadPrecision("0.417022004702574000667425480060047"),
+        QuadPrecision("1.23456789012345678901234567890123456789"),
+        pytest.param(numpy_quaddtype.pi, id="pi"),
+        pytest.param(numpy_quaddtype.e, id="e"),
+        QuadPrecision("1e-100"),
+        QuadPrecision("1e100"),
+        QuadPrecision("-3.14159265358979323846264338327950288419"),
+        QuadPrecision("0.0"),
+        QuadPrecision("-0.0"),
+        QuadPrecision("1.0"),
+        QuadPrecision("-1.0"),
+    ])
+    def test_quad_to_stringdtype_roundtrip(self, original):
+        """Test QuadPrecision -> StringDType -> QuadPrecision preserves value"""
+        quad_array = np.array([original], dtype=QuadPrecDType())        
+        str_array = quad_array.astype(np.dtypes.StringDType())        
+        reconstructed = str_array.astype(QuadPrecDType())
+        
+        if np.isnan(original):
+            assert np.isnan(reconstructed[0])
+        else:
+            np.testing.assert_array_equal(reconstructed, quad_array)
+    
+    # ============ Special Values Tests ============
+    
+    @pytest.mark.parametrize("input_str,check_func", [
+        ("inf", lambda x: np.isinf(float(x)) and float(x) > 0),
+        ("-inf", lambda x: np.isinf(float(x)) and float(x) < 0),
+        ("+inf", lambda x: np.isinf(float(x)) and float(x) > 0),
+        ("Inf", lambda x: np.isinf(float(x)) and float(x) > 0),
+        ("Infinity", lambda x: np.isinf(float(x)) and float(x) > 0),
+        ("-Infinity", lambda x: np.isinf(float(x)) and float(x) < 0),
+        ("INF", lambda x: np.isinf(float(x)) and float(x) > 0),
+        ("INFINITY", lambda x: np.isinf(float(x)) and float(x) > 0),
+    ])
+    def test_stringdtype_infinity_variants(self, input_str, check_func):
+        """Test various infinity representations in StringDType"""
+        str_array = np.array([input_str], dtype=np.dtypes.StringDType())
+        quad_array = str_array.astype(QuadPrecDType())
+        
+        assert check_func(quad_array[0]), f"Failed for {input_str}"
+    
+    @pytest.mark.parametrize("input_str", [
+        "nan", "NaN", "NAN", "+nan", "-nan",
+        "nan()", "nan(123)", "NaN(payload)",
+    ])
+    def test_stringdtype_nan_variants(self, input_str):
+        """Test various NaN representations in StringDType"""
+        str_array = np.array([input_str], dtype=np.dtypes.StringDType())
+        quad_array = str_array.astype(QuadPrecDType())
+        
+        assert np.isnan(float(quad_array[0])), f"Expected NaN for {input_str}"
+    
+    def test_stringdtype_negative_zero(self):
+        neg_zero = QuadPrecision("-0.0")
+        quad_array = np.array([neg_zero], dtype=QuadPrecDType())
+        assert np.signbit(quad_array[0]), "Input should have negative zero signbit"
+        str_array = quad_array.astype(np.dtypes.StringDType())
+        assert str_array[0] == "-0.0", f"Expected '-0.0', got '{str_array[0]}'"
+        roundtrip = str_array.astype(QuadPrecDType())
+        assert np.signbit(roundtrip[0]), "Signbit should be preserved after round-trip"
+        assert float(roundtrip[0]) == 0.0, "Value should be zero"
+    
+    # ============ Whitespace Handling Tests ============
+    
+    @pytest.mark.parametrize("input_str,expected", [
+        ("  3.14", "3.14"),
+        ("3.14  ", "3.14"),
+        ("  3.14  ", "3.14"),
+        ("\t3.14\t", "3.14"),
+        ("\n3.14\n", "3.14"),
+        ("  \t\n  3.14  \t\n  ", "3.14"),
+    ])
+    def test_stringdtype_whitespace_handling(self, input_str, expected):
+        """Test that StringDType handles whitespace correctly"""
+        str_array = np.array([input_str], dtype=np.dtypes.StringDType())
+        quad_array = str_array.astype(QuadPrecDType())
+        expected_quad = QuadPrecision(expected)
+        
+        np.testing.assert_array_equal(quad_array, np.array([expected_quad], dtype=QuadPrecDType()))
+        
+    @pytest.mark.parametrize("invalid_str", [
+        "",
+        "not_a_number",
+        "abc123",
+        "1.23.45",
+        "1e",
+        "++1.0",
+        "--1.0",
+        "+-1.0",
+        "1.0abc",
+        "abc1.0",
+        "3.14ñ",
+        "π",
+    ])
+    def test_stringdtype_invalid_input(self, invalid_str):
+        """Test that invalid StringDType input raises ValueError"""
+        str_array = np.array([invalid_str], dtype=np.dtypes.StringDType())
+        
+        with pytest.raises(ValueError):
+            str_array.astype(QuadPrecDType())
+    
+    
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    @pytest.mark.parametrize("input_str", [
+        "1.0",
+        "-1.0",
+        "3.141592653589793238462643383279502884197",
+        "1e100",
+        "1e-100",
+        "0.0",
+    ])
+    def test_stringdtype_backend_consistency(self, backend, input_str):
+        """Test that StringDType parsing works consistently across backends"""
+        str_array = np.array([input_str], dtype=np.dtypes.StringDType())
+        quad_array = str_array.astype(QuadPrecDType(backend=backend))
+        scalar_val = QuadPrecision(input_str, backend=backend)
+        np.testing.assert_array_equal(quad_array, np.array([scalar_val], dtype=QuadPrecDType(backend=backend)))
+    
+    def test_stringdtype_empty_array(self):
+        """Test conversion of empty StringDType array"""
+        str_array = np.array([], dtype=np.dtypes.StringDType())
+        quad_array = str_array.astype(QuadPrecDType())
+        np.testing.assert_array_equal(quad_array, np.array([], dtype=QuadPrecDType()))
+
+    @pytest.mark.parametrize("size", [500, 1000, 10000])
+    def test_stringdtype_large_array(self, size):
+        """Test conversion of large StringDType array"""
+        str_values = [str(i * 0.001) for i in range(size)]
+        str_array = np.array(str_values, dtype=np.dtypes.StringDType())
+        quad_array = str_array.astype(QuadPrecDType())
+        
+        assert quad_array.shape == (size,)
+        np.testing.assert_array_equal(quad_array, np.array(str_values, dtype=QuadPrecDType()))
+        
+
+
 class TestStringParsingEdgeCases:
     """Test edge cases in NumPyOS_ascii_strtoq string parsing"""
     @pytest.mark.parametrize("input_str", ['3.14', '-2.71', '0.0', '1e10', '-1e-10'])

@@ -626,9 +626,13 @@ stringdtype_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTyp
         loop_descrs[1] = given_descrs[1];
     }
 
+    // no notion of fix length, so always unsafe
     return NPY_UNSAFE_CASTING;
 }
 
+// Note: StringDType elements are always aligned, so Aligned template parameter
+// is kept for API consistency but both versions use the same logic
+template <bool Aligned>
 static int
 stringdtype_to_quad_strided_loop(PyArrayMethod_Context *context, char *const data[],
                                  npy_intp const dimensions[], npy_intp const strides[],
@@ -669,7 +673,6 @@ stringdtype_to_quad_strided_loop(PyArrayMethod_Context *context, char *const dat
             }
         }
 
-        // Create a null-terminated copy of the string
         char *temp_str = (char *)malloc(s.size + 1);
         if (temp_str == NULL) {
             NpyString_release_allocator(allocator);
@@ -691,7 +694,6 @@ stringdtype_to_quad_strided_loop(PyArrayMethod_Context *context, char *const dat
             return -1;
         }
 
-        // Check that we parsed the entire string (skip trailing whitespace)
         while (ascii_isspace(*endptr)) {
             endptr++;
         }
@@ -706,8 +708,7 @@ stringdtype_to_quad_strided_loop(PyArrayMethod_Context *context, char *const dat
 
         free(temp_str);
 
-        // Store the result - StringDType elements are always aligned
-        memcpy(out_ptr, &out_val, sizeof(quad_value));
+        store_quad<Aligned>(out_ptr, out_val, backend);
 
         in_ptr += in_stride;
         out_ptr += out_stride;
@@ -727,7 +728,6 @@ quad_to_stringdtype_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTyp
     loop_descrs[0] = given_descrs[0];
 
     if (given_descrs[1] == NULL) {
-        // Create a new StringDType instance with coercion enabled
         PyObject *args = PyTuple_New(0);
         if (args == NULL) {
             Py_DECREF(loop_descrs[0]);
@@ -739,7 +739,6 @@ quad_to_stringdtype_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTyp
             Py_DECREF(loop_descrs[0]);
             return (NPY_CASTING)-1;
         }
-        // Set coerce=True for the new instance
         if (PyDict_SetItemString(kwargs, "coerce", Py_True) < 0) {
             Py_DECREF(args);
             Py_DECREF(kwargs);
@@ -765,6 +764,9 @@ quad_to_stringdtype_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTyp
     return NPY_SAFE_CASTING;
 }
 
+// Note: StringDType elements are always aligned, so Aligned template parameter
+// is kept for API consistency but both versions use the same logic
+template <bool Aligned>
 static int
 quad_to_stringdtype_strided_loop(PyArrayMethod_Context *context, char *const data[],
                                  npy_intp const dimensions[], npy_intp const strides[],
@@ -784,11 +786,7 @@ quad_to_stringdtype_strided_loop(PyArrayMethod_Context *context, char *const dat
     npy_string_allocator *allocator = NpyString_acquire_allocator(str_descr);
 
     while (N--) {
-        // Load the quad value - StringDType elements are always aligned
-        quad_value in_val;
-        memcpy(&in_val, in_ptr, sizeof(quad_value));
-
-        // Convert to Sleef_quad for Dragon4
+        quad_value in_val = load_quad<Aligned>(in_ptr, backend);
         Sleef_quad sleef_val = quad_to_sleef_quad(&in_val, backend);
 
         // Get string representation with adaptive notation
@@ -807,7 +805,6 @@ quad_to_stringdtype_strided_loop(PyArrayMethod_Context *context, char *const dat
             return -1;
         }
 
-        // Pack the string into the output
         npy_packed_static_string *out_ps = (npy_packed_static_string *)out_ptr;
         if (NpyString_pack(allocator, out_ps, str_buf, (size_t)str_size) < 0) {
             Py_DECREF(py_str);
@@ -1620,8 +1617,8 @@ init_casts_internal(void)
     PyArray_DTypeMeta **stringdtype_to_quad_dtypes = new PyArray_DTypeMeta *[2]{&PyArray_StringDType, &QuadPrecDType};
     PyType_Slot *stringdtype_to_quad_slots = new PyType_Slot[4]{
             {NPY_METH_resolve_descriptors, (void *)&stringdtype_to_quad_resolve_descriptors},
-            {NPY_METH_strided_loop, (void *)&stringdtype_to_quad_strided_loop},
-            {NPY_METH_unaligned_strided_loop, (void *)&stringdtype_to_quad_strided_loop},
+            {NPY_METH_strided_loop, (void *)&stringdtype_to_quad_strided_loop<true>},
+            {NPY_METH_unaligned_strided_loop, (void *)&stringdtype_to_quad_strided_loop<false>},
             {0, nullptr}};
 
     PyArrayMethod_Spec *stringdtype_to_quad_spec = new PyArrayMethod_Spec{
@@ -1639,8 +1636,8 @@ init_casts_internal(void)
     PyArray_DTypeMeta **quad_to_stringdtype_dtypes = new PyArray_DTypeMeta *[2]{&QuadPrecDType, &PyArray_StringDType};
     PyType_Slot *quad_to_stringdtype_slots = new PyType_Slot[4]{
             {NPY_METH_resolve_descriptors, (void *)&quad_to_stringdtype_resolve_descriptors},
-            {NPY_METH_strided_loop, (void *)&quad_to_stringdtype_strided_loop},
-            {NPY_METH_unaligned_strided_loop, (void *)&quad_to_stringdtype_strided_loop},
+            {NPY_METH_strided_loop, (void *)&quad_to_stringdtype_strided_loop<true>},
+            {NPY_METH_unaligned_strided_loop, (void *)&quad_to_stringdtype_strided_loop<false>},
             {0, nullptr}};
 
     PyArrayMethod_Spec *quad_to_stringdtype_spec = new PyArrayMethod_Spec{
