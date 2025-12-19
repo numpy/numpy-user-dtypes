@@ -369,6 +369,39 @@ quad_to_string_adaptive(Sleef_quad *sleef_val, npy_intp unicode_size_chars)
     }
 }
 
+static inline const char *
+quad_to_string_adaptive_cstr(Sleef_quad *sleef_val, npy_intp unicode_size_chars)
+{
+    // Try positional format first to see if it would fit
+    const char* positional_str = Dragon4_Positional_QuadDType_CStr(
+            sleef_val, DigitMode_Unique, CutoffMode_TotalLength, SLEEF_QUAD_DECIMAL_DIG, 0, 1,
+            TrimMode_LeaveOneZero, 1, 0);
+
+    if (positional_str == NULL) {
+        PyErr_SetString(PyExc_RuntimeError, "Float formatting failed");
+        return NULL;
+    }
+
+    // no need to scan full, only checking if its longer
+    npy_intp pos_len = strnlen(positional_str, unicode_size_chars + 1);
+
+    // If positional format fits, use it; otherwise use scientific notation
+    if (pos_len <= unicode_size_chars) {
+        return positional_str;  // Keep the positional string
+    }
+    else {
+        // Use scientific notation with full precision
+        const char *scientific_str = Dragon4_Scientific_QuadDType_CStr(sleef_val, DigitMode_Unique,
+                                           SLEEF_QUAD_DECIMAL_DIG, 0, 1,
+                                           TrimMode_LeaveOneZero, 1, 2);
+        if (scientific_str == NULL) {
+            PyErr_SetString(PyExc_RuntimeError, "Float formatting failed");
+            return NULL;
+        }
+        return scientific_str;
+    }
+}
+
 template <bool Aligned>
 static int
 quad_to_unicode_loop(PyArrayMethod_Context *context, char *const data[],
@@ -739,29 +772,20 @@ quad_to_stringdtype_strided_loop(PyArrayMethod_Context *context, char *const dat
 
         // Get string representation with adaptive notation
         // Use a large buffer size to allow for full precision
-        PyObject *py_str = quad_to_string_adaptive(&sleef_val, QUAD_STR_WIDTH);
-        if (py_str == NULL) {
+        const char *str_buf = quad_to_string_adaptive_cstr(&sleef_val, QUAD_STR_WIDTH);
+        if (str_buf == NULL) {
             NpyString_release_allocator(allocator);
             return -1;
         }
 
-        Py_ssize_t str_size;
-        const char *str_buf = PyUnicode_AsUTF8AndSize(py_str, &str_size);
-        if (str_buf == NULL) {
-            Py_DECREF(py_str);
-            NpyString_release_allocator(allocator);
-            return -1;
-        }
+        Py_ssize_t str_size = strnlen(str_buf, QUAD_STR_WIDTH);
 
         npy_packed_static_string *out_ps = (npy_packed_static_string *)out_ptr;
         if (NpyString_pack(allocator, out_ps, str_buf, (size_t)str_size) < 0) {
-            Py_DECREF(py_str);
             NpyString_release_allocator(allocator);
             PyErr_SetString(PyExc_MemoryError, "Failed to pack string in Quad to StringDType cast");
             return -1;
         }
-
-        Py_DECREF(py_str);
 
         in_ptr += in_stride;
         out_ptr += out_stride;
