@@ -747,20 +747,6 @@ class TestArrayCastStringBytes:
         with pytest.raises(ValueError):
             bytes_array.astype(QuadPrecDType())
 
-    # Tests for all string types (fixed-length Unicode and variable-length StringDType)
-    @pytest.mark.parametrize("strtype", [np.str_, np.dtypes.StringDType()])
-    def test_negative_zero_roundtrip(self, strtype):
-        """Test that negative zero sign is preserved through string roundtrip"""
-        neg_zero = QuadPrecision("-0.0")
-        quad_array = np.array([neg_zero], dtype=QuadPrecDType())
-        assert np.signbit(quad_array[0]), "Input should have negative zero signbit"
-        
-        str_array = quad_array.astype(strtype)
-        assert str_array[0] == "-0.0", f"Expected '-0.0', got '{str_array[0]}'"
-        
-        roundtrip = str_array.astype(QuadPrecDType())
-        assert np.signbit(roundtrip[0]), "Signbit should be preserved after round-trip"
-
     @pytest.mark.parametrize("strtype", [np.str_, np.dtypes.StringDType()])
     @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
     def test_string_backend_consistency(self, strtype, backend):
@@ -865,9 +851,10 @@ class TestStringParsingEdgeCases:
         ("+1.23e-45", 1.23e-45),
         ("-1.23e-45", -1.23e-45),
     ])
-    def test_numeric_sign_handling(self, input_str, expected_val):
+    @pytest.mark.parametrize("strtype", ['U20', np.dtypes.StringDType()])
+    def test_numeric_sign_handling(self, input_str, expected_val, strtype):
         """Test that +/- signs are correctly handled for numeric values"""
-        arr = np.array([input_str], dtype='U20')
+        arr = np.array([input_str], dtype=strtype)
         result = arr.astype(QuadPrecDType())
         
         result_val = float(str(result[0]))
