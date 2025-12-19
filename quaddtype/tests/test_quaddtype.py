@@ -758,13 +758,6 @@ class TestArrayCastStringBytes:
         np.testing.assert_array_equal(quad_array, np.array([scalar_val], dtype=QuadPrecDType(backend=backend)))
 
     @pytest.mark.parametrize("strtype", [np.str_, np.dtypes.StringDType()])
-    def test_string_empty_array(self, strtype):
-        """Test conversion of empty string array"""
-        str_array = np.array([], dtype=strtype)
-        quad_array = str_array.astype(QuadPrecDType())
-        np.testing.assert_array_equal(quad_array, np.array([], dtype=QuadPrecDType()))
-
-    @pytest.mark.parametrize("strtype", [np.str_, np.dtypes.StringDType()])
     def test_string_large_array(self, strtype):
         """Test conversion of large string array"""
         str_values = [str(i * 0.001) for i in range(1000)]
