@@ -825,9 +825,10 @@ class TestStringParsingEdgeCases:
         ("+INFINITY", 1),
         ("-INFINITY", -1),
     ])
-    def test_infinity_sign_preservation(self, input_str, expected_sign):
+    @pytest.mark.parametrize("strtype", ['U20', np.dtypes.StringDType()])
+    def test_infinity_sign_preservation(self, input_str, expected_sign, strtype):
         """Test that +/- signs are correctly applied to infinity values"""
-        arr = np.array([input_str], dtype='U20')
+        arr = np.array([input_str], dtype=strtype)
         result = arr.astype(QuadPrecDType())
         
         assert np.isinf(float(str(result[0]))), f"Expected inf for '{input_str}'"
@@ -842,9 +843,10 @@ class TestStringParsingEdgeCases:
         "NAN", "+NAN", "-NAN",
         "nan()", "nan(123)", "nan(abc_)", "NAN(XYZ)",
     ])
-    def test_nan_case_insensitive(self, input_str):
+    @pytest.mark.parametrize("strtype", ['U20', np.dtypes.StringDType()])
+    def test_nan_case_insensitive(self, input_str, strtype):
         """Test case-insensitive NaN parsing with optional payloads"""
-        arr = np.array([input_str], dtype='U20')
+        arr = np.array([input_str], dtype=strtype)
         result = arr.astype(QuadPrecDType())
         
         assert np.isnan(float(str(result[0]))), f"Expected NaN for '{input_str}'"
@@ -890,9 +892,10 @@ class TestStringParsingEdgeCases:
         "\t-inf\t",
         "  nan  ",
     ])
-    def test_whitespace_handling(self, input_str):
+    @pytest.mark.parametrize("strtype", ['U20', np.dtypes.StringDType()])
+    def test_whitespace_handling(self, input_str, strtype):
         """Test that leading/trailing whitespace is handled correctly"""
-        arr = np.array([input_str], dtype='U20')
+        arr = np.array([input_str], dtype=strtype)
         result = arr.astype(QuadPrecDType())
         
         # Should not raise an error
@@ -912,9 +915,10 @@ class TestStringParsingEdgeCases:
         "na",            # Incomplete nan
         "infinit",       # Incomplete infinity
     ])
-    def test_invalid_strings_raise_error(self, invalid_str):
+    @pytest.mark.parametrize("strtype", ['U20', np.dtypes.StringDType()])
+    def test_invalid_strings_raise_error(self, invalid_str, strtype):
         """Test that invalid strings raise ValueError"""
-        arr = np.array([invalid_str], dtype='U20')
+        arr = np.array([invalid_str], dtype=strtype)
         
         with pytest.raises(ValueError):
             arr.astype(QuadPrecDType())
@@ -925,9 +929,10 @@ class TestStringParsingEdgeCases:
         "3.1€4",         # Mid non-ASCII
         "π",             # Greek pi
     ])
-    def test_non_ascii_raises_error(self, input_str):
+    @pytest.mark.parametrize("strtype", ['U20', np.dtypes.StringDType()])
+    def test_non_ascii_raises_error(self, input_str, strtype):
         """Test that non-ASCII characters raise ValueError"""
-        arr = np.array([input_str], dtype='U20')
+        arr = np.array([input_str], dtype=strtype)
         
         with pytest.raises(ValueError):
             arr.astype(QuadPrecDType())
