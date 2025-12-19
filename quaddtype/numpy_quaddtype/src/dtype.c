@@ -354,11 +354,11 @@ quadprec_scanfunc(FILE *fp, void *dptr, char *ignore, PyArray_Descr *descr_gener
     }
     buffer[i] = '\0';
     
-    /* Convert string to quad precision */
+    /* Convert string to quad precision (supports inf/nan) */
     char *endptr;
     quad_value val;
-    int err = cstring_to_quad(buffer, descr->backend, &val, &endptr, true);
-    if (err < 0) {
+    int err = NumPyOS_ascii_strtoq(buffer, descr->backend, &val, &endptr);
+    if (err < 0 || *endptr != '\0') {
         return 0;  /* Return 0 on parse error (no items read) */
     }
     if (descr->backend == BACKEND_SLEEF) {
@@ -376,7 +376,7 @@ quadprec_fromstr(char *s, void *dptr, char **endptr, PyArray_Descr *descr_generi
 {
     QuadPrecDTypeObject *descr = (QuadPrecDTypeObject *)descr_generic;
     quad_value val;
-    int err = cstring_to_quad(s, descr->backend, &val, endptr, false);
+    int err = NumPyOS_ascii_strtoq(s, descr->backend, &val, endptr);
     if (err < 0) {
         return -1;
     }

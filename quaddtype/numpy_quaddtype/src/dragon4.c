@@ -26,6 +26,11 @@ Modifications are specific to support the SLEEF_QUAD
 #include "scalar.h"
 
 
+// Undefine NPY_TLS if already defined (avoid redefinition warning)
+#ifdef NPY_TLS
+    #undef NPY_TLS
+#endif
+
 #ifdef __cplusplus
     #define NPY_TLS thread_local
 #elif defined(HAVE_THREAD_LOCAL)
@@ -2005,8 +2010,6 @@ PyObject *
 Dragon4_Positional(PyObject *obj, DigitMode digit_mode, CutoffMode cutoff_mode, int precision,
                    int min_digits, int sign, TrimMode trim, int pad_left, int pad_right)
 {
-    npy_double v;
-
     if (PyObject_TypeCheck(obj, &QuadPrecision_Type)) {
         QuadPrecisionObject *quad_obj = (QuadPrecisionObject *)obj;
         if (quad_obj->backend == BACKEND_SLEEF) {
@@ -2028,8 +2031,6 @@ PyObject *
 Dragon4_Scientific(PyObject *obj, DigitMode digit_mode, int precision, int min_digits, int sign,
                    TrimMode trim, int pad_left, int exp_digits)
 {
-    npy_double val;
-
     if (PyObject_TypeCheck(obj, &QuadPrecision_Type)) {
         QuadPrecisionObject *quad_obj = (QuadPrecisionObject *)obj;
         if (quad_obj->backend == BACKEND_SLEEF) {

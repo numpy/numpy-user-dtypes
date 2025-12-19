@@ -25,60 +25,6 @@ extern "C" {
 #include "comparison_ops.h"
 #include "matmul.h"
 
-// helper debugging function
-static const char *
-get_dtype_name(PyArray_DTypeMeta *dtype)
-{
-    if (dtype == &QuadPrecDType) {
-        return "QuadPrecDType";
-    }
-    else if (dtype == &PyArray_BoolDType) {
-        return "BoolDType";
-    }
-    else if (dtype == &PyArray_ByteDType) {
-        return "ByteDType";
-    }
-    else if (dtype == &PyArray_UByteDType) {
-        return "UByteDType";
-    }
-    else if (dtype == &PyArray_ShortDType) {
-        return "ShortDType";
-    }
-    else if (dtype == &PyArray_UShortDType) {
-        return "UShortDType";
-    }
-    else if (dtype == &PyArray_IntDType) {
-        return "IntDType";
-    }
-    else if (dtype == &PyArray_UIntDType) {
-        return "UIntDType";
-    }
-    else if (dtype == &PyArray_LongDType) {
-        return "LongDType";
-    }
-    else if (dtype == &PyArray_ULongDType) {
-        return "ULongDType";
-    }
-    else if (dtype == &PyArray_LongLongDType) {
-        return "LongLongDType";
-    }
-    else if (dtype == &PyArray_ULongLongDType) {
-        return "ULongLongDType";
-    }
-    else if (dtype == &PyArray_FloatDType) {
-        return "FloatDType";
-    }
-    else if (dtype == &PyArray_DoubleDType) {
-        return "DoubleDType";
-    }
-    else if (dtype == &PyArray_LongDoubleDType) {
-        return "LongDoubleDType";
-    }
-    else {
-        return "UnknownDType";
-    }
-}
-
 int
 init_quad_umath(void)
 {

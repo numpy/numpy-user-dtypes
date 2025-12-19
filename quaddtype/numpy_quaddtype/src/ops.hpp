@@ -13,13 +13,13 @@ typedef Sleef_quad (*unary_op_quad_def)(const Sleef_quad *);
 // Unary Quad operations with 2 outputs (for modf, frexp)
 typedef void (*unary_op_2out_quad_def)(const Sleef_quad *, Sleef_quad *, Sleef_quad *);
 
-static Sleef_quad
+static inline Sleef_quad
 quad_negative(const Sleef_quad *op)
 {
     return Sleef_negq1(*op);
 }
 
-static Sleef_quad
+static inline Sleef_quad
 quad_positive(const Sleef_quad *op)
 {
     return *op;
@@ -929,7 +929,7 @@ static inline Sleef_quad quad_set_words64(int64_t hx, uint64_t lx)
 static inline Sleef_quad
 quad_nextafter(const Sleef_quad *x, const Sleef_quad *y)
 {
-    int64_t hx, hy, ix, iy;
+    int64_t hx, hy, ix;
     uint64_t lx, ly;
 
     quad_get_words64(&hx, &lx, *x);
@@ -937,7 +937,7 @@ quad_nextafter(const Sleef_quad *x, const Sleef_quad *y)
     
     // extracting absolute value
     ix = hx & 0x7fffffffffffffffLL;
-    iy = hy & 0x7fffffffffffffffLL;
+    (void)ly;  // unused but needed for quad_get_words64
 
     // NaN if either is NaN
     if (Sleef_iunordq1(*x, *y)) {
