@@ -27,7 +27,7 @@ extern "C" {
 #include "dragon4.h"
 #include "ops.hpp"
 
-#define NUM_CASTS 40  // 17 to_casts + 17 from_casts + 1 quad_to_quad + 1 void_to_quad + 2 StringDType
+#define NUM_CASTS 40  // 18 to_casts + 18 from_casts + 1 quad_to_quad + 1 void_to_quad
 #define QUAD_STR_WIDTH 50  // 42 is enough for scientific notation float128, just keeping some buffer
 
 static NPY_CASTING
@@ -673,40 +673,11 @@ stringdtype_to_quad_strided_loop(PyArrayMethod_Context *context, char *const dat
             }
         }
 
-        char *temp_str = (char *)malloc(s.size + 1);
-        if (temp_str == NULL) {
-            NpyString_release_allocator(allocator);
-            PyErr_NoMemory();
-            return -1;
-        }
-        memcpy(temp_str, s.buf, s.size);
-        temp_str[s.size] = '\0';
-
-        char *endptr;
         quad_value out_val;
-        int err = NumPyOS_ascii_strtoq(temp_str, backend, &out_val, &endptr);
-
-        if (err < 0) {
-            PyErr_Format(PyExc_ValueError,
-                        "could not convert string to QuadPrecision: '%s'", temp_str);
-            free(temp_str);
+        if (bytes_to_quad_convert(s.buf, s.size, backend, &out_val) < 0) {
             NpyString_release_allocator(allocator);
             return -1;
         }
-
-        while (ascii_isspace(*endptr)) {
-            endptr++;
-        }
-
-        if (*endptr != '\0') {
-            PyErr_Format(PyExc_ValueError,
-                        "could not convert string to QuadPrecision: '%s'", temp_str);
-            free(temp_str);
-            NpyString_release_allocator(allocator);
-            return -1;
-        }
-
-        free(temp_str);
 
         store_quad<Aligned>(out_ptr, out_val, backend);
 
@@ -728,29 +699,9 @@ quad_to_stringdtype_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTyp
     loop_descrs[0] = given_descrs[0];
 
     if (given_descrs[1] == NULL) {
-        PyObject *args = PyTuple_New(0);
-        if (args == NULL) {
-            Py_DECREF(loop_descrs[0]);
-            return (NPY_CASTING)-1;
-        }
-        PyObject *kwargs = PyDict_New();
-        if (kwargs == NULL) {
-            Py_DECREF(args);
-            Py_DECREF(loop_descrs[0]);
-            return (NPY_CASTING)-1;
-        }
-        if (PyDict_SetItemString(kwargs, "coerce", Py_True) < 0) {
-            Py_DECREF(args);
-            Py_DECREF(kwargs);
-            Py_DECREF(loop_descrs[0]);
-            return (NPY_CASTING)-1;
-        }
-
-        loop_descrs[1] = (PyArray_Descr *)PyObject_Call(
-                (PyObject *)&PyArray_StringDType, args, kwargs);
-        Py_DECREF(args);
-        Py_DECREF(kwargs);
-
+        // Default StringDType() already has coerce=True
+        loop_descrs[1] = (PyArray_Descr *)PyObject_CallNoArgs(
+                (PyObject *)&PyArray_StringDType);
         if (loop_descrs[1] == NULL) {
             Py_DECREF(loop_descrs[0]);
             return (NPY_CASTING)-1;
