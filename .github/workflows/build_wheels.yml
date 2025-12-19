@@ -61,7 +61,7 @@ jobs:
           python -m cibuildwheel --output-dir wheelhouse
         working-directory: ./quaddtype
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           path: ./quaddtype/wheelhouse/*.whl
           name: wheels-linux
@@ -125,7 +125,7 @@ jobs:
           python -m cibuildwheel --output-dir wheelhouse
         working-directory: ./quaddtype
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           path: ./quaddtype/wheelhouse/*.whl
           name: wheels-${{ matrix.os }}
@@ -185,7 +185,7 @@ jobs:
           if (-not (Test-Path wheelhouse/*.whl)) { throw "Wheel was not created" }
         working-directory: ./quaddtype
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           path: ./quaddtype/wheelhouse/*.whl
           name: wheels-windows-${{ matrix.architecture }}
@@ -222,7 +222,7 @@ jobs:
         working-directory: ./quaddtype
 
       - name: Upload SDist artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: sdist
           path: ./quaddtype/dist/*.tar.gz
@@ -248,7 +248,7 @@ jobs:
 
     steps:
       - name: Download all workflow run artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           pattern: "*"
           path: dist
