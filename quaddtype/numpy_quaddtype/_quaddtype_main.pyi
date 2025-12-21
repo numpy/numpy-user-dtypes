@@ -129,7 +129,7 @@ class QuadPrecision(np.floating[_128Bit]):
     @override
     def __add__(self, other: _IntoQuad, /) -> Self: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
     @override
-    def __radd__(self, other: _IntoQuad, /) -> Self: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+    def __radd__(self, other: _IntoQuad, /) -> Self: ...  # type: ignore[override, misc]  # pyright: ignore[reportIncompatibleMethodOverride]
     @override
     def __sub__(self, other: _IntoQuad, /) -> Self: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
     @override

@@ -10,7 +10,6 @@ extern "C" {
 #include <sleefquad.h>
 #include <stdbool.h>
 
-int cstring_to_quad(const char *str, QuadBackendType backend, quad_value *out_value, char **endptr, bool require_full_parse);
 int ascii_isspace(int c);
 int ascii_isalpha(char c);
 int ascii_isdigit(char c);
