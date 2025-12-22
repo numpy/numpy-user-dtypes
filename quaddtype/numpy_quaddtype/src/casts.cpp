@@ -360,13 +360,11 @@ quad_to_string_adaptive(Sleef_quad *sleef_val, npy_intp unicode_size_chars)
     if (pos_len <= unicode_size_chars) {
         return positional_str;  // Keep the positional string
     }
-    else {
-        Py_DECREF(positional_str);
-        // Use scientific notation with full precision
-        return Dragon4_Scientific_QuadDType(sleef_val, DigitMode_Unique,
-                                           SLEEF_QUAD_DECIMAL_DIG, 0, 1,
-                                           TrimMode_LeaveOneZero, 1, 2);
-    }
+    Py_DECREF(positional_str);
+    // Use scientific notation with full precision
+    return Dragon4_Scientific_QuadDType(sleef_val, DigitMode_Unique,
+                                        SLEEF_QUAD_DECIMAL_DIG, 0, 1,
+                                        TrimMode_LeaveOneZero, 1, 2);
 }
 
 static inline const char *
