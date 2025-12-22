@@ -51,7 +51,15 @@ PyObject *Dragon4_Positional_QuadDType(Sleef_quad *val, DigitMode digit_mode,
                    CutoffMode cutoff_mode, int precision, int min_digits,
                    int sign, TrimMode trim, int pad_left, int pad_right);
 
+const char *Dragon4_Positional_QuadDType_CStr(Sleef_quad *val, DigitMode digit_mode,
+                   CutoffMode cutoff_mode, int precision, int min_digits,
+                   int sign, TrimMode trim, int pad_left, int pad_right);
+
 PyObject *Dragon4_Scientific_QuadDType(Sleef_quad *val, DigitMode digit_mode, 
+                   int precision, int min_digits, int sign, TrimMode trim, 
+                   int pad_left, int exp_digits);
+
+const char *Dragon4_Scientific_QuadDType_CStr(Sleef_quad *val, DigitMode digit_mode, 
                    int precision, int min_digits, int sign, TrimMode trim, 
                    int pad_left, int exp_digits);
 
