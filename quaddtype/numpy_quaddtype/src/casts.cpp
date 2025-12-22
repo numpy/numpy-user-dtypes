@@ -389,17 +389,17 @@ quad_to_string_adaptive_cstr(Sleef_quad *sleef_val, npy_intp unicode_size_chars)
     if (pos_len <= unicode_size_chars) {
         return positional_str;  // Keep the positional string
     }
-    else {
-        // Use scientific notation with full precision
-        const char *scientific_str = Dragon4_Scientific_QuadDType_CStr(sleef_val, DigitMode_Unique,
-                                           SLEEF_QUAD_DECIMAL_DIG, 0, 1,
-                                           TrimMode_LeaveOneZero, 1, 2);
-        if (scientific_str == NULL) {
-            PyErr_SetString(PyExc_RuntimeError, "Float formatting failed");
-            return NULL;
-        }
-        return scientific_str;
+
+    // Use scientific notation with full precision
+    const char *scientific_str = Dragon4_Scientific_QuadDType_CStr(sleef_val, DigitMode_Unique,
+                                        SLEEF_QUAD_DECIMAL_DIG, 0, 1,
+                                        TrimMode_LeaveOneZero, 1, 2);
+    if (scientific_str == NULL) {
+        PyErr_SetString(PyExc_RuntimeError, "Float formatting failed");
+        return NULL;
     }
+    return scientific_str;
+
 }
 
 template <bool Aligned>
