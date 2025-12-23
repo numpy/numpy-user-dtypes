@@ -5,6 +5,7 @@ rm -rf build/
 rm -rf dist/
 rm -rf subprojects/qblas
 rm -rf subprojects/sleef
+rm -rf subprojects/pythoncapi-compat
 rm -rf .mesonpy-*
 
 python -m pip uninstall -y numpy_quaddtype

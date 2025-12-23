@@ -1,0 +1,6 @@
+[wrap-git]
+directory=pythoncapi-compat
+url=https://github.com/python/pythoncapi-compat.git
+revision=main
+[provide]
+pythoncapi_compat = pythoncapi_compat_dep

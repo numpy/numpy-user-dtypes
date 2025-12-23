@@ -79,6 +79,10 @@ incdir_numpy = run_command(py,
   check : true
 ).stdout().strip()
 
+# pythoncapi-compat for portable C API usage across Python versions
+pythoncapi_compat_subproj = subproject('pythoncapi-compat')
+pythoncapi_compat_inc = pythoncapi_compat_subproj.get_variable('incdir')
+
 # print numpy version used
 numpy_version = run_command(py,
   ['-c', 'import numpy; print(numpy.__version__)'],
@@ -154,6 +158,7 @@ includes = include_directories(
         'numpy_quaddtype/src',
     ]
 )
+pythoncapi_includes = pythoncapi_compat_inc
 
 srcs = [
     'numpy_quaddtype/src/quad_common.h',
@@ -208,5 +213,5 @@ py.extension_module('_quaddtype_main',
   dependencies: dependencies,
   install: true,
   subdir: 'numpy_quaddtype',
-  include_directories: [includes, build_includes],
+  include_directories: [includes, build_includes, pythoncapi_includes],
 )
