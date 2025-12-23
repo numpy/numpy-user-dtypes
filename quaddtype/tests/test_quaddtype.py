@@ -554,7 +554,7 @@ def test_unsupported_astype(dtype):
           np.array(QuadPrecision(1)).astype(dtype, casting="unsafe")
 
 class TestArrayCastStringBytes:
-    @pytest.mark.parametrize("strtype", [np.str_, str])
+    @pytest.mark.parametrize("strtype", [np.str_, str, np.dtypes.StringDType()])
     @pytest.mark.parametrize("input_val", [
         "3.141592653589793238462643383279502884197",
         "2.71828182845904523536028747135266249775",
@@ -747,6 +747,27 @@ class TestArrayCastStringBytes:
         with pytest.raises(ValueError):
             bytes_array.astype(QuadPrecDType())
 
+    @pytest.mark.parametrize("strtype", [np.str_, np.dtypes.StringDType()])
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_string_backend_consistency(self, strtype, backend):
+        """Test that string parsing works consistently across backends"""
+        input_str = "3.141592653589793238462643383279502884197"
+        str_array = np.array([input_str], dtype=strtype)
+        quad_array = str_array.astype(QuadPrecDType(backend=backend))
+        scalar_val = QuadPrecision(input_str, backend=backend)
+        np.testing.assert_array_equal(quad_array, np.array([scalar_val], dtype=QuadPrecDType(backend=backend)))
+
+    @pytest.mark.parametrize("strtype", [np.str_, np.dtypes.StringDType()])
+    def test_string_large_array(self, strtype):
+        """Test conversion of large string array"""
+        str_values = [str(i * 0.001) for i in range(1000)]
+        str_array = np.array(str_values, dtype=strtype)
+        quad_array = str_array.astype(QuadPrecDType())
+        
+        assert quad_array.shape == (1000,)
+        np.testing.assert_array_equal(quad_array, np.array(str_values, dtype=QuadPrecDType()))
+
+
 class TestStringParsingEdgeCases:
     """Test edge cases in NumPyOS_ascii_strtoq string parsing"""
     @pytest.mark.parametrize("input_str", ['3.14', '-2.71', '0.0', '1e10', '-1e-10'])
@@ -783,9 +804,10 @@ class TestStringParsingEdgeCases:
         ("+INFINITY", 1),
         ("-INFINITY", -1),
     ])
-    def test_infinity_sign_preservation(self, input_str, expected_sign):
+    @pytest.mark.parametrize("strtype", ['U20', np.dtypes.StringDType()])
+    def test_infinity_sign_preservation(self, input_str, expected_sign, strtype):
         """Test that +/- signs are correctly applied to infinity values"""
-        arr = np.array([input_str], dtype='U20')
+        arr = np.array([input_str], dtype=strtype)
         result = arr.astype(QuadPrecDType())
         
         assert np.isinf(float(str(result[0]))), f"Expected inf for '{input_str}'"
@@ -800,9 +822,10 @@ class TestStringParsingEdgeCases:
         "NAN", "+NAN", "-NAN",
         "nan()", "nan(123)", "nan(abc_)", "NAN(XYZ)",
     ])
-    def test_nan_case_insensitive(self, input_str):
+    @pytest.mark.parametrize("strtype", ['U20', np.dtypes.StringDType()])
+    def test_nan_case_insensitive(self, input_str, strtype):
         """Test case-insensitive NaN parsing with optional payloads"""
-        arr = np.array([input_str], dtype='U20')
+        arr = np.array([input_str], dtype=strtype)
         result = arr.astype(QuadPrecDType())
         
         assert np.isnan(float(str(result[0]))), f"Expected NaN for '{input_str}'"
@@ -821,9 +844,10 @@ class TestStringParsingEdgeCases:
         ("+1.23e-45", 1.23e-45),
         ("-1.23e-45", -1.23e-45),
     ])
-    def test_numeric_sign_handling(self, input_str, expected_val):
+    @pytest.mark.parametrize("strtype", ['U20', np.dtypes.StringDType()])
+    def test_numeric_sign_handling(self, input_str, expected_val, strtype):
         """Test that +/- signs are correctly handled for numeric values"""
-        arr = np.array([input_str], dtype='U20')
+        arr = np.array([input_str], dtype=strtype)
         result = arr.astype(QuadPrecDType())
         
         result_val = float(str(result[0]))
@@ -848,9 +872,10 @@ class TestStringParsingEdgeCases:
         "\t-inf\t",
         "  nan  ",
     ])
-    def test_whitespace_handling(self, input_str):
+    @pytest.mark.parametrize("strtype", ['U20', np.dtypes.StringDType()])
+    def test_whitespace_handling(self, input_str, strtype):
         """Test that leading/trailing whitespace is handled correctly"""
-        arr = np.array([input_str], dtype='U20')
+        arr = np.array([input_str], dtype=strtype)
         result = arr.astype(QuadPrecDType())
         
         # Should not raise an error
@@ -870,9 +895,10 @@ class TestStringParsingEdgeCases:
         "na",            # Incomplete nan
         "infinit",       # Incomplete infinity
     ])
-    def test_invalid_strings_raise_error(self, invalid_str):
+    @pytest.mark.parametrize("strtype", ['U20', np.dtypes.StringDType()])
+    def test_invalid_strings_raise_error(self, invalid_str, strtype):
         """Test that invalid strings raise ValueError"""
-        arr = np.array([invalid_str], dtype='U20')
+        arr = np.array([invalid_str], dtype=strtype)
         
         with pytest.raises(ValueError):
             arr.astype(QuadPrecDType())
@@ -883,9 +909,10 @@ class TestStringParsingEdgeCases:
         "3.1€4",         # Mid non-ASCII
         "π",             # Greek pi
     ])
-    def test_non_ascii_raises_error(self, input_str):
+    @pytest.mark.parametrize("strtype", ['U20', np.dtypes.StringDType()])
+    def test_non_ascii_raises_error(self, input_str, strtype):
         """Test that non-ASCII characters raise ValueError"""
-        arr = np.array([input_str], dtype='U20')
+        arr = np.array([input_str], dtype=strtype)
         
         with pytest.raises(ValueError):
             arr.astype(QuadPrecDType())

@@ -1954,6 +1954,15 @@ Dragon4_Positional_QuadDType_opt(Sleef_quad *val, Dragon4_Options *opt)
     return ret;
 }
 
+const char *
+Dragon4_Positional_QuadDType_opt_cstr(Sleef_quad *val, Dragon4_Options *opt)
+{;
+    if (Dragon4_PrintFloat_Sleef_quad(val, opt) < 0) {
+        return NULL;
+    }
+    return _bigint_static.repr;
+}
+
 PyObject *
 Dragon4_Positional_QuadDType(Sleef_quad *val, DigitMode digit_mode, CutoffMode cutoff_mode,
                              int precision, int min_digits, int sign, TrimMode trim, int pad_left,
@@ -1975,6 +1984,27 @@ Dragon4_Positional_QuadDType(Sleef_quad *val, DigitMode digit_mode, CutoffMode c
     return Dragon4_Positional_QuadDType_opt(val, &opt);
 }
 
+const char *
+Dragon4_Positional_QuadDType_CStr(Sleef_quad *val, DigitMode digit_mode, CutoffMode cutoff_mode,
+                             int precision, int min_digits, int sign, TrimMode trim, int pad_left,
+                             int pad_right)
+{
+    Dragon4_Options opt;
+
+    opt.scientific = 0;
+    opt.digit_mode = digit_mode;
+    opt.cutoff_mode = cutoff_mode;
+    opt.precision = precision;
+    opt.min_digits = min_digits;
+    opt.sign = sign;
+    opt.trim_mode = trim;
+    opt.digits_left = pad_left;
+    opt.digits_right = pad_right;
+    opt.exp_digits = -1;
+
+    return Dragon4_Positional_QuadDType_opt_cstr(val, &opt);
+}
+
 PyObject *
 Dragon4_Scientific_QuadDType_opt(Sleef_quad *val, Dragon4_Options *opt)
 {
@@ -1984,6 +2014,15 @@ Dragon4_Scientific_QuadDType_opt(Sleef_quad *val, Dragon4_Options *opt)
     }
     ret = PyUnicode_FromString(_bigint_static.repr);
     return ret;
+}
+
+const char *
+Dragon4_Scientific_QuadDType_opt_cstr(Sleef_quad *val, Dragon4_Options *opt)
+{
+    if (Dragon4_PrintFloat_Sleef_quad(val, opt) < 0) {
+        return NULL;
+    }
+    return _bigint_static.repr;
 }
 
 PyObject *
@@ -2004,6 +2043,26 @@ Dragon4_Scientific_QuadDType(Sleef_quad *val, DigitMode digit_mode, int precisio
     opt.exp_digits = exp_digits;
 
     return Dragon4_Scientific_QuadDType_opt(val, &opt);
+}
+
+const char *
+Dragon4_Scientific_QuadDType_CStr(Sleef_quad *val, DigitMode digit_mode, int precision, int min_digits,
+                             int sign, TrimMode trim, int pad_left, int exp_digits)
+{
+    Dragon4_Options opt;
+
+    opt.scientific = 1;
+    opt.digit_mode = digit_mode;
+    opt.cutoff_mode = CutoffMode_TotalLength;
+    opt.precision = precision;
+    opt.min_digits = min_digits;
+    opt.sign = sign;
+    opt.trim_mode = trim;
+    opt.digits_left = pad_left;
+    opt.digits_right = -1;
+    opt.exp_digits = exp_digits;
+
+    return Dragon4_Scientific_QuadDType_opt_cstr(val, &opt);
 }
 
 PyObject *
