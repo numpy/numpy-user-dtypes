@@ -141,4 +141,5 @@ compile_commands.json
 # quaddtype
 /quaddtype/subprojects/qblas/
 /quaddtype/subprojects/sleef/
+/quaddtype/subprojects/pythoncapi-compat/
 .wraplock

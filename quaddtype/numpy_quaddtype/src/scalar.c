@@ -18,6 +18,7 @@
 #include "lock.h"
 #include "utilities.h"
 #include "constants.hpp"
+#include "pythoncapi_compat.h"
 
 
 QuadPrecisionObject *
@@ -638,20 +639,12 @@ static PyGetSetDef QuadPrecision_getset[] = {
  *   hash(QuadPrecision(1.0)) == hash(1.0) == hash(1)
  * 
  * The algorithm:
- * 1. Handle special cases: inf returns PYHASH_INF, nan uses pointer hash
+ * 1. Handle special cases: inf returns PyHASH_INF, nan uses pointer hash
  * 2. Extract mantissa m in [0.5, 1.0) and exponent e via frexp(v) = m * 2^e
  * 3. Process mantissa 28 bits at a time, accumulating into hash value x
- * 4. Adjust for exponent using bit rotation (since 2^PYHASH_BITS ≡ 1 mod P)
+ * 4. Adjust for exponent using bit rotation (since 2^PyHASH_BITS ≡ 1 mod P)
  * 5. Apply sign and handle the special case of -1 -> -2
  */
-
-#if SIZEOF_VOID_P >= 8
-#  define PYHASH_BITS 61
-#else
-#  define PYHASH_BITS 31
-#endif
-#define PYHASH_MODULUS (((Py_uhash_t)1 << PYHASH_BITS) - 1)
-#define PYHASH_INF 314159
 
 static Py_hash_t
 QuadPrecision_hash(QuadPrecisionObject *self)
@@ -669,14 +662,14 @@ QuadPrecision_hash(QuadPrecisionObject *self)
     // Check for NaN - use pointer hash (each NaN instance gets unique hash)
     // This prevents hash table catastrophic pileups from NaN instances
     if (Sleef_iunordq1(value, value)) {
-        return _Py_HashPointer((void *)self);
+        return Py_HashPointer((void *)self);
     }
     
     if (Sleef_icmpeqq1(value, QUAD_PRECISION_INF)) {
-        return PYHASH_INF;
+        return PyHASH_INF;
     }
     if (Sleef_icmpeqq1(value, QUAD_PRECISION_NINF)) {
-        return -PYHASH_INF;
+        return -PyHASH_INF;
     }
     
     // Handle sign
@@ -698,8 +691,8 @@ QuadPrecision_hash(QuadPrecisionObject *self)
     
     // Continue until mantissa becomes zero (all bits processed)
     while (Sleef_icmpneq1(mantissa, zero)) {
-        // Rotate x left by 28 bits within PYHASH_MODULUS
-        x = ((x << 28) & PYHASH_MODULUS) | (x >> (PYHASH_BITS - 28));
+        // Rotate x left by 28 bits within PyHASH_MODULUS
+        x = ((x << 28) & PyHASH_MODULUS) | (x >> (PyHASH_BITS - 28));
         
         // Scale mantissa by 2^28
         mantissa = Sleef_mulq1_u05(mantissa, multiplier);
@@ -714,19 +707,19 @@ QuadPrecision_hash(QuadPrecisionObject *self)
         
         // Accumulate
         x += y;
-        if (x >= PYHASH_MODULUS) {
-            x -= PYHASH_MODULUS;
+        if (x >= PyHASH_MODULUS) {
+            x -= PyHASH_MODULUS;
         }
     }
     
-    // Adjust for exponent: reduce e modulo PYHASH_BITS
-    // For negative exponents: PYHASH_BITS - 1 - ((-1 - e) % PYHASH_BITS)
+    // Adjust for exponent: reduce e modulo PyHASH_BITS
+    // For negative exponents: PyHASH_BITS - 1 - ((-1 - e) % PyHASH_BITS)
     int e = exponent >= 0 
-            ? exponent % PYHASH_BITS 
-            : PYHASH_BITS - 1 - ((-1 - exponent) % PYHASH_BITS);
+            ? exponent % PyHASH_BITS 
+            : PyHASH_BITS - 1 - ((-1 - exponent) % PyHASH_BITS);
     
     // Rotate x left by e bits
-    x = ((x << e) & PYHASH_MODULUS) | (x >> (PYHASH_BITS - e));
+    x = ((x << e) & PyHASH_MODULUS) | (x >> (PyHASH_BITS - e));
     
     // Apply sign
     x = x * sign;
