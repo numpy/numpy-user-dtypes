@@ -5258,7 +5258,7 @@ class TestQuadPrecisionHash:
         float_val = float(value)
         assert hash(quad_val) == hash(float_val)
 
-    @pytest.mark.parametrize("value", [0.1, 0.3, 0.7, 1.1, 2.3])
+    @pytest.mark.parametrize("value", [0.1, 0.3, 0.7, 1.1, 2.3, 1e300, 1e-300])
     def test_hash_matches_float_from_float(self, value):
         """Test that QuadPrecision created from float has same hash as that float.
         
@@ -5332,15 +5332,36 @@ class TestQuadPrecisionHash:
         assert d.get(1.0) == "one"
 
     @pytest.mark.parametrize("value", [
-        "1e-100", "-1e-100",
-        "1e100", "-1e100",
-        "1e-300", "-1e-300",
+        # Powers of 2 outside double range but within quad range
+        # Double max exponent is ~1024, quad max is ~16384
+        2**1100, 2**2000, 2**5000, 2**10000,
+        -(2**1100), -(2**2000),
+        # Small powers of 2 (subnormal in double, normal in quad)  
+        2**(-1100), 2**(-2000),
     ])
-    def test_hash_extreme_values(self, value):
-        """Test hash works for extreme values without errors."""
+    def test_hash_extreme_integers_outside_double_range(self, value):
+        """Test hash matches Python int for values outside double range.
+        
+        We use powers of 2 which are exactly representable in quad precision.
+        Since these integers are exact, hash(QuadPrecision(x)) must equal hash(x).
+        """
         quad_val = QuadPrecision(value)
-        h = hash(quad_val)
-        assert isinstance(h, int)
+        assert hash(quad_val) == hash(value)
+
+    @pytest.mark.parametrize("value", [
+        "1e500", "-1e500", "1e1000", "-1e1000", "1e-500", "-1e-500",
+        "1.23456789e500", "-9.87654321e-600",
+    ])
+    def test_hash_matches_mpmath(self, value):
+        """Test hash matches mpmath at quad precision (113 bits).
+        
+        mpmath with 113-bit precision represents the same value as QuadPrecision,
+        so their hashes must match.
+        """
+        mp.prec = 113
+        quad_val = QuadPrecision(value)
+        mpf_val = mp.mpf(value)
+        assert hash(quad_val) == hash(mpf_val)
 
     @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
     def test_hash_backends(self, backend):
