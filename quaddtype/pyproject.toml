@@ -55,3 +55,7 @@ strict_equality_for_none = true
 exclude = ["build", "numpy_quaddtype/src", "subprojects", "tests"]
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 warn_unreachable = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = ["subprojects", "build", ".mesonpy*"]
