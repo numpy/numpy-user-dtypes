@@ -629,8 +629,9 @@ static PyGetSetDef QuadPrecision_getset[] = {
  * Hash function for QuadPrecision scalars.
  * 
  * This implements the same algorithm as CPython's _Py_HashDouble, adapted for
- * quad precision (128-bit) floating point. The algorithm computes a hash based
+ * 128-bit floating point. The algorithm computes a hash based
  * on the reduction of the value modulo the prime P = 2**PYHASH_BITS - 1.
+ * https://github.com/python/cpython/blob/20b69aac0d19a5e5358362410d9710887762f0e7/Python/pyhash.c#L87
  * 
  * Key invariant: hash(x) == hash(y) whenever x and y are numerically equal,
  * even if x and y have different types. This ensures that:
