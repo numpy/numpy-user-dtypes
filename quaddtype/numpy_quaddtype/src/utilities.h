@@ -48,7 +48,7 @@ load(const char *ptr)
 // Store a value to memory, handling alignment
 template <bool Aligned, typename T>
 static inline void
-store(char *ptr, T val)
+store(char *ptr, const T &val)
 {
     if constexpr (Aligned) {
         *(T *)ptr = val;

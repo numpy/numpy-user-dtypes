@@ -26,6 +26,7 @@ extern "C" {
 #include "lock.h"
 #include "dragon4.h"
 #include "ops.hpp"
+#include "constants.hpp"
 
 #define NUM_CASTS 40  // 18 to_casts + 18 from_casts + 1 quad_to_quad + 1 void_to_quad
 #define QUAD_STR_WIDTH 50  // 42 is enough for scientific notation float128, just keeping some buffer
@@ -53,7 +54,7 @@ quad_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self),
         // Different backends require actual conversion, no view possible
         *view_offset = NPY_MIN_INTP;
         if (given_descrs[0]->backend == BACKEND_SLEEF) {
-            return NPY_UNSAFE_CASTING;  // SLEEF -> long double may lose precision
+            return NPY_SAME_KIND_CASTING;  // SLEEF -> long double may lose precision
         }
         // long double -> SLEEF preserves value exactly
         return static_cast<NPY_CASTING>(NPY_SAFE_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
@@ -63,10 +64,11 @@ quad_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self),
     return NPY_NO_CASTING;
 }
 
+template <bool Aligned>
 static int
-quad_to_quad_strided_loop_unaligned(PyArrayMethod_Context *context, char *const data[],
-                                    npy_intp const dimensions[], npy_intp const strides[],
-                                    void *NPY_UNUSED(auxdata))
+quad_to_quad_strided_loop(PyArrayMethod_Context *context, char *const data[],
+                          npy_intp const dimensions[], npy_intp const strides[],
+                          void *NPY_UNUSED(auxdata))
 {
     npy_intp N = dimensions[0];
     char *in_ptr = data[0];
@@ -76,91 +78,47 @@ quad_to_quad_strided_loop_unaligned(PyArrayMethod_Context *context, char *const 
 
     QuadPrecDTypeObject *descr_in = (QuadPrecDTypeObject *)context->descriptors[0];
     QuadPrecDTypeObject *descr_out = (QuadPrecDTypeObject *)context->descriptors[1];
+    QuadBackendType backend_in = descr_in->backend;
+    QuadBackendType backend_out = descr_out->backend;
 
     // inter-backend casting
-    if (descr_in->backend != descr_out->backend) {
+    if (backend_in != backend_out) {
         while (N--) {
-            quad_value in_val, out_val;
-            if (descr_in->backend == BACKEND_SLEEF) {
-                memcpy(&in_val.sleef_value, in_ptr, sizeof(Sleef_quad));
-                out_val.longdouble_value = Sleef_cast_to_doubleq1(in_val.sleef_value);
+            quad_value in_val = load_quad<Aligned>(in_ptr, backend_in);
+            if (backend_in == BACKEND_SLEEF) 
+            {
+              long double res = Sleef_cast_to_doubleq1(in_val.sleef_value);
+              store<Aligned>(out_ptr, res);
             }
-            else {
-                memcpy(&in_val.longdouble_value, in_ptr, sizeof(long double));
-                out_val.sleef_value = Sleef_cast_from_doubleq1(in_val.longdouble_value);
+            else 
+            {
+              Sleef_quad res;
+              long double ld = in_val.longdouble_value;
+              if (std::isnan(ld)) {
+                  res = QUAD_PRECISION_NAN;
+              }
+              else if (std::isinf(ld)) {
+                  res = (ld > 0) ? QUAD_PRECISION_INF : QUAD_PRECISION_NINF;
+              }
+              else 
+              {
+                  res = Sleef_cast_from_doubleq1(static_cast<double>(ld));
+              }
+              store<Aligned>(out_ptr, res);
             }
-            memcpy(out_ptr, &out_val,
-                   (descr_out->backend == BACKEND_SLEEF) ? sizeof(Sleef_quad)
-                                                         : sizeof(long double));
             in_ptr += in_stride;
             out_ptr += out_stride;
         }
-
         return 0;
     }
 
-    size_t elem_size =
-            (descr_in->backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
-
+    // same backend: direct copy
     while (N--) {
-        memcpy(out_ptr, in_ptr, elem_size);
+        quad_value val = load_quad<Aligned>(in_ptr, backend_in);
+        store_quad<Aligned>(out_ptr, val, backend_out);
         in_ptr += in_stride;
         out_ptr += out_stride;
     }
-    return 0;
-}
-
-static int
-quad_to_quad_strided_loop_aligned(PyArrayMethod_Context *context, char *const data[],
-                                  npy_intp const dimensions[], npy_intp const strides[],
-                                  void *NPY_UNUSED(auxdata))
-{
-    npy_intp N = dimensions[0];
-    char *in_ptr = data[0];
-    char *out_ptr = data[1];
-    npy_intp in_stride = strides[0];
-    npy_intp out_stride = strides[1];
-
-    QuadPrecDTypeObject *descr_in = (QuadPrecDTypeObject *)context->descriptors[0];
-    QuadPrecDTypeObject *descr_out = (QuadPrecDTypeObject *)context->descriptors[1];
-
-    // inter-backend casting
-    if (descr_in->backend != descr_out->backend) {
-        if (descr_in->backend == BACKEND_SLEEF) {
-            while (N--) {
-                Sleef_quad in_val = *(Sleef_quad *)in_ptr;
-                *(long double *)out_ptr = Sleef_cast_to_doubleq1(in_val);
-                in_ptr += in_stride;
-                out_ptr += out_stride;
-            }
-        }
-        else {
-            while (N--) {
-                long double in_val = *(long double *)in_ptr;
-                *(Sleef_quad *)out_ptr = Sleef_cast_from_doubleq1(in_val);
-                in_ptr += in_stride;
-                out_ptr += out_stride;
-            }
-        }
-
-        return 0;
-    }
-
-    if (descr_in->backend == BACKEND_SLEEF) {
-        while (N--) {
-            *(Sleef_quad *)out_ptr = *(Sleef_quad *)in_ptr;
-            in_ptr += in_stride;
-            out_ptr += out_stride;
-        }
-    }
-    else {
-        while (N--) {
-            *(long double *)out_ptr = *(long double *)in_ptr;
-            in_ptr += in_stride;
-            out_ptr += out_stride;
-        }
-    }
-
     return 0;
 }
 
@@ -1447,8 +1405,8 @@ init_casts_internal(void)
     PyArray_DTypeMeta **quad2quad_dtypes = new PyArray_DTypeMeta *[2]{nullptr, nullptr};
     PyType_Slot *quad2quad_slots = new PyType_Slot[4]{
             {NPY_METH_resolve_descriptors, (void *)&quad_to_quad_resolve_descriptors},
-            {NPY_METH_strided_loop, (void *)&quad_to_quad_strided_loop_aligned},
-            {NPY_METH_unaligned_strided_loop, (void *)&quad_to_quad_strided_loop_unaligned},
+            {NPY_METH_strided_loop, (void *)&quad_to_quad_strided_loop<true>},
+            {NPY_METH_unaligned_strided_loop, (void *)&quad_to_quad_strided_loop<false>},
             {0, nullptr}};
 
     PyArrayMethod_Spec *quad2quad_spec = new PyArrayMethod_Spec{
