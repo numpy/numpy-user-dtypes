@@ -15,6 +15,7 @@ extern "C" {
 }
 #include <cstring>
 #include <cstdlib>
+#include <type_traits>
 #include "sleef.h"
 #include "sleefquad.h"
 
@@ -169,7 +170,7 @@ unicode_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMet
         loop_descrs[1] = given_descrs[1];
     }
 
-    return NPY_UNSAFE_CASTING;
+    return static_cast<NPY_CASTING>(NPY_UNSAFE_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
 }
 
 // Helper function: Convert UCS4 string to quad_value
@@ -293,9 +294,9 @@ quad_to_unicode_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMet
 
     // If target descriptor is wide enough, it's a safe cast
     if (loop_descrs[1]->elsize >= required_size_bytes) {
-        return NPY_SAFE_CASTING;
+        return static_cast<NPY_CASTING>(NPY_SAFE_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
     }
-    return NPY_SAME_KIND_CASTING;
+    return static_cast<NPY_CASTING>(NPY_SAME_KIND_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
 }
 
 // Helper function: Convert quad to string with adaptive notation
@@ -441,7 +442,7 @@ bytes_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta 
         loop_descrs[1] = given_descrs[1];
     }
 
-    return NPY_UNSAFE_CASTING;
+    return static_cast<NPY_CASTING>(NPY_UNSAFE_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
 }
 
 // Helper function: Convert bytes string to quad_value
@@ -552,9 +553,9 @@ quad_to_bytes_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta 
 
     // If target descriptor is wide enough, it's a safe cast
     if (loop_descrs[1]->elsize >= required_size_bytes) {
-        return NPY_SAFE_CASTING;
+        return static_cast<NPY_CASTING>(NPY_SAFE_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
     }
-    return NPY_SAME_KIND_CASTING;
+    return static_cast<NPY_CASTING>(NPY_UNSAFE_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
 }
 
 template <bool Aligned>
@@ -620,7 +621,7 @@ stringdtype_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTyp
     Py_INCREF(given_descrs[0]);
     loop_descrs[0] = given_descrs[0];
 
-    return NPY_UNSAFE_CASTING;
+    return static_cast<NPY_CASTING>(NPY_UNSAFE_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
 }
 
 // Note: StringDType elements are always aligned, so Aligned template parameter
@@ -704,7 +705,7 @@ quad_to_stringdtype_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTyp
     Py_INCREF(given_descrs[0]);
     loop_descrs[0] = given_descrs[0];
 
-    return NPY_SAFE_CASTING;
+    return static_cast<NPY_CASTING>(NPY_SAFE_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
 }
 
 // Note: StringDType elements are always aligned, so Aligned template parameter
@@ -1228,6 +1229,36 @@ from_quad<long double>(quad_value x, QuadBackendType backend)
 }
 
 template <typename T>
+static inline int quad_to_numpy_same_value_check(quad_value x, QuadBackendType backend, typename NpyType<T>::TYPE *y)
+{
+    *y = from_quad<T>(x, backend);
+    quad_value roundtrip = to_quad<T>(*y, backend);
+    if(backend == BACKEND_SLEEF) {
+        if(Sleef_icmpeqq1(x.sleef_value, roundtrip.sleef_value))
+            return 1;
+    }
+    else {
+        if(x.longdouble_value == roundtrip.longdouble_value)
+            return 1;
+    }
+    PyErr_SetString(PyExc_ValueError, "could not cast 'same_value' to QuadType");
+    return -1;
+}
+
+// Type trait to check if a type is a floating-point type for casting purposes
+template <typename T>
+struct is_float_type : std::false_type {};
+
+template <>
+struct is_float_type<spec_npy_half> : std::true_type {};
+template <>
+struct is_float_type<float> : std::true_type {};
+template <>
+struct is_float_type<double> : std::true_type {};
+template <>
+struct is_float_type<long double> : std::true_type {};
+
+template <typename T>
 static NPY_CASTING
 quad_to_numpy_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta *dtypes[2],
                                   PyArray_Descr *given_descrs[2], PyArray_Descr *loop_descrs[2],
@@ -1237,7 +1268,13 @@ quad_to_numpy_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta 
     loop_descrs[0] = given_descrs[0];
 
     loop_descrs[1] = PyArray_GetDefaultDescr(dtypes[1]);
-    return NPY_UNSAFE_CASTING;
+    // For floating-point types: same_kind casting (precision loss but same kind)
+    if constexpr (is_float_type<T>::value) {
+        return static_cast<NPY_CASTING>(NPY_SAME_KIND_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
+    } else {
+        // For integer/bool types: unsafe casting (cross-kind conversion)
+        return static_cast<NPY_CASTING>(NPY_UNSAFE_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
+    }
 }
 
 template <bool Aligned, typename T>
@@ -1252,7 +1289,22 @@ quad_to_numpy_strided_loop(PyArrayMethod_Context *context, char *const data[],
 
     QuadPrecDTypeObject *quad_descr = (QuadPrecDTypeObject *)context->descriptors[0];
     QuadBackendType backend = quad_descr->backend;
+    int same_value_casting = ((context->flags & NPY_SAME_VALUE_CONTEXT_FLAG) == NPY_SAME_VALUE_CONTEXT_FLAG);
 
+    if (same_value_casting) {
+        while (N--) {
+            quad_value in_val = load_quad<Aligned>(in_ptr, backend);
+            typename NpyType<T>::TYPE out_val;
+            int ret = quad_to_numpy_same_value_check<T>(in_val, backend, &out_val);
+            if(ret < 0)
+                return -1;
+            store<Aligned, typename NpyType<T>::TYPE>(out_ptr, out_val);
+
+            in_ptr += strides[0];
+            out_ptr += strides[1];
+        }
+        return 0;
+    }
     while (N--) {
         quad_value in_val = load_quad<Aligned>(in_ptr, backend);
         typename NpyType<T>::TYPE out_val = from_quad<T>(in_val, backend);

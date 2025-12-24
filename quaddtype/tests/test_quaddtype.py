@@ -5400,3 +5400,11 @@ def test_quad_to_quad_backend_casting(src_backend, dst_backend, value):
       np.testing.assert_array_equal(dst_arr, res_arr)
 
 
+def test_same_value_cast():
+    a = np.arange(30, dtype=np.float32)
+    # upcasting can never fail
+    b = a.astype(QuadPrecision, casting='same_value')
+    c = b.astype(np.float32, casting='same_value')
+    assert np.all(c == a)
+    with pytest.raises(ValueError, match="could not cast 'same_value'"):
+        (b + 1e22).astype(np.float32, casting='same_value')
