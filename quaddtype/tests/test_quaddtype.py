@@ -5229,3 +5229,142 @@ class TestBinaryOpsEdgeCases:
         
         assert result_yx == result_xy, f"0 + x = {result_yx}, but x + 0 = {result_xy}"
         assert result_yx == x, f"0 + x = {result_yx}, expected {x}"
+
+
+class TestQuadPrecisionHash:
+    """Test suite for QuadPrecision hash function.
+    
+    The hash implementation follows CPython's _Py_HashDouble algorithm to ensure
+    the invariant: hash(x) == hash(y) when x and y are numerically equal,
+    even across different types.
+    """
+
+    @pytest.mark.parametrize("value", [
+        # Values that are exactly representable in binary floating point
+        "0.0", "1.0", "-1.0", "2.0", "-2.0",
+        "0.5", "0.25", "1.5", "-0.5",
+        "100.0", "-100.0",
+        # Powers of 2 are exactly representable
+        "0.125", "0.0625", "4.0", "8.0",
+    ])
+    def test_hash_matches_float(self, value):
+        """Test that hash(QuadPrecision) == hash(float) for exactly representable values.
+        
+        Note: Only values that are exactly representable in both float64 and float128
+        should match. Values like 0.1, 0.3 will have different hashes because they
+        have different binary representations at different precisions.
+        """
+        quad_val = QuadPrecision(value)
+        float_val = float(value)
+        assert hash(quad_val) == hash(float_val)
+
+    @pytest.mark.parametrize("value", [0.1, 0.3, 0.7, 1.1, 2.3, 1e300, 1e-300])
+    def test_hash_matches_float_from_float(self, value):
+        """Test that QuadPrecision created from float has same hash as that float.
+        
+        When creating QuadPrecision from a Python float, the value is converted
+        from the float's double precision representation, so they should be
+        numerically equal and have the same hash.
+        """
+        quad_val = QuadPrecision(value)  # Created from float, not string
+        assert hash(quad_val) == hash(value)
+
+    @pytest.mark.parametrize("value", [0, 1, -1, 2, -2, 100, -100, 1000, -1000])
+    def test_hash_matches_int(self, value):
+        """Test that hash(QuadPrecision) == hash(int) for integer values."""
+        quad_val = QuadPrecision(value)
+        assert hash(quad_val) == hash(value)
+
+    def test_hash_matches_large_int(self):
+        """Test that hash(QuadPrecision) == hash(int) for large integers."""
+        big_int = 10**20
+        quad_val = QuadPrecision(str(big_int))
+        assert hash(quad_val) == hash(big_int)
+
+    def test_hash_infinity(self):
+        """Test that infinity hash matches Python's float infinity hash."""
+        assert hash(QuadPrecision("inf")) == hash(float("inf"))
+        assert hash(QuadPrecision("-inf")) == hash(float("-inf"))
+        # Standard PyHASH_INF values
+        assert hash(QuadPrecision("inf")) == 314159
+        assert hash(QuadPrecision("-inf")) == -314159
+
+    def test_hash_nan_unique(self):
+        """Test that each NaN instance gets a unique hash (pointer-based)."""
+        nan1 = QuadPrecision("nan")
+        nan2 = QuadPrecision("nan")
+        # NaN instances should have different hashes (based on object identity)
+        assert hash(nan1) != hash(nan2)
+
+    def test_hash_nan_same_instance(self):
+        """Test that the same NaN instance has consistent hash."""
+        nan = QuadPrecision("nan")
+        assert hash(nan) == hash(nan)
+
+    def test_hash_negative_one(self):
+        """Test that hash(-1) returns -2 (Python's hash convention)."""
+        # In Python, hash(-1) returns -2 because -1 is reserved for errors
+        assert hash(QuadPrecision(-1.0)) == -2
+        assert hash(QuadPrecision("-1.0")) == -2
+
+    def test_hash_set_membership(self):
+        """Test that QuadPrecision values work correctly in sets."""
+        vals = [QuadPrecision(1.0), QuadPrecision(2.0), QuadPrecision(1.0)]
+        unique_set = set(vals)
+        assert len(unique_set) == 2
+
+    def test_hash_set_cross_type(self):
+        """Test that QuadPrecision and float with same value are in same set bucket."""
+        s = {QuadPrecision(1.0)}
+        s.add(1.0)
+        assert len(s) == 1
+
+    def test_hash_dict_key(self):
+        """Test that QuadPrecision values work as dict keys."""
+        d = {QuadPrecision(1.0): "one", QuadPrecision(2.0): "two"}
+        assert d[QuadPrecision(1.0)] == "one"
+        assert d[QuadPrecision(2.0)] == "two"
+
+    def test_hash_dict_cross_type_lookup(self):
+        """Test that dict lookup works with float keys when hash matches."""
+        d = {QuadPrecision(1.0): "one"}
+        # Float lookup should work if hash and eq both work
+        assert d.get(1.0) == "one"
+
+    @pytest.mark.parametrize("value", [
+        # Powers of 2 outside double range but within quad range
+        # Double max exponent is ~1024, quad max is ~16384
+        2**1100, 2**2000, 2**5000, 2**10000,
+        -(2**1100), -(2**2000),
+        # Small powers of 2 (subnormal in double, normal in quad)  
+        2**(-1100), 2**(-2000),
+    ])
+    def test_hash_extreme_integers_outside_double_range(self, value):
+        """Test hash matches Python int for values outside double range.
+        
+        We use powers of 2 which are exactly representable in quad precision.
+        Since these integers are exact, hash(QuadPrecision(x)) must equal hash(x).
+        """
+        quad_val = QuadPrecision(value)
+        assert hash(quad_val) == hash(value)
+
+    @pytest.mark.parametrize("value", [
+        "1e500", "-1e500", "1e1000", "-1e1000", "1e-500", "-1e-500",
+        "1.23456789e500", "-9.87654321e-600",
+    ])
+    def test_hash_matches_mpmath(self, value):
+        """Test hash matches mpmath at quad precision (113 bits).
+        
+        mpmath with 113-bit precision represents the same value as QuadPrecision,
+        so their hashes must match.
+        """
+        mp.prec = 113
+        quad_val = QuadPrecision(value)
+        mpf_val = mp.mpf(value)
+        assert hash(quad_val) == hash(mpf_val)
+
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_hash_backends(self, backend):
+        """Test hash works for both backends."""
+        quad_val = QuadPrecision(1.5, backend=backend)
+        assert hash(quad_val) == hash(1.5)
