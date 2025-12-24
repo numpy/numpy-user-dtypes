@@ -1014,39 +1014,11 @@ numpy_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta 
     return static_cast<NPY_CASTING>(NPY_SAFE_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
 }
 
-template <typename T>
+template <bool Aligned, typename T>
 static int
-numpy_to_quad_strided_loop_unaligned(PyArrayMethod_Context *context, char *const data[],
-                                     npy_intp const dimensions[], npy_intp const strides[],
-                                     void *NPY_UNUSED(auxdata))
-{
-    npy_intp N = dimensions[0];
-    char *in_ptr = data[0];
-    char *out_ptr = data[1];
-
-    QuadPrecDTypeObject *descr_out = (QuadPrecDTypeObject *)context->descriptors[1];
-    QuadBackendType backend = descr_out->backend;
-    size_t elem_size = (backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
-
-    while (N--) {
-        typename NpyType<T>::TYPE in_val;
-        quad_value out_val;
-
-        memcpy(&in_val, in_ptr, sizeof(typename NpyType<T>::TYPE));
-        out_val = to_quad<T>(in_val, backend);
-        memcpy(out_ptr, &out_val, elem_size);
-
-        in_ptr += strides[0];
-        out_ptr += strides[1];
-    }
-    return 0;
-}
-
-template <typename T>
-static int
-numpy_to_quad_strided_loop_aligned(PyArrayMethod_Context *context, char *const data[],
-                                   npy_intp const dimensions[], npy_intp const strides[],
-                                   void *NPY_UNUSED(auxdata))
+numpy_to_quad_strided_loop(PyArrayMethod_Context *context, char *const data[],
+                           npy_intp const dimensions[], npy_intp const strides[],
+                           void *NPY_UNUSED(auxdata))
 {
     npy_intp N = dimensions[0];
     char *in_ptr = data[0];
@@ -1056,15 +1028,9 @@ numpy_to_quad_strided_loop_aligned(PyArrayMethod_Context *context, char *const d
     QuadBackendType backend = descr_out->backend;
 
     while (N--) {
-        typename NpyType<T>::TYPE in_val = *(typename NpyType<T>::TYPE *)in_ptr;
+        typename NpyType<T>::TYPE in_val = load<Aligned, typename NpyType<T>::TYPE>(in_ptr);
         quad_value out_val = to_quad<T>(in_val, backend);
-
-        if (backend == BACKEND_SLEEF) {
-            *(Sleef_quad *)(out_ptr) = out_val.sleef_value;
-        }
-        else {
-            *(long double *)(out_ptr) = out_val.longdouble_value;
-        }
+        store_quad<Aligned>(out_ptr, out_val, backend);
 
         in_ptr += strides[0];
         out_ptr += strides[1];
@@ -1274,39 +1240,11 @@ quad_to_numpy_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta 
     return NPY_UNSAFE_CASTING;
 }
 
-template <typename T>
+template <bool Aligned, typename T>
 static int
-quad_to_numpy_strided_loop_unaligned(PyArrayMethod_Context *context, char *const data[],
-                                     npy_intp const dimensions[], npy_intp const strides[],
-                                     void *NPY_UNUSED(auxdata))
-{
-    npy_intp N = dimensions[0];
-    char *in_ptr = data[0];
-    char *out_ptr = data[1];
-
-    QuadPrecDTypeObject *quad_descr = (QuadPrecDTypeObject *)context->descriptors[0];
-    QuadBackendType backend = quad_descr->backend;
-
-    size_t elem_size = (backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
-
-    while (N--) {
-        quad_value in_val;
-        memcpy(&in_val, in_ptr, elem_size);
-
-        typename NpyType<T>::TYPE out_val = from_quad<T>(in_val, backend);
-        memcpy(out_ptr, &out_val, sizeof(typename NpyType<T>::TYPE));
-
-        in_ptr += strides[0];
-        out_ptr += strides[1];
-    }
-    return 0;
-}
-
-template <typename T>
-static int
-quad_to_numpy_strided_loop_aligned(PyArrayMethod_Context *context, char *const data[],
-                                   npy_intp const dimensions[], npy_intp const strides[],
-                                   void *NPY_UNUSED(auxdata))
+quad_to_numpy_strided_loop(PyArrayMethod_Context *context, char *const data[],
+                           npy_intp const dimensions[], npy_intp const strides[],
+                           void *NPY_UNUSED(auxdata))
 {
     npy_intp N = dimensions[0];
     char *in_ptr = data[0];
@@ -1316,16 +1254,9 @@ quad_to_numpy_strided_loop_aligned(PyArrayMethod_Context *context, char *const d
     QuadBackendType backend = quad_descr->backend;
 
     while (N--) {
-        quad_value in_val;
-        if (backend == BACKEND_SLEEF) {
-            in_val.sleef_value = *(Sleef_quad *)in_ptr;
-        }
-        else {
-            in_val.longdouble_value = *(long double *)in_ptr;
-        }
-
+        quad_value in_val = load_quad<Aligned>(in_ptr, backend);
         typename NpyType<T>::TYPE out_val = from_quad<T>(in_val, backend);
-        *(typename NpyType<T>::TYPE *)(out_ptr) = out_val;
+        store<Aligned, typename NpyType<T>::TYPE>(out_ptr, out_val);
 
         in_ptr += strides[0];
         out_ptr += strides[1];
@@ -1358,8 +1289,8 @@ add_cast_from(PyArray_DTypeMeta *to)
 
     PyType_Slot *slots = new PyType_Slot[]{
             {NPY_METH_resolve_descriptors, (void *)&quad_to_numpy_resolve_descriptors<T>},
-            {NPY_METH_strided_loop, (void *)&quad_to_numpy_strided_loop_aligned<T>},
-            {NPY_METH_unaligned_strided_loop, (void *)&quad_to_numpy_strided_loop_unaligned<T>},
+            {NPY_METH_strided_loop, (void *)&quad_to_numpy_strided_loop<true, T>},
+            {NPY_METH_unaligned_strided_loop, (void *)&quad_to_numpy_strided_loop<false, T>},
             {0, nullptr}};
 
     PyArrayMethod_Spec *spec = new PyArrayMethod_Spec{
@@ -1382,8 +1313,8 @@ add_cast_to(PyArray_DTypeMeta *from)
 
     PyType_Slot *slots = new PyType_Slot[]{
             {NPY_METH_resolve_descriptors, (void *)&numpy_to_quad_resolve_descriptors<T>},
-            {NPY_METH_strided_loop, (void *)&numpy_to_quad_strided_loop_aligned<T>},
-            {NPY_METH_unaligned_strided_loop, (void *)&numpy_to_quad_strided_loop_unaligned<T>},
+            {NPY_METH_strided_loop, (void *)&numpy_to_quad_strided_loop<true, T>},
+            {NPY_METH_unaligned_strided_loop, (void *)&numpy_to_quad_strided_loop<false, T>},
             {0, nullptr}};
 
     PyArrayMethod_Spec *spec = new PyArrayMethod_Spec{
