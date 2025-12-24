@@ -36,25 +36,31 @@ quad_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self),
                                  QuadPrecDTypeObject *given_descrs[2],
                                  QuadPrecDTypeObject *loop_descrs[2], npy_intp *view_offset)
 {
-    NPY_CASTING casting = NPY_NO_CASTING;
-
     Py_INCREF(given_descrs[0]);
     loop_descrs[0] = given_descrs[0];
 
     if (given_descrs[1] == NULL) {
         Py_INCREF(given_descrs[0]);
         loop_descrs[1] = given_descrs[0];
+        *view_offset = 0;
+        return NPY_NO_CASTING;
     }
-    else {
-        Py_INCREF(given_descrs[1]);
-        loop_descrs[1] = given_descrs[1];
-        if (given_descrs[0]->backend != given_descrs[1]->backend) {
-            casting = NPY_UNSAFE_CASTING;
+
+    Py_INCREF(given_descrs[1]);
+    loop_descrs[1] = given_descrs[1];
+
+    if (given_descrs[0]->backend != given_descrs[1]->backend) {
+        // Different backends require actual conversion, no view possible
+        *view_offset = NPY_MIN_INTP;
+        if (given_descrs[0]->backend == BACKEND_SLEEF) {
+            return NPY_UNSAFE_CASTING;  // SLEEF -> long double may lose precision
         }
+        // long double -> SLEEF preserves value exactly
+        return static_cast<NPY_CASTING>(NPY_SAFE_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
     }
 
     *view_offset = 0;
-    return casting;
+    return NPY_NO_CASTING;
 }
 
 static int
