@@ -5502,14 +5502,14 @@ class TestSameValueCasting:
     def test_same_value_cast_floats_precision_loss(self, dtype):
         """Test values that cannot be represented exactly and should fail."""
         import sys
-        if dtype == np.longdouble and sys.byteorder == 'big':
-            pytest.skip("longdouble precision loss test skipped on big-endian systems")
-
         from decimal import Decimal, getcontext
 
         getcontext().prec = 50  # plenty for quad precision
         info = np.finfo(dtype)
         nmant = info.nmant  # 10 for f16, 23 for f32, 52 for f64
+
+        if dtype == np.longdouble and nmant >= 112:
+          pytest.skip("longdouble has same precision as quad on this platform")
         
         # First odd integer beyond exact representability
         first_bad_int = 2 ** (nmant + 1) + 1
