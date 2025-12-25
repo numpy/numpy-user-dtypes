@@ -66,6 +66,14 @@ quad_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self),
     return NPY_NO_CASTING;
 }
 
+static inline int
+quad_to_quad_same_value_check(const quad_value *in_val, QuadBackendType backend_in,
+                              const quad_value *out_val, QuadBackendType backend_out)
+{
+  // convert output back to input backend for comparison
+  return 1;
+}
+
 template <bool Aligned>
 static int
 quad_to_quad_strided_loop(PyArrayMethod_Context *context, char *const data[],
@@ -111,6 +119,15 @@ quad_to_quad_strided_loop(PyArrayMethod_Context *context, char *const data[],
                   std::memcpy(&out_val.sleef_value, &temp, sizeof(Sleef_quad));
               }
             }
+
+            if(same_value_casting)
+            {
+              int ret = quad_to_quad_same_value_check(&in_val, backend_in, &out_val, backend_out);
+              if (ret < 0) {
+                  return -1;
+              }
+            }
+
             store_quad<Aligned>(out_ptr, &out_val, backend_out);
             in_ptr += in_stride;
             out_ptr += out_stride;
