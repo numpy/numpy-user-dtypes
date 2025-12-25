@@ -5477,9 +5477,18 @@ class TestSameValueCasting:
         passing_values = [
             1.0, -1.0, 0.5, -0.5, 0.25, -0.25,
             2.0, 4.0, 8.0,                          # powers of 2
-            info.tiny,                       # min positive normal
             2 ** info.nmant,                 # largest consecutive integer
         ]
+        
+        # For longdouble on x86-64, info.tiny can be ~3.36e-4932, which is outside
+        # the double range (~2.2e-308). Since SLEEF backend converts quad <-> longdouble
+        # via double (Sleef_cast_to/from_doubleq1), values outside double's range
+        # cannot roundtrip correctly. Use double's tiny for longdouble in this case.
+        double_info = np.finfo(np.float64)
+        if dtype == np.longdouble and info.tiny < double_info.tiny:
+            passing_values.append(double_info.tiny)
+        else:
+            passing_values.append(info.tiny)
         
         for val in passing_values:
             # Ensure the value is representable in the target dtype first
