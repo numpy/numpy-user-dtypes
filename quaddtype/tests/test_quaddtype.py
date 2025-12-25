@@ -5399,12 +5399,78 @@ def test_quad_to_quad_backend_casting(src_backend, dst_backend, value):
     else:
       np.testing.assert_array_equal(dst_arr, res_arr)
 
+class TestSameValueCasting:
+    """Test 'same_value' casting behavior for QuadPrecision."""
+    def test_same_value_cast(self):
+        a = np.arange(30, dtype=np.float32)
+        # upcasting can never fail
+        b = a.astype(QuadPrecision, casting='same_value')
+        c = b.astype(np.float32, casting='same_value')
+        assert np.all(c == a)
+        with pytest.raises(ValueError, match="could not cast 'same_value'"):
+            (b + 1e22).astype(np.float32, casting='same_value')
 
-def test_same_value_cast():
-    a = np.arange(30, dtype=np.float32)
-    # upcasting can never fail
-    b = a.astype(QuadPrecision, casting='same_value')
-    c = b.astype(np.float32, casting='same_value')
-    assert np.all(c == a)
-    with pytest.raises(ValueError, match="could not cast 'same_value'"):
-        (b + 1e22).astype(np.float32, casting='same_value')
+    
+    @pytest.mark.parametrize("dtype,passing,failing", [
+    # bool: only 0 and 1 are valid
+    ("bool", [0, 1], [2, -1, 0.5]),
+    
+    # int8: [-128, 127]
+    ("int8", [-128, 0, 127], [-129, 128, 1.5]),
+    
+    # uint8: [0, 255]
+    ("uint8", [0, 255], [-1, 256, 2.5]),
+    
+    # int16: [-32768, 32767]
+    ("int16", [-32768, 0, 32767], [-32769, 32768, 0.1]),
+    
+    # uint16: [0, 65535]
+    ("uint16", [0, 65535], [-1, 65536]),
+    
+    # int32: [-2^31, 2^31-1]
+    ("int32", [-2**31, 0, 2**31 - 1], [-2**31 - 1, 2**31]),
+    
+    # uint32: [0, 2^32-1]
+    ("uint32", [0, 2**32 - 1], [-1, 2**32]),
+    
+    # int64: [-2^63, 2^63-1]
+    ("int64", [-2**63, 0, 2**63 - 1], [-2**63 - 1, 2**63]),
+    
+    # uint64: [0, 2^64-1]
+    ("uint64", [0, 2**64 - 1], [-1, 2**64]),
+    ])
+    def test_same_value_cast_quad_to_int(self, dtype, passing, failing):
+        """A 128-bit float can represent all consecutive integers exactly up to 2^113"""
+        for val in passing:
+            q = np.array([val], dtype=QuadPrecDType())
+            result = q.astype(dtype, casting="same_value")
+            assert result == val
+    
+        for val in failing:
+            q = np.array([val], dtype=QuadPrecDType())
+            with pytest.raises(ValueError, match="could not cast 'same_value'"):
+                q.astype(dtype, casting="same_value")
+
+    @pytest.mark.parametrize("dtype", ["half", "float16",
+    "float", "float32",
+    "double", "float64",
+    "longdouble",])
+    @pytest.mark.parametrize("values", [
+        
+    ])
+    def test_same_value_cast_floats(self, dtype, values):
+        pass
+
+    @pytest.mark.parametrize("dtype", [
+    "S50", "U50", "<U50", ">U50", "S100", "U100", "<U100", ">U100", np.dtypes.StringDType()])
+    @pytest.mark.parametrize("values", [
+    ])
+    def test_same_value_cast_strings_enough_width(self, dtype, values):
+        pass
+
+    @pytest.mark.parametrize("dtype", [
+    "S20", "U20", "<U20", ">U20"])
+    @pytest.mark.parametrize("values", [
+    ])
+    def test_same_value_cast_strings_small_width(self, dtype, values):
+        pass
