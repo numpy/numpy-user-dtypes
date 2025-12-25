@@ -428,8 +428,7 @@ quad_to_string_same_value_check(const quad_value *in_val, const char *str_buf, n
     }
     
     // Values don't match - the string width is too narrow for exact representation
-    // Sleef_quad sleef_val = quad_to_sleef_quad(&in_val, backend);
-    Sleef_quad sleef_val = in_val->sleef_value;
+    Sleef_quad sleef_val = quad_to_sleef_quad(in_val, backend);
     const char *val_str = quad_to_string_adaptive_cstr(&sleef_val, QUAD_STR_WIDTH);
     if (val_str != NULL) {
         PyErr_Format(PyExc_ValueError,
@@ -1347,8 +1346,7 @@ static inline int quad_to_numpy_same_value_check(const quad_value *x, QuadBacken
         if(x->longdouble_value == 0.0L && roundtrip.longdouble_value == 0.0L)
             return 1;
     }
-    // Sleef_quad sleef_val = quad_to_sleef_quad(&x, backend);
-    Sleef_quad sleef_val = x->sleef_value;
+    Sleef_quad sleef_val = quad_to_sleef_quad(x, backend);
     const char *val_str = quad_to_string_adaptive_cstr(&sleef_val, QUAD_STR_WIDTH);
     if (val_str != NULL) {
         PyErr_Format(PyExc_ValueError, 
