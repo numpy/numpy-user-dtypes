@@ -1236,13 +1236,13 @@ static inline int quad_to_numpy_same_value_check(quad_value x, QuadBackendType b
     if(backend == BACKEND_SLEEF) {
         if(Sleef_iunordq1(x.sleef_value, roundtrip.sleef_value))
             return 1;
-        else if(Sleef_icmpeqq1(x.sleef_value, roundtrip.sleef_value))
+        if(Sleef_icmpeqq1(x.sleef_value, roundtrip.sleef_value))
             return 1;
     }
     else {
         if(std::isnan(x.longdouble_value) && std::isnan(roundtrip.longdouble_value))
             return 1;
-        else if(x.longdouble_value == roundtrip.longdouble_value)
+        if(x.longdouble_value == roundtrip.longdouble_value)
             return 1;
     }
     Sleef_quad sleef_val = quad_to_sleef_quad(&x, backend);
@@ -1258,6 +1258,23 @@ static inline int quad_to_numpy_same_value_check(quad_value x, QuadBackendType b
     }
     return -1;
 }
+
+// template <typename T>
+// static inline int quad_to_numpy_same_value_check(quad_value x, QuadBackendType backend, typename NpyType<T>::TYPE *y)
+// {
+//     *y = from_quad<T>(x, backend);
+//     quad_value roundtrip = to_quad<T>(*y, backend);
+//     if(backend == BACKEND_SLEEF) {
+//         if(Sleef_icmpeqq1(x.sleef_value, roundtrip.sleef_value))
+//             return 1;
+//     }
+//     else {
+//         if(x.longdouble_value == roundtrip.longdouble_value)
+//             return 1;
+//     }
+//     PyErr_SetString(PyExc_ValueError, "could not cast 'same_value' to QuadType");
+//     return -1;
+// }
 
 // Type trait to check if a type is a floating-point type for casting purposes
 template <typename T>

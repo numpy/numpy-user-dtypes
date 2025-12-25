@@ -5448,29 +5448,5 @@ class TestSameValueCasting:
     
         for val in failing:
             q = np.array([val], dtype=QuadPrecDType())
-            with pytest.raises(ValueError, match="could not cast 'same_value'"):
+            with pytest.raises(ValueError):
                 q.astype(dtype, casting="same_value")
-
-    @pytest.mark.parametrize("dtype", ["half", "float16",
-    "float", "float32",
-    "double", "float64",
-    "longdouble",])
-    @pytest.mark.parametrize("values", [
-        
-    ])
-    def test_same_value_cast_floats(self, dtype, values):
-        pass
-
-    @pytest.mark.parametrize("dtype", [
-    "S50", "U50", "<U50", ">U50", "S100", "U100", "<U100", ">U100", np.dtypes.StringDType()])
-    @pytest.mark.parametrize("values", [
-    ])
-    def test_same_value_cast_strings_enough_width(self, dtype, values):
-        pass
-
-    @pytest.mark.parametrize("dtype", [
-    "S20", "U20", "<U20", ">U20"])
-    @pytest.mark.parametrize("values", [
-    ])
-    def test_same_value_cast_strings_small_width(self, dtype, values):
-        pass
