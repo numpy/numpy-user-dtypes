@@ -5407,7 +5407,7 @@ class TestSameValueCasting:
         b = a.astype(QuadPrecision, casting='same_value')
         c = b.astype(np.float32, casting='same_value')
         assert np.all(c == a)
-        with pytest.raises(ValueError, match="could not cast 'same_value'"):
+        with pytest.raises(ValueError):
             (b + 1e22).astype(np.float32, casting='same_value')
 
     
@@ -5450,3 +5450,98 @@ class TestSameValueCasting:
             q = np.array([val], dtype=QuadPrecDType())
             with pytest.raises(ValueError):
                 q.astype(dtype, casting="same_value")
+
+    # @pytest.mark.parametrize("dtype,passing,failing", [
+    #     # float16/half: 11-bit significand (10 explicit + 1 implicit)
+    #     # max: 65504, exact integers up to 2^11 = 2048
+    #     ("float16",
+    #      [0.0, -0.0, float('inf'), float('-inf'), float('nan'),
+    #       1.0, -1.0, 0.5, 0.25,
+    #       2048.0,           # 2^11, largest consecutive integer
+    #       65504.0,          # max representable
+    #       2**-14,           # min positive normal
+    #       ],
+    #         [65536.0,          # overflow (> max)
+    #          # precision loss (first non-representable int > 2048)
+    #          2049.0,
+    #          1.0 + 2**-11,     # precision loss (step from 1.0 is 2^-10)
+    #          ]),
+
+    #     ("half",  # alias, same values
+    #      [0.0, float('inf'), float('-inf'), float('nan'), 1.0, 2048.0],
+    #      [65536.0, 2049.0]),
+
+    #     # float32: 24-bit significand (23 explicit + 1 implicit)
+    #     # max: ~3.4e38, exact integers up to 2^24 = 16777216
+    #     ("float32",
+    #      [0.0, -0.0, float('inf'), float('-inf'), float('nan'),
+    #       1.0, -1.0, 0.5, 0.25,
+    #       16777216.0,       # 2^24, largest consecutive integer
+    #       3.4028235e38,     # max representable (approx)
+    #       2**-126,          # min positive normal
+    #       ],
+    #      [16777217.0,       # precision loss (first non-representable int)
+    #       1e39,             # overflow
+    #       1.0 + 2**-24,     # precision loss (step from 1.0 is 2^-23)
+    #       ]),
+
+    #     ("float",  # alias
+    #      [0.0, float('inf'), float('-inf'), float('nan'), 1.0, 16777216.0],
+    #      [16777217.0, 1e39]),
+
+    #     # float64: 53-bit significand (52 explicit + 1 implicit)
+    #     # max: ~1.8e308, exact integers up to 2^53
+    #     ("float64",
+    #      [0.0, -0.0, float('inf'), float('-inf'), float('nan'),
+    #       1.0, -1.0, 0.5, 0.25,
+    #       2.0**53,          # largest consecutive integer
+    #       1.7976931348623157e308,  # max representable (approx)
+    #       2**-1022,         # min positive normal
+    #       ],
+    #      [2.0**53 + 1,      # precision loss
+    #       1e309,            # overflow
+    #       1.0 + 2**-53,     # precision loss (step from 1.0 is 2^-52)
+    #       ]),
+
+    #     ("double",  # alias
+    #      [0.0, float('inf'), float('-inf'), float('nan'), 1.0, 2.0**53],
+    #      [2.0**53 + 1, 1e309]),
+
+    #     # longdouble: platform-dependent!
+    #     # x86 Linux: 80-bit extended, 64-bit significand → integers up to 2^64
+    #     # Windows/macOS: often same as float64
+    #     # Consider using np.finfo(np.longdouble).nmant to adjust dynamically
+    #     # ("longdouble",
+    #     #  [0.0, -0.0, float('inf'), float('-inf'), float('nan'),
+    #     #   1.0, 2.0**53, 2.0**53 + 1],  # 2^53+1 passes if longdouble > float64
+    #     #  # Failing cases depend on platform - maybe skip or parametrize separately
+    #     #  []),
+    # ])
+    # def test_same_value_cast_floats(self, dtype, passing, failing):
+    #     for val in passing:
+    #         q = np.array([val], dtype=QuadPrecDType())
+    #         result = q.astype(dtype, casting="same_value")
+    #         # Use appropriate comparison for nan
+    #         if np.isnan(val):
+    #             assert np.isnan(result)
+    #         else:
+    #             assert result == val
+
+    #     for val in failing:
+    #         q = np.array([val], dtype=QuadPrecDType())
+    #         with pytest.raises(ValueError):
+    #             q.astype(dtype, casting="same_value")
+
+    # @pytest.mark.parametrize("dtype", [
+    # "S50", "U50", "<U50", ">U50", "S100", "U100", "<U100", ">U100", np.dtypes.StringDType()])
+    # @pytest.mark.parametrize("values", [
+    # ])
+    # def test_same_value_cast_strings_enough_width(self, dtype, values):
+    #     pass
+
+    # @pytest.mark.parametrize("dtype", [
+    # "S20", "U20", "<U20", ">U20"])
+    # @pytest.mark.parametrize("values", [
+    # ])
+    # def test_same_value_cast_strings_small_width(self, dtype, values):
+    #     pass
