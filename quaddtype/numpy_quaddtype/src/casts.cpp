@@ -1238,11 +1238,17 @@ static inline int quad_to_numpy_same_value_check(quad_value x, QuadBackendType b
             return 1;
         if(Sleef_icmpeqq1(x.sleef_value, roundtrip.sleef_value))
             return 1;
+        // Handle -0.0 == +0.0 case: both zeros are considered equal for same_value casting
+        if(Sleef_icmpeqq1(x.sleef_value, QUAD_ZERO) && Sleef_icmpeqq1(roundtrip.sleef_value, QUAD_ZERO))
+            return 1;
     }
     else {
         if(std::isnan(x.longdouble_value) && std::isnan(roundtrip.longdouble_value))
             return 1;
         if(x.longdouble_value == roundtrip.longdouble_value)
+            return 1;
+        // Handle -0.0 == +0.0 case for longdouble backend
+        if(x.longdouble_value == 0.0L && roundtrip.longdouble_value == 0.0L)
             return 1;
     }
     // Sleef_quad sleef_val = quad_to_sleef_quad(&x, backend);
