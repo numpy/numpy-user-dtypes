@@ -365,6 +365,74 @@ quad_to_string_adaptive_cstr(Sleef_quad *sleef_val, npy_intp unicode_size_chars)
 
 }
 
+/**
+ * Same-value check for quad to string conversions.
+ * Works for bytes (S), unicode (U), and StringDType.
+ * 
+ * Performs a roundtrip: quad -> string -> quad and verifies the value is preserved.
+ * The check uses the truncated string (up to str_len chars) to ensure the output
+ * buffer can faithfully represent the original value.
+ * 
+ * @param in_val The input quad value
+ * @param str_buf The string representation (may be longer than str_len)
+ * @param str_len Length of the string that will actually be stored (excluding null terminator)
+ * @param backend The quad backend type
+ * @return 1 if same_value check passes, -1 if it fails (sets Python error)
+ */
+static inline int
+quad_to_string_same_value_check(quad_value in_val, const char *str_buf, npy_intp str_len,
+                                 QuadBackendType backend)
+{
+    char *truncated_str = (char *)malloc(str_len + 1);
+    if (truncated_str == NULL) {
+        PyErr_NoMemory();
+        return -1;
+    }
+    memcpy(truncated_str, str_buf, str_len);
+    truncated_str[str_len] = '\0';
+    
+    // Parse the truncated string back to quad
+    quad_value roundtrip;
+    char *endptr;
+    
+    int err = NumPyOS_ascii_strtoq(truncated_str, backend, &roundtrip, &endptr);
+    if (err < 0) {
+        PyErr_Format(PyExc_ValueError,
+                     "QuadPrecision value cannot be represented exactly: string '%s' failed to parse back",
+                     truncated_str);
+        free(truncated_str);
+        return -1;
+    }
+    free(truncated_str);
+    
+    // Compare original and roundtripped values
+    if (backend == BACKEND_SLEEF) {
+        // NaN == NaN for same_value purposes
+        if (Sleef_iunordq1(in_val.sleef_value, roundtrip.sleef_value))
+            return 1;
+        if (Sleef_icmpeqq1(in_val.sleef_value, roundtrip.sleef_value))
+            return 1;
+        // Handle -0.0 == +0.0 case
+        if (Sleef_icmpeqq1(in_val.sleef_value, QUAD_ZERO) && 
+            Sleef_icmpeqq1(roundtrip.sleef_value, QUAD_ZERO))
+            return 1;
+    }
+    else {
+        if (std::isnan(in_val.longdouble_value) && std::isnan(roundtrip.longdouble_value))
+            return 1;
+        if (in_val.longdouble_value == roundtrip.longdouble_value)
+            return 1;
+        // Handle -0.0 == +0.0 case
+        if (in_val.longdouble_value == 0.0L && roundtrip.longdouble_value == 0.0L)
+            return 1;
+    }
+    
+    PyErr_Format(PyExc_ValueError,
+                 "QuadPrecision value cannot be represented exactly in target string dtype "
+                 "(string width too narrow or precision loss occurred)");
+    return -1;
+}
+
 template <bool Aligned>
 static int
 quad_to_unicode_loop(PyArrayMethod_Context *context, char *const data[],
@@ -382,6 +450,7 @@ quad_to_unicode_loop(PyArrayMethod_Context *context, char *const data[],
     QuadBackendType backend = descr_in->backend;
 
     npy_intp unicode_size_chars = descrs[1]->elsize / 4;
+    int same_value_casting = ((context->flags & NPY_SAME_VALUE_CONTEXT_FLAG) == NPY_SAME_VALUE_CONTEXT_FLAG);
 
     while (N--) {
         quad_value in_val = load_quad<Aligned>(in_ptr, backend);
@@ -389,29 +458,28 @@ quad_to_unicode_loop(PyArrayMethod_Context *context, char *const data[],
         // Convert to Sleef_quad for Dragon4
         Sleef_quad sleef_val = quad_to_sleef_quad(&in_val, backend);
 
-        // Get string representation with adaptive notation
-        PyObject *py_str = quad_to_string_adaptive(&sleef_val, unicode_size_chars);
-        if (py_str == NULL) {
+        const char *temp_str = quad_to_string_adaptive_cstr(&sleef_val, unicode_size_chars);
+        if (temp_str == NULL) {
             return -1;
         }
 
-        const char *temp_str = PyUnicode_AsUTF8(py_str);
-        if (temp_str == NULL) {
-            Py_DECREF(py_str);
-            return -1;
+        npy_intp str_len = strnlen(temp_str, unicode_size_chars);
+
+        // Perform same_value check if requested
+        if (same_value_casting) {
+            if (quad_to_string_same_value_check(in_val, temp_str, str_len, backend) < 0) {
+                return -1;
+            }
         }
 
         // Convert char string to UCS4 and store in output
         Py_UCS4 *out_ucs4 = (Py_UCS4 *)out_ptr;
-        npy_intp str_len = strnlen(temp_str, unicode_size_chars);
         for (npy_intp i = 0; i < str_len; i++) {
             out_ucs4[i] = (Py_UCS4)temp_str[i];
         }
         for (npy_intp i = str_len; i < unicode_size_chars; i++) {
             out_ucs4[i] = 0;
         }
-
-        Py_DECREF(py_str);
 
         in_ptr += in_stride;
         out_ptr += out_stride;
@@ -575,24 +643,28 @@ quad_to_bytes_loop(PyArrayMethod_Context *context, char *const data[],
     QuadBackendType backend = descr_in->backend;
 
     npy_intp bytes_size = descrs[1]->elsize;
+    int same_value_casting = ((context->flags & NPY_SAME_VALUE_CONTEXT_FLAG) == NPY_SAME_VALUE_CONTEXT_FLAG);
 
     while (N--) {
         quad_value in_val = load_quad<Aligned>(in_ptr, backend);
         Sleef_quad sleef_val = quad_to_sleef_quad(&in_val, backend);
-        PyObject *py_str = quad_to_string_adaptive(&sleef_val, bytes_size);
-        if (py_str == NULL) {
+
+        const char *temp_str = quad_to_string_adaptive_cstr(&sleef_val, bytes_size);
+        if (temp_str == NULL) {
             return -1;
         }
-        const char *temp_str = PyUnicode_AsUTF8(py_str);
-        if (temp_str == NULL) {
-            Py_DECREF(py_str);
-            return -1;
+
+        npy_intp str_len = strnlen(temp_str, bytes_size);
+
+        // Perform same_value check if requested
+        if (same_value_casting) {
+            if (quad_to_string_same_value_check(in_val, temp_str, str_len, backend) < 0) {
+                return -1;
+            }
         }
 
         // Copy string to output buffer, padding with nulls
         strncpy(out_ptr, temp_str, bytes_size);
-
-        Py_DECREF(py_str);
 
         in_ptr += in_stride;
         out_ptr += out_stride;
@@ -726,6 +798,7 @@ quad_to_stringdtype_strided_loop(PyArrayMethod_Context *context, char *const dat
     QuadPrecDTypeObject *descr_in = (QuadPrecDTypeObject *)descrs[0];
     PyArray_StringDTypeObject *str_descr = (PyArray_StringDTypeObject *)descrs[1];
     QuadBackendType backend = descr_in->backend;
+    int same_value_casting = ((context->flags & NPY_SAME_VALUE_CONTEXT_FLAG) == NPY_SAME_VALUE_CONTEXT_FLAG);
 
     npy_string_allocator *allocator = NpyString_acquire_allocator(str_descr);
 
@@ -742,6 +815,14 @@ quad_to_stringdtype_strided_loop(PyArrayMethod_Context *context, char *const dat
         }
 
         Py_ssize_t str_size = strnlen(str_buf, QUAD_STR_WIDTH);
+
+        // Perform same_value check if requested
+        if (same_value_casting) {
+            if (quad_to_string_same_value_check(in_val, str_buf, str_size, backend) < 0) {
+                NpyString_release_allocator(allocator);
+                return -1;
+            }
+        }
 
         npy_packed_static_string *out_ps = (npy_packed_static_string *)out_ptr;
         if (NpyString_pack(allocator, out_ps, str_buf, (size_t)str_size) < 0) {

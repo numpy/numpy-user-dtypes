@@ -5529,16 +5529,48 @@ class TestSameValueCasting:
             with pytest.raises(ValueError):
                 q.astype(dtype, casting="same_value")
 
-    # @pytest.mark.parametrize("dtype", [
-    # "S50", "U50", "<U50", ">U50", "S100", "U100", "<U100", ">U100", np.dtypes.StringDType()])
-    # @pytest.mark.parametrize("values", [
-    # ])
-    # def test_same_value_cast_strings_enough_width(self, dtype, values):
-    #     pass
+    @pytest.mark.parametrize("dtype", [
+        "S50", "U50", "<U50", "S100", "U100", np.dtypes.StringDType()
+    ])
+    def test_same_value_cast_strings_enough_width(self, dtype):
+        """Test that string types with enough width can represent quad values exactly."""
+        values = [
+            "0.0", "-0.0", "1.0", "-1.0",
+            "3.14159265358979323846264338327950288",  # pi with full quad precision
+            "inf", "-inf", "nan",
+            "1.23e100", "-4.56e-100",
+        ]
+        
+        for val in values:
+            q = np.array([val], dtype=QuadPrecDType())
+            result = q.astype(dtype, casting="same_value")
+            # Convert back and verify
+            back = result.astype(QuadPrecDType())
+            if np.isnan(q[0]):
+                assert np.isnan(back[0]), f"NaN roundtrip failed for {dtype}"
+            else:
+                assert q[0] == back[0], f"Value {val} roundtrip failed for {dtype}"
 
-    # @pytest.mark.parametrize("dtype", [
-    # "S20", "U20", "<U20", ">U20"])
-    # @pytest.mark.parametrize("values", [
-    # ])
-    # def test_same_value_cast_strings_small_width(self, dtype, values):
-    #     pass
+    @pytest.mark.parametrize("dtype", ["S10", "U10", "<U10"])
+    def test_same_value_cast_strings_narrow_width(self, dtype):
+        """Test that string types with narrow width fail for values that need more precision."""
+        # Values that can fit in 10 chars should pass
+        passing_values = ["0.0", "1.0", "-1.0", "inf", "-inf", "nan"]
+        for val in passing_values:
+            q = np.array([val], dtype=QuadPrecDType())
+            result = q.astype(dtype, casting="same_value")
+            back = result.astype(QuadPrecDType())
+            if np.isnan(q[0]):
+                assert np.isnan(back[0])
+            else:
+                assert q[0] == back[0], f"Value {val} should roundtrip in {dtype}"
+        
+        # Values that need more than 10 chars should fail
+        failing_values = [
+            "3.14159265358979323846264338327950288",  # pi
+            "1.23456789012345",  # needs > 10 chars
+        ]
+        for val in failing_values:
+            q = np.array([val], dtype=QuadPrecDType())
+            with pytest.raises(ValueError):
+                q.astype(dtype, casting="same_value")
