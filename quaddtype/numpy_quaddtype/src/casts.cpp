@@ -380,7 +380,7 @@ quad_to_string_adaptive_cstr(Sleef_quad *sleef_val, npy_intp unicode_size_chars)
  * @return 1 if same_value check passes, -1 if it fails (sets Python error)
  */
 static inline int
-quad_to_string_same_value_check(quad_value in_val, const char *str_buf, npy_intp str_len,
+quad_to_string_same_value_check(const quad_value *in_val, const char *str_buf, npy_intp str_len,
                                  QuadBackendType backend)
 {
     char *truncated_str = (char *)malloc(str_len + 1);
@@ -408,28 +408,28 @@ quad_to_string_same_value_check(quad_value in_val, const char *str_buf, npy_intp
     // Compare original and roundtripped values
     if (backend == BACKEND_SLEEF) {
         // NaN == NaN for same_value purposes
-        if (Sleef_iunordq1(in_val.sleef_value, roundtrip.sleef_value))
+        if (Sleef_iunordq1(in_val->sleef_value, roundtrip.sleef_value))
             return 1;
-        if (Sleef_icmpeqq1(in_val.sleef_value, roundtrip.sleef_value))
+        if (Sleef_icmpeqq1(in_val->sleef_value, roundtrip.sleef_value))
             return 1;
         // Handle -0.0 == +0.0 case
-        if (Sleef_icmpeqq1(in_val.sleef_value, QUAD_ZERO) && 
+        if (Sleef_icmpeqq1(in_val->sleef_value, QUAD_ZERO) && 
             Sleef_icmpeqq1(roundtrip.sleef_value, QUAD_ZERO))
             return 1;
     }
     else {
-        if (std::isnan(in_val.longdouble_value) && std::isnan(roundtrip.longdouble_value))
+        if (std::isnan(in_val->longdouble_value) && std::isnan(roundtrip.longdouble_value))
             return 1;
-        if (in_val.longdouble_value == roundtrip.longdouble_value)
+        if (in_val->longdouble_value == roundtrip.longdouble_value)
             return 1;
         // Handle -0.0 == +0.0 case
-        if (in_val.longdouble_value == 0.0L && roundtrip.longdouble_value == 0.0L)
+        if (in_val->longdouble_value == 0.0L && roundtrip.longdouble_value == 0.0L)
             return 1;
     }
     
     // Values don't match - the string width is too narrow for exact representation
     // Sleef_quad sleef_val = quad_to_sleef_quad(&in_val, backend);
-    Sleef_quad sleef_val = in_val.sleef_value;
+    Sleef_quad sleef_val = in_val->sleef_value;
     const char *val_str = quad_to_string_adaptive_cstr(&sleef_val, QUAD_STR_WIDTH);
     if (val_str != NULL) {
         PyErr_Format(PyExc_ValueError,
@@ -479,7 +479,7 @@ quad_to_unicode_loop(PyArrayMethod_Context *context, char *const data[],
 
         // Perform same_value check if requested
         if (same_value_casting) {
-            if (quad_to_string_same_value_check(in_val, temp_str, str_len, backend) < 0) {
+            if (quad_to_string_same_value_check(&in_val, temp_str, str_len, backend) < 0) {
                 return -1;
             }
         }
@@ -670,7 +670,7 @@ quad_to_bytes_loop(PyArrayMethod_Context *context, char *const data[],
 
         // Perform same_value check if requested
         if (same_value_casting) {
-            if (quad_to_string_same_value_check(in_val, temp_str, str_len, backend) < 0) {
+            if (quad_to_string_same_value_check(&in_val, temp_str, str_len, backend) < 0) {
                 return -1;
             }
         }
@@ -830,7 +830,7 @@ quad_to_stringdtype_strided_loop(PyArrayMethod_Context *context, char *const dat
 
         // Perform same_value check if requested
         if (same_value_casting) {
-            if (quad_to_string_same_value_check(in_val, str_buf, str_size, backend) < 0) {
+            if (quad_to_string_same_value_check(&in_val, str_buf, str_size, backend) < 0) {
                 NpyString_release_allocator(allocator);
                 return -1;
             }
