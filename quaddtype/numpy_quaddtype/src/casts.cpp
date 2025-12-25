@@ -1234,14 +1234,28 @@ static inline int quad_to_numpy_same_value_check(quad_value x, QuadBackendType b
     *y = from_quad<T>(x, backend);
     quad_value roundtrip = to_quad<T>(*y, backend);
     if(backend == BACKEND_SLEEF) {
-        if(Sleef_icmpeqq1(x.sleef_value, roundtrip.sleef_value))
+        if(Sleef_iunordq1(x.sleef_value, roundtrip.sleef_value))
+            return 1;
+        else if(Sleef_icmpeqq1(x.sleef_value, roundtrip.sleef_value))
             return 1;
     }
     else {
-        if(x.longdouble_value == roundtrip.longdouble_value)
+        if(std::isnan(x.longdouble_value) && std::isnan(roundtrip.longdouble_value))
+            return 1;
+        else if(x.longdouble_value == roundtrip.longdouble_value)
             return 1;
     }
-    PyErr_SetString(PyExc_ValueError, "could not cast 'same_value' to QuadType");
+    Sleef_quad sleef_val = quad_to_sleef_quad(&x, backend);
+    const char *val_str = quad_to_string_adaptive_cstr(&sleef_val, QUAD_STR_WIDTH);
+    if (val_str != NULL) {
+        PyErr_Format(PyExc_ValueError, 
+                     "QuadPrecision value '%s' cannot be represented exactly in the target dtype",
+                     val_str);
+    }
+    else {
+        PyErr_SetString(PyExc_ValueError, 
+                        "QuadPrecision value cannot be represented exactly in the target dtype");
+    }
     return -1;
 }
 
