@@ -427,9 +427,21 @@ quad_to_string_same_value_check(quad_value in_val, const char *str_buf, npy_intp
             return 1;
     }
     
-    PyErr_Format(PyExc_ValueError,
-                 "QuadPrecision value cannot be represented exactly in target string dtype "
-                 "(string width too narrow or precision loss occurred)");
+    // Values don't match - the string width is too narrow for exact representation
+    // Sleef_quad sleef_val = quad_to_sleef_quad(&in_val, backend);
+    Sleef_quad sleef_val = in_val.sleef_value;
+    const char *val_str = quad_to_string_adaptive_cstr(&sleef_val, QUAD_STR_WIDTH);
+    if (val_str != NULL) {
+        PyErr_Format(PyExc_ValueError,
+                     "QuadPrecision value '%s' cannot be represented exactly in target string dtype "
+                     "(string width too narrow or precision loss occurred)",
+                     val_str);
+    }
+    else {
+        PyErr_SetString(PyExc_ValueError,
+                        "QuadPrecision value cannot be represented exactly in target string dtype "
+                        "(string width too narrow or precision loss occurred)");
+    }
     return -1;
 }
 
