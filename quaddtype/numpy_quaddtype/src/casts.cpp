@@ -55,7 +55,8 @@ quad_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self),
         // Different backends require actual conversion, no view possible
         *view_offset = NPY_MIN_INTP;
         if (given_descrs[0]->backend == BACKEND_SLEEF) {
-            return NPY_SAME_KIND_CASTING;  // SLEEF -> long double may lose precision
+            // SLEEF -> long double may lose precision
+            return static_cast<NPY_CASTING>(NPY_SAME_KIND_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
         }
         // long double -> SLEEF preserves value exactly
         return static_cast<NPY_CASTING>(NPY_SAFE_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
@@ -81,32 +82,36 @@ quad_to_quad_strided_loop(PyArrayMethod_Context *context, char *const data[],
     QuadPrecDTypeObject *descr_out = (QuadPrecDTypeObject *)context->descriptors[1];
     QuadBackendType backend_in = descr_in->backend;
     QuadBackendType backend_out = descr_out->backend;
+    int same_value_casting = ((context->flags & NPY_SAME_VALUE_CONTEXT_FLAG) == NPY_SAME_VALUE_CONTEXT_FLAG);
 
     // inter-backend casting
     if (backend_in != backend_out) {
         while (N--) {
-            quad_value in_val = load_quad<Aligned>(in_ptr, backend_in);
+            quad_value in_val;
+            load_quad<Aligned>(in_ptr, backend_in, &in_val);
+            quad_value out_val;
             if (backend_in == BACKEND_SLEEF) 
             {
-              long double res = Sleef_cast_to_doubleq1(in_val.sleef_value);
-              store<Aligned>(out_ptr, res);
+              out_val.longdouble_value = static_cast<long double>(Sleef_cast_to_doubleq1(in_val.sleef_value));
             }
             else 
             {
-              Sleef_quad res;
               long double ld = in_val.longdouble_value;
               if (std::isnan(ld)) {
-                  res = QUAD_PRECISION_NAN;
+                  out_val.sleef_value = QUAD_PRECISION_NAN;
               }
               else if (std::isinf(ld)) {
-                  res = (ld > 0) ? QUAD_PRECISION_INF : QUAD_PRECISION_NINF;
+                  out_val.sleef_value = (ld > 0) ? QUAD_PRECISION_INF : QUAD_PRECISION_NINF;
               }
               else 
               {
-                  res = Sleef_cast_from_doubleq1(static_cast<double>(ld));
+                  // to prevent compiler optimizations, ABI handling issues with __float128 on x86-64 machines
+                  // won't be expensive as for fixed size compiler can optimize memcpy with movq
+                  Sleef_quad temp = Sleef_cast_from_doubleq1(static_cast<double>(ld));
+                  std::memcpy(&out_val.sleef_value, &temp, sizeof(Sleef_quad));
               }
-              store<Aligned>(out_ptr, res);
             }
+            store_quad<Aligned>(out_ptr, &out_val, backend_out);
             in_ptr += in_stride;
             out_ptr += out_stride;
         }
@@ -114,9 +119,10 @@ quad_to_quad_strided_loop(PyArrayMethod_Context *context, char *const data[],
     }
 
     // same backend: direct copy
-    while (N--) {
-        quad_value val = load_quad<Aligned>(in_ptr, backend_in);
-        store_quad<Aligned>(out_ptr, val, backend_out);
+    while(N--) {
+        quad_value val;
+        load_quad<Aligned>(in_ptr, backend_in, &val);
+        store_quad<Aligned>(out_ptr, &val, backend_out);
         in_ptr += in_stride;
         out_ptr += out_stride;
     }
@@ -242,7 +248,7 @@ unicode_to_quad_strided_loop(PyArrayMethod_Context *context, char *const data[],
             return -1;
         }
 
-        store_quad<Aligned>(out_ptr, out_val, backend);
+        store_quad<Aligned>(out_ptr, &out_val, backend);
 
         in_ptr += in_stride;
         out_ptr += out_stride;
@@ -464,7 +470,8 @@ quad_to_unicode_loop(PyArrayMethod_Context *context, char *const data[],
     int same_value_casting = ((context->flags & NPY_SAME_VALUE_CONTEXT_FLAG) == NPY_SAME_VALUE_CONTEXT_FLAG);
 
     while (N--) {
-        quad_value in_val = load_quad<Aligned>(in_ptr, backend);
+        quad_value in_val;
+        load_quad<Aligned>(in_ptr, backend, &in_val);
 
         // Convert to Sleef_quad for Dragon4
         Sleef_quad sleef_val = quad_to_sleef_quad(&in_val, backend);
@@ -595,7 +602,7 @@ bytes_to_quad_strided_loop(PyArrayMethod_Context *context, char *const data[],
             return -1;
         }
 
-        store_quad<Aligned>(out_ptr, out_val, backend);
+        store_quad<Aligned>(out_ptr, &out_val, backend);
 
         in_ptr += in_stride;
         out_ptr += out_stride;
@@ -657,7 +664,8 @@ quad_to_bytes_loop(PyArrayMethod_Context *context, char *const data[],
     int same_value_casting = ((context->flags & NPY_SAME_VALUE_CONTEXT_FLAG) == NPY_SAME_VALUE_CONTEXT_FLAG);
 
     while (N--) {
-        quad_value in_val = load_quad<Aligned>(in_ptr, backend);
+        quad_value in_val;
+        load_quad<Aligned>(in_ptr, backend, &in_val);
         Sleef_quad sleef_val = quad_to_sleef_quad(&in_val, backend);
 
         const char *temp_str = quad_to_string_adaptive_cstr(&sleef_val, bytes_size);
@@ -756,7 +764,7 @@ stringdtype_to_quad_strided_loop(PyArrayMethod_Context *context, char *const dat
             return -1;
         }
 
-        store_quad<Aligned>(out_ptr, out_val, backend);
+        store_quad<Aligned>(out_ptr, &out_val, backend);
 
         in_ptr += in_stride;
         out_ptr += out_stride;
@@ -814,7 +822,8 @@ quad_to_stringdtype_strided_loop(PyArrayMethod_Context *context, char *const dat
     npy_string_allocator *allocator = NpyString_acquire_allocator(str_descr);
 
     while (N--) {
-        quad_value in_val = load_quad<Aligned>(in_ptr, backend);
+        quad_value in_val;
+        load_quad<Aligned>(in_ptr, backend, &in_val);
         Sleef_quad sleef_val = quad_to_sleef_quad(&in_val, backend);
 
         // Get string representation with adaptive notation
@@ -1123,7 +1132,7 @@ numpy_to_quad_strided_loop(PyArrayMethod_Context *context, char *const data[],
     while (N--) {
         typename NpyType<T>::TYPE in_val = load<Aligned, typename NpyType<T>::TYPE>(in_ptr);
         quad_value out_val = to_quad<T>(in_val, backend);
-        store_quad<Aligned>(out_ptr, out_val, backend);
+        store_quad<Aligned>(out_ptr, &out_val, backend);
 
         in_ptr += strides[0];
         out_ptr += strides[1];
@@ -1408,7 +1417,8 @@ quad_to_numpy_strided_loop(PyArrayMethod_Context *context, char *const data[],
 
     if (same_value_casting) {
         while (N--) {
-            quad_value in_val = load_quad<Aligned>(in_ptr, backend);
+            quad_value in_val;
+            load_quad<Aligned>(in_ptr, backend, &in_val);
             typename NpyType<T>::TYPE out_val;
             int ret = quad_to_numpy_same_value_check<T>(&in_val, backend, &out_val);
             if(ret < 0)
@@ -1421,7 +1431,8 @@ quad_to_numpy_strided_loop(PyArrayMethod_Context *context, char *const data[],
         return 0;
     }
     while (N--) {
-        quad_value in_val = load_quad<Aligned>(in_ptr, backend);
+        quad_value in_val;
+        load_quad<Aligned>(in_ptr, backend, &in_val);
         typename NpyType<T>::TYPE out_val = from_quad<T>(&in_val, backend);
         store<Aligned, typename NpyType<T>::TYPE>(out_ptr, out_val);
 
