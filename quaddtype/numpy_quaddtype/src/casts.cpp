@@ -1234,13 +1234,9 @@ static inline int quad_to_numpy_same_value_check(quad_value x, QuadBackendType b
     *y = from_quad<T>(x, backend);
     quad_value roundtrip = to_quad<T>(*y, backend);
     if(backend == BACKEND_SLEEF) {
-        // Use memcmp for exact bit-wise comparison to avoid SLEEF comparison function issues
-        // on different platforms (especially x86-64 where Sleef_quad may be __float128)
-        if (std::memcmp(&x.sleef_value, &roundtrip.sleef_value, sizeof(Sleef_quad)) == 0)
+        if(Sleef_iunordq1(x.sleef_value, roundtrip.sleef_value))
             return 1;
-        // Also check for NaN == NaN case (NaN bits won't match but both are NaN)
-        if (Sleef_iunordq1(x.sleef_value, x.sleef_value) && 
-            Sleef_iunordq1(roundtrip.sleef_value, roundtrip.sleef_value))
+        if(Sleef_icmpeqq1(x.sleef_value, roundtrip.sleef_value))
             return 1;
     }
     else {
@@ -1249,7 +1245,8 @@ static inline int quad_to_numpy_same_value_check(quad_value x, QuadBackendType b
         if(x.longdouble_value == roundtrip.longdouble_value)
             return 1;
     }
-    Sleef_quad sleef_val = quad_to_sleef_quad(&x, backend);
+    // Sleef_quad sleef_val = quad_to_sleef_quad(&x, backend);
+    Sleef_quad sleef_val = x.sleef_value;
     const char *val_str = quad_to_string_adaptive_cstr(&sleef_val, QUAD_STR_WIDTH);
     if (val_str != NULL) {
         PyErr_Format(PyExc_ValueError, 
