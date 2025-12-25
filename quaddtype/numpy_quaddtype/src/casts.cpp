@@ -1245,8 +1245,8 @@ static inline int quad_to_numpy_same_value_check(quad_value x, QuadBackendType b
         if(x.longdouble_value == roundtrip.longdouble_value)
             return 1;
     }
-    // Sleef_quad sleef_val = quad_to_sleef_quad(&x, backend);
-    Sleef_quad sleef_val = x.sleef_value;
+    Sleef_quad sleef_val = quad_to_sleef_quad(&x, backend);
+    // Sleef_quad sleef_val = x.sleef_value;
     const char *val_str = quad_to_string_adaptive_cstr(&sleef_val, QUAD_STR_WIDTH);
     if (val_str != NULL) {
         PyErr_Format(PyExc_ValueError, 
