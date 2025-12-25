@@ -63,7 +63,7 @@ template <bool Aligned>
 static inline quad_value
 load_quad(const char *ptr, QuadBackendType backend)
 {
-    quad_value val;
+    quad_value val{};
     if (backend == BACKEND_SLEEF) {
         val.sleef_value = load<Aligned, Sleef_quad>(ptr);
     }
