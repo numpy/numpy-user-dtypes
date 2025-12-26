@@ -380,39 +380,6 @@ quad_to_unicode_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMet
     return static_cast<NPY_CASTING>(NPY_SAME_KIND_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
 }
 
-// Helper function: Convert quad to string with adaptive notation
-static inline PyObject *
-quad_to_string_adaptive(Sleef_quad *sleef_val, npy_intp unicode_size_chars)
-{
-    // Try positional format first to see if it would fit
-    PyObject *positional_str = Dragon4_Positional_QuadDType(
-            sleef_val, DigitMode_Unique, CutoffMode_TotalLength, SLEEF_QUAD_DECIMAL_DIG, 0, 1,
-            TrimMode_LeaveOneZero, 1, 0);
-
-    if (positional_str == NULL) {
-        return NULL;
-    }
-
-    const char *pos_str = PyUnicode_AsUTF8(positional_str);
-    if (pos_str == NULL) {
-        Py_DECREF(positional_str);
-        return NULL;
-    }
-
-    // no need to scan full, only checking if its longer
-    npy_intp pos_len = strnlen(pos_str, unicode_size_chars + 1);
-
-    // If positional format fits, use it; otherwise use scientific notation
-    if (pos_len <= unicode_size_chars) {
-        return positional_str;  // Keep the positional string
-    }
-    Py_DECREF(positional_str);
-    // Use scientific notation with full precision
-    return Dragon4_Scientific_QuadDType(sleef_val, DigitMode_Unique,
-                                        SLEEF_QUAD_DECIMAL_DIG, 0, 1,
-                                        TrimMode_LeaveOneZero, 1, 2);
-}
-
 static inline const char *
 quad_to_string_adaptive_cstr(Sleef_quad *sleef_val, npy_intp unicode_size_chars)
 {
