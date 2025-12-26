@@ -71,6 +71,8 @@ quad_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self),
 }
 
 // Helper function for quad-to-quad same_value check (inter-backend)
+// NOTE: the inter-backend uses `double` as intermediate,
+// so only values that can be exactly represented in double can pass same_value check
 static inline int
 quad_to_quad_same_value_check(const quad_value *in_val, QuadBackendType backend_in,
                               const quad_value *out_val, QuadBackendType backend_out)
@@ -413,20 +415,6 @@ quad_to_string_adaptive_cstr(Sleef_quad *sleef_val, npy_intp unicode_size_chars)
 
 }
 
-/*
- * Same-value check for quad to string conversions.
- * Works for bytes (S), unicode (U), and StringDType.
- * 
- * Performs a roundtrip: quad -> string -> quad and verifies the value is preserved.
- * The check uses the truncated string (up to str_len chars) to ensure the output
- * buffer can faithfully represent the original value.
- * 
- * @param in_val The input quad value
- * @param str_buf The string representation (may be longer than str_len)
- * @param str_len Length of the string that will actually be stored (excluding null terminator)
- * @param backend The quad backend type
- * @return 1 if same_value check passes, -1 if it fails (sets Python error)
- */
 static inline int
 quad_to_string_same_value_check(const quad_value *in_val, const char *str_buf, npy_intp str_len,
                                  QuadBackendType backend)

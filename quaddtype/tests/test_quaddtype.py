@@ -5604,6 +5604,7 @@ class TestSameValueCasting:
             if val == "nan":
                 assert np.isnan(result[0])
             else:
+                # compare them as float, as these values anyhow have to under double's range to work
                 assert float(result[0]) == float(src[0]), f"Value {val} failed for {src_backend} -> {dst_backend}"
 
 
