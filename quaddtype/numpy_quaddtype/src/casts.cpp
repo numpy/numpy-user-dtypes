@@ -32,6 +32,10 @@ extern "C" {
 #define NUM_CASTS 40  // 18 to_casts + 18 from_casts + 1 quad_to_quad + 1 void_to_quad
 #define QUAD_STR_WIDTH 50  // 42 is enough for scientific notation float128, just keeping some buffer
 
+// forward declarations
+static inline const char *
+quad_to_string_adaptive_cstr(Sleef_quad *sleef_val, npy_intp unicode_size_chars);
+
 static NPY_CASTING
 quad_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self),
                                  PyArray_DTypeMeta *NPY_UNUSED(dtypes[2]),
@@ -63,15 +67,67 @@ quad_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self),
     }
 
     *view_offset = 0;
-    return NPY_NO_CASTING;
+    return static_cast<NPY_CASTING>(NPY_NO_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
 }
 
+// Helper function for quad-to-quad same_value check (inter-backend)
 static inline int
 quad_to_quad_same_value_check(const quad_value *in_val, QuadBackendType backend_in,
                               const quad_value *out_val, QuadBackendType backend_out)
 {
-  // convert output back to input backend for comparison
-  return 1;
+    // Convert output back to input backend for comparison
+    quad_value roundtrip;
+    
+    if (backend_in == BACKEND_SLEEF) {
+        // Input was SLEEF, output is longdouble
+        // Convert longdouble back to SLEEF for comparison
+        long double ld = out_val->longdouble_value;
+        if (std::isnan(ld)) {
+            roundtrip.sleef_value = QUAD_PRECISION_NAN;
+        }
+        else if (std::isinf(ld)) {
+            roundtrip.sleef_value = (ld > 0) ? QUAD_PRECISION_INF : QUAD_PRECISION_NINF;
+        }
+        else {
+            Sleef_quad temp = Sleef_cast_from_doubleq1(static_cast<double>(ld));
+            memcpy(&roundtrip.sleef_value, &temp, sizeof(Sleef_quad));
+        }
+        
+        // Compare in SLEEF domain
+        if (Sleef_iunordq1(in_val->sleef_value, roundtrip.sleef_value))
+            return 1;  // Both NaN
+        if (Sleef_icmpeqq1(in_val->sleef_value, roundtrip.sleef_value))
+            return 1;  // Equal
+        if (Sleef_icmpeqq1(in_val->sleef_value, QUAD_ZERO) && Sleef_icmpeqq1(roundtrip.sleef_value, QUAD_ZERO))
+            return 1;  // Both zeros
+    }
+    else {
+        // Input was longdouble, output is SLEEF
+        // Convert SLEEF back to longdouble for comparison
+        roundtrip.longdouble_value = static_cast<long double>(Sleef_cast_to_doubleq1(out_val->sleef_value));
+        
+        // Compare in longdouble domain
+        if (std::isnan(in_val->longdouble_value) && std::isnan(roundtrip.longdouble_value))
+            return 1;
+        if (in_val->longdouble_value == roundtrip.longdouble_value)
+            return 1;
+        if (in_val->longdouble_value == 0.0L && roundtrip.longdouble_value == 0.0L)
+            return 1;
+    }
+    
+    // Values don't match
+    Sleef_quad sleef_val = quad_to_sleef_quad(in_val, backend_in);
+    const char *val_str = quad_to_string_adaptive_cstr(&sleef_val, QUAD_STR_WIDTH);
+    if (val_str != NULL) {
+        PyErr_Format(PyExc_ValueError,
+                     "QuadPrecision value '%s' cannot be represented exactly in target backend",
+                     val_str);
+    }
+    else {
+        PyErr_SetString(PyExc_ValueError,
+                        "QuadPrecision value cannot be represented exactly in target backend");
+    }
+    return -1;
 }
 
 template <bool Aligned>
@@ -119,7 +175,8 @@ quad_to_quad_strided_loop(PyArrayMethod_Context *context, char *const data[],
                   std::memcpy(&out_val.sleef_value, &temp, sizeof(Sleef_quad));
               }
             }
-
+            
+            // check same_value for inter-backend casts
             if(same_value_casting)
             {
               int ret = quad_to_quad_same_value_check(&in_val, backend_in, &out_val, backend_out);
@@ -136,6 +193,7 @@ quad_to_quad_strided_loop(PyArrayMethod_Context *context, char *const data[],
     }
 
     // same backend: direct copy
+    // same_value casting not needed here as values are identical
     while(N--) {
         quad_value val;
         load_quad<Aligned>(in_ptr, backend_in, &val);

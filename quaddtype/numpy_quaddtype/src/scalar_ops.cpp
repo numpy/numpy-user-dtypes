@@ -134,6 +134,9 @@ quad_richcompare(QuadPrecisionObject *self, PyObject *other, int cmp_op)
         Py_INCREF(other);
         other_quad = (QuadPrecisionObject *)other;
         if (other_quad->backend != backend) {
+            // we could allow, but this will be bad
+            // Two values that are different in quad precision, 
+            // might appear equal when converted to double.
             PyErr_SetString(PyExc_TypeError,
                             "Cannot compare QuadPrecision objects with different backends");
             Py_DECREF(other_quad);
