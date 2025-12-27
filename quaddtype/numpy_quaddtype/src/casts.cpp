@@ -95,25 +95,23 @@ quad_to_quad_same_value_check(const quad_value *in_val, QuadBackendType backend_
             memcpy(&roundtrip.sleef_value, &temp, sizeof(Sleef_quad));
         }
         
-        // Compare in SLEEF domain
-        if (Sleef_iunordq1(in_val->sleef_value, roundtrip.sleef_value))
+        // Compare in SLEEF domain && signbit preserved
+        bool is_sign_preserved = (quad_signbit(&in_val->sleef_value) == quad_signbit(&roundtrip.sleef_value));
+        if (Sleef_iunordq1(in_val->sleef_value, roundtrip.sleef_value) && is_sign_preserved)
             return 1;  // Both NaN
-        if (Sleef_icmpeqq1(in_val->sleef_value, roundtrip.sleef_value))
+        if (Sleef_icmpeqq1(in_val->sleef_value, roundtrip.sleef_value) && is_sign_preserved)
             return 1;  // Equal
-        if (Sleef_icmpeqq1(in_val->sleef_value, QUAD_ZERO) && Sleef_icmpeqq1(roundtrip.sleef_value, QUAD_ZERO))
-            return 1;  // Both zeros
     }
     else {
         // Input was longdouble, output is SLEEF
         // Convert SLEEF back to longdouble for comparison
-        roundtrip.longdouble_value = static_cast<long double>(Sleef_cast_to_doubleq1(out_val->sleef_value));
+        roundtrip.longdouble_value = static_cast<long double>(cast_sleef_to_double(out_val->sleef_value));
         
-        // Compare in longdouble domain
-        if (std::isnan(in_val->longdouble_value) && std::isnan(roundtrip.longdouble_value))
+        // Compare in longdouble domain && signbit preserved
+        bool is_sign_preserved = (ld_signbit(&in_val->longdouble_value) == ld_signbit(&roundtrip.longdouble_value));
+        if ((std::isnan(in_val->longdouble_value) && std::isnan(roundtrip.longdouble_value)) && is_sign_preserved)
             return 1;
-        if (in_val->longdouble_value == roundtrip.longdouble_value)
-            return 1;
-        if (in_val->longdouble_value == 0.0L && roundtrip.longdouble_value == 0.0L)
+        if ((in_val->longdouble_value == roundtrip.longdouble_value) && is_sign_preserved)
             return 1;
     }
     
@@ -158,7 +156,7 @@ quad_to_quad_strided_loop(PyArrayMethod_Context *context, char *const data[],
             quad_value out_val;
             if (backend_in == BACKEND_SLEEF) 
             {
-              out_val.longdouble_value = static_cast<long double>(Sleef_cast_to_doubleq1(in_val.sleef_value));
+              out_val.longdouble_value = static_cast<long double>(cast_sleef_to_double(in_val.sleef_value));
             }
             else 
             {
@@ -441,25 +439,20 @@ quad_to_string_same_value_check(const quad_value *in_val, const char *str_buf, n
     }
     free(truncated_str);
     
-    // Compare original and roundtripped values
+    // Compare original and roundtripped values along with signbit
     if (backend == BACKEND_SLEEF) {
         // NaN == NaN for same_value purposes
-        if (Sleef_iunordq1(in_val->sleef_value, roundtrip.sleef_value))
+        bool is_sign_preserved = (quad_signbit(&in_val->sleef_value) == quad_signbit(&roundtrip.sleef_value));
+        if (Sleef_iunordq1(in_val->sleef_value, roundtrip.sleef_value) && is_sign_preserved)
             return 1;
-        if (Sleef_icmpeqq1(in_val->sleef_value, roundtrip.sleef_value))
-            return 1;
-        // Handle -0.0 == +0.0 case
-        if (Sleef_icmpeqq1(in_val->sleef_value, QUAD_ZERO) && 
-            Sleef_icmpeqq1(roundtrip.sleef_value, QUAD_ZERO))
+        if (Sleef_icmpeqq1(in_val->sleef_value, roundtrip.sleef_value) && is_sign_preserved)
             return 1;
     }
     else {
-        if (std::isnan(in_val->longdouble_value) && std::isnan(roundtrip.longdouble_value))
+        bool is_sign_preserved = (ld_signbit(&in_val->longdouble_value) == ld_signbit(&roundtrip.longdouble_value));
+        if ((std::isnan(in_val->longdouble_value) && std::isnan(roundtrip.longdouble_value)) && is_sign_preserved)
             return 1;
-        if (in_val->longdouble_value == roundtrip.longdouble_value)
-            return 1;
-        // Handle -0.0 == +0.0 case
-        if (in_val->longdouble_value == 0.0L && roundtrip.longdouble_value == 0.0L)
+        if ((in_val->longdouble_value == roundtrip.longdouble_value) && is_sign_preserved)
             return 1;
     }
     
@@ -1316,7 +1309,7 @@ inline npy_half
 from_quad<spec_npy_half>(const quad_value *x, QuadBackendType backend)
 {
     if (backend == BACKEND_SLEEF) {
-        double d = Sleef_cast_to_doubleq1(x->sleef_value);
+        double d = cast_sleef_to_double(x->sleef_value);
         return npy_double_to_half(d);
     }
     else {
@@ -1329,7 +1322,7 @@ inline float
 from_quad<float>(const quad_value *x, QuadBackendType backend)
 {
     if (backend == BACKEND_SLEEF) {
-        return (float)Sleef_cast_to_doubleq1(x->sleef_value);
+        return (float)cast_sleef_to_double(x->sleef_value);
     }
     else {
         return (float)x->longdouble_value;
@@ -1341,7 +1334,7 @@ inline double
 from_quad<double>(const quad_value *x, QuadBackendType backend)
 {
     if (backend == BACKEND_SLEEF) {
-        return Sleef_cast_to_doubleq1(x->sleef_value);
+        return cast_sleef_to_double(x->sleef_value);
     }
     else {
         return (double)x->longdouble_value;
@@ -1353,7 +1346,7 @@ inline long double
 from_quad<long double>(const quad_value *x, QuadBackendType backend)
 {
     if (backend == BACKEND_SLEEF) {
-        return (long double)Sleef_cast_to_doubleq1(x->sleef_value);
+        return (long double)cast_sleef_to_double(x->sleef_value);
     }
     else {
         return x->longdouble_value;
@@ -1367,23 +1360,20 @@ static inline int quad_to_numpy_same_value_check(const quad_value *x, QuadBacken
     quad_value roundtrip = to_quad<T>(*y, backend);
     if(backend == BACKEND_SLEEF) 
     {
-        if(Sleef_iunordq1(x->sleef_value, roundtrip.sleef_value))
+        bool is_sign_preserved = (quad_signbit(&x->sleef_value) == quad_signbit(&roundtrip.sleef_value));
+        if(Sleef_iunordq1(x->sleef_value, roundtrip.sleef_value) && is_sign_preserved)
             return 1;
-        if(Sleef_icmpeqq1(x->sleef_value, roundtrip.sleef_value))
-            return 1;
-        // Handle -0.0 == +0.0 case: both zeros are considered equal for same_value casting
-        if(Sleef_icmpeqq1(x->sleef_value, QUAD_ZERO) && Sleef_icmpeqq1(roundtrip.sleef_value, QUAD_ZERO))
+        if(Sleef_icmpeqq1(x->sleef_value, roundtrip.sleef_value) && is_sign_preserved)
             return 1;
     }
     else 
     {
-        if(std::isnan(x->longdouble_value) && std::isnan(roundtrip.longdouble_value))
+        bool is_sign_preserved = (ld_signbit(&x->longdouble_value) == ld_signbit(&roundtrip.longdouble_value));
+        if((std::isnan(x->longdouble_value) && std::isnan(roundtrip.longdouble_value)) && is_sign_preserved)
             return 1;
-        if(x->longdouble_value == roundtrip.longdouble_value)
+        if((x->longdouble_value == roundtrip.longdouble_value) && is_sign_preserved)
             return 1;
-        // Handle -0.0 == +0.0 case for longdouble backend
-        if(x->longdouble_value == 0.0L && roundtrip.longdouble_value == 0.0L)
-            return 1;
+
     }
     Sleef_quad sleef_val = quad_to_sleef_quad(x, backend);
     const char *val_str = quad_to_string_adaptive_cstr(&sleef_val, QUAD_STR_WIDTH);

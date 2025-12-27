@@ -1,6 +1,7 @@
 #include <sleef.h>
 #include <sleefquad.h>
 #include <cmath>
+#include "constants.hpp"
 
 // Quad Constants, generated with qutil
 #define QUAD_ZERO sleef_q(+0x0000000000000LL, 0x0000000000000000ULL, -16383)
@@ -1657,4 +1658,16 @@ static inline npy_bool
 ld_logical_not(const long double *a)
 {
     return !ld_is_nonzero(a);
+}
+
+
+// Casting operations
+static inline double
+cast_sleef_to_double(const Sleef_quad in)
+{
+    if (Sleef_icmpeqq1(in, QUAD_ZERO))
+    {
+        return quad_signbit(&in) ? -0.0 : 0.0;
+    }
+    return Sleef_cast_to_doubleq1(in);
 }

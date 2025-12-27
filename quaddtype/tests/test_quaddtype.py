@@ -5454,11 +5454,13 @@ class TestSameValueCasting:
     @pytest.mark.parametrize("dtype", [
         np.float16, np.float32, np.float64, np.longdouble
     ])
-    @pytest.mark.parametrize("val", [0.0, -0.0, float('inf'), float('-inf'), float('nan')])
+    @pytest.mark.parametrize("val", [0.0, -0.0, float('inf'), float('-inf'), float('nan'), float("-nan")])
     def test_same_value_cast_floats_special_values(self, dtype, val):
         """Test that special floating-point values roundtrip correctly."""
         q = np.array([val], dtype=QuadPrecDType())
         result = q.astype(dtype, casting="same_value")
+        if str(val).startswith("-"):
+            assert np.signbit(result), f"Sign bit failed for {dtype} with value {val}"
         if np.isnan(val):
             assert np.isnan(result), f"NaN failed for {dtype}"
         else:
@@ -5539,7 +5541,7 @@ class TestSameValueCasting:
         values = [
             "0.0", "-0.0", "1.0", "-1.0",
             "3.14159265358979323846264338327950288",  # pi with full quad precision
-            "inf", "-inf", "nan",
+            "inf", "-inf", "nan", "-nan",
             "1.23e100", "-4.56e-100",
         ]
         
@@ -5548,6 +5550,8 @@ class TestSameValueCasting:
             result = q.astype(dtype, casting="same_value")
             # Convert back and verify
             back = result.astype(QuadPrecDType())
+            if str(val).startswith("-"):
+                assert np.signbit(back[0]), f"Sign bit roundtrip failed for {dtype} with value {val}"
             if np.isnan(q[0]):
                 assert np.isnan(back[0]), f"NaN roundtrip failed for {dtype}"
             else:
@@ -5557,11 +5561,13 @@ class TestSameValueCasting:
     def test_same_value_cast_strings_narrow_width(self, dtype):
         """Test that string types with narrow width fail for values that need more precision."""
         # Values that can fit in 10 chars should pass
-        passing_values = ["0.0", "1.0", "-1.0", "inf", "-inf", "nan"]
+        passing_values = ["0.0", "-0.0", "1.0", "-1.0", "inf", "-inf", "nan", "-nan"]
         for val in passing_values:
             q = np.array([val], dtype=QuadPrecDType())
             result = q.astype(dtype, casting="same_value")
             back = result.astype(QuadPrecDType())
+            if str(val).startswith("-"):
+                assert np.signbit(back[0]), f"Sign bit roundtrip failed for {dtype} with value {val}"
             if np.isnan(q[0]):
                 assert np.isnan(back[0])
             else:
@@ -5591,7 +5597,7 @@ class TestSameValueCasting:
             0.0, -0.0, 1.0, -1.0,
             0.5, 0.25, 0.125,
             2.0, 4.0, 8.0,
-            "inf", "-inf", "nan",
+            "inf", "-inf", "nan", "-nan",
             1e100, -1e-100,
             str(2**52),  # Largest consecutive integer in double
         ]
@@ -5601,7 +5607,9 @@ class TestSameValueCasting:
             result = src.astype(QuadPrecDType(backend=dst_backend), casting="same_value")
             
             # Verify value is preserved
-            if val == "nan":
+            if str(val).startswith("-"):
+                assert np.signbit(result[0]), f"Sign bit failed for {val} in {src_backend} -> {dst_backend}"
+            if val in ["nan", "-nan"] :
                 assert np.isnan(result[0])
             else:
                 # compare them as float, as these values anyhow have to under double's range to work
