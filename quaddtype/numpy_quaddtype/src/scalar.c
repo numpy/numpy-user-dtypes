@@ -186,11 +186,6 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
             self->value.sleef_value = Sleef_cast_from_doubleq1(dval);
         }
         else {
-            // np.longdouble does not preserve sign of while nan construction`
-            // if (isnan(dval)) {
-            //     self->value.longdouble_value = copysignl(NAN, dval);
-            // }
-            // else
             self->value.longdouble_value = (long double)dval;
         }
     }
