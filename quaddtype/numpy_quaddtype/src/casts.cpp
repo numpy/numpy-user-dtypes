@@ -98,7 +98,7 @@ quad_to_quad_same_value_check(const quad_value *in_val, QuadBackendType backend_
         
         // Compare in SLEEF domain && signbit preserved
         bool is_sign_preserved = (quad_signbit(&in_val->sleef_value) == quad_signbit(&roundtrip.sleef_value));
-        if (Sleef_iunordq1(in_val->sleef_value, roundtrip.sleef_value) && is_sign_preserved)
+        if(quad_isnan(&in_val->sleef_value) && quad_isnan(&roundtrip.sleef_value) && is_sign_preserved)
             return 1;  // Both NaN
         if (Sleef_icmpeqq1(in_val->sleef_value, roundtrip.sleef_value) && is_sign_preserved)
             return 1;  // Equal
@@ -443,7 +443,7 @@ quad_to_string_same_value_check(const quad_value *in_val, const char *str_buf, n
     // Compare original and roundtripped values along with signbit
     if (backend == BACKEND_SLEEF) {
         bool is_sign_preserved = (quad_signbit(&in_val->sleef_value) == quad_signbit(&roundtrip.sleef_value));
-        if (Sleef_iunordq1(in_val->sleef_value, roundtrip.sleef_value) && is_sign_preserved)
+        if(quad_isnan(&in_val->sleef_value) && quad_isnan(&roundtrip.sleef_value) && is_sign_preserved)
             return 1;
         if (Sleef_icmpeqq1(in_val->sleef_value, roundtrip.sleef_value) && is_sign_preserved)
             return 1;
