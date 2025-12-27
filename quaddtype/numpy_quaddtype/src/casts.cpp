@@ -85,7 +85,8 @@ quad_to_quad_same_value_check(const quad_value *in_val, QuadBackendType backend_
         // Convert longdouble back to SLEEF for comparison
         long double ld = out_val->longdouble_value;
         if (std::isnan(ld)) {
-            roundtrip.sleef_value = QUAD_PRECISION_NAN;
+            // Preserve sign of NaN
+            roundtrip.sleef_value = (!ld_signbit(&ld)) ? QUAD_PRECISION_NAN : QUAD_PRECISION_NEG_NAN;
         }
         else if (std::isinf(ld)) {
             roundtrip.sleef_value = (ld > 0) ? QUAD_PRECISION_INF : QUAD_PRECISION_NINF;
@@ -162,7 +163,7 @@ quad_to_quad_strided_loop(PyArrayMethod_Context *context, char *const data[],
             {
               long double ld = in_val.longdouble_value;
               if (std::isnan(ld)) {
-                  out_val.sleef_value = QUAD_PRECISION_NAN;
+                  out_val.sleef_value = (!ld_signbit(&ld)) ? QUAD_PRECISION_NAN : QUAD_PRECISION_NEG_NAN;
               }
               else if (std::isinf(ld)) {
                   out_val.sleef_value = (ld > 0) ? QUAD_PRECISION_INF : QUAD_PRECISION_NINF;
@@ -441,7 +442,6 @@ quad_to_string_same_value_check(const quad_value *in_val, const char *str_buf, n
     
     // Compare original and roundtripped values along with signbit
     if (backend == BACKEND_SLEEF) {
-        // NaN == NaN for same_value purposes
         bool is_sign_preserved = (quad_signbit(&in_val->sleef_value) == quad_signbit(&roundtrip.sleef_value));
         if (Sleef_iunordq1(in_val->sleef_value, roundtrip.sleef_value) && is_sign_preserved)
             return 1;

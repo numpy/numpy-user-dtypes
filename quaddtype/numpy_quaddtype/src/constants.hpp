@@ -17,6 +17,7 @@ extern "C" {
 #define QUAD_PRECISION_INF sleef_q(+0x1000000000000LL, 0x0000000000000000ULL, 16384)
 #define QUAD_PRECISION_NINF sleef_q(-0x1000000000000LL, 0x0000000000000000ULL, 16384)
 #define QUAD_PRECISION_NAN sleef_q(+0x1ffffffffffffLL, 0xffffffffffffffffULL, 16384)
+#define QUAD_PRECISION_NEG_NAN sleef_q(-0x1ffffffffffffLL, 0xffffffffffffffffULL, 16384)
 
 // Additional constants
 #define QUAD_PRECISION_MAX_FINITE SLEEF_QUAD_MAX
