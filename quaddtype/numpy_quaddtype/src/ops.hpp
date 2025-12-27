@@ -1662,6 +1662,12 @@ ld_logical_not(const long double *a)
 static inline double
 cast_sleef_to_double(const Sleef_quad in)
 {
+    if (quad_isnan(&in)) {
+        return quad_signbit(&in) ? -NAN : NAN;
+    }
+    if (quad_isinf(&in)) {
+        return quad_signbit(&in) ? -INFINITY : INFINITY;
+    }
     if (Sleef_icmpeqq1(in, QUAD_PRECISION_ZERO))
     {
         return quad_signbit(&in) ? -0.0 : 0.0;
