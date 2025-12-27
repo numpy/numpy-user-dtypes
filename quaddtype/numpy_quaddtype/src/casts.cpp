@@ -1065,11 +1065,21 @@ inline quad_value
 to_quad<spec_npy_half>(npy_half x, QuadBackendType backend)
 {
     quad_value result;
+    double d = npy_half_to_double(x);
     if (backend == BACKEND_SLEEF) {
-        result.sleef_value = Sleef_cast_from_doubleq1(npy_half_to_double(x));
+        if (std::isnan(d)) {
+            result.sleef_value = std::signbit(d) ? QUAD_PRECISION_NEG_NAN : QUAD_PRECISION_NAN;
+        }
+        else if (std::isinf(d)) {
+            result.sleef_value = (d > 0) ? QUAD_PRECISION_INF : QUAD_PRECISION_NINF;
+        }
+        else {
+            Sleef_quad temp = Sleef_cast_from_doubleq1(d);
+            std::memcpy(&result.sleef_value, &temp, sizeof(Sleef_quad));
+        }
     }
     else {
-        result.longdouble_value = (long double)npy_half_to_double(x);
+        result.longdouble_value = (long double)d;
     }
     return result;
 }
@@ -1390,7 +1400,61 @@ static inline int quad_to_numpy_same_value_check(const quad_value *x, QuadBacken
     quad_value roundtrip = to_quad<T>(*y, backend);
     if(backend == BACKEND_SLEEF) 
     {
-        bool is_sign_preserved = (quad_signbit(&x->sleef_value) == quad_signbit(&roundtrip.sleef_value));
+
+        // debug statements
+        union {
+            Sleef_quad q;
+            struct {
+                uint64_t lo;
+                uint64_t hi;
+            } bits;
+        } input_bits, roundtrip_bits, canonical_nan_bits, canonical_neg_nan_bits;
+        
+        input_bits.q = x->sleef_value;
+        roundtrip_bits.q = roundtrip.sleef_value;
+        canonical_nan_bits.q = QUAD_PRECISION_NAN;
+        canonical_neg_nan_bits.q = QUAD_PRECISION_NEG_NAN;
+        
+        int input_signbit = quad_signbit(&x->sleef_value);
+        int roundtrip_signbit = quad_signbit(&roundtrip.sleef_value);
+        int input_isnan = Sleef_iunordq1(x->sleef_value, x->sleef_value);
+        int roundtrip_isnan = Sleef_iunordq1(roundtrip.sleef_value, roundtrip.sleef_value);
+        int both_unord = Sleef_iunordq1(x->sleef_value, roundtrip.sleef_value);
+        int are_equal = Sleef_icmpeqq1(x->sleef_value, roundtrip.sleef_value);
+        bool is_sign_preserved = (input_signbit == roundtrip_signbit);
+
+        if (input_isnan || roundtrip_isnan) {
+            fprintf(stderr, "\n=== DEBUG: NaN detected in same_value_check ===\n");
+            fprintf(stderr, "Input bits:         hi=0x%016llx lo=0x%016llx\n", 
+                    (unsigned long long)input_bits.bits.hi, 
+                    (unsigned long long)input_bits.bits.lo);
+            fprintf(stderr, "Roundtrip bits:     hi=0x%016llx lo=0x%016llx\n", 
+                    (unsigned long long)roundtrip_bits.bits.hi, 
+                    (unsigned long long)roundtrip_bits.bits.lo);
+            fprintf(stderr, "QUAD_PRECISION_NAN: hi=0x%016llx lo=0x%016llx\n", 
+                    (unsigned long long)canonical_nan_bits.bits.hi, 
+                    (unsigned long long)canonical_nan_bits.bits.lo);
+            fprintf(stderr, "QUAD_PREC_NEG_NAN:  hi=0x%016llx lo=0x%016llx\n", 
+                    (unsigned long long)canonical_neg_nan_bits.bits.hi, 
+                    (unsigned long long)canonical_neg_nan_bits.bits.lo);
+            fprintf(stderr, "input_signbit=%d, roundtrip_signbit=%d\n", 
+                    input_signbit, roundtrip_signbit);
+            fprintf(stderr, "input_isnan=%d, roundtrip_isnan=%d\n", 
+                    input_isnan, roundtrip_isnan);
+            fprintf(stderr, "both_unord=%d, are_equal=%d, is_sign_preserved=%d\n", 
+                    both_unord, are_equal, is_sign_preserved ? 1 : 0);
+            
+            // Also debug the intermediate value
+            fprintf(stderr, "Intermediate value y (as double): %.17g\n", (double)(*y));
+            fprintf(stderr, "std::signbit(y): %d\n", std::signbit((double)(*y)));
+            fprintf(stderr, "std::isnan(y): %d\n", std::isnan((double)(*y)));
+            fprintf(stderr, "=== END DEBUG ===\n\n");
+            fflush(stderr);
+        }
+
+        // DONE
+
+        // bool is_sign_preserved = (quad_signbit(&x->sleef_value) == quad_signbit(&roundtrip.sleef_value));
         // check if input is NaN and roundtrip is NaN with same sign
         if(quad_isnan(&x->sleef_value) && quad_isnan(&roundtrip.sleef_value) && is_sign_preserved)
             return 1;
