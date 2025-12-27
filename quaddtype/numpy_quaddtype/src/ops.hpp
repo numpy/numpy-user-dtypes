@@ -3,9 +3,6 @@
 #include <cmath>
 #include "constants.hpp"
 
-// Quad Constants, generated with qutil
-#define QUAD_ONE sleef_q(+0x1000000000000LL, 0x0000000000000000ULL, 0)
-
 // Unary Quad Operations
 typedef Sleef_quad (*unary_op_quad_def)(const Sleef_quad *);
 // Unary Quad operations with 2 outputs (for modf, frexp)
@@ -104,7 +101,7 @@ quad_cbrt(const Sleef_quad *op)
     
     // Compute 1/3 as a quad precision constant
     Sleef_quad three = Sleef_cast_from_int64q1(3);
-    Sleef_quad one_third = Sleef_divq1_u05(QUAD_ONE, three);
+    Sleef_quad one_third = Sleef_divq1_u05(QUAD_PRECISION_ONE, three);
     
     // Handle negative values: cbrt(-x) = -cbrt(x)
     if (Sleef_icmpltq1(*op, QUAD_PRECISION_ZERO)) {
@@ -126,7 +123,7 @@ quad_square(const Sleef_quad *op)
 static inline Sleef_quad
 quad_reciprocal(const Sleef_quad *op)
 {
-    return Sleef_divq1_u05(QUAD_ONE, *op);
+    return Sleef_divq1_u05(QUAD_PRECISION_ONE, *op);
 }
 
 static inline Sleef_quad
@@ -492,7 +489,7 @@ quad_signbit(const Sleef_quad *op)
 {
     // FIXME @juntyr or @SwayamInSync: replace with binary implementation
     //  once we test big and little endian in CI
-    Sleef_quad one_signed = Sleef_copysignq1(QUAD_ONE, *op);
+    Sleef_quad one_signed = Sleef_copysignq1(QUAD_PRECISION_ONE, *op);
     // signbit(x) = 1 iff copysign(1, x) == -1
     return Sleef_icmpltq1(one_signed, QUAD_PRECISION_ZERO);
 }
@@ -600,7 +597,7 @@ quad_floor_divide(const Sleef_quad *a, const Sleef_quad *b)
     // But NOT when numerator is ±0.0 (then result stays as ±0.0)
     if (Sleef_icmpeqq1(result, QUAD_PRECISION_ZERO) && quad_signbit(&result) && 
         !Sleef_icmpeqq1(*a, QUAD_PRECISION_ZERO)) {
-        return Sleef_negq1(QUAD_ONE);  // -1.0
+        return Sleef_negq1(QUAD_PRECISION_ONE);  // -1.0
     }
     
     return result;
@@ -687,7 +684,7 @@ quad_fmod(const Sleef_quad *a, const Sleef_quad *b)
     
     if (Sleef_icmpeqq1(result, QUAD_PRECISION_ZERO)) {
         // Preserve sign of dividend (first argument)
-        Sleef_quad sign_test = Sleef_copysignq1(QUAD_ONE, *a);
+        Sleef_quad sign_test = Sleef_copysignq1(QUAD_PRECISION_ONE, *a);
         if (Sleef_icmpltq1(sign_test, QUAD_PRECISION_ZERO)) {
             return Sleef_negq1(QUAD_PRECISION_ZERO);  // -0.0
         }
@@ -715,7 +712,7 @@ quad_minimum(const Sleef_quad *in1, const Sleef_quad *in2)
     }
     // minimum(-0.0, +0.0) = -0.0
     if (Sleef_icmpeqq1(*in1, QUAD_PRECISION_ZERO) && Sleef_icmpeqq1(*in2, QUAD_PRECISION_ZERO)) {
-        return Sleef_icmpleq1(Sleef_copysignq1(QUAD_ONE, *in1), Sleef_copysignq1(QUAD_ONE, *in2)) ? *in1 : *in2;
+        return Sleef_icmpleq1(Sleef_copysignq1(QUAD_PRECISION_ONE, *in1), Sleef_copysignq1(QUAD_PRECISION_ONE, *in2)) ? *in1 : *in2;
     }
     return Sleef_fminq1(*in1, *in2);
 }
@@ -728,7 +725,7 @@ quad_maximum(const Sleef_quad *in1, const Sleef_quad *in2)
     }
     // maximum(-0.0, +0.0) = +0.0
     if (Sleef_icmpeqq1(*in1, QUAD_PRECISION_ZERO) && Sleef_icmpeqq1(*in2, QUAD_PRECISION_ZERO)) {
-        return Sleef_icmpgeq1(Sleef_copysignq1(QUAD_ONE, *in1), Sleef_copysignq1(QUAD_ONE, *in2)) ? *in1 : *in2;
+        return Sleef_icmpgeq1(Sleef_copysignq1(QUAD_PRECISION_ONE, *in1), Sleef_copysignq1(QUAD_PRECISION_ONE, *in2)) ? *in1 : *in2;
     }
     return Sleef_fmaxq1(*in1, *in2);
 }
@@ -741,7 +738,7 @@ quad_fmin(const Sleef_quad *in1, const Sleef_quad *in2)
     }
     // fmin(-0.0, +0.0) = -0.0
     if (Sleef_icmpeqq1(*in1, QUAD_PRECISION_ZERO) && Sleef_icmpeqq1(*in2, QUAD_PRECISION_ZERO)) {
-        return Sleef_icmpleq1(Sleef_copysignq1(QUAD_ONE, *in1), Sleef_copysignq1(QUAD_ONE, *in2)) ? *in1 : *in2;
+        return Sleef_icmpleq1(Sleef_copysignq1(QUAD_PRECISION_ONE, *in1), Sleef_copysignq1(QUAD_PRECISION_ONE, *in2)) ? *in1 : *in2;
     }
     return Sleef_fminq1(*in1, *in2);
 }
@@ -754,7 +751,7 @@ quad_fmax(const Sleef_quad *in1, const Sleef_quad *in2)
     }
     // maximum(-0.0, +0.0) = +0.0
     if (Sleef_icmpeqq1(*in1, QUAD_PRECISION_ZERO) && Sleef_icmpeqq1(*in2, QUAD_PRECISION_ZERO)) {
-        return Sleef_icmpgeq1(Sleef_copysignq1(QUAD_ONE, *in1), Sleef_copysignq1(QUAD_ONE, *in2)) ? *in1 : *in2;
+        return Sleef_icmpgeq1(Sleef_copysignq1(QUAD_PRECISION_ONE, *in1), Sleef_copysignq1(QUAD_PRECISION_ONE, *in2)) ? *in1 : *in2;
     }
     return Sleef_fmaxq1(*in1, *in2);
 }
@@ -849,7 +846,7 @@ quad_logaddexp2(const Sleef_quad *x, const Sleef_quad *y)
     Sleef_quad abs_diff = Sleef_fabsq1(diff);
     Sleef_quad neg_abs_diff = Sleef_negq1(abs_diff);
     Sleef_quad exp2_term = Sleef_exp2q1_u10(neg_abs_diff);
-    Sleef_quad one_plus_exp2 = Sleef_addq1_u05(QUAD_ONE, exp2_term);
+    Sleef_quad one_plus_exp2 = Sleef_addq1_u05(QUAD_PRECISION_ONE, exp2_term);
     Sleef_quad log2_term = Sleef_log2q1_u10(one_plus_exp2);
     
     Sleef_quad max_val = Sleef_icmpgtq1(*x, *y) ? *x : *y;
@@ -872,7 +869,7 @@ quad_heaviside(const Sleef_quad *x1, const Sleef_quad *x2)
         return *x2;  // When x1 == 0, return x2 (even if x2 is NaN)
     }
     else {
-        return QUAD_ONE;
+        return QUAD_PRECISION_ONE;
     }
 }
 

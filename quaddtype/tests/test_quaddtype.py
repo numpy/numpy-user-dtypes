@@ -5459,8 +5459,8 @@ class TestSameValueCasting:
         """Test that special floating-point values roundtrip correctly."""
         q = np.array([val], dtype=QuadPrecDType())
         result = q.astype(dtype, casting="same_value")
-        if str(val).startswith("-"):
-            assert np.signbit(result), f"Sign bit failed for {dtype} with value {val}"
+
+        assert np.signbit(result) == np.signbit(val), f"Sign bit failed for {dtype} with value {val}"
         if np.isnan(val):
             assert np.isnan(result), f"NaN failed for {dtype}"
         else:
@@ -5550,8 +5550,7 @@ class TestSameValueCasting:
             result = q.astype(dtype, casting="same_value")
             # Convert back and verify
             back = result.astype(QuadPrecDType())
-            if str(val).startswith("-"):
-                assert np.signbit(back[0]), f"Sign bit roundtrip failed for {dtype} with value {val}"
+            assert np.signbit(back[0]) == np.signbit(q[0]), f"Sign bit roundtrip failed for {dtype} with value {val}"
             if np.isnan(q[0]):
                 assert np.isnan(back[0]), f"NaN roundtrip failed for {dtype}"
             else:
@@ -5566,8 +5565,7 @@ class TestSameValueCasting:
             q = np.array([val], dtype=QuadPrecDType())
             result = q.astype(dtype, casting="same_value")
             back = result.astype(QuadPrecDType())
-            if str(val).startswith("-"):
-                assert np.signbit(back[0]), f"Sign bit roundtrip failed for {dtype} with value {val}"
+            assert np.signbit(back[0]) == np.signbit(q[0]), f"Sign bit roundtrip failed for {dtype} with value {val}"
             if np.isnan(q[0]):
                 assert np.isnan(back[0])
             else:
@@ -5607,8 +5605,7 @@ class TestSameValueCasting:
             result = src.astype(QuadPrecDType(backend=dst_backend), casting="same_value")
             
             # Verify value is preserved
-            if str(val).startswith("-"):
-                assert np.signbit(result[0]), f"Sign bit failed for {val} in {src_backend} -> {dst_backend}"
+            assert np.signbit(result[0]) == np.signbit(src[0]), f"Sign bit failed for {val} in {src_backend} -> {dst_backend}"
             if val in ["nan", "-nan"] :
                 assert np.isnan(result[0])
             else:
