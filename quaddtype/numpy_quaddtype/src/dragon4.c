@@ -17,7 +17,7 @@ Modifications are specific to support the SLEEF_QUAD
 #define PY_ARRAY_UNIQUE_SYMBOL QuadPrecType_ARRAY_API
 #define PY_UFUNC_UNIQUE_SYMBOL QuadPrecType_UFUNC_API
 #define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
-#define NPY_TARGET_VERSION NPY_2_0_API_VERSION
+#define NPY_TARGET_VERSION NPY_2_4_API_VERSION
 #define NO_IMPORT_ARRAY
 #define NO_IMPORT_UFUNC
 
@@ -974,21 +974,21 @@ PrintInfNan(char *buffer, npy_uint32 bufferSize, npy_uint64 mantissa, npy_uint32
 
     DEBUG_ASSERT(bufferSize > 0);
 
+    /* Print sign for both inf and nan values */
+    if (signbit == '+') {
+        if (pos < maxPrintLen - 1) {
+            buffer[pos++] = '+';
+        }
+    }
+    else if (signbit == '-') {
+        if (pos < maxPrintLen - 1) {
+            buffer[pos++] = '-';
+        }
+    }
+
     /* Check for infinity */
     if (mantissa == 0) {
         npy_uint32 printLen;
-
-        /* only print sign for inf values (though nan can have a sign set) */
-        if (signbit == '+') {
-            if (pos < maxPrintLen - 1) {
-                buffer[pos++] = '+';
-            }
-        }
-        else if (signbit == '-') {
-            if (pos < maxPrintLen - 1) {
-                buffer[pos++] = '-';
-            }
-        }
 
         /* copy and make sure the buffer is terminated */
         printLen = (3 < maxPrintLen - pos) ? 3 : maxPrintLen - pos;
