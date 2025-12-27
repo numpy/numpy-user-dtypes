@@ -4,10 +4,7 @@
 #include "constants.hpp"
 
 // Quad Constants, generated with qutil
-#define QUAD_ZERO sleef_q(+0x0000000000000LL, 0x0000000000000000ULL, -16383)
 #define QUAD_ONE sleef_q(+0x1000000000000LL, 0x0000000000000000ULL, 0)
-#define QUAD_POS_INF sleef_q(+0x1000000000000LL, 0x0000000000000000ULL, 16384)
-#define QUAD_NAN sleef_q(+0x1ffffffffffffLL, 0xffffffffffffffffULL, 16384)
 
 // Unary Quad Operations
 typedef Sleef_quad (*unary_op_quad_def)(const Sleef_quad *);
@@ -29,7 +26,7 @@ quad_positive(const Sleef_quad *op)
 static inline Sleef_quad
 quad_sign(const Sleef_quad *op)
 {
-    int sign = Sleef_icmpq1(*op, QUAD_ZERO);
+    int sign = Sleef_icmpq1(*op, QUAD_PRECISION_ZERO);
     // sign(x=NaN) = x; otherwise sign(x) in { -1.0; 0.0; +1.0 }
     return Sleef_iunordq1(*op, *op) ? *op : Sleef_cast_from_int64q1(sign);
 }
@@ -97,11 +94,11 @@ quad_cbrt(const Sleef_quad *op)
     if (Sleef_iunordq1(*op, *op)) {
         return *op;  // NaN
     }
-    if (Sleef_icmpeqq1(*op, QUAD_ZERO)) {
+    if (Sleef_icmpeqq1(*op, QUAD_PRECISION_ZERO)) {
         return *op;  // ±0
     }
     // Check if op is ±inf: isinf(x) = abs(x) == inf
-    if (Sleef_icmpeqq1(Sleef_fabsq1(*op), QUAD_POS_INF)) {
+    if (Sleef_icmpeqq1(Sleef_fabsq1(*op), QUAD_PRECISION_INF)) {
         return *op;  // ±inf
     }
     
@@ -110,7 +107,7 @@ quad_cbrt(const Sleef_quad *op)
     Sleef_quad one_third = Sleef_divq1_u05(QUAD_ONE, three);
     
     // Handle negative values: cbrt(-x) = -cbrt(x)
-    if (Sleef_icmpltq1(*op, QUAD_ZERO)) {
+    if (Sleef_icmpltq1(*op, QUAD_PRECISION_ZERO)) {
         Sleef_quad abs_val = Sleef_fabsq1(*op);
         Sleef_quad result = Sleef_powq1_u10(abs_val, one_third);
         return Sleef_negq1(result);
@@ -497,21 +494,21 @@ quad_signbit(const Sleef_quad *op)
     //  once we test big and little endian in CI
     Sleef_quad one_signed = Sleef_copysignq1(QUAD_ONE, *op);
     // signbit(x) = 1 iff copysign(1, x) == -1
-    return Sleef_icmpltq1(one_signed, QUAD_ZERO);
+    return Sleef_icmpltq1(one_signed, QUAD_PRECISION_ZERO);
 }
 
 static inline npy_bool
 quad_isfinite(const Sleef_quad *op)
 {
     // isfinite(x) = abs(x) < inf
-    return Sleef_icmpltq1(Sleef_fabsq1(*op), QUAD_POS_INF);
+    return Sleef_icmpltq1(Sleef_fabsq1(*op), QUAD_PRECISION_INF);
 }
 
 static inline npy_bool
 quad_isinf(const Sleef_quad *op)
 {
     // isinf(x) = abs(x) == inf
-    return Sleef_icmpeqq1(Sleef_fabsq1(*op), QUAD_POS_INF);
+    return Sleef_icmpeqq1(Sleef_fabsq1(*op), QUAD_PRECISION_INF);
 }
 
 static inline npy_bool
@@ -586,13 +583,13 @@ quad_floor_divide(const Sleef_quad *a, const Sleef_quad *b)
     
     // inf / finite_nonzero or -inf / finite_nonzero -> NaN
     // But inf / 0 -> inf
-    if (quad_isinf(a) && quad_isfinite(b) && !Sleef_icmpeqq1(*b, QUAD_ZERO)) {
-        return QUAD_NAN;
+    if (quad_isinf(a) && quad_isfinite(b) && !Sleef_icmpeqq1(*b, QUAD_PRECISION_ZERO)) {
+        return QUAD_PRECISION_NAN;
     }
     
     // 0 / 0 (including -0.0 / 0.0, 0.0 / -0.0, -0.0 / -0.0) -> NaN
-    if (Sleef_icmpeqq1(*a, QUAD_ZERO) && Sleef_icmpeqq1(*b, QUAD_ZERO)) {
-        return QUAD_NAN;
+    if (Sleef_icmpeqq1(*a, QUAD_PRECISION_ZERO) && Sleef_icmpeqq1(*b, QUAD_PRECISION_ZERO)) {
+        return QUAD_PRECISION_NAN;
     }
     
     Sleef_quad quotient = Sleef_divq1_u05(*a, *b);
@@ -601,8 +598,8 @@ quad_floor_divide(const Sleef_quad *a, const Sleef_quad *b)
     // floor_divide semantics: when result is -0.0 from non-zero numerator, convert to -1.0
     // This happens when: (negative & non-zero)/+inf, (positive & non-zero)/-inf
     // But NOT when numerator is ±0.0 (then result stays as ±0.0)
-    if (Sleef_icmpeqq1(result, QUAD_ZERO) && quad_signbit(&result) && 
-        !Sleef_icmpeqq1(*a, QUAD_ZERO)) {
+    if (Sleef_icmpeqq1(result, QUAD_PRECISION_ZERO) && quad_signbit(&result) && 
+        !Sleef_icmpeqq1(*a, QUAD_PRECISION_ZERO)) {
         return Sleef_negq1(QUAD_ONE);  // -1.0
     }
     
@@ -619,8 +616,8 @@ static inline Sleef_quad
 quad_mod(const Sleef_quad *a, const Sleef_quad *b)
 {
     // division by zero
-    if (Sleef_icmpeqq1(*b, QUAD_ZERO)) {
-        return QUAD_NAN;
+    if (Sleef_icmpeqq1(*b, QUAD_PRECISION_ZERO)) {
+        return QUAD_PRECISION_NAN;
     }
 
     // NaN inputs
@@ -630,7 +627,7 @@ quad_mod(const Sleef_quad *a, const Sleef_quad *b)
 
     // infinity dividend -> NaN
     if (quad_isinf(a)) {
-        return QUAD_NAN;
+        return QUAD_PRECISION_NAN;
     }
 
     // finite % inf
@@ -650,12 +647,12 @@ quad_mod(const Sleef_quad *a, const Sleef_quad *b)
 
     // Handle zero result sign: when result is exactly zero,
     // it should have the same sign as the divisor (NumPy convention)
-    if (Sleef_icmpeqq1(result, QUAD_ZERO)) {
-        if (Sleef_icmpltq1(*b, QUAD_ZERO)) {
-            return Sleef_negq1(QUAD_ZERO);  // -0.0
+    if (Sleef_icmpeqq1(result, QUAD_PRECISION_ZERO)) {
+        if (Sleef_icmpltq1(*b, QUAD_PRECISION_ZERO)) {
+            return Sleef_negq1(QUAD_PRECISION_ZERO);  // -0.0
         }
         else {
-            return QUAD_ZERO;  // +0.0
+            return QUAD_PRECISION_ZERO;  // +0.0
         }
     }
 
@@ -671,13 +668,13 @@ quad_fmod(const Sleef_quad *a, const Sleef_quad *b)
     }
     
     // Division by zero -> NaN
-    if (Sleef_icmpeqq1(*b, QUAD_ZERO)) {
-        return QUAD_NAN;
+    if (Sleef_icmpeqq1(*b, QUAD_PRECISION_ZERO)) {
+        return QUAD_PRECISION_NAN;
     }
     
     // Infinity dividend -> NaN
     if (quad_isinf(a)) {
-        return QUAD_NAN;
+        return QUAD_PRECISION_NAN;
     }
     
     // Finite % infinity -> return dividend (same as a)
@@ -688,14 +685,14 @@ quad_fmod(const Sleef_quad *a, const Sleef_quad *b)
     // x - trunc(x/y) * y
     Sleef_quad result = Sleef_fmodq1(*a, *b);
     
-    if (Sleef_icmpeqq1(result, QUAD_ZERO)) {
+    if (Sleef_icmpeqq1(result, QUAD_PRECISION_ZERO)) {
         // Preserve sign of dividend (first argument)
         Sleef_quad sign_test = Sleef_copysignq1(QUAD_ONE, *a);
-        if (Sleef_icmpltq1(sign_test, QUAD_ZERO)) {
-            return Sleef_negq1(QUAD_ZERO);  // -0.0
+        if (Sleef_icmpltq1(sign_test, QUAD_PRECISION_ZERO)) {
+            return Sleef_negq1(QUAD_PRECISION_ZERO);  // -0.0
         }
         else {
-            return QUAD_ZERO;  // +0.0
+            return QUAD_PRECISION_ZERO;  // +0.0
         }
     }
     
@@ -717,7 +714,7 @@ quad_minimum(const Sleef_quad *in1, const Sleef_quad *in2)
         return Sleef_iunordq1(*in1, *in1) ? *in1 : *in2;
     }
     // minimum(-0.0, +0.0) = -0.0
-    if (Sleef_icmpeqq1(*in1, QUAD_ZERO) && Sleef_icmpeqq1(*in2, QUAD_ZERO)) {
+    if (Sleef_icmpeqq1(*in1, QUAD_PRECISION_ZERO) && Sleef_icmpeqq1(*in2, QUAD_PRECISION_ZERO)) {
         return Sleef_icmpleq1(Sleef_copysignq1(QUAD_ONE, *in1), Sleef_copysignq1(QUAD_ONE, *in2)) ? *in1 : *in2;
     }
     return Sleef_fminq1(*in1, *in2);
@@ -730,7 +727,7 @@ quad_maximum(const Sleef_quad *in1, const Sleef_quad *in2)
         return Sleef_iunordq1(*in1, *in1) ? *in1 : *in2;
     }
     // maximum(-0.0, +0.0) = +0.0
-    if (Sleef_icmpeqq1(*in1, QUAD_ZERO) && Sleef_icmpeqq1(*in2, QUAD_ZERO)) {
+    if (Sleef_icmpeqq1(*in1, QUAD_PRECISION_ZERO) && Sleef_icmpeqq1(*in2, QUAD_PRECISION_ZERO)) {
         return Sleef_icmpgeq1(Sleef_copysignq1(QUAD_ONE, *in1), Sleef_copysignq1(QUAD_ONE, *in2)) ? *in1 : *in2;
     }
     return Sleef_fmaxq1(*in1, *in2);
@@ -743,7 +740,7 @@ quad_fmin(const Sleef_quad *in1, const Sleef_quad *in2)
         return Sleef_iunordq1(*in2, *in2) ? *in1 : *in2;
     }
     // fmin(-0.0, +0.0) = -0.0
-    if (Sleef_icmpeqq1(*in1, QUAD_ZERO) && Sleef_icmpeqq1(*in2, QUAD_ZERO)) {
+    if (Sleef_icmpeqq1(*in1, QUAD_PRECISION_ZERO) && Sleef_icmpeqq1(*in2, QUAD_PRECISION_ZERO)) {
         return Sleef_icmpleq1(Sleef_copysignq1(QUAD_ONE, *in1), Sleef_copysignq1(QUAD_ONE, *in2)) ? *in1 : *in2;
     }
     return Sleef_fminq1(*in1, *in2);
@@ -756,7 +753,7 @@ quad_fmax(const Sleef_quad *in1, const Sleef_quad *in2)
         return Sleef_iunordq1(*in2, *in2) ? *in1 : *in2;
     }
     // maximum(-0.0, +0.0) = +0.0
-    if (Sleef_icmpeqq1(*in1, QUAD_ZERO) && Sleef_icmpeqq1(*in2, QUAD_ZERO)) {
+    if (Sleef_icmpeqq1(*in1, QUAD_PRECISION_ZERO) && Sleef_icmpeqq1(*in2, QUAD_PRECISION_ZERO)) {
         return Sleef_icmpgeq1(Sleef_copysignq1(QUAD_ONE, *in1), Sleef_copysignq1(QUAD_ONE, *in2)) ? *in1 : *in2;
     }
     return Sleef_fmaxq1(*in1, *in2);
@@ -787,14 +784,14 @@ quad_logaddexp(const Sleef_quad *x, const Sleef_quad *y)
     
     // Handle infinities
     // If both are -inf, result is -inf
-    Sleef_quad neg_inf = Sleef_negq1(QUAD_POS_INF);
+    Sleef_quad neg_inf = Sleef_negq1(QUAD_PRECISION_INF);
     if (Sleef_icmpeqq1(*x, neg_inf) && Sleef_icmpeqq1(*y, neg_inf)) {
         return neg_inf;
     }
     
     // If either is +inf, result is +inf
-    if (Sleef_icmpeqq1(*x, QUAD_POS_INF) || Sleef_icmpeqq1(*y, QUAD_POS_INF)) {
-        return QUAD_POS_INF;
+    if (Sleef_icmpeqq1(*x, QUAD_PRECISION_INF) || Sleef_icmpeqq1(*y, QUAD_PRECISION_INF)) {
+        return QUAD_PRECISION_INF;
     }
     
     // If one is -inf, result is the other value
@@ -829,14 +826,14 @@ quad_logaddexp2(const Sleef_quad *x, const Sleef_quad *y)
     
     // Handle infinities
     // If both are -inf, result is -inf
-    Sleef_quad neg_inf = Sleef_negq1(QUAD_POS_INF);
+    Sleef_quad neg_inf = Sleef_negq1(QUAD_PRECISION_INF);
     if (Sleef_icmpeqq1(*x, neg_inf) && Sleef_icmpeqq1(*y, neg_inf)) {
         return neg_inf;
     }
     
     // If either is +inf, result is +inf
-    if (Sleef_icmpeqq1(*x, QUAD_POS_INF) || Sleef_icmpeqq1(*y, QUAD_POS_INF)) {
-        return QUAD_POS_INF;
+    if (Sleef_icmpeqq1(*x, QUAD_PRECISION_INF) || Sleef_icmpeqq1(*y, QUAD_PRECISION_INF)) {
+        return QUAD_PRECISION_INF;
     }
     
     // If one is -inf, result is the other value
@@ -868,10 +865,10 @@ quad_heaviside(const Sleef_quad *x1, const Sleef_quad *x2)
         return *x1;  // x1 is NaN, return NaN
     }
     
-    if (Sleef_icmpltq1(*x1, QUAD_ZERO)) {
-        return QUAD_ZERO;
+    if (Sleef_icmpltq1(*x1, QUAD_PRECISION_ZERO)) {
+        return QUAD_PRECISION_ZERO;
     }
-    else if (Sleef_icmpeqq1(*x1, QUAD_ZERO)) {
+    else if (Sleef_icmpeqq1(*x1, QUAD_PRECISION_ZERO)) {
         return *x2;  // When x1 == 0, return x2 (even if x2 is NaN)
     }
     else {
@@ -1026,17 +1023,17 @@ quad_spacing(const Sleef_quad *x)
     
     // Handle infinity -> NaN (numpy convention)
     if (quad_isinf(x)) {
-        return QUAD_NAN;
+        return QUAD_PRECISION_NAN;
     }
     
     // Determine direction based on sign of x
     Sleef_quad direction;
-    if (Sleef_icmpltq1(*x, QUAD_ZERO)) {
+    if (Sleef_icmpltq1(*x, QUAD_PRECISION_ZERO)) {
         // Negative: move toward -inf
-        direction = Sleef_negq1(QUAD_POS_INF);
+        direction = Sleef_negq1(QUAD_PRECISION_INF);
     } else {
         // Positive or zero: move toward +inf
-        direction = QUAD_POS_INF;
+        direction = QUAD_PRECISION_INF;
     }
     
     // Compute nextafter(x, direction)
@@ -1068,7 +1065,7 @@ quad_ldexp(const Sleef_quad *x, const int *exp)
     }
     
     // ±0 * 2^exp = ±0 (preserves sign of zero)
-    if (Sleef_icmpeqq1(*x, QUAD_ZERO)) {
+    if (Sleef_icmpeqq1(*x, QUAD_PRECISION_ZERO)) {
         return *x;
     }
     
@@ -1125,7 +1122,7 @@ quad_frexp(const Sleef_quad *x, int *exp)
     }
     
     // ±0 -> mantissa ±0 with exponent 0 (preserves sign of zero)
-    if (Sleef_icmpeqq1(*x, QUAD_ZERO)) {
+    if (Sleef_icmpeqq1(*x, QUAD_PRECISION_ZERO)) {
         *exp = 0;
         return *x;
     }
@@ -1588,7 +1585,7 @@ quad_is_nonzero(const Sleef_quad *a)
 {
     // A value is falsy if it's exactly zero (positive or negative)
     // NaN and inf are truthy
-    npy_bool is_zero = Sleef_icmpeqq1(*a, QUAD_ZERO);
+    npy_bool is_zero = Sleef_icmpeqq1(*a, QUAD_PRECISION_ZERO);
     return !is_zero;
 }
 
@@ -1665,7 +1662,7 @@ ld_logical_not(const long double *a)
 static inline double
 cast_sleef_to_double(const Sleef_quad in)
 {
-    if (Sleef_icmpeqq1(in, QUAD_ZERO))
+    if (Sleef_icmpeqq1(in, QUAD_PRECISION_ZERO))
     {
         return quad_signbit(&in) ? -0.0 : 0.0;
     }
