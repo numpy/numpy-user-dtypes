@@ -1361,7 +1361,8 @@ static inline int quad_to_numpy_same_value_check(const quad_value *x, QuadBacken
     if(backend == BACKEND_SLEEF) 
     {
         bool is_sign_preserved = (quad_signbit(&x->sleef_value) == quad_signbit(&roundtrip.sleef_value));
-        if(Sleef_iunordq1(x->sleef_value, roundtrip.sleef_value) && is_sign_preserved)
+        // check if input is NaN and roundtrip is NaN with same sign
+        if(quad_isnan(&x->sleef_value) && quad_isnan(&roundtrip.sleef_value) && is_sign_preserved)
             return 1;
         if(Sleef_icmpeqq1(x->sleef_value, roundtrip.sleef_value) && is_sign_preserved)
             return 1;
