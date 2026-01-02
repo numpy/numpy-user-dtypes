@@ -48,7 +48,7 @@ load(const char *ptr)
 // Store a value to memory, handling alignment
 template <bool Aligned, typename T>
 static inline void
-store(char *ptr, T val)
+store(char *ptr, const T &val)
 {
     if constexpr (Aligned) {
         *(T *)ptr = val;
@@ -60,29 +60,28 @@ store(char *ptr, T val)
 
 // Load quad_value from memory based on backend and alignment
 template <bool Aligned>
-static inline quad_value
-load_quad(const char *ptr, QuadBackendType backend)
+static inline void
+load_quad(const char *ptr, QuadBackendType backend, quad_value *out)
 {
     quad_value val;
     if (backend == BACKEND_SLEEF) {
-        val.sleef_value = load<Aligned, Sleef_quad>(ptr);
+        out->sleef_value = load<Aligned, Sleef_quad>(ptr);
     }
     else {
-        val.longdouble_value = load<Aligned, long double>(ptr);
+        out->longdouble_value = load<Aligned, long double>(ptr);
     }
-    return val;
 }
 
 // Store quad_value to memory based on backend and alignment
 template <bool Aligned>
 static inline void
-store_quad(char *ptr, const quad_value &val, QuadBackendType backend)
+store_quad(char *ptr, const quad_value *val, QuadBackendType backend)
 {
     if (backend == BACKEND_SLEEF) {
-        store<Aligned, Sleef_quad>(ptr, val.sleef_value);
+        store<Aligned, Sleef_quad>(ptr, val->sleef_value);
     }
     else {
-        store<Aligned, long double>(ptr, val.longdouble_value);
+        store<Aligned, long double>(ptr, val->longdouble_value);
     }
 }
 

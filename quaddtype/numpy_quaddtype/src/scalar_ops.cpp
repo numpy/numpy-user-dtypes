@@ -210,7 +210,7 @@ static PyObject *
 QuadPrecision_float(QuadPrecisionObject *self)
 {
     if (self->backend == BACKEND_SLEEF) {
-        return PyFloat_FromDouble(Sleef_cast_to_doubleq1(self->value.sleef_value));
+        return PyFloat_FromDouble(cast_sleef_to_double(self->value.sleef_value));
     }
     else {
         return PyFloat_FromDouble((double)self->value.longdouble_value);
