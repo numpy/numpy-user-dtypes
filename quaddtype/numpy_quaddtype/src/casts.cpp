@@ -77,7 +77,7 @@ quad_to_quad_strided_loop_unaligned(PyArrayMethod_Context *context, char *const 
             quad_value in_val, out_val;
             if (descr_in->backend == BACKEND_SLEEF) {
                 memcpy(&in_val.sleef_value, in_ptr, sizeof(Sleef_quad));
-                out_val.longdouble_value = Sleef_cast_to_doubleq1(in_val.sleef_value);
+                out_val.longdouble_value = cast_sleef_to_double(in_val.sleef_value);
             }
             else {
                 memcpy(&in_val.longdouble_value, in_ptr, sizeof(long double));
@@ -123,7 +123,7 @@ quad_to_quad_strided_loop_aligned(PyArrayMethod_Context *context, char *const da
         if (descr_in->backend == BACKEND_SLEEF) {
             while (N--) {
                 Sleef_quad in_val = *(Sleef_quad *)in_ptr;
-                *(long double *)out_ptr = Sleef_cast_to_doubleq1(in_val);
+                *(long double *)out_ptr = cast_sleef_to_double(in_val);
                 in_ptr += in_stride;
                 out_ptr += out_stride;
             }
@@ -1256,7 +1256,7 @@ inline npy_half
 from_quad<spec_npy_half>(const quad_value *x, QuadBackendType backend)
 {
     if (backend == BACKEND_SLEEF) {
-        return npy_double_to_half(Sleef_cast_to_doubleq1(x->sleef_value));
+        return npy_double_to_half(cast_sleef_to_double(x->sleef_value));
     }
     else {
         return npy_double_to_half((double)x->longdouble_value);
@@ -1268,7 +1268,7 @@ inline float
 from_quad<float>(const quad_value *x, QuadBackendType backend)
 {
     if (backend == BACKEND_SLEEF) {
-        return (float)Sleef_cast_to_doubleq1(x->sleef_value);
+        return (float)cast_sleef_to_double(x->sleef_value);
     }
     else {
         return (float)x->longdouble_value;
@@ -1280,7 +1280,7 @@ inline double
 from_quad<double>(const quad_value *x, QuadBackendType backend)
 {
     if (backend == BACKEND_SLEEF) {
-        return Sleef_cast_to_doubleq1(x->sleef_value);
+        return cast_sleef_to_double(x->sleef_value);
     }
     else {
         return (double)x->longdouble_value;
@@ -1292,7 +1292,7 @@ inline long double
 from_quad<long double>(const quad_value *x, QuadBackendType backend)
 {
     if (backend == BACKEND_SLEEF) {
-        return (long double)Sleef_cast_to_doubleq1(x->sleef_value);
+        return (long double)cast_sleef_to_double(x->sleef_value);
     }
     else {
         return x->longdouble_value;
