@@ -22,7 +22,7 @@ permissions:
 
 jobs:
   big_endian_tests:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     continue-on-error: true
     strategy:
       fail-fast: false
@@ -49,7 +49,7 @@ jobs:
 
     name: "${{ matrix.BUILD_PROP[0] }}"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
           fetch-tags: true
@@ -66,7 +66,7 @@ jobs:
           sudo apt install -y ninja-build gcc-${TOOLCHAIN_NAME} g++-${TOOLCHAIN_NAME} gfortran-${TOOLCHAIN_NAME}
 
       - name: Cache docker container
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         id: container-cache
         with:
           path: ~/docker_${{ matrix.BUILD_PROP[1] }}

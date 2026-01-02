@@ -1,4 +1,4 @@
-project('sleef', version: '3.8')
+project('sleef')
 
 cmake = find_program('cmake')
 ninja = find_program('ninja', 'make', required: false)
@@ -8,11 +8,21 @@ sleef_install_dir = 'sleef_install'
 
 # turning off parallel build in windows
 parallel_flag = ['--parallel']
+build_config_flag = []
 if host_machine.system() == 'windows'
   parallel_flag = []
+  # On Windows with MSVC (multi-config generator), must specify --config Release
+  # to match the main project's release build and avoid runtime library mismatches
+  build_config_flag = ['--config', 'Release']
 endif
 
 # For building sleef with TSan, delete the sleef subproject and follow the README instructions to build sleef externally.
+# Enable SIMD extensions that are OFF by default but required by qblas (will change in future)
+sleef_simd_flags = []
+if host_machine.cpu_family() == 'x86_64' or host_machine.cpu_family() == 'x86'
+  sleef_simd_flags = ['-DSLEEF_ENABLE_SSE2=ON']
+endif
+
 sleef_configure = run_command([
     cmake, 
     '-S', meson.current_source_dir(),
@@ -24,14 +34,14 @@ sleef_configure = run_command([
     '-DSLEEF_BUILD_INLINE_HEADERS=OFF',
     '-DCMAKE_POSITION_INDEPENDENT_CODE=ON',
     '-DCMAKE_INSTALL_PREFIX=' + meson.current_build_dir() / sleef_install_dir
-], check: false, capture: true)
+] + sleef_simd_flags, check: false, capture: true)
 
 if sleef_configure.returncode() != 0
     error('SLEEF CMake configuration failed: ' + sleef_configure.stderr())
 endif
 
 sleef_build_target = custom_target('sleef_build',
-    command: [cmake, '--build', meson.current_build_dir() / sleef_build_dir, '--target', 'install'] + parallel_flag,
+    command: [cmake, '--build', meson.current_build_dir() / sleef_build_dir, '--target', 'install'] + build_config_flag + parallel_flag,
     output: 'sleef_built.stamp',
     console: true,
     build_always_stale: true,
@@ -59,7 +69,13 @@ sleef_dep = declare_dependency(
 )
 
 sleefquad_dep = declare_dependency(
-    dependencies: [sleef_build_dep],
+    dependencies: [sleef_build_dep, sleef_dep],
     compile_args: compile_args_list,
     link_args: ['-L' + meson.current_build_dir() / sleef_install_dir / 'lib', '-L' + meson.current_build_dir() / sleef_install_dir / 'lib64', '-lsleefquad']
+)
+
+tlfloat_dep = declare_dependency(
+    dependencies: [sleef_build_dep],
+    compile_args: compile_args_list,
+    link_args: ['-L' + meson.current_build_dir() / sleef_install_dir / 'lib', '-L' + meson.current_build_dir() / sleef_install_dir / 'lib64', '-ltlfloat']
 )

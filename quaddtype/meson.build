@@ -25,8 +25,9 @@ if sleef_dep.found() and sleef_dep.type_name() != 'internal'
   # SLEEF found system-wide - verify quad-precision support
   cpp = meson.get_compiler('cpp')
   sleefquad_lib = cpp.find_library('sleefquad', required: false)
+  tlfloat_lib = cpp.find_library('tlfloat', required: false)
   
-  if sleefquad_lib.found()
+  if sleefquad_lib.found() and tlfloat_lib.found()
     sleefquad_test_code = '''
     #include <sleefquad.h>
 
@@ -40,7 +41,7 @@ if sleef_dep.found() and sleef_dep.type_name() != 'internal'
     # this should compile and link
     quad_works = cpp.links(
       sleefquad_test_code,
-      dependencies: [sleef_dep, sleefquad_lib],
+      dependencies: [sleef_dep, sleefquad_lib, tlfloat_lib],
       name: 'SLEEF quad-precision support'
     )
     
@@ -48,31 +49,39 @@ if sleef_dep.found() and sleef_dep.type_name() != 'internal'
       sleefquad_dep = declare_dependency(
         dependencies: [sleef_dep, sleefquad_lib]
       )
+      tlfloat_dep = declare_dependency(
+        dependencies: [tlfloat_lib]
+      )
       use_system_sleef = true
     else
-      fallback_reason = 'quad-precision support is not working'
+      fallback_reason = 'System-wide SLEEF installation found but a test for quad precision support failed.'
     endif
   else
-    fallback_reason = 'sleefquad library is missing'
+    fallback_reason = 'System-wide SLEEF installation does not have a sleefquad library.'
   endif
 else
-  fallback_reason = 'SLEEF not found system-wide'
+  fallback_reason = 'Cannot find system-wide SLEEF installation.'
 endif
 
 if use_system_sleef
   message('Using system-wide SLEEF installation with quad-precision support')
 else
-  warning('Falling back to SLEEF subproject: ' + fallback_reason)
   sleef_subproj = subproject('sleef')
   sleef_dep = sleef_subproj.get_variable('sleef_dep')
   sleefquad_dep = sleef_subproj.get_variable('sleefquad_dep')
-  message('Using SLEEF subproject')
+  tlfloat_dep = sleef_subproj.get_variable('tlfloat_dep')
+  warning(fallback_reason)
+  message('Proceeding with vendored SLEEF subproject instead')
 endif
 
 incdir_numpy = run_command(py,
   ['-c', 'import numpy; print(numpy.get_include())'],
   check : true
 ).stdout().strip()
+
+# pythoncapi-compat for portable C API usage across Python versions
+pythoncapi_compat_subproj = subproject('pythoncapi-compat')
+pythoncapi_compat_inc = pythoncapi_compat_subproj.get_variable('incdir')
 
 # print numpy version used
 numpy_version = run_command(py,
@@ -84,7 +93,7 @@ message('Using NumPy version: @0@'.format(numpy_version))
 npymath_path = incdir_numpy / '..' / 'lib'
 npymath_lib = c.find_library('npymath', dirs: npymath_path)
 
-dependencies = [py_dep, qblas_dep, sleef_dep, sleefquad_dep, npymath_lib]
+dependencies = [py_dep, qblas_dep, sleef_dep, sleefquad_dep, tlfloat_dep, npymath_lib]
 
 # Add OpenMP dependency (optional, for threading)
 openmp_dep = dependency('openmp', required: false, static: false)
@@ -98,6 +107,11 @@ if not is_windows
     # if compiler supports (usually gcc)
     if cpp.has_argument('-fext-numeric-literals')
         add_project_arguments('-fext-numeric-literals', language: 'cpp')
+    endif
+    
+    # Suppress warnings from system headers (sleefquad.h has many unused inline functions)
+    if cpp.has_argument('-Wno-unused-function')
+        add_project_arguments('-Wno-unused-function', language: ['c', 'cpp'])
     endif
 endif
 
@@ -144,6 +158,7 @@ includes = include_directories(
         'numpy_quaddtype/src',
     ]
 )
+pythoncapi_includes = pythoncapi_compat_inc
 
 srcs = [
     'numpy_quaddtype/src/quad_common.h',
@@ -198,5 +213,5 @@ py.extension_module('_quaddtype_main',
   dependencies: dependencies,
   install: true,
   subdir: 'numpy_quaddtype',
-  include_directories: [includes, build_includes],
+  include_directories: [includes, build_includes, pythoncapi_includes],
 )

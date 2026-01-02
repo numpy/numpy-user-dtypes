@@ -404,14 +404,15 @@ class TestBytesSupport:
         # Leading whitespace is OK (consumed by parser)
         (b" 1.0", "1.0"),
         (b"  3.14", "3.14"),
+        # Trailing whitespace is OK (matches Python's float() behavior)
+        (b"1.0 ", "1.0"),
+        (b"1.0  ", "1.0"),
     ])
     def test_bytes_whitespace_valid(self, bytes_val, expected_str):
         """Test handling of valid whitespace in bytes input."""
         assert QuadPrecision(bytes_val) == QuadPrecision(expected_str)
     
     @pytest.mark.parametrize("invalid_bytes", [
-        b"1.0 ",  # Trailing whitespace
-        b"1.0  ",  # Multiple trailing spaces
         b"1 .0",  # Internal whitespace
         b"1. 0",  # Internal whitespace
     ])
@@ -540,7 +541,7 @@ def test_supported_astype(dtype):
     assert back == orig
 
 
-@pytest.mark.parametrize("dtype", ["S10", "U10", "T", "V10", "datetime64[ms]", "timedelta64[ms]"])
+@pytest.mark.parametrize("dtype", ["V10", "datetime64[ms]", "timedelta64[ms]"])
 def test_unsupported_astype(dtype):
     if dtype == "V10":
         with pytest.raises(TypeError, match="cast"):
@@ -551,6 +552,760 @@ def test_unsupported_astype(dtype):
 
       with pytest.raises(TypeError, match="cast"):
           np.array(QuadPrecision(1)).astype(dtype, casting="unsafe")
+
+class TestArrayCastStringBytes:
+    @pytest.mark.parametrize("strtype", [np.str_, str, np.dtypes.StringDType()])
+    @pytest.mark.parametrize("input_val", [
+        "3.141592653589793238462643383279502884197",
+        "2.71828182845904523536028747135266249775",
+        "1e100",
+        "1e-100",
+        "0.0",
+        "-0.0",
+        "inf",
+        "-inf",
+        "nan",
+        "-nan",
+    ])
+    def test_cast_string_to_quad_roundtrip(self, input_val, strtype):
+        str_array = np.array(input_val, dtype=strtype)
+        quad_array = str_array.astype(QuadPrecDType())
+        expected = np.array(input_val, dtype=QuadPrecDType())
+        
+        if np.isnan(float(expected)):
+            np.testing.assert_array_equal(np.isnan(quad_array), np.isnan(expected))
+        else:
+            np.testing.assert_array_equal(quad_array, expected)
+        
+        quad_to_string_array = quad_array.astype(strtype)
+        
+        # Round-trip - String -> Quad -> String -> Quad should preserve value
+        roundtrip_quad_array = quad_to_string_array.astype(QuadPrecDType())
+        
+        if np.isnan(float(expected)):
+            np.testing.assert_array_equal(np.isnan(roundtrip_quad_array), np.isnan(quad_array))
+        else:
+            np.testing.assert_array_equal(roundtrip_quad_array, quad_array, 
+                                         err_msg=f"Round-trip failed for {input_val}")
+        
+        # Verify the string representation can be parsed back
+        # (This ensures the quad->string cast produces valid parseable strings)
+        scalar_str = str(quad_array[()])
+        scalar_from_str = QuadPrecision(scalar_str)
+        
+        if np.isnan(float(quad_array[()])):
+            assert np.isnan(float(scalar_from_str))
+        else:
+            assert scalar_from_str == quad_array[()], \
+                f"Scalar round-trip failed: {scalar_str} -> {scalar_from_str} != {quad_array[()]}"
+    
+    @pytest.mark.parametrize("input_val", [
+        b"3.141592653589793238462643383279502884197",
+        b"2.71828182845904523536028747135266249775",
+        b"1e100",
+        b"1e-100",
+        b"0.0",
+        b"-0.0",
+        b"inf",
+        b"-inf",
+        b"nan",
+        b"-nan",
+    ])
+    def test_cast_bytes_to_quad_roundtrip(self, input_val):
+        """Test bytes -> quad -> bytes round-trip conversion"""
+        bytes_array = np.array(input_val, dtype='S50')
+        quad_array = bytes_array.astype(QuadPrecDType())
+        expected = np.array(input_val.decode('utf-8'), dtype=QuadPrecDType())
+        
+        if np.isnan(float(expected)):
+            np.testing.assert_array_equal(np.isnan(quad_array), np.isnan(expected))
+        else:
+            np.testing.assert_array_equal(quad_array, expected)
+        
+        quad_to_bytes_array = quad_array.astype('S50')
+        
+        # Round-trip - Bytes -> Quad -> Bytes -> Quad should preserve value
+        roundtrip_quad_array = quad_to_bytes_array.astype(QuadPrecDType())
+        
+        if np.isnan(float(expected)):
+            np.testing.assert_array_equal(np.isnan(roundtrip_quad_array), np.isnan(quad_array))
+        else:
+            np.testing.assert_array_equal(roundtrip_quad_array, quad_array, 
+                                         err_msg=f"Round-trip failed for {input_val}")
+    
+    @pytest.mark.parametrize("dtype_str", ['S10', 'S20', 'S30', 'S50', 'S100'])
+    def test_bytes_different_sizes(self, dtype_str):
+        """Test bytes casting with different buffer sizes"""
+        quad_val = np.array([1.23456789012345678901234567890], dtype=QuadPrecDType())
+        bytes_val = quad_val.astype(dtype_str)
+        
+        # Should not raise error
+        assert bytes_val.dtype.str.startswith('|S')
+        
+        # Should be able to parse back
+        roundtrip = bytes_val.astype(QuadPrecDType())
+        
+        # For smaller sizes, precision may be truncated, so use approximate comparison
+        # For larger sizes (S50+), should be exact
+        if dtype_str in ['S50', 'S100']:
+            np.testing.assert_array_equal(roundtrip, quad_val)
+        else:
+            # Smaller sizes may lose precision due to string truncation
+            np.testing.assert_allclose(roundtrip, quad_val, rtol=1e-8)
+    
+    @pytest.mark.parametrize("input_bytes", [
+        b'1.5',
+        b'2.25',
+        b'3.14159265358979323846',
+        b'-1.5',
+        b'-2.25',
+        b'1.23e50',
+        b'-4.56e-100',
+    ])
+    def test_bytes_to_quad_basic_values(self, input_bytes):
+        """Test basic numeric bytes to quad conversion"""
+        bytes_array = np.array([input_bytes], dtype='S50')
+        quad_array = bytes_array.astype(QuadPrecDType())
+        
+        # Should successfully convert
+        assert quad_array.dtype.name == "QuadPrecDType128"
+        
+        # Value should match string conversion
+        str_val = input_bytes.decode('utf-8')
+        expected = QuadPrecision(str_val)
+        assert quad_array[0] == expected
+    
+    @pytest.mark.parametrize("special_bytes,check_func", [
+        (b'inf', lambda x: np.isinf(float(str(x))) and float(str(x)) > 0),
+        (b'-inf', lambda x: np.isinf(float(str(x))) and float(str(x)) < 0),
+        (b'nan', lambda x: np.isnan(float(str(x)))),
+        (b'Infinity', lambda x: np.isinf(float(str(x))) and float(str(x)) > 0),
+        (b'-Infinity', lambda x: np.isinf(float(str(x))) and float(str(x)) < 0),
+        (b'NaN', lambda x: np.isnan(float(str(x)))),
+    ])
+    def test_bytes_special_values(self, special_bytes, check_func):
+        """Test special values (inf, nan) in bytes format"""
+        bytes_array = np.array([special_bytes], dtype='S20')
+        quad_array = bytes_array.astype(QuadPrecDType())
+        
+        assert check_func(quad_array[0]), f"Failed for {special_bytes}"
+    
+    def test_bytes_array_vectorized(self):
+        """Test vectorized bytes to quad conversion"""
+        bytes_array = np.array([b'1.5', b'2.25', b'3.14159', b'-1.0', b'1e100'], dtype='S50')
+        quad_array = bytes_array.astype(QuadPrecDType())
+        
+        assert quad_array.shape == (5,)
+        assert quad_array.dtype.name == "QuadPrecDType128"
+        
+        # Check individual values
+        assert quad_array[0] == QuadPrecision('1.5')
+        assert quad_array[1] == QuadPrecision('2.25')
+        assert quad_array[2] == QuadPrecision('3.14159')
+        assert quad_array[3] == QuadPrecision('-1.0')
+        assert quad_array[4] == QuadPrecision('1e100')
+    
+    def test_quad_to_bytes_preserves_precision(self):
+        """Test that quad to bytes conversion preserves high precision"""
+        # Use a high-precision value
+        quad_val = np.array([QuadPrecision("3.141592653589793238462643383279502884197")], 
+                           dtype=QuadPrecDType())
+        bytes_val = quad_val.astype('S50')
+        
+        # Convert back and verify precision is maintained
+        roundtrip = bytes_val.astype(QuadPrecDType())
+        np.testing.assert_array_equal(roundtrip, quad_val)
+    
+    @pytest.mark.parametrize("invalid_bytes", [
+        b'not_a_number',
+        b'1.23.45',
+        b'abc123',
+        b'1e',
+        b'++1.0',
+        b'1.0abc',
+    ])
+    def test_invalid_bytes_raise_error(self, invalid_bytes):
+        """Test that invalid bytes raise ValueError"""
+        bytes_array = np.array([invalid_bytes], dtype='S50')
+        
+        with pytest.raises(ValueError, match="could not convert bytes to QuadPrecision"):
+            bytes_array.astype(QuadPrecDType())
+    
+    def test_bytes_with_null_terminator(self):
+        """Test bytes with embedded null terminators are handled correctly"""
+        # Bytes arrays can have null padding
+        bytes_array = np.array([b'1.5'], dtype='S20')
+        # This creates a 20-byte array with '1.5' followed by null bytes
+        
+        quad_array = bytes_array.astype(QuadPrecDType())
+        assert quad_array[0] == QuadPrecision('1.5')
+    
+    def test_empty_bytes_raises_error(self):
+        """Test that empty bytes raise ValueError"""
+        bytes_array = np.array([b''], dtype='S50')
+        
+        with pytest.raises(ValueError):
+            bytes_array.astype(QuadPrecDType())
+
+    @pytest.mark.parametrize("strtype", [np.str_, np.dtypes.StringDType()])
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_string_backend_consistency(self, strtype, backend):
+        """Test that string parsing works consistently across backends"""
+        input_str = "3.141592653589793238462643383279502884197"
+        str_array = np.array([input_str], dtype=strtype)
+        quad_array = str_array.astype(QuadPrecDType(backend=backend))
+        scalar_val = QuadPrecision(input_str, backend=backend)
+        np.testing.assert_array_equal(quad_array, np.array([scalar_val], dtype=QuadPrecDType(backend=backend)))
+
+    @pytest.mark.parametrize("strtype", [np.str_, np.dtypes.StringDType()])
+    def test_string_large_array(self, strtype):
+        """Test conversion of large string array"""
+        str_values = [str(i * 0.001) for i in range(1000)]
+        str_array = np.array(str_values, dtype=strtype)
+        quad_array = str_array.astype(QuadPrecDType())
+        
+        assert quad_array.shape == (1000,)
+        np.testing.assert_array_equal(quad_array, np.array(str_values, dtype=QuadPrecDType()))
+
+
+class TestStringParsingEdgeCases:
+    """Test edge cases in NumPyOS_ascii_strtoq string parsing"""
+    @pytest.mark.parametrize("input_str", ['3.14', '-2.71', '0.0', '1e10', '-1e-10'])
+    @pytest.mark.parametrize("byte_order", ['<', '>'])
+    def test_numeric_string_parsing(self, input_str, byte_order):
+        """Test that numeric strings are parsed correctly regardless of byte order"""
+        strtype = np.dtype(f'{byte_order}U20')
+        arr = np.array([input_str], dtype=strtype)
+        result = arr.astype(QuadPrecDType())
+        
+        expected = np.array(input_str, dtype=np.float64)
+        
+        np.testing.assert_allclose(result, expected,
+                                      err_msg=f"Failed parsing '{input_str}' with byte order '{byte_order}'")
+
+
+    @pytest.mark.parametrize("input_str,expected_sign", [
+        ("inf", 1),
+        ("+inf", 1),
+        ("-inf", -1),
+        ("Inf", 1),
+        ("+Inf", 1),
+        ("-Inf", -1),
+        ("INF", 1),
+        ("+INF", 1),
+        ("-INF", -1),
+        ("infinity", 1),
+        ("+infinity", 1),
+        ("-infinity", -1),
+        ("Infinity", 1),
+        ("+Infinity", 1),
+        ("-Infinity", -1),
+        ("INFINITY", 1),
+        ("+INFINITY", 1),
+        ("-INFINITY", -1),
+    ])
+    @pytest.mark.parametrize("strtype", ['U20', np.dtypes.StringDType()])
+    def test_infinity_sign_preservation(self, input_str, expected_sign, strtype):
+        """Test that +/- signs are correctly applied to infinity values"""
+        arr = np.array([input_str], dtype=strtype)
+        result = arr.astype(QuadPrecDType())
+        
+        assert np.isinf(float(str(result[0]))), f"Expected inf for '{input_str}'"
+        
+        actual_sign = 1 if float(str(result[0])) > 0 else -1
+        assert actual_sign == expected_sign, \
+            f"Sign mismatch for '{input_str}': got {actual_sign}, expected {expected_sign}"
+    
+    @pytest.mark.parametrize("input_str", [
+        "nan", "+nan", "-nan",  # Note: NaN sign is typically ignored
+        "NaN", "+NaN", "-NaN",
+        "NAN", "+NAN", "-NAN",
+        "nan()", "nan(123)", "nan(abc_)", "NAN(XYZ)",
+    ])
+    @pytest.mark.parametrize("strtype", ['U20', np.dtypes.StringDType()])
+    def test_nan_case_insensitive(self, input_str, strtype):
+        """Test case-insensitive NaN parsing with optional payloads"""
+        arr = np.array([input_str], dtype=strtype)
+        result = arr.astype(QuadPrecDType())
+        
+        assert np.isnan(float(str(result[0]))), f"Expected NaN for '{input_str}'"
+    
+    @pytest.mark.parametrize("input_str,expected_val", [
+        ("3.14", 3.14),
+        ("+3.14", 3.14),
+        ("-3.14", -3.14),
+        ("0.0", 0.0),
+        ("+0.0", 0.0),
+        ("-0.0", -0.0),
+        ("1e10", 1e10),
+        ("+1e10", 1e10),
+        ("-1e10", -1e10),
+        ("1.23e-45", 1.23e-45),
+        ("+1.23e-45", 1.23e-45),
+        ("-1.23e-45", -1.23e-45),
+    ])
+    @pytest.mark.parametrize("strtype", ['U20', np.dtypes.StringDType()])
+    def test_numeric_sign_handling(self, input_str, expected_val, strtype):
+        """Test that +/- signs are correctly handled for numeric values"""
+        arr = np.array([input_str], dtype=strtype)
+        result = arr.astype(QuadPrecDType())
+        
+        result_val = float(str(result[0]))
+        
+        # For zero, check sign separately
+        if expected_val == 0.0:
+            assert result_val == 0.0
+            if input_str.startswith('-'):
+                assert np.signbit(result_val), f"Expected negative zero for '{input_str}'"
+            else:
+                assert not np.signbit(result_val), f"Expected positive zero for '{input_str}'"
+        else:
+            np.testing.assert_allclose(result_val, expected_val, rtol=1e-10)
+    
+    @pytest.mark.parametrize("input_str", [
+        "  3.14  ",
+        "\t3.14\t",
+        "\n3.14\n",
+        "\r3.14\r",
+        "  \t\n\r  3.14  \t\n\r  ",
+        "  inf  ",
+        "\t-inf\t",
+        "  nan  ",
+    ])
+    @pytest.mark.parametrize("strtype", ['U20', np.dtypes.StringDType()])
+    def test_whitespace_handling(self, input_str, strtype):
+        """Test that leading/trailing whitespace is handled correctly"""
+        arr = np.array([input_str], dtype=strtype)
+        result = arr.astype(QuadPrecDType())
+        
+        # Should not raise an error
+        result_str = str(result[0])
+        assert result_str  # Should have a value
+    
+    @pytest.mark.parametrize("invalid_str", [
+        "abc",           # Non-numeric
+        "3.14.15",       # Multiple decimals
+        "1.23e",         # Incomplete scientific notation
+        "e10",           # Scientific notation without base
+        "3.14abc",       # Trailing non-numeric
+        "++3.14",        # Double sign
+        "--3.14",        # Double sign
+        "+-3.14",        # Mixed signs
+        "in",            # Incomplete inf
+        "na",            # Incomplete nan
+        "infinit",       # Incomplete infinity
+    ])
+    @pytest.mark.parametrize("strtype", ['U20', np.dtypes.StringDType()])
+    def test_invalid_strings_raise_error(self, invalid_str, strtype):
+        """Test that invalid strings raise ValueError"""
+        arr = np.array([invalid_str], dtype=strtype)
+        
+        with pytest.raises(ValueError):
+            arr.astype(QuadPrecDType())
+    
+    @pytest.mark.parametrize("input_str", [
+        "3.14ñ",         # Trailing non-ASCII
+        "ñ3.14",         # Leading non-ASCII  
+        "3.1€4",         # Mid non-ASCII
+        "π",             # Greek pi
+    ])
+    @pytest.mark.parametrize("strtype", ['U20', np.dtypes.StringDType()])
+    def test_non_ascii_raises_error(self, input_str, strtype):
+        """Test that non-ASCII characters raise ValueError"""
+        arr = np.array([input_str], dtype=strtype)
+        
+        with pytest.raises(ValueError):
+            arr.astype(QuadPrecDType())
+    
+    def test_numpy_longdouble_compatibility(self):
+        """Test that our parsing matches NumPy's longdouble for common cases"""
+        test_cases = [
+            "inf", "INF", "Inf", "-inf", "+infinity",
+            "nan", "NAN", "NaN", 
+            "3.14", "-2.718", "1e10", "-1.23e-45",
+        ]
+        
+        for test_str in test_cases:
+            arr = np.array([test_str], dtype='U20')
+            
+            # NumPy's built-in
+            np_result = arr.astype(np.longdouble)
+            
+            # Our QuadPrecision
+            quad_result = arr.astype(QuadPrecDType())
+            
+            np_val = np_result[0]
+            quad_val = float(str(quad_result[0]))
+            
+            if np.isnan(np_val):
+                assert np.isnan(quad_val), f"NumPy gives NaN but QuadPrec doesn't for '{test_str}'"
+            elif np.isinf(np_val):
+                assert np.isinf(quad_val), f"NumPy gives inf but QuadPrec doesn't for '{test_str}'"
+                assert np.sign(np_val) == np.sign(quad_val), \
+                    f"Inf sign mismatch for '{test_str}': NumPy={np.sign(np_val)}, Quad={np.sign(quad_val)}"
+            else:
+                np.testing.assert_allclose(quad_val, np_val, rtol=1e-10)
+    
+    def test_locale_independence(self):
+        """Test that parsing always uses '.' for decimal, not locale-specific separator"""
+        # This should parse correctly (period as decimal)
+        arr = np.array(["3.14"], dtype='U20')
+        result = arr.astype(QuadPrecDType())
+        assert float(str(result[0])) == 3.14
+        
+        # In some locales ',' is decimal separator, but we should always use '.'
+        # So "3,14" should either error or parse as "3" (stopping at comma)
+        # Since require_full_parse validation happens in casts.cpp, and we check
+        # for trailing content, this should raise ValueError
+        arr_comma = np.array(["3,14"], dtype='U20')
+        with pytest.raises(ValueError):
+            arr_comma.astype(QuadPrecDType())
+
+    @pytest.mark.parametrize("input_str,description", [
+        ("  1.23  ", "space - leading and trailing"),
+        ("\t1.23\t", "tab - leading and trailing"),
+        ("\n1.23\n", "newline - leading and trailing"),
+        ("\r1.23\r", "carriage return - leading and trailing"),
+        ("\v1.23\v", "vertical tab - leading and trailing"),
+        ("\f1.23\f", "form feed - leading and trailing"),
+        (" \t\n\r\v\f1.23 \t\n\r\v\f", "all 6 whitespace chars - mixed"),
+        ("\t\t\t3.14\t\t\t", "multiple tabs"),
+        ("   inf   ", "infinity with spaces"),
+        ("\t\t-inf\t\t", "negative infinity with tabs"),
+        ("\n\nnan\n\n", "nan with newlines"),
+        ("\r\r-nan\r\r", "negative nan with carriage returns"),
+        ("\v\v1e10\v\v", "scientific notation with vertical tabs"),
+        ("\f\f-1.23e-45\f\f", "negative scientific with form feeds"),
+    ])
+    def test_all_six_whitespace_characters(self, input_str, description):
+        """Test all 6 ASCII whitespace characters (space, tab, newline, carriage return, vertical tab, form feed)
+        
+        This tests the ascii_isspace() helper function in casts.cpp which matches
+        CPython's Py_ISSPACE and NumPy's NumPyOS_ascii_isspace behavior.
+        The 6 characters are: 0x09(\t), 0x0A(\n), 0x0B(\v), 0x0C(\f), 0x0D(\r), 0x20(space)
+        """
+        arr = np.array([input_str], dtype='U50')
+        result = arr.astype(QuadPrecDType())
+        
+        # Should successfully parse without errors
+        result_val = str(result[0])
+        assert result_val, f"Failed to parse with {description}"
+        
+        # Verify the value is correct (strip whitespace and compare)
+        stripped = input_str.strip(' \t\n\r\v\f')
+        expected_arr = np.array([stripped], dtype='U50')
+        expected = expected_arr.astype(QuadPrecDType())
+        
+        if np.isnan(float(str(expected[0]))):
+            assert np.isnan(float(str(result[0]))), f"NaN parsing failed for {description}"
+        elif np.isinf(float(str(expected[0]))):
+            assert np.isinf(float(str(result[0]))), f"Inf parsing failed for {description}"
+            assert np.sign(float(str(expected[0]))) == np.sign(float(str(result[0]))), \
+                f"Inf sign mismatch for {description}"
+        else:
+            assert result[0] == expected[0], f"Value mismatch for {description}"
+
+    @pytest.mark.parametrize("invalid_str,description", [
+        ("1.23 abc", "trailing non-whitespace after number"),
+        ("  1.23xyz  ", "trailing garbage with surrounding whitespace"),
+        ("abc 123", "leading garbage before number"),
+        ("1.23\x01", "control char (SOH) after number"),
+        ("1.23    a", "letter after multiple spaces"),
+        ("\t1.23\tabc\t", "tabs with garbage in middle"),
+    ])
+    def test_whitespace_with_invalid_trailing_content(self, invalid_str, description):
+        """Test that strings with invalid trailing content are rejected even with whitespace
+        
+        This ensures the trailing whitespace check in casts.cpp properly validates
+        that only whitespace follows the parsed number, not other characters.
+        """
+        arr = np.array([invalid_str], dtype='U50')
+        
+        with pytest.raises(ValueError, match="could not convert string to QuadPrecision"):
+            arr.astype(QuadPrecDType())
+        
+    @pytest.mark.parametrize("input_bytes", [
+        b'3.14', b'-2.71', b'0.0', b'1e10', b'-1e-10'
+    ])
+    def test_bytes_numeric_parsing(self, input_bytes):
+        """Test that numeric bytes are parsed correctly"""
+        arr = np.array([input_bytes], dtype='S20')
+        result = arr.astype(QuadPrecDType())
+        
+        expected = np.array(input_bytes.decode('utf-8'), dtype=np.float64)
+        np.testing.assert_allclose(result, expected,
+                                  err_msg=f"Failed parsing bytes {input_bytes}")
+    
+    @pytest.mark.parametrize("input_bytes,expected_sign", [
+        (b"inf", 1),
+        (b"+inf", 1),
+        (b"-inf", -1),
+        (b"Inf", 1),
+        (b"+Inf", 1),
+        (b"-Inf", -1),
+        (b"INF", 1),
+        (b"+INF", 1),
+        (b"-INF", -1),
+        (b"infinity", 1),
+        (b"+infinity", 1),
+        (b"-infinity", -1),
+        (b"Infinity", 1),
+        (b"+Infinity", 1),
+        (b"-Infinity", -1),
+        (b"INFINITY", 1),
+        (b"+INFINITY", 1),
+        (b"-INFINITY", -1),
+    ])
+    def test_bytes_infinity_sign_preservation(self, input_bytes, expected_sign):
+        """Test that +/- signs are correctly applied to infinity values in bytes"""
+        arr = np.array([input_bytes], dtype='S20')
+        result = arr.astype(QuadPrecDType())
+        
+        assert np.isinf(float(str(result[0]))), f"Expected inf for bytes {input_bytes}"
+        
+        actual_sign = 1 if float(str(result[0])) > 0 else -1
+        assert actual_sign == expected_sign, \
+            f"Sign mismatch for bytes {input_bytes}: got {actual_sign}, expected {expected_sign}"
+    
+    @pytest.mark.parametrize("input_bytes", [
+        b"nan", b"+nan", b"-nan",
+        b"NaN", b"+NaN", b"-NaN",
+        b"NAN", b"+NAN", b"-NAN",
+        b"nan()", b"nan(123)", b"nan(abc_)", b"NAN(XYZ)",
+    ])
+    def test_bytes_nan_case_insensitive(self, input_bytes):
+        """Test case-insensitive NaN parsing with optional payloads in bytes"""
+        arr = np.array([input_bytes], dtype='S20')
+        result = arr.astype(QuadPrecDType())
+        
+        assert np.isnan(float(str(result[0]))), f"Expected NaN for bytes {input_bytes}"
+    
+    @pytest.mark.parametrize("input_bytes,expected_val", [
+        (b"3.14", 3.14),
+        (b"+3.14", 3.14),
+        (b"-3.14", -3.14),
+        (b"0.0", 0.0),
+        (b"+0.0", 0.0),
+        (b"-0.0", -0.0),
+        (b"1e10", 1e10),
+        (b"+1e10", 1e10),
+        (b"-1e10", -1e10),
+        (b"1.23e-45", 1.23e-45),
+        (b"+1.23e-45", 1.23e-45),
+        (b"-1.23e-45", -1.23e-45),
+    ])
+    def test_bytes_numeric_sign_handling(self, input_bytes, expected_val):
+        """Test that +/- signs are correctly handled for numeric values in bytes"""
+        arr = np.array([input_bytes], dtype='S20')
+        result = arr.astype(QuadPrecDType())
+        
+        result_val = float(str(result[0]))
+        
+        # For zero, check sign separately
+        if expected_val == 0.0:
+            assert result_val == 0.0
+            if input_bytes.startswith(b'-'):
+                assert np.signbit(result_val), f"Expected negative zero for bytes {input_bytes}"
+            else:
+                assert not np.signbit(result_val), f"Expected positive zero for bytes {input_bytes}"
+        else:
+            np.testing.assert_allclose(result_val, expected_val, rtol=1e-10)
+    
+    @pytest.mark.parametrize("input_bytes", [
+        b"  3.14  ",
+        b"\t3.14\t",
+        b"\n3.14\n",
+        b"\r3.14\r",
+        b"  \t\n\r  3.14  \t\n\r  ",
+        b"  inf  ",
+        b"\t-inf\t",
+        b"  nan  ",
+    ])
+    def test_bytes_whitespace_handling(self, input_bytes):
+        """Test that leading/trailing whitespace is handled correctly in bytes"""
+        arr = np.array([input_bytes], dtype='S50')
+        result = arr.astype(QuadPrecDType())
+        
+        # Should not raise an error
+        result_str = str(result[0])
+        assert result_str  # Should have a value
+    
+    @pytest.mark.parametrize("invalid_bytes", [
+        b"abc",           # Non-numeric
+        b"3.14.15",       # Multiple decimals
+        b"1.23e",         # Incomplete scientific notation
+        b"e10",           # Scientific notation without base
+        b"3.14abc",       # Trailing non-numeric
+        b"++3.14",        # Double sign
+        b"--3.14",        # Double sign
+        b"+-3.14",        # Mixed signs
+        b"in",            # Incomplete inf
+        b"na",            # Incomplete nan
+        b"infinit",       # Incomplete infinity
+    ])
+    def test_bytes_invalid_raises_error(self, invalid_bytes):
+        """Test that invalid bytes raise ValueError"""
+        arr = np.array([invalid_bytes], dtype='S20')
+        
+        with pytest.raises(ValueError, match="could not convert bytes to QuadPrecision"):
+            arr.astype(QuadPrecDType())
+    
+    @pytest.mark.parametrize("input_bytes,description", [
+        (b"  1.23  ", "space - leading and trailing"),
+        (b"\t1.23\t", "tab - leading and trailing"),
+        (b"\n1.23\n", "newline - leading and trailing"),
+        (b"\r1.23\r", "carriage return - leading and trailing"),
+        (b" \t\n\r1.23 \t\n\r", "mixed whitespace"),
+        (b"\t\t\t3.14\t\t\t", "multiple tabs"),
+        (b"   inf   ", "infinity with spaces"),
+        (b"\t\t-inf\t\t", "negative infinity with tabs"),
+        (b"\n\nnan\n\n", "nan with newlines"),
+    ])
+    def test_bytes_whitespace_characters(self, input_bytes, description):
+        """Test all ASCII whitespace characters in bytes format"""
+        arr = np.array([input_bytes], dtype='S50')
+        result = arr.astype(QuadPrecDType())
+        
+        # Should successfully parse without errors
+        result_val = str(result[0])
+        assert result_val, f"Failed to parse bytes with {description}"
+    
+    @pytest.mark.parametrize("invalid_bytes,description", [
+        (b"1.23 abc", "trailing non-whitespace after number"),
+        (b"  1.23xyz  ", "trailing garbage with surrounding whitespace"),
+        (b"abc 123", "leading garbage before number"),
+        (b"1.23    a", "letter after multiple spaces"),
+        (b"\t1.23\tabc\t", "tabs with garbage in middle"),
+    ])
+    def test_bytes_whitespace_with_invalid_trailing(self, invalid_bytes, description):
+        """Test that bytes with invalid trailing content are rejected even with whitespace"""
+        arr = np.array([invalid_bytes], dtype='S50')
+        
+        with pytest.raises(ValueError, match="could not convert bytes to QuadPrecision"):
+            arr.astype(QuadPrecDType())
+    
+    def test_bytes_null_padding(self):
+        """Test that null-padded bytes are handled correctly"""
+        # Create a bytes array with explicit null padding
+        arr = np.array([b'1.5'], dtype='S20')  # 20 bytes with '1.5' followed by nulls
+        result = arr.astype(QuadPrecDType())
+        
+        assert result[0] == QuadPrecision('1.5')
+    
+    def test_bytes_exact_size_no_null(self):
+        """Test bytes array where content exactly fills the buffer"""
+        # Create a string that exactly fits
+        test_str = b'1.234567890'  # 11 bytes
+        arr = np.array([test_str], dtype='S11')
+        result = arr.astype(QuadPrecDType())
+        
+        expected = QuadPrecision(test_str.decode('utf-8'))
+        assert result[0] == expected
+    
+    @pytest.mark.parametrize("size", [10, 20, 50, 100])
+    def test_bytes_various_buffer_sizes(self, size):
+        """Test bytes parsing with various buffer sizes"""
+        test_bytes = b'3.14159'
+        dtype_str = f'S{size}'
+        arr = np.array([test_bytes], dtype=dtype_str)
+        result = arr.astype(QuadPrecDType())
+        
+        expected = QuadPrecision(test_bytes.decode('utf-8'))
+        assert result[0] == expected
+    
+    def test_bytes_scientific_notation_variations(self):
+        """Test various scientific notation formats in bytes"""
+        test_cases = [
+            (b'1e10', 1e10),
+            (b'1E10', 1e10),
+            (b'1.23e-45', 1.23e-45),
+            (b'1.23E-45', 1.23e-45),
+            (b'1.23e+45', 1.23e45),
+            (b'1.23E+45', 1.23e45),
+        ]
+        
+        for input_bytes, expected_val in test_cases:
+            arr = np.array([input_bytes], dtype='S20')
+            result = arr.astype(QuadPrecDType())
+            result_val = float(str(result[0]))
+            np.testing.assert_allclose(result_val, expected_val, rtol=1e-10,
+                                      err_msg=f"Failed for {input_bytes}")
+    
+    def test_bytes_high_precision_values(self):
+        """Test bytes with very high precision numeric strings"""
+        high_precision_bytes = b'3.141592653589793238462643383279502884197'
+        arr = np.array([high_precision_bytes], dtype='S50')
+        result = arr.astype(QuadPrecDType())
+        
+        # Should not raise error and produce a valid quad value
+        assert result.dtype.name == "QuadPrecDType128"
+        
+        # Round-trip should preserve value
+        back_to_bytes = result.astype('S50')
+        roundtrip = back_to_bytes.astype(QuadPrecDType())
+        np.testing.assert_array_equal(roundtrip, result)
+
+    def test_empty_string_and_whitespace_only(self):
+        """Test that empty strings and whitespace-only strings raise errors"""
+        test_cases = [
+            "",           # Empty string
+            " ",          # Single space
+            "  ",         # Multiple spaces
+            "\t",         # Single tab
+            "\n",         # Single newline
+            "\r",         # Single carriage return
+            "\v",         # Single vertical tab
+            "\f",         # Single form feed
+            " \t\n\r\v\f", # All whitespace characters
+            "   \t\t\n\n  ", # Mixed whitespace
+        ]
+        
+        for test_str in test_cases:
+            arr = np.array([test_str], dtype='U20')
+            with pytest.raises(ValueError, match="could not convert string to QuadPrecision"):
+                arr.astype(QuadPrecDType())
+
+    @pytest.mark.parametrize("boundary_str,description", [
+        ("1e4932", "near max exponent for quad precision"),
+        ("1e-4932", "near min exponent for quad precision"),
+        ("1.189731495357231765085759326628007016196477" + "e4932", "very large number"),
+        ("3.362103143112093506262677817321752602596e-4932", "very small number"),
+        ("-1.189731495357231765085759326628007016196477" + "e4932", "very large negative"),
+        ("-3.362103143112093506262677817321752602596e-4932", "very small negative"),
+    ])
+    def test_extreme_exponent_values(self, boundary_str, description):
+        """Test parsing of numbers with extreme exponents near quad precision limits
+        
+        IEEE 754 binary128 has exponent range of approximately ±4932
+        """
+        arr = np.array([boundary_str], dtype='U100')
+        result = arr.astype(QuadPrecDType())
+        
+        # Should parse successfully (may result in inf for overflow cases)
+        result_str = str(result[0])
+        assert result_str, f"Failed to parse {description}"
+
+    @pytest.mark.parametrize("precision_str", [
+        "3.141592653589793238462643383279502884197",  # 36 digits (quad precision)
+        "2.718281828459045235360287471352662497757",  # e to 36 digits
+        "1.414213562373095048801688724209698078569",  # sqrt(2) to 36 digits
+        "-1.732050807568877293527446341505872366942", # -sqrt(3) to 36 digits
+    ])
+    def test_full_precision_parsing(self, precision_str):
+        """Test that strings with full quad precision (36 decimal digits) parse correctly
+        
+        This ensures the full precision is preserved during string -> quad conversion
+        """
+        arr = np.array([precision_str], dtype='U50')
+        result = arr.astype(QuadPrecDType())
+        
+        # Convert back to string and verify roundtrip preserves precision
+        back_to_str = result.astype('U50')
+        roundtrip = back_to_str.astype(QuadPrecDType())
+        
+        # Roundtrip should preserve the value
+        assert result[0] == roundtrip[0], \
+            f"Precision lost in roundtrip for {precision_str}"
 
 
 def test_basic_equality():
@@ -3934,3 +4689,682 @@ class Test_Is_Integer_Methods:
         quad_ratio = quad_num / quad_denom
         float_ratio = float_num / float_denom
         assert abs(quad_ratio - float_ratio) < 1e-15
+
+def test_quadprecision_scalar_dtype_expose():
+    quad_ld = QuadPrecision("1e100", backend="longdouble")
+    quad_sleef = QuadPrecision("1e100", backend="sleef")
+    assert quad_ld.dtype == QuadPrecDType(backend='longdouble')
+    assert np.dtype(quad_ld) == QuadPrecDType(backend='longdouble')
+    
+    assert quad_ld.dtype.backend == 1
+    assert np.dtype(quad_ld).backend == 1
+
+    assert quad_sleef.dtype == QuadPrecDType(backend='sleef')
+    assert np.dtype(quad_sleef) == QuadPrecDType(backend='sleef')
+    assert quad_sleef.dtype.backend == 0
+    assert np.dtype(quad_sleef).backend == 0
+
+
+class TestPickle:
+    """Comprehensive test suite for pickle support in QuadPrecDType."""
+    
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_pickle_dtype_basic(self, backend):
+        """Test basic pickle/unpickle of QuadPrecDType instances."""
+        import pickle
+        
+        # Create original dtype
+        original = QuadPrecDType(backend=backend)
+        
+        # Pickle and unpickle
+        pickled = pickle.dumps(original)
+        unpickled = pickle.loads(pickled)
+        
+        # Verify dtype is preserved
+        assert isinstance(unpickled, type(original))
+        assert unpickled.backend == original.backend
+        assert str(unpickled) == str(original)
+    
+    @pytest.mark.parametrize("protocol", [0, 1, 2, 3, 4, 5])
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_pickle_dtype_all_protocols(self, protocol, backend):
+        """Test pickle with all pickle protocol versions."""
+        import pickle
+        
+        original = QuadPrecDType(backend=backend)
+        pickled = pickle.dumps(original, protocol=protocol)
+        unpickled = pickle.loads(pickled)
+        
+        assert unpickled.backend == original.backend
+        assert str(unpickled) == str(original)
+    
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    @pytest.mark.parametrize("value", [
+        "0.0", "-0.0", "1.0", "-1.0", 
+        "3.141592653589793238462643383279502884197",
+        "2.718281828459045235360287471352662497757",
+        "1e100", "1e-100", "-1e100", "-1e-100",
+        "inf", "-inf", "nan"
+    ])
+    def test_pickle_scalar(self, backend, value):
+        """Test pickle/unpickle of QuadPrecision scalars in arrays."""
+        import pickle
+        
+        # Create scalar as 0-d array (scalars pickle differently)
+        original = np.array(QuadPrecision(value, backend=backend))
+        
+        # Pickle and unpickle
+        pickled = pickle.dumps(original)
+        unpickled = pickle.loads(pickled)
+        
+        # Verify value is preserved
+        if np.isnan(float(original[()])):
+            assert np.isnan(float(unpickled[()]))
+        else:
+            assert unpickled[()] == original[()]
+            assert float(unpickled[()]) == float(original[()])
+        
+        # Verify dtype and backend
+        assert unpickled.dtype == original.dtype
+        assert unpickled.dtype.backend == original.dtype.backend
+    
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_pickle_array_1d(self, backend):
+        """Test pickle/unpickle of 1D arrays."""
+        import pickle
+        
+        # Create array
+        original = np.array([1.5, 2.5, 3.5, 4.5], dtype=QuadPrecDType(backend=backend))
+        
+        # Pickle and unpickle
+        pickled = pickle.dumps(original)
+        unpickled = pickle.loads(pickled)
+        
+        # Verify array is preserved
+        np.testing.assert_array_equal(unpickled, original)
+        assert unpickled.dtype == original.dtype
+        assert unpickled.dtype.backend == original.dtype.backend
+        assert unpickled.shape == original.shape
+    
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_pickle_array_2d(self, backend):
+        """Test pickle/unpickle of 2D arrays."""
+        import pickle
+        
+        # Create 2D array
+        original = np.array([[1.0, 2.0, 3.0],
+                            [4.0, 5.0, 6.0]], dtype=QuadPrecDType(backend=backend))
+        
+        # Pickle and unpickle
+        pickled = pickle.dumps(original)
+        unpickled = pickle.loads(pickled)
+        
+        # Verify array is preserved
+        np.testing.assert_array_equal(unpickled, original)
+        assert unpickled.dtype == original.dtype
+        assert unpickled.dtype.backend == original.dtype.backend
+        assert unpickled.shape == original.shape
+    
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_pickle_array_special_values(self, backend):
+        """Test pickle/unpickle of arrays with special values."""
+        import pickle
+        
+        # Create array with special values
+        original = np.array([
+            QuadPrecision("0.0", backend=backend),
+            QuadPrecision("-0.0", backend=backend),
+            QuadPrecision("inf", backend=backend),
+            QuadPrecision("-inf", backend=backend),
+            QuadPrecision("nan", backend=backend),
+            QuadPrecision("1e100", backend=backend),
+            QuadPrecision("1e-100", backend=backend),
+        ], dtype=QuadPrecDType(backend=backend))
+        
+        # Pickle and unpickle
+        pickled = pickle.dumps(original)
+        unpickled = pickle.loads(pickled)
+        
+        # Verify each element (handling NaN specially)
+        for i in range(len(original)):
+            if np.isnan(float(original[i])):
+                assert np.isnan(float(unpickled[i]))
+            else:
+                assert float(unpickled[i]) == float(original[i])
+                # Check sign for zeros
+                if float(original[i]) == 0.0:
+                    assert np.signbit(unpickled[i]) == np.signbit(original[i])
+        
+        assert unpickled.dtype == original.dtype
+    
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_pickle_empty_array(self, backend):
+        """Test pickle/unpickle of empty arrays."""
+        import pickle
+        
+        # Create empty array
+        original = np.array([], dtype=QuadPrecDType(backend=backend))
+        
+        # Pickle and unpickle
+        pickled = pickle.dumps(original)
+        unpickled = pickle.loads(pickled)
+        
+        # Verify empty array is preserved
+        assert len(unpickled) == 0
+        assert unpickled.dtype == original.dtype
+        assert unpickled.shape == original.shape
+    
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_pickle_high_precision_values(self, backend):
+        """Test that high precision is preserved through pickle."""
+        import pickle
+        
+        # Create high-precision values
+        pi_str = "3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117067"
+        e_str = "2.718281828459045235360287471352662497757247093699959574966967627724076630353547594571382178525166427"
+        
+        original = np.array([
+            QuadPrecision(pi_str, backend=backend),
+            QuadPrecision(e_str, backend=backend),
+        ], dtype=QuadPrecDType(backend=backend))
+        
+        # Pickle and unpickle
+        pickled = pickle.dumps(original)
+        unpickled = pickle.loads(pickled)
+        
+        # Verify high precision is maintained
+        for i in range(len(original)):
+            assert unpickled[i] == original[i]
+            assert str(unpickled[i]) == str(original[i])
+        
+        assert unpickled.dtype == original.dtype
+    
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_pickle_with_npz(self, backend):
+        """Test saving and loading arrays with np.savez."""
+        import tempfile
+        import os
+        
+        # Create arrays
+        arr1 = np.array([1.5, 2.5, 3.5], dtype=QuadPrecDType(backend=backend))
+        arr2 = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=QuadPrecDType(backend=backend))
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.npz') as f:
+            fname = f.name
+        
+        try:
+            # Save arrays
+            np.savez(fname, array1=arr1, array2=arr2)
+            
+            # Load arrays (custom dtypes require allow_pickle=True)
+            loaded = np.load(fname, allow_pickle=True)
+            loaded_arr1 = loaded['array1']
+            loaded_arr2 = loaded['array2']
+            
+            # Verify arrays are preserved
+            np.testing.assert_array_equal(loaded_arr1, arr1)
+            np.testing.assert_array_equal(loaded_arr2, arr2)
+            assert loaded_arr1.dtype == arr1.dtype
+            assert loaded_arr2.dtype == arr2.dtype
+            expected_backend = 0 if backend == 'sleef' else 1
+            assert loaded_arr1.dtype.backend == expected_backend
+            assert loaded_arr2.dtype.backend == expected_backend
+            
+            # Close the file before cleanup (required on Windows)
+            loaded.close()
+        finally:
+            os.unlink(fname)
+    
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_pickle_with_savez_compressed(self, backend):
+        """Test saving and loading arrays with np.savez_compressed."""
+        import tempfile
+        import os
+        
+        # Create array with many values
+        original = np.linspace(0, 100, 1000, dtype=np.float64).astype(QuadPrecDType(backend=backend))
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.npz') as f:
+            fname = f.name
+        
+        try:
+            # Save compressed
+            np.savez_compressed(fname, data=original)
+            
+            # Load (custom dtypes require allow_pickle=True)
+            loaded = np.load(fname, allow_pickle=True)
+            loaded_arr = loaded['data']
+            
+            # Verify array is preserved
+            np.testing.assert_array_equal(loaded_arr, original)
+            assert loaded_arr.dtype == original.dtype
+            expected_backend = 0 if backend == 'sleef' else 1
+            assert loaded_arr.dtype.backend == expected_backend
+            
+            # Close the file before cleanup (required on Windows)
+            loaded.close()
+        finally:
+            os.unlink(fname)
+    
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_pickle_npz_special_values(self, backend):
+        """Test np.savez with arrays containing special values."""
+        import tempfile
+        import os
+        
+        # Create array with special values
+        original = np.array([
+            QuadPrecision("0.0", backend=backend),
+            QuadPrecision("-0.0", backend=backend),
+            QuadPrecision("inf", backend=backend),
+            QuadPrecision("-inf", backend=backend),
+            QuadPrecision("nan", backend=backend),
+        ], dtype=QuadPrecDType(backend=backend))
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.npz') as f:
+            fname = f.name
+        
+        try:
+            # Save
+            np.savez(fname, special=original)
+            
+            # Load (custom dtypes require allow_pickle=True)
+            loaded = np.load(fname, allow_pickle=True)
+            loaded_arr = loaded['special']
+            
+            # Verify each element
+            for i in range(len(original)):
+                if np.isnan(float(original[i])):
+                    assert np.isnan(float(loaded_arr[i]))
+                else:
+                    assert float(loaded_arr[i]) == float(original[i])
+                    if float(original[i]) == 0.0:
+                        assert np.signbit(loaded_arr[i]) == np.signbit(original[i])
+            
+            assert loaded_arr.dtype == original.dtype
+            
+            # Close the file before cleanup (required on Windows)
+            loaded.close()
+        finally:
+            os.unlink(fname)
+    
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_pickle_npz_multiple_arrays(self, backend):
+        """Test np.savez with multiple arrays of different shapes."""
+        import tempfile
+        import os
+        
+        # Create arrays of different shapes
+        arr_scalar = np.array(QuadPrecision("42.0", backend=backend))
+        arr_1d = np.array([1.0, 2.0, 3.0], dtype=QuadPrecDType(backend=backend))
+        arr_2d = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=QuadPrecDType(backend=backend))
+        arr_3d = np.arange(24, dtype=np.float64).reshape((2, 3, 4)).astype(QuadPrecDType(backend=backend))
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.npz') as f:
+            fname = f.name
+        
+        try:
+            # Save all arrays
+            np.savez(fname, 
+                    scalar=arr_scalar,
+                    one_d=arr_1d,
+                    two_d=arr_2d,
+                    three_d=arr_3d)
+            
+            # Load (custom dtypes require allow_pickle=True)
+            loaded = np.load(fname, allow_pickle=True)
+            
+            # Verify all arrays
+            np.testing.assert_array_equal(loaded['scalar'], arr_scalar)
+            np.testing.assert_array_equal(loaded['one_d'], arr_1d)
+            np.testing.assert_array_equal(loaded['two_d'], arr_2d)
+            np.testing.assert_array_equal(loaded['three_d'], arr_3d)
+            
+            # Verify dtypes and backends
+            expected_backend = 0 if backend == 'sleef' else 1
+            for key in ['scalar', 'one_d', 'two_d', 'three_d']:
+                assert loaded[key].dtype.backend == expected_backend
+            
+            # Close the file before cleanup (required on Windows)
+            loaded.close()
+        finally:
+            os.unlink(fname)
+    
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_pickle_npz_exact_values(self, backend):
+        """Test that np.savez preserves exact values using np.testing.assert_allclose."""
+        import tempfile
+        import os
+        
+        # Create array with precise values
+        original = np.array([
+            1.0 / 3.0,  # Repeating decimal
+            np.sqrt(2.0),  # Irrational
+            np.pi,  # Pi
+            np.e,  # Euler's number
+            1.23456789012345678901234567890,  # Many digits
+        ], dtype=np.float64).astype(QuadPrecDType(backend=backend))
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.npz') as f:
+            fname = f.name
+        
+        try:
+            # Save
+            np.savez(fname, data=original)
+            
+            # Load (custom dtypes require allow_pickle=True)
+            loaded = np.load(fname, allow_pickle=True)
+            loaded_arr = loaded['data']
+            
+            # Verify exact values using assert_allclose
+            np.testing.assert_allclose(
+                loaded_arr.astype(np.float64),
+                original.astype(np.float64),
+                rtol=0, atol=0,  # Exact comparison
+                err_msg="Values changed after save/load"
+            )
+            
+            # Also check element-wise equality
+            for i in range(len(original)):
+                assert loaded_arr[i] == original[i]
+            
+            # Close the file before cleanup (required on Windows)
+            loaded.close()
+        finally:
+            os.unlink(fname)
+    
+    def test_pickle_backend_preservation_sleef_to_longdouble(self):
+        """Test that different backends maintain their identity through pickle."""
+        import pickle
+        
+        # Create arrays with different backends
+        sleef_arr = np.array([1.5, 2.5], dtype=QuadPrecDType(backend='sleef'))
+        longdouble_arr = np.array([1.5, 2.5], dtype=QuadPrecDType(backend='longdouble'))
+        
+        # Pickle both
+        sleef_pickled = pickle.dumps(sleef_arr)
+        longdouble_pickled = pickle.dumps(longdouble_arr)
+        
+        # Unpickle
+        sleef_unpickled = pickle.loads(sleef_pickled)
+        longdouble_unpickled = pickle.loads(longdouble_pickled)
+        
+        # Verify backends are preserved
+        assert sleef_unpickled.dtype.backend == 0  # BACKEND_SLEEF
+        assert longdouble_unpickled.dtype.backend == 1  # BACKEND_LONGDOUBLE
+        
+        # Verify they are different
+        assert sleef_unpickled.dtype.backend != longdouble_unpickled.dtype.backend
+    
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_pickle_array_view(self, backend):
+        """Test pickle/unpickle of array views."""
+        import pickle
+        
+        # Create array and view
+        base_array = np.arange(10, dtype=np.float64).astype(QuadPrecDType(backend=backend))
+        view = base_array[2:8:2]  # Slice with stride
+        
+        # Pickle and unpickle the view
+        pickled = pickle.dumps(view)
+        unpickled = pickle.loads(pickled)
+        
+        # Verify view is preserved
+        np.testing.assert_array_equal(unpickled, view)
+        assert unpickled.dtype == view.dtype
+        assert unpickled.shape == view.shape
+    
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_pickle_fortran_order(self, backend):
+        """Test pickle/unpickle of Fortran-ordered arrays."""
+        import pickle
+        
+        # Create Fortran-ordered array
+        original = np.array([[1.0, 2.0, 3.0],
+                            [4.0, 5.0, 6.0]], 
+                           dtype=QuadPrecDType(backend=backend),
+                           order='F')
+        
+        # Pickle and unpickle
+        pickled = pickle.dumps(original)
+        unpickled = pickle.loads(pickled)
+        
+        # Verify array is preserved
+        np.testing.assert_array_equal(unpickled, original)
+        assert unpickled.dtype == original.dtype
+        assert unpickled.flags.f_contiguous == original.flags.f_contiguous
+
+@pytest.mark.parametrize("dtype", [
+    "bool",
+    "byte", "int8", "ubyte", "uint8",
+    "short", "int16", "ushort", "uint16",
+    "int", "int32", "uint", "uint32",
+    "long", "ulong",
+    "longlong", "int64", "ulonglong", "uint64",
+    "half", "float16",
+    "float", "float32",
+    "double", "float64",
+    "longdouble", "float96", "float128",
+    "S50", "U50", "<U50", ">U50",
+])
+@pytest.mark.parametrize('size', [500, 1000, 10000])
+def test_large_array_casting(dtype, size):
+    """Test long array casting won't lead segfault, GIL enabled"""
+    if dtype in ("float96", "float128") and getattr(np, dtype, None) is None:
+        pytest.skip(f"{dtype} is unsupported on the current platform")
+    arr = np.arange(size).astype(np.float32).astype(dtype)
+    quad_arr = arr.astype(QuadPrecDType())
+    assert quad_arr.dtype == QuadPrecDType()
+    assert quad_arr.size == size
+
+    # check roundtrip
+    roundtrip = quad_arr.astype(dtype)
+    np.testing.assert_array_equal(arr, roundtrip)
+
+
+class TestBinaryOpsEdgeCases:
+    """Edge case tests for binary operations - SLEEF 3.8 had inconsistency where (0 + x) != (x + 0).
+    
+    In SLEEF 3.8:
+    - (0 + 6.724206286224186953608055004397316e-4932) gave half the expected value
+    - (6.724206286224186953608055004397316e-4932 + 0) was correct
+    
+    SLEEF 4.0 fixes this inconsistency.
+    """
+    
+    # The exact values from the bug
+    SMALL_VALUE = "6.724206286224186953608055004397316e-4932"
+    ZERO = 0.0
+
+    @pytest.mark.parametrize('op', [
+        ("add", "fadd"),
+        ("subtract", "fsub"),
+        ("multiply", "fmul"),
+        ("divide", "fdiv"),
+        ("mod", "fmod"),
+        ("power", "power"),
+        ("hypot", "hypot"),
+        ("atan2", "atan2"),
+    ])
+    def test_binary_op_consistency(self, op):
+        """Test that abs(x op y) == abs(y op x) - catches half-value bugs."""
+        mp.prec = 113
+        small = QuadPrecision(self.SMALL_VALUE)
+        zero = QuadPrecision(self.ZERO)
+        
+        mp_small = mp.mpf(self.SMALL_VALUE)
+        mp_zero = mp.mpf(self.ZERO)
+
+        quad_op_str, mpmath_op_str = op
+        quad_op, mpmath_op = getattr(np, quad_op_str), getattr(mp, mpmath_op_str)
+        quad_result = quad_op(zero, small)
+        mpmath_result = mpmath_op(mp_zero, mp_small)
+
+        # Use mp.nstr to get full precision (50 digits for quad precision)
+        mpmath_result = QuadPrecision(mp.nstr(mpmath_result, 50))
+
+        # Handle NaN cases
+        if np.isnan(mpmath_result):
+            assert np.isnan(quad_result), f"Expected NaN for {quad_op_str}, got {quad_result}"
+            return
+
+        # Handle infinity cases
+        if np.isinf(mpmath_result):
+            assert np.isinf(quad_result), f"Expected inf for {quad_op_str}, got {quad_result}"
+            assert np.sign(mpmath_result) == np.sign(quad_result), f"Infinity sign mismatch for {quad_op_str}"
+            return
+
+        # For finite non-zero results
+        np.testing.assert_allclose(quad_result, mpmath_result, rtol=1e-32, atol=1e-34,
+                                    err_msg=f"Value mismatch for {quad_op_str}, expected {mpmath_result}, got {quad_result}")
+       
+
+    def test_add_regression_zero_plus_small(self):
+        """The exact SLEEF 3.8 bug: 0 + small_value gave half the expected."""
+        x = QuadPrecision(self.SMALL_VALUE)
+        y = QuadPrecision(self.ZERO)
+        
+        result_yx = y + x  # 0 + x (this was buggy in SLEEF 3.8)
+        result_xy = x + y  # x + 0 (this was correct in SLEEF 3.8)
+        
+        assert result_yx == result_xy, f"0 + x = {result_yx}, but x + 0 = {result_xy}"
+        assert result_yx == x, f"0 + x = {result_yx}, expected {x}"
+
+
+class TestQuadPrecisionHash:
+    """Test suite for QuadPrecision hash function.
+    
+    The hash implementation follows CPython's _Py_HashDouble algorithm to ensure
+    the invariant: hash(x) == hash(y) when x and y are numerically equal,
+    even across different types.
+    """
+
+    @pytest.mark.parametrize("value", [
+        # Values that are exactly representable in binary floating point
+        "0.0", "1.0", "-1.0", "2.0", "-2.0",
+        "0.5", "0.25", "1.5", "-0.5",
+        "100.0", "-100.0",
+        # Powers of 2 are exactly representable
+        "0.125", "0.0625", "4.0", "8.0",
+    ])
+    def test_hash_matches_float(self, value):
+        """Test that hash(QuadPrecision) == hash(float) for exactly representable values.
+        
+        Note: Only values that are exactly representable in both float64 and float128
+        should match. Values like 0.1, 0.3 will have different hashes because they
+        have different binary representations at different precisions.
+        """
+        quad_val = QuadPrecision(value)
+        float_val = float(value)
+        assert hash(quad_val) == hash(float_val)
+
+    @pytest.mark.parametrize("value", [0.1, 0.3, 0.7, 1.1, 2.3, 1e300, 1e-300])
+    def test_hash_matches_float_from_float(self, value):
+        """Test that QuadPrecision created from float has same hash as that float.
+        
+        When creating QuadPrecision from a Python float, the value is converted
+        from the float's double precision representation, so they should be
+        numerically equal and have the same hash.
+        """
+        quad_val = QuadPrecision(value)  # Created from float, not string
+        assert hash(quad_val) == hash(value)
+
+    @pytest.mark.parametrize("value", [0, 1, -1, 2, -2, 100, -100, 1000, -1000])
+    def test_hash_matches_int(self, value):
+        """Test that hash(QuadPrecision) == hash(int) for integer values."""
+        quad_val = QuadPrecision(value)
+        assert hash(quad_val) == hash(value)
+
+    def test_hash_matches_large_int(self):
+        """Test that hash(QuadPrecision) == hash(int) for large integers."""
+        big_int = 10**20
+        quad_val = QuadPrecision(str(big_int))
+        assert hash(quad_val) == hash(big_int)
+
+    def test_hash_infinity(self):
+        """Test that infinity hash matches Python's float infinity hash."""
+        assert hash(QuadPrecision("inf")) == hash(float("inf"))
+        assert hash(QuadPrecision("-inf")) == hash(float("-inf"))
+        # Standard PyHASH_INF values
+        assert hash(QuadPrecision("inf")) == 314159
+        assert hash(QuadPrecision("-inf")) == -314159
+
+    def test_hash_nan_unique(self):
+        """Test that each NaN instance gets a unique hash (pointer-based)."""
+        nan1 = QuadPrecision("nan")
+        nan2 = QuadPrecision("nan")
+        # NaN instances should have different hashes (based on object identity)
+        assert hash(nan1) != hash(nan2)
+
+    def test_hash_nan_same_instance(self):
+        """Test that the same NaN instance has consistent hash."""
+        nan = QuadPrecision("nan")
+        assert hash(nan) == hash(nan)
+
+    def test_hash_negative_one(self):
+        """Test that hash(-1) returns -2 (Python's hash convention)."""
+        # In Python, hash(-1) returns -2 because -1 is reserved for errors
+        assert hash(QuadPrecision(-1.0)) == -2
+        assert hash(QuadPrecision("-1.0")) == -2
+
+    def test_hash_set_membership(self):
+        """Test that QuadPrecision values work correctly in sets."""
+        vals = [QuadPrecision(1.0), QuadPrecision(2.0), QuadPrecision(1.0)]
+        unique_set = set(vals)
+        assert len(unique_set) == 2
+
+    def test_hash_set_cross_type(self):
+        """Test that QuadPrecision and float with same value are in same set bucket."""
+        s = {QuadPrecision(1.0)}
+        s.add(1.0)
+        assert len(s) == 1
+
+    def test_hash_dict_key(self):
+        """Test that QuadPrecision values work as dict keys."""
+        d = {QuadPrecision(1.0): "one", QuadPrecision(2.0): "two"}
+        assert d[QuadPrecision(1.0)] == "one"
+        assert d[QuadPrecision(2.0)] == "two"
+
+    def test_hash_dict_cross_type_lookup(self):
+        """Test that dict lookup works with float keys when hash matches."""
+        d = {QuadPrecision(1.0): "one"}
+        # Float lookup should work if hash and eq both work
+        assert d.get(1.0) == "one"
+
+    @pytest.mark.parametrize("value", [
+        # Powers of 2 outside double range but within quad range
+        # Double max exponent is ~1024, quad max is ~16384
+        2**1100, 2**2000, 2**5000, 2**10000,
+        -(2**1100), -(2**2000),
+        # Small powers of 2 (subnormal in double, normal in quad)  
+        2**(-1100), 2**(-2000),
+    ])
+    def test_hash_extreme_integers_outside_double_range(self, value):
+        """Test hash matches Python int for values outside double range.
+        
+        We use powers of 2 which are exactly representable in quad precision.
+        Since these integers are exact, hash(QuadPrecision(x)) must equal hash(x).
+        """
+        quad_val = QuadPrecision(value)
+        assert hash(quad_val) == hash(value)
+
+    @pytest.mark.parametrize("value", [
+        "1e500", "-1e500", "1e1000", "-1e1000", "1e-500", "-1e-500",
+        "1.23456789e500", "-9.87654321e-600",
+    ])
+    def test_hash_matches_mpmath(self, value):
+        """Test hash matches mpmath at quad precision (113 bits).
+        
+        mpmath with 113-bit precision represents the same value as QuadPrecision,
+        so their hashes must match.
+        """
+        mp.prec = 113
+        quad_val = QuadPrecision(value)
+        mpf_val = mp.mpf(value)
+        assert hash(quad_val) == hash(mpf_val)
+
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_hash_backends(self, backend):
+        """Test hash works for both backends."""
+        quad_val = QuadPrecision(1.5, backend=backend)
+        assert hash(quad_val) == hash(1.5)

@@ -4,6 +4,8 @@ import numpy as np
 from numpy._typing import _128Bit  # pyright: ignore[reportPrivateUsage]
 from typing_extensions import Never, Self, override
 
+from numpy_quaddtype import QuadBackend
+
 _Backend: TypeAlias = Literal["sleef", "longdouble"]
 _IntoQuad: TypeAlias = (
     QuadPrecision
@@ -19,6 +21,10 @@ _ScalarItemArg: TypeAlias = Literal[0, -1] | tuple[Literal[0, -1]] | tuple[()]
 @final
 class QuadPrecDType(np.dtype[QuadPrecision]):  # type: ignore[misc]  # pyright: ignore[reportGeneralTypeIssues]
     def __new__(cls, /, backend: _Backend = "sleef") -> Self: ...
+
+    # QuadPrecDType specific attributes
+    @property
+    def backend(self) -> QuadBackend: ...
 
     # `numpy.dtype` overrides
     names: None  # pyright: ignore[reportIncompatibleVariableOverride]
@@ -123,7 +129,7 @@ class QuadPrecision(np.floating[_128Bit]):
     @override
     def __add__(self, other: _IntoQuad, /) -> Self: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
     @override
-    def __radd__(self, other: _IntoQuad, /) -> Self: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+    def __radd__(self, other: _IntoQuad, /) -> Self: ...  # type: ignore[override, misc]  # pyright: ignore[reportIncompatibleMethodOverride]
     @override
     def __sub__(self, other: _IntoQuad, /) -> Self: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
     @override

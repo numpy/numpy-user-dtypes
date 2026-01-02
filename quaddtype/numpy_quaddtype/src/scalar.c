@@ -17,12 +17,8 @@
 #include "dtype.h"
 #include "lock.h"
 #include "utilities.h"
-
-// For IEEE 754 binary128 (quad precision), we need 36 decimal digits 
-// to guarantee round-trip conversion (string -> parse -> equals original value)
-// Formula: ceil(1 + MANT_DIG * log10(2)) = ceil(1 + 113 * 0.30103) = 36
-// src: https://en.wikipedia.org/wiki/Quadruple-precision_floating-point_format
-#define SLEEF_QUAD_DECIMAL_DIG 36
+#include "constants.hpp"
+#include "pythoncapi_compat.h"
 
 
 QuadPrecisionObject *
@@ -197,8 +193,17 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
     else if (PyUnicode_Check(value)) {
         const char *s = PyUnicode_AsUTF8(value);
         char *endptr = NULL;
-        int err = cstring_to_quad(s, backend, &self->value, &endptr, true);
+        int err = NumPyOS_ascii_strtoq(s, backend, &self->value, &endptr);
         if (err < 0) {
+            PyErr_SetString(PyExc_ValueError, "Unable to parse string to QuadPrecision");
+            Py_DECREF(self);
+            return NULL;
+        }
+        // Skip trailing whitespace (matches Python's float() behavior)
+        while (ascii_isspace(*endptr)) {
+            endptr++;
+        }
+        if (*endptr != '\0') {
             PyErr_SetString(PyExc_ValueError, "Unable to parse string to QuadPrecision");
             Py_DECREF(self);
             return NULL;
@@ -211,8 +216,17 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
             return NULL;
         }
         char *endptr = NULL;
-        int err = cstring_to_quad(s, backend, &self->value, &endptr, true);
+        int err = NumPyOS_ascii_strtoq(s, backend, &self->value, &endptr);
         if (err < 0) {
+            PyErr_SetString(PyExc_ValueError, "Unable to parse bytes to QuadPrecision");
+            Py_DECREF(self);
+            return NULL;
+        }
+        // Skip trailing whitespace (matches Python's float() behavior)
+        while (ascii_isspace(*endptr)) {
+            endptr++;
+        }
+        if (*endptr != '\0') {
             PyErr_SetString(PyExc_ValueError, "Unable to parse bytes to QuadPrecision");
             Py_DECREF(self);
             return NULL;
@@ -324,19 +338,6 @@ QuadPrecision_str(QuadPrecisionObject *self)
         snprintf(buffer, sizeof(buffer), "%.35Le", self->value.longdouble_value);
     }
     return PyUnicode_FromString(buffer);
-}
-
-static PyObject *
-QuadPrecision_repr(QuadPrecisionObject *self)
-{
-    PyObject *str = QuadPrecision_str(self);
-    if (str == NULL) {
-        return NULL;
-    }
-    const char *backend_str = (self->backend == BACKEND_SLEEF) ? "sleef" : "longdouble";
-    PyObject *res = PyUnicode_FromFormat("QuadPrecision('%S', backend='%s')", str, backend_str);
-    Py_DECREF(str);
-    return res;
 }
 
 static PyObject *
@@ -611,11 +612,125 @@ static PyMethodDef QuadPrecision_methods[] = {
     {NULL, NULL, 0, NULL}  /* Sentinel */
 };
 
+static PyObject *
+QuadPrecision_get_dtype(QuadPrecisionObject *self, void *NPY_UNUSED(closure))
+{
+    QuadPrecDTypeObject *dtype = new_quaddtype_instance(self->backend);
+    return (PyObject *)dtype;
+}
+
 static PyGetSetDef QuadPrecision_getset[] = {
+    {"dtype", (getter)QuadPrecision_get_dtype, NULL, "Data type descriptor for this scalar", NULL},
     {"real", (getter)QuadPrecision_get_real, NULL, "Real part of the scalar", NULL},
     {"imag", (getter)QuadPrecision_get_imag, NULL, "Imaginary part of the scalar (always 0 for real types)", NULL},
     {NULL}  /* Sentinel */
 };
+
+/*
+ * Hash function for QuadPrecision scalars.
+ * 
+ * This implements the same algorithm as CPython's _Py_HashDouble, adapted for
+ * 128-bit floating point. The algorithm computes a hash based
+ * on the reduction of the value modulo the prime P = 2**PYHASH_BITS - 1.
+ * https://github.com/python/cpython/blob/20b69aac0d19a5e5358362410d9710887762f0e7/Python/pyhash.c#L87
+ * 
+ * Key invariant: hash(x) == hash(y) whenever x and y are numerically equal,
+ * even if x and y have different types. This ensures that:
+ *   hash(QuadPrecision(1.0)) == hash(1.0) == hash(1)
+ * 
+ * The algorithm:
+ * 1. Handle special cases: inf returns PyHASH_INF, nan uses pointer hash
+ * 2. Extract mantissa m in [0.5, 1.0) and exponent e via frexp(v) = m * 2^e
+ * 3. Process mantissa 28 bits at a time, accumulating into hash value x
+ * 4. Adjust for exponent using bit rotation (since 2^PyHASH_BITS ≡ 1 mod P)
+ * 5. Apply sign and handle the special case of -1 -> -2
+ */
+
+static Py_hash_t
+QuadPrecision_hash(QuadPrecisionObject *self)
+{
+    Sleef_quad value;
+    int sign = 1;
+    
+    if (self->backend == BACKEND_SLEEF) {
+        value = self->value.sleef_value;
+    }
+    else {
+        value = Sleef_cast_from_doubleq1((double)self->value.longdouble_value);
+    }
+    
+    // Check for NaN - use pointer hash (each NaN instance gets unique hash)
+    // This prevents hash table catastrophic pileups from NaN instances
+    if (Sleef_iunordq1(value, value)) {
+        return Py_HashPointer((void *)self);
+    }
+    
+    if (Sleef_icmpeqq1(value, QUAD_PRECISION_INF)) {
+        return PyHASH_INF;
+    }
+    if (Sleef_icmpeqq1(value, QUAD_PRECISION_NINF)) {
+        return -PyHASH_INF;
+    }
+    
+    // Handle sign
+    Sleef_quad zero = Sleef_cast_from_int64q1(0);
+    if (Sleef_icmpltq1(value, zero)) {
+        sign = -1;
+        value = Sleef_negq1(value);
+    }
+    
+    // Get mantissa and exponent: value = m * 2^e, where 0.5 <= m < 1.0
+    int exponent;
+    Sleef_quad mantissa = Sleef_frexpq1(value, &exponent);
+    
+    // Process 28 bits at a time (same as CPython's _Py_HashDouble)
+    // This works well for both binary and hexadecimal floating point
+    Py_uhash_t x = 0;
+    // 2^28 = 268435456 - exactly representable in double, so cast is safe
+    Sleef_quad multiplier = Sleef_cast_from_int64q1(1LL << 28);
+    
+    // Continue until mantissa becomes zero (all bits processed)
+    while (Sleef_icmpneq1(mantissa, zero)) {
+        // Rotate x left by 28 bits within PyHASH_MODULUS
+        x = ((x << 28) & PyHASH_MODULUS) | (x >> (PyHASH_BITS - 28));
+        
+        // Scale mantissa by 2^28
+        mantissa = Sleef_mulq1_u05(mantissa, multiplier);
+        exponent -= 28;
+        
+        // Extract integer part
+        Sleef_quad int_part = Sleef_truncq1(mantissa);
+        Py_uhash_t y = (Py_uhash_t)Sleef_cast_to_int64q1(int_part);
+        
+        // Remove integer part from mantissa (keep fractional part)
+        mantissa = Sleef_subq1_u05(mantissa, int_part);
+        
+        // Accumulate
+        x += y;
+        if (x >= PyHASH_MODULUS) {
+            x -= PyHASH_MODULUS;
+        }
+    }
+    
+    // Adjust for exponent: reduce e modulo PyHASH_BITS
+    // For negative exponents: PyHASH_BITS - 1 - ((-1 - e) % PyHASH_BITS)
+    int e = exponent >= 0 
+            ? exponent % PyHASH_BITS 
+            : PyHASH_BITS - 1 - ((-1 - exponent) % PyHASH_BITS);
+    
+    // Rotate x left by e bits
+    x = ((x << e) & PyHASH_MODULUS) | (x >> (PyHASH_BITS - e));
+    
+    // Apply sign
+    x = x * sign;
+    
+    // -1 is reserved for errors, so use -2 instead
+    if (x == (Py_uhash_t)-1) {
+        x = (Py_uhash_t)-2;
+    }
+    
+    return (Py_hash_t)x;
+}
 
 PyTypeObject QuadPrecision_Type = {
         PyVarObject_HEAD_INIT(NULL, 0).tp_name = "numpy_quaddtype.QuadPrecision",
@@ -625,6 +740,7 @@ PyTypeObject QuadPrecision_Type = {
         .tp_dealloc = (destructor)QuadPrecision_dealloc,
         .tp_repr = (reprfunc)QuadPrecision_repr_dragon4,
         .tp_str = (reprfunc)QuadPrecision_str_dragon4,
+        .tp_hash = (hashfunc)QuadPrecision_hash,
         .tp_as_number = &quad_as_scalar,
         .tp_as_buffer = &QuadPrecision_as_buffer,
         .tp_richcompare = (richcmpfunc)quad_richcompare,

@@ -42,8 +42,11 @@ Building the `numpy-quaddtype` package:
 python3 -m venv temp
 source temp/bin/activate
 
-# Install the package
-pip install numpy pytest meson-python
+# Install NumPy from source
+pip install "numpy @ git+https://github.com/numpy/numpy.git"
+
+# Install build and test dependencies
+pip install pytest meson meson-python
 
 # To build without QBLAS (default for MSVC)
 # export CFLAGS="-DDISABLE_QUADBLAS"

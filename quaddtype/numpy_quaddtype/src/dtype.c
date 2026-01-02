@@ -1,4 +1,5 @@
 #include <Python.h>
+#include <structmember.h>
 #include <sleef.h>
 #include <sleefquad.h>
 #include <ctype.h>
@@ -353,11 +354,11 @@ quadprec_scanfunc(FILE *fp, void *dptr, char *ignore, PyArray_Descr *descr_gener
     }
     buffer[i] = '\0';
     
-    /* Convert string to quad precision */
+    /* Convert string to quad precision (supports inf/nan) */
     char *endptr;
     quad_value val;
-    int err = cstring_to_quad(buffer, descr->backend, &val, &endptr, true);
-    if (err < 0) {
+    int err = NumPyOS_ascii_strtoq(buffer, descr->backend, &val, &endptr);
+    if (err < 0 || *endptr != '\0') {
         return 0;  /* Return 0 on parse error (no items read) */
     }
     if (descr->backend == BACKEND_SLEEF) {
@@ -375,7 +376,7 @@ quadprec_fromstr(char *s, void *dptr, char **endptr, PyArray_Descr *descr_generi
 {
     QuadPrecDTypeObject *descr = (QuadPrecDTypeObject *)descr_generic;
     quad_value val;
-    int err = cstring_to_quad(s, descr->backend, &val, endptr, false);
+    int err = NumPyOS_ascii_strtoq(s, descr->backend, &val, endptr);
     if (err < 0) {
         return -1;
     }
@@ -439,6 +440,36 @@ QuadPrecDType_str(QuadPrecDTypeObject *self)
     return PyUnicode_FromFormat("QuadPrecDType(backend='%s')", backend_str);
 }
 
+
+static PyObject *
+quaddtype__reduce__(QuadPrecDTypeObject *self, PyObject *NPY_UNUSED(args))
+{
+    const char *backend_str = (self->backend == BACKEND_SLEEF) ? "sleef" : "longdouble";
+    
+    /* Return (type(self), (backend_str,)) 
+     * This will call type(self).__new__(type(self), backend_str) followed by __init__
+     */
+    PyObject *result = Py_BuildValue("O(s)", Py_TYPE(self), backend_str);
+    
+    return result;
+}
+
+static PyMethodDef QuadPrecDType_methods[] = {
+        {
+                "__reduce__",
+                (PyCFunction)quaddtype__reduce__,
+                METH_NOARGS,
+                "Reduction method for a QuadPrecDType object",
+        },
+        {NULL, NULL, 0, NULL},
+};
+
+static PyMemberDef QuadPrecDType_members[] = {
+        {"backend", T_INT, offsetof(QuadPrecDTypeObject, backend), READONLY,
+         "The backend used for quad precision (0=sleef, 1=longdouble)"},
+        {NULL, 0, 0, 0, NULL},
+};
+
 PyArray_DTypeMeta QuadPrecDType = {
         {{
                 PyVarObject_HEAD_INIT(NULL, 0).tp_name = "numpy_quaddtype.QuadPrecDType",
@@ -446,6 +477,8 @@ PyArray_DTypeMeta QuadPrecDType = {
                 .tp_new = QuadPrecDType_new,
                 .tp_repr = (reprfunc)QuadPrecDType_repr,
                 .tp_str = (reprfunc)QuadPrecDType_str,
+                .tp_methods = QuadPrecDType_methods,
+                .tp_members = QuadPrecDType_members,
         }},
 };
 
