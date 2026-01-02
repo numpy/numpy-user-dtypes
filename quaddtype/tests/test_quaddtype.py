@@ -5368,3 +5368,33 @@ class TestQuadPrecisionHash:
         """Test hash works for both backends."""
         quad_val = QuadPrecision(1.5, backend=backend)
         assert hash(quad_val) == hash(1.5)
+
+@pytest.mark.parametrize("src_backend,dst_backend", [
+    ("sleef", "longdouble"),
+    ("longdouble", "sleef"),
+    ("sleef", "sleef"),
+    ("longdouble", "longdouble"),
+])
+@pytest.mark.parametrize("value", [
+    "0.0", "-0.0", "1.0", "-1.0", "3.14159265358979323846",
+    "inf", "-inf", "nan", "1e100", "1e-100", "-nan"
+])
+def test_quad_to_quad_backend_casting(src_backend, dst_backend, value):
+    """Test casting between QuadPrecDType with different backends."""
+
+    src_arr = np.array([value], dtype=QuadPrecDType(backend=src_backend))
+    dst_arr = src_arr.astype(QuadPrecDType(backend=dst_backend))
+    res_arr = np.array([value], dtype=QuadPrecDType(backend=dst_backend))
+    
+    expected_backend = 0 if dst_backend == 'sleef' else 1
+    assert dst_arr.dtype.backend == expected_backend
+    
+    assert np.signbit(src_arr[0]) == np.signbit(dst_arr[0])
+    if np.isnan(src_arr[0]):
+      assert np.isnan(dst_arr[0])
+    elif np.isinf(src_arr[0]):
+        assert np.isinf(dst_arr[0])
+    elif src_backend != dst_backend:  
+      np.testing.assert_allclose(dst_arr, res_arr, rtol=1e-15)
+    else:
+      np.testing.assert_array_equal(dst_arr, res_arr)
