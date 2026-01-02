@@ -37,6 +37,12 @@ test = [
     "pytest-run-parallel"
 ]
 
+docs = [
+    "sphinx",
+    "pydata-sphinx-theme",
+    "myst-parser",
+]
+
 [project.urls]
 Repository = "https://github.com/numpy/numpy-user-dtypes"
 Documentation = "https://github.com/numpy/numpy-user-dtypes/tree/main/quaddtype"

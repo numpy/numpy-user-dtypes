@@ -25,7 +25,7 @@ np.array([1,2,3], dtype=QuadPrecDType("longdouble"))
 
 ## Installation from source
 
-#### Prerequisites
+### Prerequisites
 
 - **gcc/clang**
 - **CMake** (≥3.15)
