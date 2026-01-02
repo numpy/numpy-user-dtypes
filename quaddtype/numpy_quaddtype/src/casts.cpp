@@ -950,11 +950,21 @@ inline quad_value
 to_quad<spec_npy_half>(npy_half x, QuadBackendType backend)
 {
     quad_value result;
+    double d = npy_half_to_double(x);
     if (backend == BACKEND_SLEEF) {
-        result.sleef_value = Sleef_cast_from_doubleq1(npy_half_to_double(x));
+        if (std::isnan(d)) {
+            result.sleef_value = std::signbit(d) ? QUAD_PRECISION_NEG_NAN : QUAD_PRECISION_NAN;
+        }
+        else if (std::isinf(d)) {
+            result.sleef_value = (d > 0) ? QUAD_PRECISION_INF : QUAD_PRECISION_NINF;
+        }
+        else {
+            Sleef_quad temp = Sleef_cast_from_doubleq1(d);
+            std::memcpy(&result.sleef_value, &temp, sizeof(Sleef_quad));
+        }
     }
     else {
-        result.longdouble_value = (long double)npy_half_to_double(x);
+        result.longdouble_value = (long double)d;
     }
     return result;
 }
@@ -964,8 +974,18 @@ inline quad_value
 to_quad<float>(float x, QuadBackendType backend)
 {
     quad_value result;
-    if (backend == BACKEND_SLEEF) {
-        result.sleef_value = Sleef_cast_from_doubleq1(x);
+    if (backend == BACKEND_SLEEF) 
+    {
+      if (std::isnan(x)) {
+          result.sleef_value = std::signbit(x) ? QUAD_PRECISION_NEG_NAN : QUAD_PRECISION_NAN;
+      }
+      else if (std::isinf(x)) {
+          result.sleef_value = (x > 0) ? QUAD_PRECISION_INF : QUAD_PRECISION_NINF;
+      }
+      else {
+          Sleef_quad temp = Sleef_cast_from_doubleq1(static_cast<double>(x));
+          std::memcpy(&result.sleef_value, &temp, sizeof(Sleef_quad));
+      }
     }
     else {
         result.longdouble_value = (long double)x;
@@ -978,8 +998,18 @@ inline quad_value
 to_quad<double>(double x, QuadBackendType backend)
 {
     quad_value result;
-    if (backend == BACKEND_SLEEF) {
-        result.sleef_value = Sleef_cast_from_doubleq1(x);
+    if (backend == BACKEND_SLEEF) 
+    {
+      if (std::isnan(x)) {
+          result.sleef_value = std::signbit(x) ? QUAD_PRECISION_NEG_NAN : QUAD_PRECISION_NAN;
+      }
+      else if (std::isinf(x)) {
+          result.sleef_value = (x > 0) ? QUAD_PRECISION_INF : QUAD_PRECISION_NINF;
+      }
+      else {
+          Sleef_quad temp = Sleef_cast_from_doubleq1(x);
+          std::memcpy(&result.sleef_value, &temp, sizeof(Sleef_quad));
+      }
     }
     else {
         result.longdouble_value = (long double)x;
@@ -992,8 +1022,18 @@ inline quad_value
 to_quad<long double>(long double x, QuadBackendType backend)
 {
     quad_value result;
-    if (backend == BACKEND_SLEEF) {
-        result.sleef_value = Sleef_cast_from_doubleq1(x);
+    if (backend == BACKEND_SLEEF) 
+    {
+      if (std::isnan(x)) {
+          result.sleef_value = std::signbit(x) ? QUAD_PRECISION_NEG_NAN : QUAD_PRECISION_NAN;
+      }
+      else if (std::isinf(x)) {
+          result.sleef_value = (x > 0) ? QUAD_PRECISION_INF : QUAD_PRECISION_NINF;
+      }
+      else {
+          Sleef_quad temp = Sleef_cast_from_doubleq1(static_cast<double>(x));
+          std::memcpy(&result.sleef_value, &temp, sizeof(Sleef_quad));
+      }
     }
     else {
         result.longdouble_value = x;

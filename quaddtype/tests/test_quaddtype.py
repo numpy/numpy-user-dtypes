@@ -5398,3 +5398,17 @@ def test_quad_to_quad_backend_casting(src_backend, dst_backend, value):
       np.testing.assert_allclose(dst_arr, res_arr, rtol=1e-15)
     else:
       np.testing.assert_array_equal(dst_arr, res_arr)
+
+# quad -> float will be tested in same_values tests
+@pytest.mark.parametrize("dtype", [np.float16, np.float32, np.float64, np.longdouble])
+@pytest.mark.parametrize("val", [0.0, -0.0, float('inf'), float('-inf'), float('nan'), float("-nan")])
+def test_float_to_quad_sign_preserve(dtype, val):
+    """Test that special floating-point values roundtrip correctly."""
+    src = np.array([val], dtype=dtype)
+    result = src.astype(QuadPrecDType())
+
+    assert np.signbit(result) == np.signbit(val), f"Sign bit failed for {dtype} with value {val}"
+    if np.isnan(val):
+        assert np.isnan(result), f"NaN failed for {dtype}"
+    else:
+        assert result == val, f"{val} failed for {dtype}"
