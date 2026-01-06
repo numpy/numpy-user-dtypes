@@ -974,21 +974,21 @@ PrintInfNan(char *buffer, npy_uint32 bufferSize, npy_uint64 mantissa, npy_uint32
 
     DEBUG_ASSERT(bufferSize > 0);
 
+    /* Print sign for both inf and nan values */
+    if (signbit == '+') {
+        if (pos < maxPrintLen - 1) {
+            buffer[pos++] = '+';
+        }
+    }
+    else if (signbit == '-') {
+        if (pos < maxPrintLen - 1) {
+            buffer[pos++] = '-';
+        }
+    }
+
     /* Check for infinity */
     if (mantissa == 0) {
         npy_uint32 printLen;
-
-        /* only print sign for inf values (though nan can have a sign set) */
-        if (signbit == '+') {
-            if (pos < maxPrintLen - 1) {
-                buffer[pos++] = '+';
-            }
-        }
-        else if (signbit == '-') {
-            if (pos < maxPrintLen - 1) {
-                buffer[pos++] = '-';
-            }
-        }
 
         /* copy and make sure the buffer is terminated */
         printLen = (3 < maxPrintLen - pos) ? 3 : maxPrintLen - pos;

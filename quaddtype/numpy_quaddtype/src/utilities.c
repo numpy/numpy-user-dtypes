@@ -262,9 +262,13 @@ Sleef_quad
 quad_to_sleef_quad(const quad_value *in_val, QuadBackendType backend)
 {
     if (backend == BACKEND_SLEEF) {
-        return in_val->sleef_value;
+        // can directly return but that causes union heisenbugs, 
+        // but this helper is rare to use, so acceptable
+        Sleef_quad result;
+        memcpy(&result, &in_val->sleef_value, sizeof(Sleef_quad));
+        return result;
     }
     else {
-        return Sleef_cast_from_doubleq1(in_val->longdouble_value);
+        return Sleef_cast_from_doubleq1((double)(in_val->longdouble_value));
     }
 }
