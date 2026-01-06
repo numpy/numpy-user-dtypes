@@ -1349,8 +1349,7 @@ inline npy_half
 from_quad<spec_npy_half>(const quad_value *x, QuadBackendType backend)
 {
     if (backend == BACKEND_SLEEF) {
-        double d = cast_sleef_to_double(x->sleef_value);
-        return npy_double_to_half(d);
+        return npy_double_to_half(cast_sleef_to_double(x->sleef_value));
     }
     else {
         return npy_double_to_half((double)x->longdouble_value);

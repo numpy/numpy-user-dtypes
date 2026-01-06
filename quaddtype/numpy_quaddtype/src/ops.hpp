@@ -1654,7 +1654,6 @@ ld_logical_not(const long double *a)
     return !ld_is_nonzero(a);
 }
 
-
 // Casting operations
 static inline double
 cast_sleef_to_double(const Sleef_quad in)

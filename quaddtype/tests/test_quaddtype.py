@@ -5369,7 +5369,6 @@ class TestQuadPrecisionHash:
         quad_val = QuadPrecision(1.5, backend=backend)
         assert hash(quad_val) == hash(1.5)
 
-
 @pytest.mark.parametrize("src_backend,dst_backend", [
     ("sleef", "longdouble"),
     ("longdouble", "sleef"),
@@ -5378,7 +5377,7 @@ class TestQuadPrecisionHash:
 ])
 @pytest.mark.parametrize("value", [
     "0.0", "-0.0", "1.0", "-1.0", "3.14159265358979323846",
-    "inf", "-inf", "nan", "1e100", "1e-100",
+    "inf", "-inf", "nan", "1e100", "1e-100", "-nan"
 ])
 def test_quad_to_quad_backend_casting(src_backend, dst_backend, value):
     """Test casting between QuadPrecDType with different backends."""
@@ -5390,6 +5389,7 @@ def test_quad_to_quad_backend_casting(src_backend, dst_backend, value):
     expected_backend = 0 if dst_backend == 'sleef' else 1
     assert dst_arr.dtype.backend == expected_backend
     
+    assert np.signbit(src_arr[0]) == np.signbit(dst_arr[0])
     if np.isnan(src_arr[0]):
       assert np.isnan(dst_arr[0])
     elif np.isinf(src_arr[0]):
@@ -5666,3 +5666,16 @@ class TestSameValueCasting:
             # Should not raise, and value should be unchanged
             assert str(result[0]) == str(src[0])
       
+# quad -> float will be tested in same_values tests
+@pytest.mark.parametrize("dtype", [np.float16, np.float32, np.float64, np.longdouble])
+@pytest.mark.parametrize("val", [0.0, -0.0, float('inf'), float('-inf'), float('nan'), float("-nan")])
+def test_float_to_quad_sign_preserve(dtype, val):
+    """Test that special floating-point values roundtrip correctly."""
+    src = np.array([val], dtype=dtype)
+    result = src.astype(QuadPrecDType())
+
+    assert np.signbit(result) == np.signbit(val), f"Sign bit failed for {dtype} with value {val}"
+    if np.isnan(val):
+        assert np.isnan(result), f"NaN failed for {dtype}"
+    else:
+        assert result == val, f"{val} failed for {dtype}"
