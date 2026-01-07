@@ -143,3 +143,6 @@ compile_commands.json
 /quaddtype/subprojects/sleef/
 /quaddtype/subprojects/pythoncapi-compat/
 .wraplock
+
+# docs
+/quaddtype/docs/_build/
