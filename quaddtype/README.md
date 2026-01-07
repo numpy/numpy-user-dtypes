@@ -171,3 +171,36 @@ This is a development feature to help detect threading issues. To build `numpy-q
   export LDFLAGS="-fsanitize=thread"
   python -m pip install . -vv --no-build-isolation -Csetup-args=-Db_sanitize=thread
   ```
+
+## Building the documentation
+
+The documentation for the `numpy-quaddtype` package is built using Sphinx. To build the documentation, follow these steps:
+
+1. Install the required dependencies:
+
+   ```bash
+   pip install ."[docs]"
+   ```
+
+2. Navigate to the `docs` directory and build the documentation:
+
+   ```bash
+   cd docs/
+   make html
+   ```
+
+3. The generated HTML documentation can be found in the `_build/html` directory within the `docs` folder. Open the `index.html` file in a web browser to view the documentation, or use a local server to serve the files:
+
+   ```bash
+   python3 -m http.server --directory _build/html
+   ```
+
+### Serving the documentation
+
+The documentation is automatically built and served using GitHub Pages. Every time changes are pushed to the `main` branch, the documentation is rebuilt and deployed to the `gh-pages` branch of the repository. You can access the documentation at:
+
+```
+https://numpy.github.io/numpy-user-dtypes/
+```
+
+Check the `.github/workflows/build_docs.yml` file for details.
