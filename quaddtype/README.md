@@ -200,7 +200,7 @@ The documentation for the `numpy-quaddtype` package is built using Sphinx. To bu
 The documentation is automatically built and served using GitHub Pages. Every time changes are pushed to the `main` branch, the documentation is rebuilt and deployed to the `gh-pages` branch of the repository. You can access the documentation at:
 
 ```
-https://numpy.github.io/numpy-user-dtypes/
+https://numpy.github.io/numpy-user-dtypes/quaddtype/
 ```
 
 Check the `.github/workflows/build_docs.yml` file for details.
