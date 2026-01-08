@@ -5412,3 +5412,12 @@ def test_float_to_quad_sign_preserve(dtype, val):
         assert np.isnan(result), f"NaN failed for {dtype}"
     else:
         assert result == val, f"{val} failed for {dtype}"
+
+@pytest.mark.parametrize("val, pow", [(2, 112), (2, -112), (10, 34), (10, -34)])
+def test_quadprecision_large_exponents(val, pow):
+    mp.prec = 113
+    mp_value = mp.mpf(val) ** pow
+    value = QuadPrecision(val) ** pow
+    value_str = mp.nstr(mp.mpf(str(value)), 33)
+    expected_str = mp.nstr(mp_value, 33)
+    assert value_str == expected_str, f"QuadPrecision({val}) ** {pow} = {value_str}, expected {expected_str}"
