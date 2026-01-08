@@ -4,7 +4,7 @@
 :target: https://pypi.org/project/numpy-quaddtype/
 :alt: PyPI version
 ```
-```{image} https://img.shields.io/pypi/pyversions/numpy-quaddtype.svg
+```{image} https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue.svg
 :alt: Python versions
 ```
 
@@ -21,7 +21,7 @@ NumPy QuadDType provides IEEE 754 quadruple-precision (binary128) floating-point
 :link: user_guide/precision
 :link-type: doc
 
-128-bit floating point with ~34 decimal digits of precision, compared to ~15-16 for float64.
+128-bit floating point with ~34 decimal digits of precision
 :::
 
 :::{grid-item-card} 🔌 NumPy Integration
@@ -35,7 +35,7 @@ Works seamlessly with NumPy arrays, ufuncs, and broadcasting.
 :link: user_guide/performance
 :link-type: doc
 
-Powered by SLEEF library for vectorized transcendental functions.
+Vectorization-friendly design that can leverage SIMD acceleration where supported.
 :::
 
 :::{grid-item-card} 🧮 Mathematical Functions
