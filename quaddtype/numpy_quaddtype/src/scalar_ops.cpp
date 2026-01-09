@@ -228,11 +228,23 @@ QuadPrecision_int(QuadPrecisionObject *self)
     }
 }
 
+template <binary_op_quad_def sleef_op, binary_op_longdouble_def longdouble_op>
+static PyObject *
+quad_ternary_power_func(PyObject *op1, PyObject *op2, PyObject *mod)
+{
+    if (mod != Py_None) {
+        PyErr_SetString(PyExc_TypeError,
+            "pow() 3rd argument not allowed unless all arguments are integers");
+        return NULL;
+    }
+    return quad_binary_func<sleef_op, longdouble_op>(op1, op2);
+}
+
 PyNumberMethods quad_as_scalar = {
         .nb_add = (binaryfunc)quad_binary_func<quad_add, ld_add>,
         .nb_subtract = (binaryfunc)quad_binary_func<quad_sub, ld_sub>,
         .nb_multiply = (binaryfunc)quad_binary_func<quad_mul, ld_mul>,
-        .nb_power = (ternaryfunc)quad_binary_func<quad_pow, ld_pow>,
+        .nb_power = (ternaryfunc)quad_ternary_power_func<quad_pow, ld_pow>,
         .nb_negative = (unaryfunc)quad_unary_func<quad_negative, ld_negative>,
         .nb_positive = (unaryfunc)quad_unary_func<quad_positive, ld_positive>,
         .nb_absolute = (unaryfunc)quad_unary_func<quad_absolute, ld_absolute>,
