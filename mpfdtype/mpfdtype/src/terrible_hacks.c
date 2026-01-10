@@ -35,27 +35,6 @@ copyswap_mpf(char *dst, char *src, int swap, PyArrayObject *ap)
 }
 
 
-/* Should only be used for sorting, so more complex than necessary, probably */
-int compare_mpf(char *in1_ptr, char *in2_ptr, int swap, PyArrayObject *ap)
-{
-    /* Note that it is probably better to only get the descr from `ap` */
-    mpfr_prec_t precision = ((MPFDTypeObject *)PyArray_DESCR(ap))->precision;
-
-    mpfr_ptr in1, in2;
-
-    mpf_load(in1, in1_ptr, precision);
-    mpf_load(in2, in2_ptr, precision);
-
-    if (!mpfr_total_order_p(in1, in2)) {
-        return 1;
-    }
-    if (!mpfr_total_order_p(in2, in1)) {
-        return -1;
-    }
-    return 0;
-}
-
-
 int
 init_terrible_hacks(void) {
     /* Defaults to -1 byt ISNUMBER misfires for it, so use MAX */
@@ -70,7 +49,6 @@ init_terrible_hacks(void) {
     }
     /* ->f slots are the same for all instances (currently). */
     PyDataType_GetArrFuncs(&descr->base)->copyswap = (PyArray_CopySwapFunc *)&copyswap_mpf;
-    PyDataType_GetArrFuncs(&descr->base)->compare = (PyArray_CompareFunc *)&compare_mpf;
     Py_DECREF(descr);
 
     return 0;
