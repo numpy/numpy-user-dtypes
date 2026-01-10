@@ -104,7 +104,6 @@ QuadPrecision_from_object(PyObject *value, QuadBackendType backend)
             }
             double dval = PyFloat_AsDouble(py_float);
             Py_DECREF(py_float);
-            
             if (backend == BACKEND_SLEEF) {
                 self->value.sleef_value = Sleef_cast_from_doubleq1(dval);
             }

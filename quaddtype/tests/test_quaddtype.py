@@ -5399,6 +5399,273 @@ def test_quad_to_quad_backend_casting(src_backend, dst_backend, value):
     else:
       np.testing.assert_array_equal(dst_arr, res_arr)
 
+class TestSameValueCasting:
+    """Test 'same_value' casting behavior for QuadPrecision."""
+    def test_same_value_cast(self):
+        a = np.arange(30, dtype=np.float32)
+        # upcasting can never fail
+        b = a.astype(QuadPrecision, casting='same_value')
+        c = b.astype(np.float32, casting='same_value')
+        assert np.all(c == a)
+        with pytest.raises(ValueError):
+            (b + 1e22).astype(np.float32, casting='same_value')
+
+    
+    @pytest.mark.parametrize("dtype,passing,failing", [
+    # bool: only 0 and 1 are valid
+    ("bool", [0, 1], [2, -1, 0.5]),
+    
+    # int8: [-128, 127]
+    ("int8", [-128, 0, 127], [-129, 128, 1.5]),
+    
+    # uint8: [0, 255]
+    ("uint8", [0, 255], [-1, 256, 2.5]),
+    
+    # int16: [-32768, 32767]
+    ("int16", [-32768, 0, 32767], [-32769, 32768, 0.1]),
+    
+    # uint16: [0, 65535]
+    ("uint16", [0, 65535], [-1, 65536]),
+    
+    # int32: [-2^31, 2^31-1]
+    ("int32", [-2**31, 0, 2**31 - 1], [-2**31 - 1, 2**31]),
+    
+    # uint32: [0, 2^32-1]
+    ("uint32", [0, 2**32 - 1], [-1, 2**32]),
+    
+    # int64: [-2^63, 2^63-1]
+    ("int64", [-2**63, 0, 2**63 - 1], [-2**63 - 1, 2**63]),
+    
+    # uint64: [0, 2^64-1]
+    ("uint64", [0, 2**64 - 1], [-1, 2**64]),
+    ])
+    def test_same_value_cast_quad_to_int(self, dtype, passing, failing):
+        """A 128-bit float can represent all consecutive integers exactly up to 2^113"""
+        for val in passing:
+            q = np.array([val], dtype=QuadPrecDType())
+            result = q.astype(dtype, casting="same_value")
+            assert result == val
+    
+        for val in failing:
+            q = np.array([val], dtype=QuadPrecDType())
+            with pytest.raises(ValueError):
+                q.astype(dtype, casting="same_value")
+
+    @pytest.mark.parametrize("dtype", [
+        np.float16, np.float32, np.float64, np.longdouble
+    ])
+    @pytest.mark.parametrize("val", [0.0, -0.0, float('inf'), float('-inf'), float('nan'), float("-nan")])
+    def test_same_value_cast_floats_special_values(self, dtype, val):
+        """Test that special floating-point values roundtrip correctly."""
+        q = np.array([val], dtype=QuadPrecDType())
+        result = q.astype(dtype, casting="same_value")
+
+        assert np.signbit(result) == np.signbit(val), f"Sign bit failed for {dtype} with value {val}"
+        if np.isnan(val):
+            assert np.isnan(result), f"NaN failed for {dtype}"
+        else:
+            assert result == val, f"{val} failed for {dtype}"
+
+    @pytest.mark.parametrize("dtype", [
+        np.float16, np.float32, np.float64, np.longdouble
+    ])
+    def test_same_value_cast_floats_within_range(self, dtype):
+        """Test values that should roundtrip exactly within dtype's precision."""
+        info = np.finfo(dtype)
+        
+        # Values that should pass (exactly representable)
+        passing_values = [
+            1.0, -1.0, 0.5, -0.5, 0.25, -0.25,
+            2.0, 4.0, 8.0,                          # powers of 2
+            2 ** info.nmant,                 # largest consecutive integer
+        ]
+        
+        # For longdouble on x86-64, info.tiny can be ~3.36e-4932, which is outside
+        # the double range (~2.2e-308). Since SLEEF backend converts quad <-> longdouble
+        # via double (Sleef_cast_to/from_doubleq1), values outside double's range
+        # cannot roundtrip correctly. Use double's tiny for longdouble in this case.
+        double_info = np.finfo(np.float64)
+        if dtype == np.longdouble and info.tiny < double_info.tiny:
+            passing_values.append(double_info.tiny)
+        else:
+            passing_values.append(info.tiny)
+        
+        for val in passing_values:
+            # Ensure the value is representable in the target dtype first
+            target_val = dtype(val)
+            q = np.array([target_val], dtype=QuadPrecDType())
+            result = q.astype(dtype, casting="same_value")
+            assert result[0] == target_val, f"Value {val} failed for {dtype}"
+
+
+    @pytest.mark.parametrize("dtype", [
+        np.float16, np.float32, np.float64, np.longdouble
+    ])
+    def test_same_value_cast_floats_precision_loss(self, dtype):
+        """Test values that cannot be represented exactly and should fail."""
+        import sys
+        from decimal import Decimal, getcontext
+
+        getcontext().prec = 50  # plenty for quad precision
+        info = np.finfo(dtype)
+        nmant = info.nmant  # 10 for f16, 23 for f32, 52 for f64
+
+        if dtype == np.longdouble and nmant >= 112:
+          pytest.skip("longdouble has same precision as quad on this platform")
+        
+        # First odd integer beyond exact representability
+        first_bad_int = 2 ** (nmant + 1) + 1
+        # Value between 1.0 and 1.0 + eps (i.e., 1 + eps/2)
+        # eps = 2^-nmant, so eps/2 = 2^-(nmant+1)
+        one_plus_half_eps = Decimal(1) + Decimal(2) ** -(nmant + 1)
+        
+        # Value between 2.0 and 2.0 + 2*eps
+        two_plus_eps = Decimal(2) + Decimal(2) ** -nmant
+        
+        failing_values = [
+            str(first_bad_int),
+            str(one_plus_half_eps),
+            str(two_plus_eps),
+        ]
+
+        for val in failing_values:
+            q = np.array([val], dtype=QuadPrecDType())
+            with pytest.raises(ValueError):
+                q.astype(dtype, casting="same_value")
+
+    @pytest.mark.parametrize("dtype", [
+        "S50", "U50", "S100", "U100", np.dtypes.StringDType()
+    ])
+    def test_same_value_cast_strings_enough_width(self, dtype):
+        """Test that string types with enough width can represent quad values exactly."""
+        values = [
+            "0.0", "-0.0", "1.0", "-1.0",
+            "3.14159265358979323846264338327950288",  # pi with full quad precision
+            "inf", "-inf", "nan", "-nan",
+            "1.23e100", "-4.56e-100",
+        ]
+        
+        for val in values:
+            q = np.array([val], dtype=QuadPrecDType())
+            result = q.astype(dtype, casting="same_value")
+            # Convert back and verify
+            back = result.astype(QuadPrecDType())
+            assert np.signbit(back[0]) == np.signbit(q[0]), f"Sign bit roundtrip failed for {dtype} with value {val}"
+            if np.isnan(q[0]):
+                assert np.isnan(back[0]), f"NaN roundtrip failed for {dtype}"
+            else:
+                assert q[0] == back[0], f"Value {val} roundtrip failed for {dtype}"
+
+    @pytest.mark.parametrize("dtype", ["S10", "U10"])
+    def test_same_value_cast_strings_narrow_width(self, dtype):
+        """Test that string types with narrow width fail for values that need more precision."""
+        # Values that can fit in 10 chars should pass
+        passing_values = ["0.0", "-0.0", "1.0", "-1.0", "inf", "-inf", "nan", "-nan"]
+        for val in passing_values:
+            q = np.array([val], dtype=QuadPrecDType())
+            result = q.astype(dtype, casting="same_value")
+            back = result.astype(QuadPrecDType())
+            assert np.signbit(back[0]) == np.signbit(q[0]), f"Sign bit roundtrip failed for {dtype} with value {val}"
+            if np.isnan(q[0]):
+                assert np.isnan(back[0])
+            else:
+                assert q[0] == back[0], f"Value {val} should roundtrip in {dtype}"
+        
+        # Values that need more than 10 chars should fail
+        failing_values = [
+            "3.14159265358979323846264338327950288",  # pi
+            "1.23456789012345",  # needs > 10 chars
+        ]
+        for val in failing_values:
+            q = np.array([val], dtype=QuadPrecDType())
+            with pytest.raises(ValueError):
+                q.astype(dtype, casting="same_value")
+
+    @pytest.mark.parametrize("src_backend,dst_backend", [
+    ("sleef", "longdouble"),
+    ("longdouble", "sleef"),
+    ("sleef", "sleef"),
+    ("longdouble", "longdouble")
+    ])
+    def test_quad_to_quad_same_value_casting_passing(self, src_backend, dst_backend):
+        """Test values that should roundtrip exactly between backends."""
+        # Values exactly representable in both backends (and in double, since
+        # inter-backend conversion goes through double)
+        passing_values = [
+            0.0, -0.0, 1.0, -1.0,
+            0.5, 0.25, 0.125,
+            2.0, 4.0, 8.0,
+            "inf", "-inf", "nan", "-nan",
+            1e100, -1e-100,
+            str(2**52),  # Largest consecutive integer in double
+        ]
+        
+        for val in passing_values:
+            src = np.array([val], dtype=QuadPrecDType(backend=src_backend))
+            result = src.astype(QuadPrecDType(backend=dst_backend), casting="same_value")
+            
+            # Verify value is preserved
+            assert np.signbit(result[0]) == np.signbit(src[0]), f"Sign bit failed for {val} in {src_backend} -> {dst_backend}"
+            if val in ["nan", "-nan"] :
+                assert np.isnan(result[0])
+            else:
+                # compare them as float, as these values anyhow have to under double's range to work
+                assert float(result[0]) == float(src[0]), f"Value {val} failed for {src_backend} -> {dst_backend}"
+
+
+    @pytest.mark.parametrize("src_backend,dst_backend", [
+        ("sleef", "longdouble"),
+        ("longdouble", "sleef"),
+    ])
+    def test_quad_to_quad_interbackend_same_value_casting_failing(self, src_backend, dst_backend):
+        """Test values that cannot roundtrip exactly between backends.
+        
+        Inter-backend conversion goes through double, so values exceeding
+        double's precision (~53 bits mantissa) will fail same_value casting.
+        """
+        ld_info = np.finfo(np.longdouble)
+        double_info = np.finfo(np.float64)
+        
+        # Skip if longdouble has same precision as quad (PowerPC binary128)
+        # In that case, sleef <-> longdouble might use a direct path
+        if ld_info.nmant >= 112:
+            pytest.skip("longdouble has same precision as quad on this platform")
+        
+        # For longdouble -> sleef: only fails if longdouble has more precision than double
+        if src_backend == "longdouble" and ld_info.nmant <= double_info.nmant:
+            pytest.skip("longdouble has same or less precision than double on this platform")
+        
+        # Values that exceed double precision (53-bit mantissa)
+        # These will lose precision when going through the double conversion
+        failing_values = [
+            str(2**53 + 1),  # First integer not exactly representable in double
+            "3.141592653589793238462643383279502884197",  # Pi with more than double precision
+            "1.00000000000000011",  # 1 + epsilon beyond double precision
+        ]
+        
+        for val in failing_values:
+            src = np.array([val], dtype=QuadPrecDType(backend=src_backend))
+            with pytest.raises(ValueError):
+                src.astype(QuadPrecDType(backend=dst_backend), casting="same_value")
+
+
+    @pytest.mark.parametrize("backend", ["sleef", "longdouble"])
+    def test_quad_to_quad_same_backend_always_passes(self, backend):
+        """Same backend conversion should always pass same_value."""
+        # Even high-precision values should pass when backend is the same
+        values = [
+            "3.141592653589793238462643383279502884197",
+            "2.718281828459045235360287471352662497757",
+            str(2**113),  # Large integer
+            "1e4000",  # Large exponent (within quad range)
+        ]
+        
+        for val in values:
+            src = np.array([val], dtype=QuadPrecDType(backend=backend))
+            result = src.astype(QuadPrecDType(backend=backend), casting="same_value")
+            # Should not raise, and value should be unchanged
+            assert str(result[0]) == str(src[0])
+      
 # quad -> float will be tested in same_values tests
 @pytest.mark.parametrize("dtype", [np.float16, np.float32, np.float64, np.longdouble])
 @pytest.mark.parametrize("val", [0.0, -0.0, float('inf'), float('-inf'), float('nan'), float("-nan")])
