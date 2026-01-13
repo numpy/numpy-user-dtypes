@@ -3,9 +3,12 @@
 [![PyPI](https://img.shields.io/pypi/v/numpy-quaddtype.svg)](https://pypi.org/project/numpy-quaddtype/)
 [![PyPI Downloads](https://static.pepy.tech/badge/numpy-quaddtype/month)](https://pepy.tech/project/numpy-quaddtype)
 [![Conda Downloads](https://img.shields.io/conda/dn/conda-forge/numpy_quaddtype.svg?label=Conda%20downloads)](https://anaconda.org/conda-forge/numpy_quaddtype)
+[![Documentation](https://img.shields.io/badge/docs-latest-blue.svg)](https://numpy.org/numpy-user-dtypes/quaddtype/)
 [![Powered by NumFOCUS](https://img.shields.io/badge/powered%20by-NumFOCUS-orange.svg?style=flat&colorA=E1523D&colorB=007D8A)](https://numfocus.org)
 
 A cross-platform Quad (128-bit) float Data-Type for NumPy.
+
+**[📖 Read the full documentation](https://numpy.org/numpy-user-dtypes/quaddtype/)**
 
 ## Table of Contents
 
@@ -204,7 +207,7 @@ The documentation for the `numpy-quaddtype` package is built using Sphinx. To bu
 The documentation is automatically built and served using GitHub Pages. Every time changes are pushed to the `main` branch, the documentation is rebuilt and deployed to the `gh-pages` branch of the repository. You can access the documentation at:
 
 ```
-https://numpy.github.io/numpy-user-dtypes/quaddtype/
+https://numpy.org/numpy-user-dtypes/quaddtype/
 ```
 
 Check the `.github/workflows/build_docs.yml` file for details.
