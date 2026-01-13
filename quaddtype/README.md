@@ -1,11 +1,31 @@
 # NumPy-QuadDType
 
+[![PyPI](https://img.shields.io/pypi/v/numpy-quaddtype.svg)](https://pypi.org/project/numpy-quaddtype/)
+[![PyPI Downloads](https://static.pepy.tech/badge/numpy-quaddtype/month)](https://pepy.tech/project/numpy-quaddtype)
+[![Conda Downloads](https://img.shields.io/conda/dn/conda-forge/numpy_quaddtype.svg?label=Conda%20downloads)](https://anaconda.org/conda-forge/numpy_quaddtype)
+[![Powered by NumFOCUS](https://img.shields.io/badge/powered%20by-NumFOCUS-orange.svg?style=flat&colorA=E1523D&colorB=007D8A)](https://numfocus.org)
+
 A cross-platform Quad (128-bit) float Data-Type for NumPy.
+
+## Table of Contents
+
+- [NumPy-QuadDType](#numpy-quaddtype)
+  - [Table of Contents](#table-of-contents)
+  - [Installation](#installation)
+  - [Usage](#usage)
+  - [Installation from source](#installation-from-source)
+    - [Linux/Unix/macOS](#linuxunixmacos)
+    - [Windows](#windows)
+  - [Building with ThreadSanitizer (TSan)](#building-with-threadsanitizer-tsan)
+  - [Building the documentation](#building-the-documentation)
+    - [Serving the documentation](#serving-the-documentation)
+  - [Development Tips](#development-tips)
+    - [Cleaning the Build Directory](#cleaning-the-build-directory)
 
 ## Installation
 
 ```bash
-pip install numpy
+pip install "numpy>=2.4"
 pip install numpy-quaddtype
 ```
 
@@ -25,50 +45,31 @@ np.array([1,2,3], dtype=QuadPrecDType("longdouble"))
 
 ## Installation from source
 
-### Prerequisites
-
-- **gcc/clang**
-- **CMake** (≥3.15)
-- **Python 3.10+**
-- **Git**
-- **NumPy >= 2.4** (build from source)
-
 ### Linux/Unix/macOS
 
-Building the `numpy-quaddtype` package:
+**Prerequisites:** gcc/clang, CMake (≥3.15), Python 3.11+, Git, NumPy ≥ 2.4
 
 ```bash
 # setup the virtual env
 python3 -m venv temp
 source temp/bin/activate
 
-# Install NumPy from source
-pip install "numpy @ git+https://github.com/numpy/numpy.git"
-
 # Install build and test dependencies
-pip install pytest meson meson-python
+pip install pytest meson meson-python "numpy>=2.4"
 
 # To build without QBLAS (default for MSVC)
 # export CFLAGS="-DDISABLE_QUADBLAS"
 # export CXXFLAGS="-DDISABLE_QUADBLAS"
 
-python -m pip install . -v --no-build-isolation
+python -m pip install ".[test]" -v
 
 # Run the tests
-cd ..
-python -m pytest/quaddtype/tests/
+python -m pytest tests
 ```
 
 ### Windows
 
-#### Prerequisites
-
-- **Visual Studio 2017 or later** (with MSVC compiler)
-- **CMake** (≥3.15)
-- **Python 3.10+**
-- **Git**
-
-#### Step-by-Step Installation
+**Prerequisites:** Visual Studio 2017+ (with MSVC), CMake (≥3.15), Python 3.11+, Git
 
 1. **Setup Development Environment**
 
@@ -98,14 +99,14 @@ python -m pytest/quaddtype/tests/
 
    ```powershell
    # Build and install the package
-   python -m pip install . -v --no-build-isolation
+   python -m pip install ".[test]" -v
    ```
 
 5. **Test Installation**
 
    ```powershell
    # Run tests
-   pytest -s ..\quaddtype\tests\
+   pytest -s tests
    ```
 
 6. **QBLAS Disabled**: QuadBLAS optimization is automatically disabled on Windows builds due to MSVC compatibility issues. This is handled by the `-DDISABLE_QUADBLAS` compiler flag.
@@ -122,6 +123,7 @@ python -m pytest/quaddtype/tests/
 This is a development feature to help detect threading issues. To build `numpy-quaddtype` with TSan enabled, follow these steps:
 
 > Use of clang is recommended with machine NOT supporting `libquadmath` (like ARM64). Set the compiler to clang/clang++ before proceeding.
+>
 > ```bash
 > export CC=clang
 > export CXX=clang++
@@ -131,46 +133,48 @@ This is a development feature to help detect threading issues. To build `numpy-q
 2. Create and activate a virtual environment using the TSan-enabled Python build.
 3. Installing dependencies:
 
-  ```bash
-  python -m pip install meson meson-python wheel ninja
-  # Need NumPy built with TSan as well
-  python -m pip install "numpy @ git+https://github.com/numpy/numpy" -C'setup-args=-Db_sanitize=thread'
-  ```
+```bash
+python -m pip install meson meson-python wheel ninja
+# Need NumPy built with TSan as well
+python -m pip install "numpy @ git+https://github.com/numpy/numpy" -C'setup-args=-Db_sanitize=thread'
+```
+
 4. Building SLEEF with TSan:
 
-  ```bash
-  # clone the repository
-  git clone -b 3.8 https://github.com/shibatch/sleef.git
-  cd sleef
-  
-  # Build SLEEF with TSan
-  cmake \
-  -DCMAKE_C_COMPILER=clang \
-  -DCMAKE_CXX_COMPILER=clang++ \
-  -DCMAKE_C_FLAGS="-fsanitize=thread -g -O1" \
-  -DCMAKE_CXX_FLAGS="-fsanitize=thread -g -O1" \
-  -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread" \
-  -DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=thread" \
-  -DSLEEF_BUILD_QUAD=ON \
-  -DSLEEF_BUILD_TESTS=OFF \
-  -S . -B build
+```bash
+# clone the repository
+git clone https://github.com/shibatch/sleef.git
+cd sleef
+git checkout 43a0252ba9331adc7fb10755021f802863678c38
 
-  cmake --build build -j
+# Build SLEEF with TSan
+cmake \
+-DCMAKE_C_COMPILER=clang \
+-DCMAKE_CXX_COMPILER=clang++ \
+-DCMAKE_C_FLAGS="-fsanitize=thread -g -O1" \
+-DCMAKE_CXX_FLAGS="-fsanitize=thread -g -O1" \
+-DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread" \
+-DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=thread" \
+-DSLEEF_BUILD_QUAD=ON \
+-DSLEEF_BUILD_TESTS=OFF \
+-DCMAKE_INSTALL_PREFIX=/usr/local
+-S . -B build
 
-  # Install the built library and headers into the system path (/usr/local)
-  sudo cmake --install build --prefix=/usr/local
-  ```
+cmake --build build -j --clean-first
+cmake --install build
+```
+
 5. Build and install `numpy-quaddtype` with TSan:
 
-  ```bash
-  # SLEEF is already installed with TSan, we need to provide proper flags to numpy-quaddtype's meson file
-  # So that it does not build SLEEF again and use the installed one.
+```bash
+# SLEEF is already installed with TSan, we need to provide proper flags to numpy-quaddtype's meson file
+# So that it does not build SLEEF again and use the installed one.
 
-  export CFLAGS="-fsanitize=thread -g -O0" 
-  export CXXFLAGS="-fsanitize=thread -g -O0"
-  export LDFLAGS="-fsanitize=thread"
-  python -m pip install . -vv --no-build-isolation -Csetup-args=-Db_sanitize=thread
-  ```
+export CFLAGS="-fsanitize=thread -g -O0"
+export CXXFLAGS="-fsanitize=thread -g -O0"
+export LDFLAGS="-fsanitize=thread"
+python -m pip install . -vv -Csetup-args=-Db_sanitize=thread
+```
 
 ## Building the documentation
 
@@ -204,3 +208,13 @@ https://numpy.github.io/numpy-user-dtypes/quaddtype/
 ```
 
 Check the `.github/workflows/build_docs.yml` file for details.
+
+## Development Tips
+
+### Cleaning the Build Directory
+
+The subproject folders (`subprojects/sleef`, `subprojects/qblas`) are cloned as git repositories. To fully clean them, use double force:
+
+```bash
+git clean -ffxd
+```
