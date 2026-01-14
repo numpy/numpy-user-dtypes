@@ -35,27 +35,22 @@ init_quad_umath(void)
     }
 
     if (init_quad_unary_ops(numpy) < 0) {
-        PyErr_SetString(PyExc_RuntimeError, "Failed to initialize quad unary operations");
         goto err;
     }
 
     if (init_quad_unary_props(numpy) < 0) {
-        PyErr_SetString(PyExc_RuntimeError, "Failed to initialize quad unary properties");
         goto err;
     }
 
     if (init_quad_binary_ops(numpy) < 0) {
-        PyErr_SetString(PyExc_RuntimeError, "Failed to initialize quad binary operations");
         goto err;
     }
 
     if (init_quad_comps(numpy) < 0) {
-        PyErr_SetString(PyExc_RuntimeError, "Failed to initialize quad comparison operations");
         goto err;
     }
 
     if (init_matmul_ops(numpy) < 0) {
-        PyErr_SetString(PyExc_RuntimeError, "Failed to initialize quad matrix multiplication operations");
         goto err;
     }
 
@@ -63,6 +58,7 @@ init_quad_umath(void)
     return 0;
 
 err:
+    // Already raises appropriate error
     Py_DECREF(numpy);
     return -1;
 }

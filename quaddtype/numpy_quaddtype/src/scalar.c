@@ -483,14 +483,9 @@ PyObject* quad_to_pylong(Sleef_quad value)
         PyErr_SetString(PyExc_RuntimeError, "Failed to convert quad to string");
         return NULL;
     }
-
+    
+    // Already raises ValueError and returns NULL on failure
     PyObject *result = PyLong_FromString(buffer, NULL, 10);
-    
-    if (result == NULL) {
-        PyErr_SetString(PyExc_RuntimeError, "Failed to parse integer string");
-        return NULL;
-    }
-    
     return result;
 }
 
