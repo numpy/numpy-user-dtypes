@@ -1,7 +1,7 @@
 #define PY_ARRAY_UNIQUE_SYMBOL QuadPrecType_ARRAY_API
 #define PY_UFUNC_UNIQUE_SYMBOL QuadPrecType_UFUNC_API
 #define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
-#define NPY_TARGET_VERSION NPY_2_0_API_VERSION
+#define NPY_TARGET_VERSION NPY_2_4_API_VERSION
 #define NO_IMPORT_ARRAY
 #define NO_IMPORT_UFUNC
 
@@ -15,6 +15,7 @@ extern "C" {
 }
 #include <cstring>
 #include <cstdlib>
+#include <type_traits>
 #include "sleef.h"
 #include "sleefquad.h"
 
@@ -26,9 +27,29 @@ extern "C" {
 #include "lock.h"
 #include "dragon4.h"
 #include "ops.hpp"
+#include "constants.hpp"
 
 #define NUM_CASTS 40  // 18 to_casts + 18 from_casts + 1 quad_to_quad + 1 void_to_quad
-#define QUAD_STR_WIDTH 50  // 42 is enough for scientific notation float128, just keeping some buffer
+
+/*
+For quad precision scientific notation, we need at most:
+
+1 character for sign
+1 character for leading digit
+1 character for decimal point
+36 significant digits
+1 character for e
+1 character for exponent sign
+4 characters for exponent (max is 4932)
+1 null terminator
+
+Total: 46 characters, using 50 as a safe buffer
+*/
+#define QUAD_STR_WIDTH 50
+
+// forward declarations
+static inline const char *
+quad_to_string_adaptive_cstr(Sleef_quad *sleef_val, npy_intp unicode_size_chars);
 
 static NPY_CASTING
 quad_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self),
@@ -54,14 +75,71 @@ quad_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self),
         *view_offset = NPY_MIN_INTP;
         if (given_descrs[0]->backend == BACKEND_SLEEF) {
             // SLEEF -> long double may lose precision
-            return NPY_SAME_KIND_CASTING;
+            return static_cast<NPY_CASTING>(NPY_SAME_KIND_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
         }
         // long double -> SLEEF preserves value exactly
-        return NPY_SAFE_CASTING;
+        return static_cast<NPY_CASTING>(NPY_SAFE_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
     }
 
     *view_offset = 0;
-    return NPY_NO_CASTING;
+    return static_cast<NPY_CASTING>(NPY_NO_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
+}
+
+// Helper function for quad-to-quad same_value check (inter-backend)
+// NOTE: the inter-backend uses `double` as intermediate,
+// so only values that can be exactly represented in double can pass same_value check
+static inline int
+quad_to_quad_same_value_check(const quad_value *in_val, QuadBackendType backend_in,
+                              const quad_value *out_val, QuadBackendType backend_out)
+{
+    // Convert output back to input backend for comparison
+    quad_value roundtrip;
+    
+    if (backend_in == BACKEND_SLEEF) {
+        // Input was SLEEF, output is longdouble
+        // Convert longdouble back to SLEEF for comparison
+        long double ld = out_val->longdouble_value;
+        if (std::isnan(ld)) {
+            // Preserve sign of NaN
+            roundtrip.sleef_value = (!ld_signbit(&ld)) ? QUAD_PRECISION_NAN : QUAD_PRECISION_NEG_NAN;
+        }
+        else if (std::isinf(ld)) {
+            roundtrip.sleef_value = (ld > 0) ? QUAD_PRECISION_INF : QUAD_PRECISION_NINF;
+        }
+        else {
+            Sleef_quad temp = Sleef_cast_from_doubleq1(static_cast<double>(ld));
+            memcpy(&roundtrip.sleef_value, &temp, sizeof(Sleef_quad));
+        }
+        
+        // Compare in SLEEF domain && signbit preserved
+        bool is_sign_preserved = (quad_signbit(&in_val->sleef_value) == quad_signbit(&roundtrip.sleef_value));
+        if(quad_isnan(&in_val->sleef_value) && quad_isnan(&roundtrip.sleef_value) && is_sign_preserved)
+            return 1;  // Both NaN
+        if (Sleef_icmpeqq1(in_val->sleef_value, roundtrip.sleef_value) && is_sign_preserved)
+            return 1;  // Equal
+    }
+    else {
+        // Input was longdouble, output is SLEEF
+        // Convert SLEEF back to longdouble for comparison
+        roundtrip.longdouble_value = static_cast<long double>(cast_sleef_to_double(out_val->sleef_value));
+        
+        // Compare in longdouble domain && signbit preserved
+        bool is_sign_preserved = (ld_signbit(&in_val->longdouble_value) == ld_signbit(&roundtrip.longdouble_value));
+        if ((std::isnan(in_val->longdouble_value) && std::isnan(roundtrip.longdouble_value)) && is_sign_preserved)
+            return 1;
+        if ((in_val->longdouble_value == roundtrip.longdouble_value) && is_sign_preserved)
+            return 1;
+    }
+    
+    // Values don't match
+    Sleef_quad sleef_val = quad_to_sleef_quad(in_val, backend_in);
+    const char *val_str = quad_to_string_adaptive_cstr(&sleef_val, QUAD_STR_WIDTH);
+    if (val_str != NULL) {
+        PyErr_Format(PyExc_ValueError,
+                     "QuadPrecision value '%s' cannot be represented exactly in target backend",
+                     val_str);
+    }
+    return -1;
 }
 
 template <bool Aligned>
@@ -80,6 +158,7 @@ quad_to_quad_strided_loop(PyArrayMethod_Context *context, char *const data[],
     QuadPrecDTypeObject *descr_out = (QuadPrecDTypeObject *)context->descriptors[1];
     QuadBackendType backend_in = descr_in->backend;
     QuadBackendType backend_out = descr_out->backend;
+    int same_value_casting = ((context->flags & NPY_SAME_VALUE_CONTEXT_FLAG) == NPY_SAME_VALUE_CONTEXT_FLAG);
 
     // inter-backend casting
     if (backend_in != backend_out) {
@@ -108,7 +187,16 @@ quad_to_quad_strided_loop(PyArrayMethod_Context *context, char *const data[],
                   std::memcpy(&out_val.sleef_value, &temp, sizeof(Sleef_quad));
               }
             }
-          
+            
+            // check same_value for inter-backend casts
+            if(same_value_casting)
+            {
+              int ret = quad_to_quad_same_value_check(&in_val, backend_in, &out_val, backend_out);
+              if (ret < 0) {
+                  return -1;
+              }
+            }
+
             store_quad<Aligned>(out_ptr, &out_val, backend_out);
             in_ptr += in_stride;
             out_ptr += out_stride;
@@ -127,7 +215,6 @@ quad_to_quad_strided_loop(PyArrayMethod_Context *context, char *const data[],
     }
     return 0;
 }
-
 
 static NPY_CASTING
 void_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta *dtypes[2],
@@ -176,7 +263,7 @@ unicode_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMet
         loop_descrs[1] = given_descrs[1];
     }
 
-    return NPY_UNSAFE_CASTING;
+    return static_cast<NPY_CASTING>(NPY_UNSAFE_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
 }
 
 // Helper function: Convert UCS4 string to quad_value
@@ -300,42 +387,9 @@ quad_to_unicode_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMet
 
     // If target descriptor is wide enough, it's a safe cast
     if (loop_descrs[1]->elsize >= required_size_bytes) {
-        return NPY_SAFE_CASTING;
+        return static_cast<NPY_CASTING>(NPY_SAFE_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
     }
-    return NPY_SAME_KIND_CASTING;
-}
-
-// Helper function: Convert quad to string with adaptive notation
-static inline PyObject *
-quad_to_string_adaptive(Sleef_quad *sleef_val, npy_intp unicode_size_chars)
-{
-    // Try positional format first to see if it would fit
-    PyObject *positional_str = Dragon4_Positional_QuadDType(
-            sleef_val, DigitMode_Unique, CutoffMode_TotalLength, SLEEF_QUAD_DECIMAL_DIG, 0, 1,
-            TrimMode_LeaveOneZero, 1, 0);
-
-    if (positional_str == NULL) {
-        return NULL;
-    }
-
-    const char *pos_str = PyUnicode_AsUTF8(positional_str);
-    if (pos_str == NULL) {
-        Py_DECREF(positional_str);
-        return NULL;
-    }
-
-    // no need to scan full, only checking if its longer
-    npy_intp pos_len = strnlen(pos_str, unicode_size_chars + 1);
-
-    // If positional format fits, use it; otherwise use scientific notation
-    if (pos_len <= unicode_size_chars) {
-        return positional_str;  // Keep the positional string
-    }
-    Py_DECREF(positional_str);
-    // Use scientific notation with full precision
-    return Dragon4_Scientific_QuadDType(sleef_val, DigitMode_Unique,
-                                        SLEEF_QUAD_DECIMAL_DIG, 0, 1,
-                                        TrimMode_LeaveOneZero, 1, 2);
+    return static_cast<NPY_CASTING>(NPY_SAME_KIND_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
 }
 
 static inline const char *
@@ -371,6 +425,64 @@ quad_to_string_adaptive_cstr(Sleef_quad *sleef_val, npy_intp unicode_size_chars)
 
 }
 
+static inline int
+quad_to_string_same_value_check(const quad_value *in_val, const char *str_buf, npy_intp str_len,
+                                 QuadBackendType backend)
+{
+    // str_len will never exceed QUAD_STR_WIDTH (50).
+    char stack_buf[QUAD_STR_WIDTH + 1];
+    const char *parse_str;
+    
+    if (str_buf[str_len] == '\0') {
+        // String already properly terminated at str_len, use directly
+        parse_str = str_buf;
+    }
+    else {
+        // truncated string check
+        memcpy(stack_buf, str_buf, str_len);
+        stack_buf[str_len] = '\0';
+        parse_str = stack_buf;
+    }
+    
+    quad_value roundtrip;
+    char *endptr;
+    
+    int err = NumPyOS_ascii_strtoq(parse_str, backend, &roundtrip, &endptr);
+    if (err < 0) {
+        PyErr_Format(PyExc_ValueError,
+                     "QuadPrecision value cannot be represented exactly: string '%s' failed to parse back",
+                     parse_str);
+        return -1;
+    }
+    
+    // Compare original and roundtripped values along with signbit
+    if (backend == BACKEND_SLEEF) {
+        bool is_sign_preserved = (quad_signbit(&in_val->sleef_value) == quad_signbit(&roundtrip.sleef_value));
+        if(quad_isnan(&in_val->sleef_value) && quad_isnan(&roundtrip.sleef_value) && is_sign_preserved)
+            return 1;
+        if (Sleef_icmpeqq1(in_val->sleef_value, roundtrip.sleef_value) && is_sign_preserved)
+            return 1;
+    }
+    else {
+        bool is_sign_preserved = (ld_signbit(&in_val->longdouble_value) == ld_signbit(&roundtrip.longdouble_value));
+        if ((std::isnan(in_val->longdouble_value) && std::isnan(roundtrip.longdouble_value)) && is_sign_preserved)
+            return 1;
+        if ((in_val->longdouble_value == roundtrip.longdouble_value) && is_sign_preserved)
+            return 1;
+    }
+    
+    // Values don't match - the string width is too narrow for exact representation
+    Sleef_quad sleef_val = quad_to_sleef_quad(in_val, backend);
+    const char *val_str = quad_to_string_adaptive_cstr(&sleef_val, QUAD_STR_WIDTH);
+    if (val_str != NULL) {
+        PyErr_Format(PyExc_ValueError,
+                     "QuadPrecision value '%s' cannot be represented exactly in target string dtype "
+                     "(string width too narrow or precision loss occurred)",
+                     val_str);
+    }
+    return -1;
+}
+
 template <bool Aligned>
 static int
 quad_to_unicode_loop(PyArrayMethod_Context *context, char *const data[],
@@ -388,6 +500,7 @@ quad_to_unicode_loop(PyArrayMethod_Context *context, char *const data[],
     QuadBackendType backend = descr_in->backend;
 
     npy_intp unicode_size_chars = descrs[1]->elsize / 4;
+    int same_value_casting = ((context->flags & NPY_SAME_VALUE_CONTEXT_FLAG) == NPY_SAME_VALUE_CONTEXT_FLAG);
 
     while (N--) {
         quad_value in_val;
@@ -396,29 +509,28 @@ quad_to_unicode_loop(PyArrayMethod_Context *context, char *const data[],
         // Convert to Sleef_quad for Dragon4
         Sleef_quad sleef_val = quad_to_sleef_quad(&in_val, backend);
 
-        // Get string representation with adaptive notation
-        PyObject *py_str = quad_to_string_adaptive(&sleef_val, unicode_size_chars);
-        if (py_str == NULL) {
+        const char *temp_str = quad_to_string_adaptive_cstr(&sleef_val, unicode_size_chars);
+        if (temp_str == NULL) {
             return -1;
         }
 
-        const char *temp_str = PyUnicode_AsUTF8(py_str);
-        if (temp_str == NULL) {
-            Py_DECREF(py_str);
-            return -1;
+        npy_intp str_len = strnlen(temp_str, unicode_size_chars);
+
+        // Perform same_value check if requested
+        if (same_value_casting) {
+            if (quad_to_string_same_value_check(&in_val, temp_str, str_len, backend) < 0) {
+                return -1;
+            }
         }
 
         // Convert char string to UCS4 and store in output
         Py_UCS4 *out_ucs4 = (Py_UCS4 *)out_ptr;
-        npy_intp str_len = strnlen(temp_str, unicode_size_chars);
         for (npy_intp i = 0; i < str_len; i++) {
             out_ucs4[i] = (Py_UCS4)temp_str[i];
         }
         for (npy_intp i = str_len; i < unicode_size_chars; i++) {
             out_ucs4[i] = 0;
         }
-
-        Py_DECREF(py_str);
 
         in_ptr += in_stride;
         out_ptr += out_stride;
@@ -449,7 +561,7 @@ bytes_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta 
         loop_descrs[1] = given_descrs[1];
     }
 
-    return NPY_UNSAFE_CASTING;
+    return static_cast<NPY_CASTING>(NPY_UNSAFE_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
 }
 
 // Helper function: Convert bytes string to quad_value
@@ -560,9 +672,9 @@ quad_to_bytes_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta 
 
     // If target descriptor is wide enough, it's a safe cast
     if (loop_descrs[1]->elsize >= required_size_bytes) {
-        return NPY_SAFE_CASTING;
+        return static_cast<NPY_CASTING>(NPY_SAFE_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
     }
-    return NPY_SAME_KIND_CASTING;
+    return static_cast<NPY_CASTING>(NPY_UNSAFE_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
 }
 
 template <bool Aligned>
@@ -582,25 +694,29 @@ quad_to_bytes_loop(PyArrayMethod_Context *context, char *const data[],
     QuadBackendType backend = descr_in->backend;
 
     npy_intp bytes_size = descrs[1]->elsize;
+    int same_value_casting = ((context->flags & NPY_SAME_VALUE_CONTEXT_FLAG) == NPY_SAME_VALUE_CONTEXT_FLAG);
 
     while (N--) {
         quad_value in_val;
         load_quad<Aligned>(in_ptr, backend, &in_val);
         Sleef_quad sleef_val = quad_to_sleef_quad(&in_val, backend);
-        PyObject *py_str = quad_to_string_adaptive(&sleef_val, bytes_size);
-        if (py_str == NULL) {
+
+        const char *temp_str = quad_to_string_adaptive_cstr(&sleef_val, bytes_size);
+        if (temp_str == NULL) {
             return -1;
         }
-        const char *temp_str = PyUnicode_AsUTF8(py_str);
-        if (temp_str == NULL) {
-            Py_DECREF(py_str);
-            return -1;
+
+        npy_intp str_len = strnlen(temp_str, bytes_size);
+
+        // Perform same_value check if requested
+        if (same_value_casting) {
+            if (quad_to_string_same_value_check(&in_val, temp_str, str_len, backend) < 0) {
+                return -1;
+            }
         }
 
         // Copy string to output buffer, padding with nulls
         strncpy(out_ptr, temp_str, bytes_size);
-
-        Py_DECREF(py_str);
 
         in_ptr += in_stride;
         out_ptr += out_stride;
@@ -629,7 +745,7 @@ stringdtype_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTyp
     Py_INCREF(given_descrs[0]);
     loop_descrs[0] = given_descrs[0];
 
-    return NPY_UNSAFE_CASTING;
+    return static_cast<NPY_CASTING>(NPY_UNSAFE_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
 }
 
 // Note: StringDType elements are always aligned, so Aligned template parameter
@@ -713,7 +829,7 @@ quad_to_stringdtype_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTyp
     Py_INCREF(given_descrs[0]);
     loop_descrs[0] = given_descrs[0];
 
-    return NPY_SAFE_CASTING;
+    return static_cast<NPY_CASTING>(NPY_SAFE_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
 }
 
 // Note: StringDType elements are always aligned, so Aligned template parameter
@@ -734,6 +850,7 @@ quad_to_stringdtype_strided_loop(PyArrayMethod_Context *context, char *const dat
     QuadPrecDTypeObject *descr_in = (QuadPrecDTypeObject *)descrs[0];
     PyArray_StringDTypeObject *str_descr = (PyArray_StringDTypeObject *)descrs[1];
     QuadBackendType backend = descr_in->backend;
+    int same_value_casting = ((context->flags & NPY_SAME_VALUE_CONTEXT_FLAG) == NPY_SAME_VALUE_CONTEXT_FLAG);
 
     npy_string_allocator *allocator = NpyString_acquire_allocator(str_descr);
 
@@ -1060,42 +1177,15 @@ numpy_to_quad_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta 
     }
 
     loop_descrs[0] = PyArray_GetDefaultDescr(dtypes[0]);
-    return NPY_SAFE_CASTING;
+    // since QUAD precision is the highest precision, we can always cast to it
+    return static_cast<NPY_CASTING>(NPY_SAFE_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
 }
 
-template <typename T>
+template <bool Aligned, typename T>
 static int
-numpy_to_quad_strided_loop_unaligned(PyArrayMethod_Context *context, char *const data[],
-                                     npy_intp const dimensions[], npy_intp const strides[],
-                                     void *NPY_UNUSED(auxdata))
-{
-    npy_intp N = dimensions[0];
-    char *in_ptr = data[0];
-    char *out_ptr = data[1];
-
-    QuadPrecDTypeObject *descr_out = (QuadPrecDTypeObject *)context->descriptors[1];
-    QuadBackendType backend = descr_out->backend;
-    size_t elem_size = (backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
-
-    while (N--) {
-        typename NpyType<T>::TYPE in_val;
-        quad_value out_val;
-
-        memcpy(&in_val, in_ptr, sizeof(typename NpyType<T>::TYPE));
-        out_val = to_quad<T>(in_val, backend);
-        memcpy(out_ptr, &out_val, elem_size);
-
-        in_ptr += strides[0];
-        out_ptr += strides[1];
-    }
-    return 0;
-}
-
-template <typename T>
-static int
-numpy_to_quad_strided_loop_aligned(PyArrayMethod_Context *context, char *const data[],
-                                   npy_intp const dimensions[], npy_intp const strides[],
-                                   void *NPY_UNUSED(auxdata))
+numpy_to_quad_strided_loop(PyArrayMethod_Context *context, char *const data[],
+                           npy_intp const dimensions[], npy_intp const strides[],
+                           void *NPY_UNUSED(auxdata))
 {
     npy_intp N = dimensions[0];
     char *in_ptr = data[0];
@@ -1105,15 +1195,9 @@ numpy_to_quad_strided_loop_aligned(PyArrayMethod_Context *context, char *const d
     QuadBackendType backend = descr_out->backend;
 
     while (N--) {
-        typename NpyType<T>::TYPE in_val = *(typename NpyType<T>::TYPE *)in_ptr;
+        typename NpyType<T>::TYPE in_val = load<Aligned, typename NpyType<T>::TYPE>(in_ptr);
         quad_value out_val = to_quad<T>(in_val, backend);
-
-        if (backend == BACKEND_SLEEF) {
-            *(Sleef_quad *)(out_ptr) = out_val.sleef_value;
-        }
-        else {
-            *(long double *)(out_ptr) = out_val.longdouble_value;
-        }
+        store_quad<Aligned>(out_ptr, &out_val, backend);
 
         in_ptr += strides[0];
         out_ptr += strides[1];
@@ -1311,6 +1395,52 @@ from_quad<long double>(const quad_value *x, QuadBackendType backend)
 }
 
 template <typename T>
+static inline int quad_to_numpy_same_value_check(const quad_value *x, QuadBackendType backend, typename NpyType<T>::TYPE *y)
+{
+    *y = from_quad<T>(x, backend);
+    quad_value roundtrip = to_quad<T>(*y, backend);
+    if(backend == BACKEND_SLEEF) 
+    {
+        bool is_sign_preserved = (quad_signbit(&x->sleef_value) == quad_signbit(&roundtrip.sleef_value));
+        // check if input is NaN and roundtrip is NaN with same sign
+        if(quad_isnan(&x->sleef_value) && quad_isnan(&roundtrip.sleef_value) && is_sign_preserved)
+            return 1;
+        if(Sleef_icmpeqq1(x->sleef_value, roundtrip.sleef_value) && is_sign_preserved)
+            return 1;
+    }
+    else 
+    {
+        bool is_sign_preserved = (ld_signbit(&x->longdouble_value) == ld_signbit(&roundtrip.longdouble_value));
+        if((std::isnan(x->longdouble_value) && std::isnan(roundtrip.longdouble_value)) && is_sign_preserved)
+            return 1;
+        if((x->longdouble_value == roundtrip.longdouble_value) && is_sign_preserved)
+            return 1;
+
+    }
+    Sleef_quad sleef_val = quad_to_sleef_quad(x, backend);
+    const char *val_str = quad_to_string_adaptive_cstr(&sleef_val, QUAD_STR_WIDTH);
+    if (val_str != NULL) {
+        PyErr_Format(PyExc_ValueError, 
+                     "QuadPrecision value '%s' cannot be represented exactly in the target dtype",
+                     val_str);
+    }
+    return -1;
+}
+
+// Type trait to check if a type is a floating-point type for casting purposes
+template <typename T>
+struct is_float_type : std::false_type {};
+
+template <>
+struct is_float_type<spec_npy_half> : std::true_type {};
+template <>
+struct is_float_type<float> : std::true_type {};
+template <>
+struct is_float_type<double> : std::true_type {};
+template <>
+struct is_float_type<long double> : std::true_type {};
+
+template <typename T>
 static NPY_CASTING
 quad_to_numpy_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta *dtypes[2],
                                   PyArray_Descr *given_descrs[2], PyArray_Descr *loop_descrs[2],
@@ -1320,42 +1450,20 @@ quad_to_numpy_resolve_descriptors(PyObject *NPY_UNUSED(self), PyArray_DTypeMeta 
     loop_descrs[0] = given_descrs[0];
 
     loop_descrs[1] = PyArray_GetDefaultDescr(dtypes[1]);
-    return NPY_UNSAFE_CASTING;
-}
-
-template <typename T>
-static int
-quad_to_numpy_strided_loop_unaligned(PyArrayMethod_Context *context, char *const data[],
-                                     npy_intp const dimensions[], npy_intp const strides[],
-                                     void *NPY_UNUSED(auxdata))
-{
-    npy_intp N = dimensions[0];
-    char *in_ptr = data[0];
-    char *out_ptr = data[1];
-
-    QuadPrecDTypeObject *quad_descr = (QuadPrecDTypeObject *)context->descriptors[0];
-    QuadBackendType backend = quad_descr->backend;
-
-    size_t elem_size = (backend == BACKEND_SLEEF) ? sizeof(Sleef_quad) : sizeof(long double);
-
-    while (N--) {
-        quad_value in_val;
-        memcpy(&in_val, in_ptr, elem_size);
-
-        typename NpyType<T>::TYPE out_val = from_quad<T>(&in_val, backend);
-        memcpy(out_ptr, &out_val, sizeof(typename NpyType<T>::TYPE));
-
-        in_ptr += strides[0];
-        out_ptr += strides[1];
+    // For floating-point types: same_kind casting (precision loss but same kind)
+    if constexpr (is_float_type<T>::value) {
+        return static_cast<NPY_CASTING>(NPY_SAME_KIND_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
+    } else {
+        // For integer/bool types: unsafe casting (cross-kind conversion)
+        return static_cast<NPY_CASTING>(NPY_UNSAFE_CASTING | NPY_SAME_VALUE_CASTING_FLAG);
     }
-    return 0;
 }
 
-template <typename T>
+template <bool Aligned, typename T>
 static int
-quad_to_numpy_strided_loop_aligned(PyArrayMethod_Context *context, char *const data[],
-                                   npy_intp const dimensions[], npy_intp const strides[],
-                                   void *NPY_UNUSED(auxdata))
+quad_to_numpy_strided_loop(PyArrayMethod_Context *context, char *const data[],
+                           npy_intp const dimensions[], npy_intp const strides[],
+                           void *NPY_UNUSED(auxdata))
 {
     npy_intp N = dimensions[0];
     char *in_ptr = data[0];
@@ -1363,18 +1471,28 @@ quad_to_numpy_strided_loop_aligned(PyArrayMethod_Context *context, char *const d
 
     QuadPrecDTypeObject *quad_descr = (QuadPrecDTypeObject *)context->descriptors[0];
     QuadBackendType backend = quad_descr->backend;
+    int same_value_casting = ((context->flags & NPY_SAME_VALUE_CONTEXT_FLAG) == NPY_SAME_VALUE_CONTEXT_FLAG);
 
+    if (same_value_casting) {
+        while (N--) {
+            quad_value in_val;
+            load_quad<Aligned>(in_ptr, backend, &in_val);
+            typename NpyType<T>::TYPE out_val;
+            int ret = quad_to_numpy_same_value_check<T>(&in_val, backend, &out_val);
+            if(ret < 0)
+                return -1;
+            store<Aligned, typename NpyType<T>::TYPE>(out_ptr, out_val);
+
+            in_ptr += strides[0];
+            out_ptr += strides[1];
+        }
+        return 0;
+    }
     while (N--) {
         quad_value in_val;
-        if (backend == BACKEND_SLEEF) {
-            in_val.sleef_value = *(Sleef_quad *)in_ptr;
-        }
-        else {
-            in_val.longdouble_value = *(long double *)in_ptr;
-        }
-
+        load_quad<Aligned>(in_ptr, backend, &in_val);
         typename NpyType<T>::TYPE out_val = from_quad<T>(&in_val, backend);
-        *(typename NpyType<T>::TYPE *)(out_ptr) = out_val;
+        store<Aligned, typename NpyType<T>::TYPE>(out_ptr, out_val);
 
         in_ptr += strides[0];
         out_ptr += strides[1];
@@ -1407,8 +1525,8 @@ add_cast_from(PyArray_DTypeMeta *to)
 
     PyType_Slot *slots = new PyType_Slot[]{
             {NPY_METH_resolve_descriptors, (void *)&quad_to_numpy_resolve_descriptors<T>},
-            {NPY_METH_strided_loop, (void *)&quad_to_numpy_strided_loop_aligned<T>},
-            {NPY_METH_unaligned_strided_loop, (void *)&quad_to_numpy_strided_loop_unaligned<T>},
+            {NPY_METH_strided_loop, (void *)&quad_to_numpy_strided_loop<true, T>},
+            {NPY_METH_unaligned_strided_loop, (void *)&quad_to_numpy_strided_loop<false, T>},
             {0, nullptr}};
 
     PyArrayMethod_Spec *spec = new PyArrayMethod_Spec{
@@ -1431,8 +1549,8 @@ add_cast_to(PyArray_DTypeMeta *from)
 
     PyType_Slot *slots = new PyType_Slot[]{
             {NPY_METH_resolve_descriptors, (void *)&numpy_to_quad_resolve_descriptors<T>},
-            {NPY_METH_strided_loop, (void *)&numpy_to_quad_strided_loop_aligned<T>},
-            {NPY_METH_unaligned_strided_loop, (void *)&numpy_to_quad_strided_loop_unaligned<T>},
+            {NPY_METH_strided_loop, (void *)&numpy_to_quad_strided_loop<true, T>},
+            {NPY_METH_unaligned_strided_loop, (void *)&numpy_to_quad_strided_loop<false, T>},
             {0, nullptr}};
 
     PyArrayMethod_Spec *spec = new PyArrayMethod_Spec{
