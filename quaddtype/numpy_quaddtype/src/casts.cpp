@@ -124,10 +124,6 @@ quad_to_quad_same_value_check(const quad_value *in_val, QuadBackendType backend_
                      "QuadPrecision value '%s' cannot be represented exactly in target backend",
                      val_str);
     }
-    else {
-        PyErr_SetString(PyExc_ValueError,
-                        "QuadPrecision value cannot be represented exactly in target backend");
-    }
     return -1;
 }
 
@@ -464,11 +460,6 @@ quad_to_string_same_value_check(const quad_value *in_val, const char *str_buf, n
                      "QuadPrecision value '%s' cannot be represented exactly in target string dtype "
                      "(string width too narrow or precision loss occurred)",
                      val_str);
-    }
-    else {
-        PyErr_SetString(PyExc_ValueError,
-                        "QuadPrecision value cannot be represented exactly in target string dtype "
-                        "(string width too narrow or precision loss occurred)");
     }
     return -1;
 }
@@ -858,14 +849,6 @@ quad_to_stringdtype_strided_loop(PyArrayMethod_Context *context, char *const dat
         }
 
         Py_ssize_t str_size = strnlen(str_buf, QUAD_STR_WIDTH);
-
-        // Perform same_value check if requested
-        if (same_value_casting) {
-            if (quad_to_string_same_value_check(&in_val, str_buf, str_size, backend) < 0) {
-                NpyString_release_allocator(allocator);
-                return -1;
-            }
-        }
 
         npy_packed_static_string *out_ps = (npy_packed_static_string *)out_ptr;
         if (NpyString_pack(allocator, out_ps, str_buf, (size_t)str_size) < 0) {
@@ -1421,10 +1404,6 @@ static inline int quad_to_numpy_same_value_check(const quad_value *x, QuadBacken
         PyErr_Format(PyExc_ValueError, 
                      "QuadPrecision value '%s' cannot be represented exactly in the target dtype",
                      val_str);
-    }
-    else {
-        PyErr_SetString(PyExc_ValueError, 
-                        "QuadPrecision value cannot be represented exactly in the target dtype");
     }
     return -1;
 }
