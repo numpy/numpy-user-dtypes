@@ -30,7 +30,22 @@ extern "C" {
 #include "constants.hpp"
 
 #define NUM_CASTS 40  // 18 to_casts + 18 from_casts + 1 quad_to_quad + 1 void_to_quad
-#define QUAD_STR_WIDTH 50  // 42 is enough for scientific notation float128, just keeping some buffer
+
+/*
+For quad precision scientific notation, we need at most:
+
+1 character for sign
+1 character for leading digit
+1 character for decimal point
+36 significant digits
+1 character for e
+1 character for exponent sign
+4 characters for exponent (max is 4932)
+1 null terminator
+
+Total: 46 characters, using 50 as a safe buffer
+*/
+#define QUAD_STR_WIDTH 50
 
 // forward declarations
 static inline const char *
