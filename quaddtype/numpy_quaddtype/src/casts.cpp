@@ -414,27 +414,31 @@ static inline int
 quad_to_string_same_value_check(const quad_value *in_val, const char *str_buf, npy_intp str_len,
                                  QuadBackendType backend)
 {
-    char *truncated_str = (char *)malloc(str_len + 1);
-    if (truncated_str == NULL) {
-        PyErr_NoMemory();
-        return -1;
-    }
-    memcpy(truncated_str, str_buf, str_len);
-    truncated_str[str_len] = '\0';
+    // str_len will never exceed QUAD_STR_WIDTH (50).
+    char stack_buf[QUAD_STR_WIDTH + 1];
+    const char *parse_str;
     
-    // Parse the truncated string back to quad
+    if (str_buf[str_len] == '\0') {
+        // String already properly terminated at str_len, use directly
+        parse_str = str_buf;
+    }
+    else {
+        // truncated string check
+        memcpy(stack_buf, str_buf, str_len);
+        stack_buf[str_len] = '\0';
+        parse_str = stack_buf;
+    }
+    
     quad_value roundtrip;
     char *endptr;
     
-    int err = NumPyOS_ascii_strtoq(truncated_str, backend, &roundtrip, &endptr);
+    int err = NumPyOS_ascii_strtoq(parse_str, backend, &roundtrip, &endptr);
     if (err < 0) {
         PyErr_Format(PyExc_ValueError,
                      "QuadPrecision value cannot be represented exactly: string '%s' failed to parse back",
-                     truncated_str);
-        free(truncated_str);
+                     parse_str);
         return -1;
     }
-    free(truncated_str);
     
     // Compare original and roundtripped values along with signbit
     if (backend == BACKEND_SLEEF) {
