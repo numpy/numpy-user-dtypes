@@ -1,4 +1,5 @@
 import enum
+from importlib.metadata import version, PackageNotFoundError
 
 from ._quaddtype_main import (
     QuadPrecision,
@@ -10,7 +11,10 @@ from ._quaddtype_main import (
     get_quadblas_version
 )
 
-__version__ = "0.2.0"
+try:
+    __version__ = version("numpy_quaddtype")
+except PackageNotFoundError:
+    __version__ = "unknown"
 
 
 class QuadBackend(enum.IntEnum):

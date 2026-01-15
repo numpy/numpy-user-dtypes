@@ -16,13 +16,13 @@ extern "C" {
 #include "numpy/dtype_api.h"
 }
 
-#include "../quad_common.h"
-#include "../scalar.h"
-#include "../dtype.h"
-#include "../ops.hpp"
-#include "matmul.h"
-#include "promoters.hpp"
-#include "../quadblas_interface.h"
+#include "quad_common.h"
+#include "scalar.h"
+#include "dtype.h"
+#include "ops.hpp"
+#include "umath/matmul.h"
+#include "umath/promoters.hpp"
+#include "quadblas_interface.h"
 
 static NPY_CASTING
 quad_matmul_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtypes[],

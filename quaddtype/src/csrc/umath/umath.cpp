@@ -14,16 +14,16 @@ extern "C" {
 #include "numpy/ufuncobject.h"
 #include "numpy/dtype_api.h"
 }
-#include "../quad_common.h"
-#include "../scalar.h"
-#include "../dtype.h"
-#include "umath.h"
-#include "../ops.hpp"
-#include "unary_ops.h"
-#include "unary_props.h"
-#include "binary_ops.h"
-#include "comparison_ops.h"
-#include "matmul.h"
+#include "quad_common.h"
+#include "scalar.h"
+#include "dtype.h"
+#include "umath/umath.h"
+#include "ops.hpp"
+#include "umath/unary_ops.h"
+#include "umath/unary_props.h"
+#include "umath/binary_ops.h"
+#include "umath/comparison_ops.h"
+#include "umath/matmul.h"
 
 int
 init_quad_umath(void)

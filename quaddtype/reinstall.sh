@@ -9,7 +9,7 @@ rm -rf subprojects/pythoncapi-compat
 rm -rf .mesonpy-*
 
 python -m pip uninstall -y numpy_quaddtype
-python -m pip install . -vv --no-build-isolation 2>&1 | tee build_log.txt
+python -m pip install . -vv 2>&1 | tee build_log.txt
 
 # for debugging and TSAN builds, comment the above line and uncomment all below:
 # export CFLAGS="-fsanitize=thread -g -O0" 
