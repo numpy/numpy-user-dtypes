@@ -3,14 +3,15 @@ requires = [
     "meson>=1.3.2",
     "meson-python>=0.18.0",
     "wheel",
-    "numpy>=2.0"
+    "cmake",
+    "numpy>=2.4"
 ]
 build-backend = "mesonpy"
 
 [project]
 name = "numpy_quaddtype"
 description = "Quad (128-bit) float dtype for numpy"
-version = "0.2.0"
+version = "1.0.0"
 readme = 'README.md'
 license = "BSD-3-Clause"
 license-files = ["LICENSE"]
@@ -51,7 +52,7 @@ Documentation = "https://github.com/numpy/numpy-user-dtypes/tree/main/quaddtype"
 Issues = "https://github.com/numpy/numpy-user-dtypes/issues"
 
 [tool.pyright]
-include = ["numpy_quaddtype/*.pyi"]
+include = ["src/numpy_quaddtype/*.pyi"]
 typeCheckingMode = "strict"
 enableTypeIgnoreComments = false
 reportImplicitOverride = true
@@ -60,7 +61,7 @@ reportUnnecessaryTypeIgnoreComment = true
 [tool.mypy]
 strict = true
 strict_equality_for_none = true
-exclude = ["build", "numpy_quaddtype/src", "subprojects", "tests"]
+exclude = ["build", "src/csrc", "subprojects", "tests"]
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 warn_unreachable = false
 

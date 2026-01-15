@@ -1,7 +1,7 @@
 #define PY_ARRAY_UNIQUE_SYMBOL QuadPrecType_ARRAY_API
 #define PY_UFUNC_UNIQUE_SYMBOL QuadPrecType_UFUNC_API
 #define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
-#define NPY_TARGET_VERSION NPY_2_0_API_VERSION
+#define NPY_TARGET_VERSION NPY_2_4_API_VERSION
 #define NO_IMPORT_ARRAY
 #define NO_IMPORT_UFUNC
 
@@ -15,10 +15,10 @@ extern "C" {
 
 #include "numpy/dtype_api.h"
 }
-#include "../quad_common.h"
-#include "../scalar.h"
-#include "../dtype.h"
-#include "../ops.hpp"
+#include "quad_common.h"
+#include "scalar.h"
+#include "dtype.h"
+#include "ops.hpp"
 
 static NPY_CASTING
 quad_unary_op_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtypes[],

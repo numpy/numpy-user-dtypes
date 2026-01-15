@@ -1,6 +1,6 @@
 #define PY_ARRAY_UNIQUE_SYMBOL QuadPrecType_ARRAY_API
 #define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
-#define NPY_TARGET_VERSION NPY_2_0_API_VERSION
+#define NPY_TARGET_VERSION NPY_2_4_API_VERSION
 #define NO_IMPORT_ARRAY
 
 extern "C" {
@@ -134,6 +134,9 @@ quad_richcompare(QuadPrecisionObject *self, PyObject *other, int cmp_op)
         Py_INCREF(other);
         other_quad = (QuadPrecisionObject *)other;
         if (other_quad->backend != backend) {
+            // we could allow, but this will be bad
+            // Two values that are different in quad precision, 
+            // might appear equal when converted to double.
             PyErr_SetString(PyExc_TypeError,
                             "Cannot compare QuadPrecision objects with different backends");
             Py_DECREF(other_quad);
@@ -228,11 +231,23 @@ QuadPrecision_int(QuadPrecisionObject *self)
     }
 }
 
+template <binary_op_quad_def sleef_op, binary_op_longdouble_def longdouble_op>
+static PyObject *
+quad_ternary_power_func(PyObject *op1, PyObject *op2, PyObject *mod)
+{
+    if (mod != Py_None) {
+        PyErr_SetString(PyExc_TypeError,
+            "pow() 3rd argument not allowed unless all arguments are integers");
+        return NULL;
+    }
+    return quad_binary_func<sleef_op, longdouble_op>(op1, op2);
+}
+
 PyNumberMethods quad_as_scalar = {
         .nb_add = (binaryfunc)quad_binary_func<quad_add, ld_add>,
         .nb_subtract = (binaryfunc)quad_binary_func<quad_sub, ld_sub>,
         .nb_multiply = (binaryfunc)quad_binary_func<quad_mul, ld_mul>,
-        .nb_power = (ternaryfunc)quad_binary_func<quad_pow, ld_pow>,
+        .nb_power = (ternaryfunc)quad_ternary_power_func<quad_pow, ld_pow>,
         .nb_negative = (unaryfunc)quad_unary_func<quad_negative, ld_negative>,
         .nb_positive = (unaryfunc)quad_unary_func<quad_positive, ld_positive>,
         .nb_absolute = (unaryfunc)quad_unary_func<quad_absolute, ld_absolute>,
