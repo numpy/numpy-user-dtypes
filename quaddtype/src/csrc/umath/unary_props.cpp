@@ -15,10 +15,10 @@ extern "C" {
 
 #include "numpy/dtype_api.h"
 }
-#include "../quad_common.h"
-#include "../scalar.h"
-#include "../dtype.h"
-#include "../ops.hpp"
+#include "quad_common.h"
+#include "scalar.h"
+#include "dtype.h"
+#include "ops.hpp"
 
 static NPY_CASTING
 quad_unary_prop_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtypes[],

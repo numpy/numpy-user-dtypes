@@ -155,44 +155,26 @@ build_includes = include_directories('.') # compile time generated headers as pe
 includes = include_directories(
     [
         incdir_numpy,
-        'src/csrc',
+        'src/include',
     ]
 )
 pythoncapi_includes = pythoncapi_compat_inc
 
 srcs = [
-    'src/csrc/quad_common.h',
-    'src/csrc/casts.h',
     'src/csrc/casts.cpp',
-    'src/csrc/scalar.h',
     'src/csrc/scalar.c',
-    'src/csrc/dtype.h',
     'src/csrc/dtype.c',
     'src/csrc/quaddtype_main.c',
-    'src/csrc/scalar_ops.h',
     'src/csrc/scalar_ops.cpp',
-    'src/csrc/ops.hpp',
-    'src/csrc/dragon4.h',
     'src/csrc/dragon4.c',
-    'src/csrc/quadblas_interface.h',
     'src/csrc/quadblas_interface.cpp',
-    'src/csrc/umath/umath.h',
     'src/csrc/umath/umath.cpp',
-    'src/csrc/umath/binary_ops.h',
     'src/csrc/umath/binary_ops.cpp',
-    'src/csrc/umath/unary_ops.h',
     'src/csrc/umath/unary_ops.cpp',
-    'src/csrc/umath/unary_props.h',
     'src/csrc/umath/unary_props.cpp',
-    'src/csrc/umath/comparison_ops.h',
     'src/csrc/umath/comparison_ops.cpp',
-    'src/csrc/umath/promoters.hpp',
-    'src/csrc/umath/matmul.h',
     'src/csrc/umath/matmul.cpp',
-    'src/csrc/constants.hpp',
-    'src/csrc/lock.h',
     'src/csrc/lock.c',
-    'src/csrc/utilities.h',
     'src/csrc/utilities.c',
 ]
 

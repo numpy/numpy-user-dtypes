@@ -14,14 +14,14 @@
 #include "numpy/dtype_api.h"
 #include "numpy/ndarraytypes.h"
 
-#include "../quad_common.h"
-#include "../scalar.h"
-#include "../dtype.h"
-#include "umath.h"
-#include "../ops.hpp"
-#include "promoters.hpp"
-#include "binary_ops.h"
-#include "comparison_ops.h"
+#include "quad_common.h"
+#include "scalar.h"
+#include "dtype.h"
+#include "umath/umath.h"
+#include "ops.hpp"
+#include "umath/promoters.hpp"
+#include "umath/binary_ops.h"
+#include "umath/comparison_ops.h"
 
 static NPY_CASTING
 quad_comparison_op_resolve_descriptors(PyObject *self, PyArray_DTypeMeta *const dtypes[],
