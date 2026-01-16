@@ -18,22 +18,22 @@ NumPy QuadDType provides IEEE 754 quadruple-precision (binary128) floating-point
 :gutter: 2
 
 :::{grid-item-card} 🎯 True Quad Precision
-:link: user_guide/precision
-:link-type: doc
+<!--- :link: user_guide/precision
+:link-type: doc  -->
 
 128-bit floating point with ~34 decimal digits of precision
 :::
 
 :::{grid-item-card} 🔌 NumPy Integration
-:link: user_guide/arrays
-:link-type: doc
+<!--- :link: user_guide/arrays
+:link-type: doc  -->
 
 Works seamlessly with NumPy arrays, ufuncs, and broadcasting.
 :::
 
 :::{grid-item-card} ⚡ SIMD Optimized
-:link: user_guide/performance
-:link-type: doc
+<!--- :link: user_guide/performance
+:link-type: doc  -->
 
 Vectorization-friendly design that can leverage SIMD acceleration where supported.
 :::
@@ -46,15 +46,15 @@ Full suite of math functions: trigonometric, exponential, logarithmic, and more.
 :::
 
 :::{grid-item-card} 🔀 Dual Backend
-:link: user_guide/backends
-:link-type: doc
+<!--- :link: user_guide/backends
+:link-type: doc  -->
 
 Choose between SLEEF (default) or native longdouble backends.
 :::
 
 :::{grid-item-card} 🧵 Thread-Safe
-:link: user_guide/threading
-:link-type: doc
+<!--- :link: user_guide/threading
+:link-type: doc  -->
 
 Full support for Python's free-threading (GIL-free) mode.
 :::

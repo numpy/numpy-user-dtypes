@@ -60,8 +60,8 @@ NumPy QuadDType supports a comprehensive set of NumPy universal functions (ufunc
 
 | Function | Description |
 |----------|-------------|
-| `np.exp` | Exponential (:math:`e^x`) |
-| `np.exp2` | Base-2 exponential (:math:`2^x`) |
+| `np.exp` | Exponential ({math}`e^x`) |
+| `np.exp2` | Base-2 exponential ({math}`2^x`) |
 | `np.expm1` | `exp(x) - 1` (accurate for small x) |
 
 ## Element-wise Logarithmic Functions
@@ -77,10 +77,10 @@ NumPy QuadDType supports a comprehensive set of NumPy universal functions (ufunc
 
 | Function | Description |
 |----------|-------------|
-| `np.square` | Square (:math:`x^2`) |
+| `np.square` | Square ({math}`x^2`) |
 | `np.sqrt` | Square root |
 | `np.cbrt` | Cube root |
-| `np.hypot` | Hypotenuse (:math:`\sqrt{x^2 + y^2}`) |
+| `np.hypot` | Hypotenuse ({math}`\sqrt{x^2 + y^2}`) |
 
 ## Element-wise Rounding Functions
 

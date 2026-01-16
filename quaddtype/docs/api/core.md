@@ -2,7 +2,7 @@
 
 The fundamental types provided by NumPy QuadDType.
 
-## QuadPrecision
+## Quad Precision Value
 
 ```{eval-rst}
 .. class:: numpy_quaddtype.QuadPrecision(value, backend="sleef")
@@ -63,7 +63,7 @@ The fundamental types provided by NumPy QuadDType.
       The imaginary part (always zero for QuadPrecision).
 ```
 
-## QuadPrecDType
+## Quad Precision DType
 
 ```{eval-rst}
 .. class:: numpy_quaddtype.QuadPrecDType(backend="sleef")
@@ -92,7 +92,7 @@ The fundamental types provided by NumPy QuadDType.
    .. attribute:: backend
       :type: QuadBackend
 
-      The computation backend (``QuadBackend.SLEEF`` or ``QuadBackend.LONGDOUBLE``).
+      The computation backend (``SLEEF`` or ``LONGDOUBLE``).
 
    .. attribute:: itemsize
       :type: int
@@ -109,8 +109,6 @@ The fundamental types provided by NumPy QuadDType.
 
       The string name of the dtype (``"QuadPrecDType128"``).
 ```
-
-## QuadBackend
 
 ```{eval-rst}
 .. class:: numpy_quaddtype.QuadBackend
@@ -140,8 +138,6 @@ The fundamental types provided by NumPy QuadDType.
 
 ## Convenience Functions
 
-### SleefQuadPrecision
-
 ```{eval-rst}
 .. function:: numpy_quaddtype.SleefQuadPrecision(value)
 
@@ -153,8 +149,6 @@ The fundamental types provided by NumPy QuadDType.
    :return: Quad precision scalar using SLEEF backend.
    :rtype: QuadPrecision
 ```
-
-### LongDoubleQuadPrecision
 
 ```{eval-rst}
 .. function:: numpy_quaddtype.LongDoubleQuadPrecision(value)
@@ -168,8 +162,6 @@ The fundamental types provided by NumPy QuadDType.
    :rtype: QuadPrecision
 ```
 
-### SleefQuadPrecDType
-
 ```{eval-rst}
 .. function:: numpy_quaddtype.SleefQuadPrecDType()
 
@@ -180,8 +172,6 @@ The fundamental types provided by NumPy QuadDType.
    :return: Dtype for SLEEF-backed quad precision arrays.
    :rtype: QuadPrecDType
 ```
-
-### LongDoubleQuadPrecDType
 
 ```{eval-rst}
 .. function:: numpy_quaddtype.LongDoubleQuadPrecDType()
