@@ -44,6 +44,7 @@ docs = [
     "myst-parser",
     "sphinx-design",
     "sphinx-copybutton",
+    "sphinxcontrib-katex",
 ]
 
 [project.urls]

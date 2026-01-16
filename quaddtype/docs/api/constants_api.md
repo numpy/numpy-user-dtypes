@@ -7,50 +7,50 @@ Pre-defined mathematical constants with quad precision accuracy.
 ```{eval-rst}
 .. data:: numpy_quaddtype.pi
 
-   The mathematical constant π (pi).
-   
+   The mathematical constant :math:`pi` (pi).
+
    Value: 3.14159265358979323846264338327950288...
-   
+
    :type: QuadPrecision
 
 .. data:: numpy_quaddtype.e
 
-   Euler's number, the base of natural logarithms.
-   
+   Euler's number :math:`e`, the base of natural logarithms.
+
    Value: 2.71828182845904523536028747135266249...
-   
+
    :type: QuadPrecision
 
 .. data:: numpy_quaddtype.log2e
 
-   The base-2 logarithm of e: log₂(e).
-   
+   The base-2 logarithm of :math:`e`: :math:`\log_{2}{e}`.
+
    Value: 1.44269504088896340735992468100189213...
-   
+
    :type: QuadPrecision
 
 .. data:: numpy_quaddtype.log10e
 
-   The base-10 logarithm of e: log₁₀(e).
-   
+   The base-10 logarithm of :math:`e`: :math:`\log_{10}{e}`.
+
    Value: 0.43429448190325182765112891891660508...
-   
+
    :type: QuadPrecision
 
 .. data:: numpy_quaddtype.ln2
 
-   The natural logarithm of 2: ln(2).
-   
+   The natural logarithm of 2: :math:`\ln(2)`.
+
    Value: 0.69314718055994530941723212145817656...
-   
+
    :type: QuadPrecision
 
 .. data:: numpy_quaddtype.ln10
 
-   The natural logarithm of 10: ln(10).
-   
+   The natural logarithm of 10: :math:`\ln(10)`.
+
    Value: 2.30258509299404568401799145468436420...
-   
+
    :type: QuadPrecision
 ```
 
@@ -59,38 +59,44 @@ Pre-defined mathematical constants with quad precision accuracy.
 ```{eval-rst}
 .. data:: numpy_quaddtype.epsilon
 
-   Machine epsilon: the smallest positive number such that 1.0 + epsilon ≠ 1.0.
-   
-   Approximately 1.93 × 10⁻³⁴.
-   
+   Machine epsilon: the smallest positive number such that :math:`1.0 + \epsilon \neq 1.0`.
+
+   :math:`2^{-112}` or approximately :math:`1.93 \cdot 10^{-34}`.
+
    :type: QuadPrecision
 
 .. data:: numpy_quaddtype.max_value
 
    The largest representable finite quad-precision value.
-   
-   Approximately 1.19 × 10⁴⁹³².
-   
+
+   :math:`216383 \cdot (2 - 2^{-112})` or approximately :math:`1.19 \cdot 10^{4932}`.
+
+   The largest negative representable finite quad-precision value is `-numpy_quaddtype.max_value`.
+
    :type: QuadPrecision
 
 .. data:: numpy_quaddtype.smallest_normal
 
-   The smallest positive normalized quad-precision value.
-   
-   Approximately 3.36 × 10⁻⁴⁹³².
-   
+   The smallest positive normal (normalized, mantissa has a leading 1 bit) quad-precision value.
+
+   :math:`2^{-16382} \cdot (1 - 2^{-112})` or approximately :math:`3.36 \cdot 10^{-4932}`.
+
    :type: QuadPrecision
 
 .. data:: numpy_quaddtype.smallest_subnormal
 
-   The smallest positive subnormal (denormalized) quad-precision value.
-   
+   The smallest positive subnormal (denormalized, mantissa has a leading 0 bit) quad-precision value.
+
+   :math:`2^{-16494}` or approximately :math:`6.48 \cdot 10^{-4966}`.
+
    :type: QuadPrecision
 
 .. data:: numpy_quaddtype.resolution
 
-   The approximate decimal resolution of quad precision.
-   
+   The approximate decimal resolution of quad precision, i.e. `10 ** (-precision)`.
+
+   :math:`10^{-33}`.
+
    :type: QuadPrecision
 ```
 
@@ -99,15 +105,15 @@ Pre-defined mathematical constants with quad precision accuracy.
 ```{eval-rst}
 .. data:: numpy_quaddtype.bits
 
-   Total number of bits in quad precision representation.
-   
+   The total number of bits in quad precision representation.
+
    :value: 128
    :type: int
 
 .. data:: numpy_quaddtype.precision
 
-   Approximate number of significant decimal digits.
-   
+   The approximate number of significant decimal digits.
+
    :value: 33
    :type: int
 ```
@@ -130,7 +136,7 @@ import numpy as np
 from numpy_quaddtype import QuadPrecDType
 
 # e^(ln2) should equal 2
-two = np.exp(np.array([ln2]))[0]
+two = np.exp(np.array(ln2))
 print(f"e^(ln2) = {two}")
 
 # log2(e) * ln(2) should equal 1

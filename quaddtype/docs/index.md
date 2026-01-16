@@ -49,7 +49,7 @@ Full suite of math functions: trigonometric, exponential, logarithmic, and more.
 :link: user_guide/backends
 :link-type: doc
 
-Choose between SLEEF (default) or longdouble backends.
+Choose between SLEEF (default) or native longdouble backends.
 :::
 
 :::{grid-item-card} 🧵 Thread-Safe
@@ -99,10 +99,7 @@ Standard double precision (float64) provides approximately 15-16 significant dec
 :maxdepth: 2
 :hidden:
 
-installation
-user_guide/index
 api/index
-contributing
 changelog
 ```
 

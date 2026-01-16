@@ -2,20 +2,7 @@
 
 NumPy QuadDType supports a comprehensive set of NumPy universal functions (ufuncs) and array functions.
 
-## Arithmetic Operations
-
-### Binary Arithmetic
-
-| Function | Operator | Description |
-|----------|----------|-------------|
-| `np.add` | `+` | Element-wise addition |
-| `np.subtract` | `-` | Element-wise subtraction |
-| `np.multiply` | `*` | Element-wise multiplication |
-| `np.divide` | `/` | Element-wise division |
-| `np.true_divide` | `/` | Element-wise true division |
-| `np.floor_divide` | `//` | Element-wise floor division |
-| `np.mod` | `%` | Element-wise modulo |
-| `np.power` | `**` | Element-wise power |
+## Element-wise Arithmetic Operations
 
 ### Unary Arithmetic
 
@@ -24,28 +11,41 @@ NumPy QuadDType supports a comprehensive set of NumPy universal functions (ufunc
 | `np.negative` | `-x` | Numerical negative |
 | `np.positive` | `+x` | Numerical positive |
 | `np.absolute` | `abs(x)` | Absolute value |
-| `np.sign` | - | Sign indicator |
 
-## Trigonometric Functions
+### Binary Arithmetic
 
-### Standard Trigonometric
+| Function | Operator | Description |
+|----------|----------|-------------|
+| `np.add` | `+` | Addition |
+| `np.subtract` | `-` | Subtraction |
+| `np.multiply` | `*` | Multiplication |
+| `np.divide` | `/` | Division |
+| `np.true_divide` | `/` | True division |
+| `np.floor_divide` | `//` | Floor division |
+| `np.mod` | `%` | Modulo |
+| `np.power` | `**` | Power |
+
+## Element-wise Sign Functions
+
+| Function | Description |
+|----------|-------------|
+| `np.sign` | Sign indicator |
+| `np.signbit` | Test for negative sign bit (works with NaN) |
+| `np.copysign` | Copy sign of second to first |
+
+## Element-wise Trigonometric Functions
 
 | Function | Description |
 |----------|-------------|
 | `np.sin` | Sine |
 | `np.cos` | Cosine |
 | `np.tan` | Tangent |
-
-### Inverse Trigonometric
-
-| Function | Description |
-|----------|-------------|
 | `np.arcsin` | Inverse sine |
 | `np.arccos` | Inverse cosine |
 | `np.arctan` | Inverse tangent |
 | `np.arctan2` | Two-argument inverse tangent |
 
-### Hyperbolic Functions
+### Element-wise Hyperbolic Functions
 
 | Function | Description |
 |----------|-------------|
@@ -56,37 +56,50 @@ NumPy QuadDType supports a comprehensive set of NumPy universal functions (ufunc
 | `np.arccosh` | Inverse hyperbolic cosine |
 | `np.arctanh` | Inverse hyperbolic tangent |
 
-## Exponential and Logarithmic
-
-### Exponential
+## Element-wise Exponential Functions
 
 | Function | Description |
 |----------|-------------|
-| `np.exp` | Exponential (e^x) |
-| `np.exp2` | Base-2 exponential (2^x) |
-| `np.expm1` | exp(x) - 1 (accurate for small x) |
+| `np.exp` | Exponential (:math:`e^x`) |
+| `np.exp2` | Base-2 exponential (:math:`2^x`) |
+| `np.expm1` | `exp(x) - 1` (accurate for small x) |
 
-### Logarithmic
+## Element-wise Logarithmic Functions
 
 | Function | Description |
 |----------|-------------|
 | `np.log` | Natural logarithm |
 | `np.log2` | Base-2 logarithm |
 | `np.log10` | Base-10 logarithm |
-| `np.log1p` | log(1 + x) (accurate for small x) |
+| `np.log1p` | `log(1 + x)` (accurate for small x) |
 
-## Power and Root Functions
+## Element-wise Power and Root Functions
 
 | Function | Description |
 |----------|-------------|
+| `np.square` | Square (:math:`x^2`) |
 | `np.sqrt` | Square root |
 | `np.cbrt` | Cube root |
-| `np.square` | Square (x²) |
-| `np.hypot` | Hypotenuse (√(x² + y²)) |
+| `np.hypot` | Hypotenuse (:math:`\sqrt{x^2 + y^2}`) |
 
-## Comparison Functions
+## Element-wise Rounding Functions
 
-### Element-wise Comparison
+| Function | Description |
+|----------|-------------|
+| `np.floor` | Floor (round down) |
+| `np.ceil` | Ceiling (round up) |
+| `np.trunc` | Truncate toward zero |
+| `np.rint` | Round to nearest integer (ties to even) |
+
+## Element-wise Classification Functions
+
+| Function | Description |
+|----------|-------------|
+| `np.isfinite` | Test for finite values |
+| `np.isinf` | Test for infinity |
+| `np.isnan` | Test for NaN |
+
+## Element-wise Comparison Functions
 
 | Function | Operator | Description |
 |----------|----------|-------------|
@@ -97,33 +110,14 @@ NumPy QuadDType supports a comprehensive set of NumPy universal functions (ufunc
 | `np.greater` | `>` | Greater than |
 | `np.greater_equal` | `>=` | Greater than or equal |
 
-### Min/Max
+### Element-wise Minimum/Maximum
 
 | Function | Description |
 |----------|-------------|
-| `np.minimum` | Element-wise minimum |
-| `np.maximum` | Element-wise maximum |
-| `np.fmin` | Element-wise minimum (ignores NaN) |
-| `np.fmax` | Element-wise maximum (ignores NaN) |
-
-## Rounding Functions
-
-| Function | Description |
-|----------|-------------|
-| `np.floor` | Floor (round down) |
-| `np.ceil` | Ceiling (round up) |
-| `np.trunc` | Truncate toward zero |
-| `np.rint` | Round to nearest integer |
-
-## Special Value Functions
-
-| Function | Description |
-|----------|-------------|
-| `np.isfinite` | Test for finite values |
-| `np.isinf` | Test for infinity |
-| `np.isnan` | Test for NaN |
-| `np.signbit` | Test for negative sign bit |
-| `np.copysign` | Copy sign of second to first |
+| `np.minimum` | Minimum |
+| `np.maximum` | Maximum |
+| `np.fmin` | Minimum (ignores NaN) |
+| `np.fmax` | Maximum (ignores NaN) |
 
 ## Reduction Functions
 
@@ -144,7 +138,7 @@ NumPy QuadDType supports a comprehensive set of NumPy universal functions (ufunc
 | `np.zeros` | Array of zeros |
 | `np.ones` | Array of ones |
 | `np.empty` | Uninitialized array |
-| `np.full` | Array filled with value |
+| `np.full` | Array filled with given value |
 | `np.arange` | Range of values |
 | `np.linspace` | Linearly spaced values |
 
@@ -182,8 +176,7 @@ When QuadBLAS is available (not on Windows):
 import numpy as np
 from numpy_quaddtype import QuadPrecDType, pi
 
-x = np.array([0, float(pi)/6, float(pi)/4, float(pi)/3, float(pi)/2], 
-             dtype=QuadPrecDType())
+x = np.array([0, pi/6, pi/4, pi/3, pi/2, pi], dtype=QuadPrecDType())
 
 print("sin(x):", np.sin(x))
 print("cos(x):", np.cos(x))

@@ -1,6 +1,6 @@
 # API Reference
 
-Complete API documentation for NumPy QuadDType.
+API documentation for NumPy QuadDType.
 
 ```{toctree}
 :maxdepth: 2

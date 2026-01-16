@@ -5,7 +5,7 @@ All notable changes to NumPy QuadDType will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.0] - 2025
+## Unreleased
 
 ### Added
 
@@ -30,7 +30,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Memory alignment issues on certain platforms
 - Thread safety in scalar operations
 
-## [0.1.0] - 2024
+## [0.2.2] - 13.10.2025
+
+### Changed
+
+- prioritise system-wide dependencies over meson wrap fallback
+
+## [0.2.1] - 11.10.2025
+
+### Fixed
+
+- multiple copies of OpenMP runtime initialization
+- null pointer dereference
+
+## [0.2.0] - 12.09.2025
+
+### Added
+
+- Cast for ubyte and half dtypes
+
+### Changed
+
+- Bundle SLEEF and submodules using meson wrap (sdist compatible)
+
+### Fixed
+
+- smallest_subnormal constant
+
+## [0.1.0] - 03.09.2025
+
+### Added
+
+- Support for Python 3.13 and 3.14
+- Support for ufuncs: copysign, sign, signbit, isfinite, isinf, isnan, fmin, fmax, reciprocal, matmul, sinh, cosh, tanh, arcsinh, arccosh, arctanh
+- Constants: smallest_subnormal, bits, precision, resolution
+
+### Fixed
+
+- NaN comparisons
+- mod ufunc
+- rint ufunc for near-halfway cases
+
+## [0.0.1] - 02.07.2025
 
 ### Added
 
@@ -45,12 +86,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comparison operations
 - Array broadcasting support
 - Linux and macOS wheel builds
-
-## Unreleased
-
-### Planned
-
-- Complex quad precision support
-- Additional linear algebra functions
-- GPU acceleration exploration
-- Improved performance for small arrays

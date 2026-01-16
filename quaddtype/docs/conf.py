@@ -23,6 +23,7 @@ extensions = [
     'myst_parser',
     'sphinx_design',
     'sphinx_copybutton',
+    'sphinxcontrib.katex',
 ]
 
 templates_path = ['_templates']
@@ -94,4 +95,3 @@ autodoc_default_options = {
 napoleon_google_docstring = True
 napoleon_numpy_docstring = True
 napoleon_include_init_with_doc = True
-
