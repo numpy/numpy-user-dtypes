@@ -56,21 +56,7 @@ jobs:
         working-directory: unytdtype
         run: |
           pytest -vvv --color=yes
-      - name: Install quaddtype dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libmpfr-dev libssl-dev libfftw3-dev
-
-      - name: Install quaddtype
-        working-directory: quaddtype
-        run: |
-          export LDFLAGS="-fopenmp"
-          python -m pip install .[test] -v --no-build-isolation
-
-      - name: Run quaddtype tests
-        working-directory: quaddtype
-        run: |
-          pytest -vvv --color=yes
+      # NOTE: quaddtype has moved to https://github.com/numpy/numpy-quaddtype
       - name: Install stringdtype
         working-directory: stringdtype
         run: |

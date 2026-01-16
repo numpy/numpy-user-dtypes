@@ -1,5 +1,8 @@
 # NumPy-QuadDType
 
+> [!IMPORTANT]
+> **This project has moved!** Development has been relocated to a dedicated repository at [numpy/numpy-quaddtype](https://github.com/numpy/numpy-quaddtype). Please visit the new repository for the latest updates, issues, and contributions.
+
 [![PyPI](https://img.shields.io/pypi/v/numpy-quaddtype.svg)](https://pypi.org/project/numpy-quaddtype/)
 [![PyPI Downloads](https://static.pepy.tech/badge/numpy-quaddtype/month)](https://pepy.tech/project/numpy-quaddtype)
 [![Conda Downloads](https://img.shields.io/conda/dn/conda-forge/numpy_quaddtype.svg?label=Conda%20downloads)](https://anaconda.org/conda-forge/numpy_quaddtype)
