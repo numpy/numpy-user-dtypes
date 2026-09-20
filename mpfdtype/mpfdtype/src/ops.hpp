@@ -56,13 +56,13 @@ absolute(mpfr_t op, mpfr_t out)
 static inline int
 sqrt(mpfr_t op, mpfr_t out)
 {
-    return mpfr_pow_si(out, op, 2, MPFR_RNDN);
+    return mpfr_sqrt(out, op, MPFR_RNDN);
 }
 
 static inline int
 square(mpfr_t op, mpfr_t out)
 {
-    return mpfr_sqrt(out, op, MPFR_RNDN);
+    return mpfr_pow_si(out, op, 2, MPFR_RNDN);
 }
 
 static inline int
@@ -140,7 +140,7 @@ arccos(mpfr_t op, mpfr_t out)
 static inline int
 arctan(mpfr_t op, mpfr_t out)
 {
-    return mpfr_tan(out, op, MPFR_RNDN);
+    return mpfr_atan(out, op, MPFR_RNDN);
 }
 
 

@@ -40,6 +40,23 @@ def test_scalar_repr(val):
     assert repr(MPFloat(val, prec=20)) == expected
 
 @pytest.mark.parametrize("op",
+                         ["negative", "positive", "absolute",
+                          "rint", "trunc", "floor", "ceil",
+                          "sqrt", "square",
+                          "log", "log2", "log10", "log1p",
+                          "exp", "exp2", "expm1",
+                          "sin", "cos", "tan",
+                          "arcsin", "arccos", "arctan"])
+@pytest.mark.parametrize("val", [0.5, 3., 12.5, 100., np.nan, np.inf])
+def test_unary_ops(op, val):
+    op = getattr(np, op)
+    expected = op(val)
+    if np.isnan(expected):
+        assert op(MPFloat(val)) != op(MPFloat(val))
+    else:
+        assert op(MPFloat(val)) == expected
+
+@pytest.mark.parametrize("op",
         ["add", "sub", "mul", "pow"])
 @pytest.mark.parametrize("other", [3., 12.5, 100., np.nan, np.inf])
 def test_binary_ops(op, other):

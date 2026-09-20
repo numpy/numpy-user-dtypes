@@ -176,10 +176,19 @@ int init_unary_ops(PyObject *numpy)
     if (create_unary_ufunc<exp>(numpy, "exp") < 0) {
         return -1;
     }
-    if (create_unary_ufunc<exp>(numpy, "exp2") < 0) {
+    if (create_unary_ufunc<exp2>(numpy, "exp2") < 0) {
         return -1;
     }
     if (create_unary_ufunc<expm1>(numpy, "expm1") < 0) {
+        return -1;
+    }
+    if (create_unary_ufunc<sin>(numpy, "sin") < 0) {
+        return -1;
+    }
+    if (create_unary_ufunc<cos>(numpy, "cos") < 0) {
+        return -1;
+    }
+    if (create_unary_ufunc<tan>(numpy, "tan") < 0) {
         return -1;
     }
     if (create_unary_ufunc<arcsin>(numpy, "arcsin") < 0) {
